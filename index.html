@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Minecore Admin</title>
+<meta name="theme-color" content="#0b1219">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
+#shell{max-width:640px;margin:0 auto;padding:16px}
+.topbar{display:flex;align-items:center;gap:10px;padding:6px 0 14px}
+.topbar .dot{width:10px;height:10px;border-radius:50%;background:#2e9e5b;flex:none}
+.topbar h1{font-size:17px;letter-spacing:1px;flex:1}
+.topbar button{background:#1c2a3a;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer}
+#login{max-width:320px;margin:16vh auto 0;text-align:center;padding:0 16px}
+#login h1{font-size:22px;margin-bottom:4px;letter-spacing:2px}
+#login p{opacity:.6;font-size:12px;margin-bottom:22px}
+#pin{width:100%;background:#0f1720;border:1px solid #223142;border-radius:10px;color:#fff;font-size:22px;text-align:center;letter-spacing:8px;padding:12px}
+#login button{width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+#login .err{color:#ff6b6b;font-size:12px;margin-top:10px;min-height:16px}
+.mods{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mod{background:#0f1720;border:1px solid #223142;border-radius:14px;padding:18px 14px;cursor:pointer;text-align:left}
+.mod:active{background:#131f2c}
+.mod .ico{font-size:26px}
+.mod h3{font-size:14px;margin:8px 0 3px}
+.mod p{font-size:11px;opacity:.6;line-height:1.35}
+.mod.soon{opacity:.45;cursor:default}
+.mod .tag{display:inline-block;margin-top:6px;font-size:10px;background:#1c2a3a;border-radius:10px;padding:2px 8px}
+
+.fbar{margin-bottom:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{background:#0f1720;border:1px solid #223142;border-radius:20px;color:#dce6f0;padding:7px 14px;font-size:12px;cursor:pointer}
+.chip.on{background:#1e4976;border-color:#1e4976;font-weight:700}
+.dates{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dates input{background:#0f1720;border:1px solid #223142;border-radius:8px;color:#dce6f0;padding:7px;font-size:12px}
+.big{background:#0f1720;border:1px solid #223142;border-radius:14px;padding:16px;margin-bottom:12px}
+.big .lbl{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1px}
+.big .num{font-size:30px;font-weight:800;margin-top:2px}
+.big .sub{font-size:12px;opacity:.75;margin-top:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.mini{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px}
+.mini .lbl{font-size:10px;opacity:.6;text-transform:uppercase}
+.mini .num{font-size:20px;font-weight:700;margin-top:2px}
+.toprow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #1a2735}
+.toprow:last-child{border-bottom:none}
+.topn{background:#1e4976;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
+.topname{flex:1;font-size:13px}
+.topval{font-size:12px;opacity:.8}
+.fbar2{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.olist{display:flex;flex-direction:column;gap:8px}
+.orow{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:11px;cursor:pointer}
+.orow-top{display:flex;justify-content:space-between;font-size:13px}
+.odate{opacity:.6;font-size:11px}
+.orow-mid{font-size:12px;opacity:.85;margin:3px 0}
+.orow-bot{display:flex;justify-content:space-between;align-items:center}
+.tagx{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+.tf{background:#12313d;color:#5cc8ff}.tn{background:#4a3a10;color:#f0c040}.tq{background:#2a2a3a;color:#b0a8e8}
+.oval{font-size:12px;font-weight:700}
+.odetail{margin-top:10px;border-top:1px solid #1a2735;padding-top:8px;cursor:default}
+.pline{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #141f2b}
+.pline:last-child{border-bottom:none}
+.pimg{width:42px;height:42px;border-radius:8px;object-fit:cover;background:#1a2735;flex:none}
+.pimg-ph{display:flex;align-items:center;justify-content:center;font-size:18px}
+.pinfo{flex:1;min-width:0}
+.pname{font-size:12px;font-weight:600}
+.pmeta{font-size:10px;opacity:.65;margin-top:2px}
+.psub{font-size:12px;font-weight:700;flex:none}
+
+.cbz-header h2{margin:0 0 10px}
+.cbz-kpis{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.cbz-kpi{background:#111a24;border:1px solid #223142;border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;min-width:100px}
+.cbz-kpi-num{font-size:18px;font-weight:700}
+.cbz-kpi-lbl{font-size:11px;opacity:.7}
+.cbz-red{color:#ff5252}
+.cbz-muted{opacity:.6;font-size:12px}
+.cbz-card{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px;margin-bottom:10px}
+.cbz-card-off{opacity:.55}
+.cbz-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cbz-card-name{font-weight:700;font-size:14px}
+.cbz-card-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.cbz-badge{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600}
+.cbz-n1{background:#2c3e1e;color:#a5d66f}.cbz-n2{background:#4a3a10;color:#f0c040}
+.cbz-n3{background:#4a2410;color:#ff9d5c}.cbz-n4{background:#4a1010;color:#ff6b6b}
+.cbz-ok{background:#12313d;color:#5cc8ff}
+.cbz-badge-lvl{background:#1c2a3a;color:#9fc3e8}
+.cbz-money{font-size:12px}
+.cbz-chip{background:#1c2a3a;border-radius:16px;padding:3px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px}
+.cbz-chip-x{background:none;border:none;color:#ff8080;cursor:pointer;font-size:13px;padding:0}
+.cbz-email-input{background:#0b1219;border:1px dashed #2e4257;border-radius:16px;color:#dce6f0;font-size:11px;padding:4px 10px;width:150px}
+.cbz-input-bad{border-color:#ff5252}
+.cbz-btn{background:#1e4976;border:none;color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer}
+.cbz-btn:disabled{opacity:.4;cursor:default}
+.cbz-btn-wa{background:#1e7648}
+.cbz-btn-mini{background:#1c2a3a;border:none;color:#fff;border-radius:6px;width:24px;height:24px;cursor:pointer}
+.cbz-freq{font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.cbz-esc{font-size:12px;display:inline-flex;align-items:center;gap:4px}
+.cbz-switch{position:relative;width:42px;height:22px;display:inline-block}
+.cbz-switch input{opacity:0;width:0;height:0}
+.cbz-slider{position:absolute;inset:0;background:#2a3a4c;border-radius:22px;cursor:pointer;transition:.2s}
+.cbz-slider:before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;left:3px;top:3px;transition:.2s}
+.cbz-switch input:checked + .cbz-slider{background:#2e9e5b}
+.cbz-switch input:checked + .cbz-slider:before{transform:translateX(20px)}
+.cbz-loading,.cbz-error{padding:20px;text-align:center;opacity:.8}
+.cbz-btn-sec{background:#1c2a3a;border:1px solid #2e4257;color:#dce6f0;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer}
+.cbz-danger{border-color:#7a2020;color:#ff8080}
+.cbz-chooser{background:#0b141d;border-radius:10px;padding:8px}
+
+</style>
+</head>
+<body>
+<div id="login">
+  <h1>MINECORE</h1>
+  <p>Admin App · Gestión gerencial</p>
+  <input id="pin" type="password" inputmode="numeric" placeholder="PIN" maxlength="8"
+         onkeydown="if(event.key==='Enter')doLogin()">
+  <button onclick="doLogin()">Ingresar</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="shell" style="display:none">
+  <div class="topbar">
+    <span class="dot"></span><h1 id="title">MINECORE ADMIN</h1>
+    <button id="backBtn" style="display:none" onclick="goHome()">← Menú</button>
+  </div>
+
+  <div id="home" class="mods">
+    <div class="mod" onclick="openMod('dash')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>
+    <div class="mod" onclick="openMod('cbz')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>
+    <div class="mod soon"><div class="ico">📦</div><h3>Inventario</h3><p>Cantidades y ubicaciones</p><span class="tag">Próximamente</span></div>
+    <div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>
+  </div>
+
+  <div id="dash-screen" style="display:none"></div>
+  <div id="cobranza-screen" style="display:none"></div>
+</div>
+
+<script>
+
+var API_URL = 'https://script.google.com/macros/s/AKfycbyr2yHbrwf6N9V8cM9-5iv9SnjCXS1HHFI8jRRW77i1IOMSV__e5VjZFIcxMSs0_Dol/exec';
+
+var Cobranza = (function () {
+  var clientes = [];
+  var expanded = {};   // idx -> {mails:bool, tels:bool}
+  var chooser = null;  // idx con selector de nivel abierto
+  var waTemplate = '';
+
+  function fmt(n) {
+    n = parseFloat(n) || 0;
+    var p = n.toFixed(2).split('.');
+    p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '$' + p.join('.');
+  }
+
+  function api(payload) {
+    payload.pin = sessionStorage.getItem('mc_pin') || '';
+    return fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function init() {
+    var el = document.getElementById('cobranza-screen');
+    el.innerHTML = '<div class="cbz-loading">Cargando cartera...</div>';
+    api({ action: 'getCxcConfig' }).then(function (res) {
+      if (!res.ok) { el.innerHTML = '<div class="cbz-error">Error: ' + res.error + '</div>'; return; }
+      clientes = res.clientes;
+      waTemplate = res.waTemplate || '';
+      chooser = null;
+      render();
+    }).catch(function (e) {
+      el.innerHTML = '<div class="cbz-error">Sin conexión con el API de cobranza.</div>';
+    });
+  }
+
+  function render() {
+    var el = document.getElementById('cobranza-screen');
+    var totalVencido = clientes.reduce(function (s, c) { return s + c.vencido; }, 0);
+    var activos = clientes.filter(function (c) { return c.activo; }).length;
+
+    var html =
+      '<div class="cbz-header">' +
+      '<h2>Cobranza</h2>' +
+      '<div class="cbz-kpis">' +
+      '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">' + fmt(totalVencido) + '</span><span class="cbz-kpi-lbl">Total vencido</span></div>' +
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">' + clientes.filter(function (c) { return c.vencido > 0; }).length + '</span><span class="cbz-kpi-lbl">Clientes con mora</span></div>' +
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">' + activos + '</span><span class="cbz-kpi-lbl">Recordatorios activos</span></div>' +
+      '</div></div>';
+
+    html += clientes.map(function (c, idx) { return cardHtml(c, idx); }).join('');
+    el.innerHTML = html;
+  }
+
+  function cardHtml(c, idx) {
+    var moraClass = c.maxMora > 90 ? 'cbz-n4' : c.maxMora > 60 ? 'cbz-n3' : c.maxMora > 30 ? 'cbz-n2' : c.maxMora > 0 ? 'cbz-n1' : 'cbz-ok';
+    var moraTxt = c.maxMora > 0 ? ('Mora máx. ' + c.maxMora + ' días') : 'Al corriente';
+    var emailChips = c.emails ? c.emails.split(',').map(function (e) {
+      e = e.trim();
+      return e ? '<span class="cbz-chip">' + e +
+        '<button class="cbz-chip-x" onclick="Cobranza.removeEmail(' + idx + ',\'' + e + '\')">&times;</button></span>' : '';
+    }).join('') : '<span class="cbz-muted">Sin emails</span>';
+
+    return '' +
+      '<div class="cbz-card ' + (c.activo ? '' : 'cbz-card-off') + '">' +
+      '<div class="cbz-card-top">' +
+      '<div class="cbz-card-name">' + c.cliente + '</div>' +
+      '<label class="cbz-switch"><input type="checkbox" ' + (c.activo ? 'checked' : '') +
+      ' onchange="Cobranza.toggle(' + idx + ', this.checked)"><span class="cbz-slider"></span></label>' +
+      '</div>' +
+      '<div class="cbz-card-row">' +
+      '<span class="cbz-badge ' + moraClass + '">' + moraTxt + '</span>' +
+      (c.nivel ? '<span class="cbz-badge cbz-badge-lvl">' + c.nivel + '</span>' : '') +
+      '<span class="cbz-money">Vencido: <b class="cbz-red">' + fmt(c.vencido) + '</b></span>' +
+      (c.porVencer > 0 ? '<span class="cbz-money cbz-muted">Por vencer: ' + fmt(c.porVencer) + '</span>' : '') +
+      '</div>' +
+      '<div class="cbz-card-row">' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'mails\')">\u2709\ufe0f Correos (' + countList(c.emails) + ')</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'tels\')">\ud83d\udcf1 Tel\u00e9fonos (' + countList(c.whatsapp) + ')</button>' +
+      '</div>' +
+      (isOpen(idx, 'mails') ?
+      '<div class="cbz-card-row cbz-emails">' + emailChips +
+      '<input class="cbz-email-input" type="email" placeholder="+ agregar email" ' +
+      'onkeydown="Cobranza.emailKey(event,' + idx + ', this)" onblur="Cobranza.emailBlur(' + idx + ', this)">' +
+      '</div>' : '') +
+      '<div class="cbz-card-row cbz-controls">' +
+      '<span class="cbz-freq">Frecuencia: <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',-1)">−</button>' +
+      '<b>' + c.frecuencia + '</b> días <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',1)">+</button></span>' +
+      '<label class="cbz-esc"><input type="checkbox" ' + (c.escalamiento ? 'checked' : '') +
+      ' onchange="Cobranza.escala(' + idx + ', this.checked)"> Escalamiento</label>' +
+      '</div>' +
+      (isOpen(idx, 'tels') ?
+      '<div class="cbz-card-row cbz-emails">' + waChips(c, idx) +
+      '<input class="cbz-email-input" type="tel" placeholder="+ agregar WhatsApp" ' +
+      'onkeydown="Cobranza.waKey(event,' + idx + ', this)" onblur="Cobranza.waBlur(' + idx + ', this)">' +
+      '</div>' : '') +
+      '<div class="cbz-card-row cbz-actions">' +
+      (c.ultimoEnvio ? '<span class="cbz-muted">Último envío: ' + c.ultimoEnvio + '</span>' : '<span class="cbz-muted">Nunca enviado</span>') +
+      '<button class="cbz-btn" onclick="Cobranza.openChooser(' + idx + ')" ' + (c.activo && c.vencido > 0 ? '' : 'disabled') + '>Enviar ahora</button>' +
+      waButtons(c, idx) +
+      '</div>' +
+      (chooser === idx ?
+      '<div class="cbz-card-row cbz-chooser">' +
+      '<span class="cbz-muted">Mensaje:</span>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 0)">Automático</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 1)">N1 Amable</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 2)">N2 Firme</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 3)">N3 Urgente</button>' +
+      '<button class="cbz-btn-sec cbz-danger" onclick="Cobranza.doSend(' + idx + ', 4)">N4 Final</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.closeChooser()">Cancelar</button>' +
+      '</div>' : '') +
+      '</div>';
+  }
+
+  function countList(s) {
+    if (!s) return 0;
+    return s.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; }).length;
+  }
+  function isOpen(idx, which) { return expanded[idx] && expanded[idx][which]; }
+  function expand(idx, which) {
+    if (!expanded[idx]) expanded[idx] = {};
+    expanded[idx][which] = !expanded[idx][which];
+    render();
+  }
+  function openChooser(idx) { chooser = idx; render(); }
+  function closeChooser() { chooser = null; render(); }
+  function doSend(idx, nivel) {
+    var c = clientes[idx];
+    var lbl = nivel === 0 ? 'automático' : 'N' + nivel;
+    if (!confirm('¿Enviar mensaje ' + lbl + ' AHORA a ' + c.cliente + '?')) return;
+    chooser = null;
+    api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined }).then(function (res) {
+      alert(res.ok ? res.resultado : 'Error: ' + (res.error || res.resultado));
+      init();
+    });
+  }
+
+  function waChips(c, idx) {
+    if (!c.whatsapp) return '<span class="cbz-muted">Sin WhatsApp</span>';
+    return c.whatsapp.split(',').map(function (n) {
+      n = n.trim();
+      return n ? '<span class="cbz-chip">📱 ' + n +
+        '<button class="cbz-chip-x" onclick="Cobranza.removeWa(' + idx + ',\'' + n + '\')">&times;</button></span>' : '';
+    }).join('');
+  }
+  function waButtons(c, idx) {
+    if (!c.whatsapp) return '';
+    return c.whatsapp.split(',').map(function (n) {
+      n = n.trim();
+      if (!n) return '';
+      return '<button class="cbz-btn cbz-btn-wa" onclick="Cobranza.sendWa(' + idx + ',\'' + n + '\')">WA \u2026' + n.slice(-4) + '</button>';
+    }).join('');
+  }
+
+  /** ==== Acciones ==== */
+
+  function toggle(idx, on) {
+    clientes[idx].activo = on;
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'activo', valor: on ? 'SI' : 'NO' })
+      .then(render);
+  }
+
+  function escala(idx, on) {
+    clientes[idx].escalamiento = on;
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'escalamiento', valor: on ? 'SI' : 'NO' });
+  }
+
+  function freq(idx, delta) {
+    var f = Math.max(1, clientes[idx].frecuencia + delta);
+    clientes[idx].frecuencia = f;
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'frecuencia', valor: f })
+      .then(render);
+  }
+
+  /** Enter o coma agrega el email; la coma se pone sola en el backend */
+  function emailKey(ev, idx, input) {
+    if (ev.key === 'Enter' || ev.key === ',') {
+      ev.preventDefault();
+      addEmail(idx, input);
+    }
+  }
+  function emailBlur(idx, input) { if (input.value.trim()) addEmail(idx, input); }
+
+  function addEmail(idx, input) {
+    var e = input.value.replace(/,/g, '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { input.classList.add('cbz-input-bad'); return; }
+    input.classList.remove('cbz-input-bad');
+    var current = clientes[idx].emails ? clientes[idx].emails + ', ' + e : e;
+    clientes[idx].emails = current;
+    input.value = '';
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'emails', valor: current })
+      .then(function (res) { if (res.ok) { clientes[idx].emails = res.valor; render(); } });
+  }
+
+  function removeEmail(idx, email) {
+    var list = clientes[idx].emails.split(',').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x && x !== email; });
+    var val = list.join(', ');
+    clientes[idx].emails = val;
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'emails', valor: val })
+      .then(render);
+  }
+
+  /** WhatsApp: números guardados por cliente */
+  function waKey(ev, idx, input) {
+    if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); addWa(idx, input); }
+  }
+  function waBlur(idx, input) { if (input.value.trim()) addWa(idx, input); }
+  function addWa(idx, input) {
+    var n = input.value.replace(/[^0-9]/g, '');
+    if (n.length < 8) { input.classList.add('cbz-input-bad'); return; }
+    input.classList.remove('cbz-input-bad');
+    var current = clientes[idx].whatsapp ? clientes[idx].whatsapp + ', ' + n : n;
+    clientes[idx].whatsapp = current;
+    input.value = '';
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: current })
+      .then(function (res) { if (res.ok) { clientes[idx].whatsapp = res.valor; render(); } });
+  }
+  function removeWa(idx, num) {
+    var list = clientes[idx].whatsapp.split(',').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x && x !== num; });
+    var val = list.join(', ');
+    clientes[idx].whatsapp = val;
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: val })
+      .then(render);
+  }
+  function sendWa(idx, num) {
+    var c = clientes[idx];
+    var msg = waTemplate || 'Estimados {CLIENTE}, les saluda Minecore S.A.S. Les recordamos que mantienen valores vencidos por {VENCIDO} (mora máxima {MORA} días). Quedamos atentos para coordinar el pago. Gracias.';
+    msg = msg.replace(/{CLIENTE}/g, c.cliente).replace(/{VENCIDO}/g, fmt(c.vencido)).replace(/{MORA}/g, c.maxMora);
+    window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
+  }
+
+  return {
+    init: init, toggle: toggle, escala: escala, freq: freq,
+    emailKey: emailKey, emailBlur: emailBlur, removeEmail: removeEmail,
+    expand: expand, openChooser: openChooser, closeChooser: closeChooser, doSend: doSend,
+    waKey: waKey, waBlur: waBlur, removeWa: removeWa, sendWa: sendWa
+  };
+})();
+
+
+/* ===================== DASHBOARD v2 ===================== */
+var Dash = (function(){
+  var agg=null, top=[], orders=[], filter='todas', openId=null, from='', to='';
+  function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+  function preset(p){
+    var now=new Date(), t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    var f=new Date(t);
+    if(p==='hoy'){}
+    else if(p==='semana'){f.setDate(t.getDate()-((t.getDay()+6)%7));}
+    else if(p==='mes'){f=new Date(t.getFullYear(),t.getMonth(),1);}
+    else if(p==='trimestre'){f=new Date(t.getFullYear(),Math.floor(t.getMonth()/3)*3,1);}
+    else if(p==='ano'){f=new Date(t.getFullYear(),0,1);}
+    from=iso(f); to=iso(t);
+    document.getElementById('d-from').value=from;
+    document.getElementById('d-to').value=to;
+    load();
+  }
+  function applyCustom(){
+    from=document.getElementById('d-from').value;
+    to=document.getElementById('d-to').value;
+    if(from&&to) load();
+  }
+  function init(){
+    var el=document.getElementById('dash-screen');
+    el.innerHTML='<div class="fbar">'+
+      '<div class="chips">'+
+      chip('hoy','Hoy')+chip('semana','Semana')+chip('mes','Mes')+chip('trimestre','Trimestre')+chip('ano','Año')+
+      '</div>'+
+      '<div class="dates"><input type="date" id="d-from"> <span>→</span> <input type="date" id="d-to">'+
+      '<button class="cbz-btn" onclick="Dash.applyCustom()">Aplicar</button></div></div>'+
+      '<div id="dash-body"><div class="cbz-loading">Elige un período...</div></div>';
+    preset('hoy');
+  }
+  function chip(id,lbl){return '<button class="chip" onclick="Dash.preset(\''+id+'\')">'+lbl+'</button>';}
+  function load(){
+    var body=document.getElementById('dash-body');
+    body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
+    openId=null;
+    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'getDashboard',fromDate:from,toDate:to,pin:sessionStorage.getItem('mc_pin')||''})})
+    .then(function(r){return r.json();}).then(function(res){
+      if(!res.ok){body.innerHTML='<div class="cbz-error">Error: '+res.error+'</div>';return;}
+      agg=res.agg; top=res.topClientes||[]; orders=res.orders||[];
+      render();
+    }).catch(function(){body.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+  }
+  function render(){
+    var body=document.getElementById('dash-body');
+    var h='<div class="big"><div class="lbl">Ingreso ('+from+' → '+to+')</div>'+
+      '<div class="num">'+fmt(agg.subtotal)+'</div>'+
+      '<div class="sub">+ IVA '+fmt(agg.iva)+' · Total '+fmt(agg.total)+'</div></div>';
+    h+='<div class="grid2">'+mini('Órdenes',agg.ordenes)+mini('Facturadas',agg.invoiced)+
+       mini('Fulfilled',agg.fulfilled)+mini('Cotizaciones',agg.cotizaciones)+'</div>';
+    if(top.length){
+      h+='<div class="big"><div class="lbl">Top clientes del período</div>';
+      top.forEach(function(t,i){
+        h+='<div class="toprow"><span class="topn">'+(i+1)+'</span><span class="topname">'+t.cliente+'</span>'+
+           '<span class="topval">'+fmt(t.subtotal)+' · '+t.ordenes+' ord.</span></div>';
+      });
+      h+='</div>';
+    }
+    h+='<div class="fbar2">'+fchip('todas','Todas')+fchip('facturadas','Facturadas')+
+       fchip('nofact','No facturadas')+fchip('cotiz','Cotizaciones')+'</div>';
+    h+='<div class="olist">'+orders.filter(passFilter).map(orow).join('')+'</div>';
+    body.innerHTML=h;
+  }
+  function passFilter(o){
+    if(filter==='facturadas')return !o.cotizacion&&o.facturada;
+    if(filter==='nofact')return !o.cotizacion&&!o.facturada;
+    if(filter==='cotiz')return o.cotizacion;
+    return true;
+  }
+  function fchip(id,lbl){return '<button class="chip '+(filter===id?'on':'')+'" onclick="Dash.setFilter(\''+id+'\')">'+lbl+'</button>';}
+  function setFilter(f){filter=f;render();}
+  function orow(o){
+    var st=o.cotizacion?'<span class="tagx tq">COT</span>':
+      (o.facturada?'<span class="tagx tf">FACT '+(o.factura||'')+'</span>':'<span class="tagx tn">SIN FACT</span>');
+    var open=openId===o.id;
+    return '<div class="orow" onclick="Dash.toggleOrder(\''+o.id+'\')">'+
+      '<div class="orow-top"><b>'+o.ov+'</b><span class="odate">'+o.fecha+'</span></div>'+
+      '<div class="orow-mid">'+o.cliente+'</div>'+
+      '<div class="orow-bot">'+st+'<span class="oval">'+fmt(o.total)+(o.saldo>0?' · debe '+fmt(o.saldo):'')+'</span></div>'+
+      (open?'<div class="odetail" id="det-'+o.id+'" onclick="event.stopPropagation()"><div class="cbz-loading">Cargando detalle...</div></div>':'')+
+      '</div>';
+  }
+  function toggleOrder(id){
+    if(!id){alert('Esta orden no tiene ID (corre syncAll con la v12 primero).');return;}
+    openId = (openId===id)?null:id;
+    render();
+    if(openId){
+      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'getOrderDetail',orderId:id,pin:sessionStorage.getItem('mc_pin')||''})})
+      .then(function(r){return r.json();}).then(function(res){
+        var det=document.getElementById('det-'+id);
+        if(!det)return;
+        if(!res.ok){det.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+        det.innerHTML=res.lines.map(function(l){
+          return '<div class="pline">'+
+            (l.img?'<img src="'+l.img+'" class="pimg" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
+            '<div class="pinfo"><div class="pname">'+l.producto+'</div>'+
+            '<div class="pmeta">SKU: '+(l.sku||'-')+' · Cant: '+l.cantidad+' · P.U: '+fmt(l.precio)+'</div></div>'+
+            '<div class="psub">'+fmt(l.subtotal)+'</div></div>';
+        }).join('')||'<div class="cbz-muted">Sin líneas</div>';
+      }).catch(function(){});
+    }
+  }
+  return {init:init,preset:preset,applyCustom:applyCustom,setFilter:setFilter,toggleOrder:toggleOrder};
+})();
+
+
+/* ===================== NAVEGACIÓN ===================== */
+function openMod(m){
+  document.getElementById('home').style.display='none';
+  document.getElementById('backBtn').style.display='block';
+  if(m==='dash'){document.getElementById('dash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';Dash.init();}
+  if(m==='cbz'){document.getElementById('cobranza-screen').style.display='block';document.getElementById('title').textContent='COBRANZA';Cobranza.init();}
+}
+function goHome(){
+  document.getElementById('dash-screen').style.display='none';
+  document.getElementById('cobranza-screen').style.display='none';
+  document.getElementById('home').style.display='grid';
+  document.getElementById('backBtn').style.display='none';
+  document.getElementById('title').textContent='MINECORE ADMIN';
+}
+
+/* ===================== LOGIN ===================== */
+function doLogin(){
+  var pin = document.getElementById('pin').value.trim();
+  var err = document.getElementById('loginErr');
+  err.textContent='';
+  sessionStorage.setItem('mc_pin', pin);
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'ping',pin:pin})})
+  .then(function(r){return r.json();}).then(function(res){
+    if(res.ok){
+      document.getElementById('login').style.display='none';
+      document.getElementById('shell').style.display='block';
+    } else {
+      sessionStorage.removeItem('mc_pin');
+      err.textContent = res.error || 'PIN incorrecto';
+    }
+  }).catch(function(){err.textContent='Sin conexión con el servidor.';});
+}
+if(sessionStorage.getItem('mc_pin')){doLogin();}
+</script>
+</body>
+</html>
