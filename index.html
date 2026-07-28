@@ -13,14 +13,12 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .topbar .dot{width:10px;height:10px;border-radius:50%;background:#2e9e5b;flex:none}
 .topbar h1{font-size:17px;letter-spacing:1px;flex:1}
 .topbar button{background:#1c2a3a;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer}
-/* Login */
 #login{max-width:320px;margin:16vh auto 0;text-align:center;padding:0 16px}
 #login h1{font-size:22px;margin-bottom:4px;letter-spacing:2px}
 #login p{opacity:.6;font-size:12px;margin-bottom:22px}
 #pin{width:100%;background:#0f1720;border:1px solid #223142;border-radius:10px;color:#fff;font-size:22px;text-align:center;letter-spacing:8px;padding:12px}
 #login button{width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
 #login .err{color:#ff6b6b;font-size:12px;margin-top:10px;min-height:16px}
-/* Home módulos */
 .mods{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mod{background:#0f1720;border:1px solid #223142;border-radius:14px;padding:18px 14px;cursor:pointer;text-align:left}
 .mod:active{background:#131f2c}
@@ -29,10 +27,13 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .mod p{font-size:11px;opacity:.6;line-height:1.35}
 .mod.soon{opacity:.45;cursor:default}
 .mod .tag{display:inline-block;margin-top:6px;font-size:10px;background:#1c2a3a;border-radius:10px;padding:2px 8px}
-/* Dashboard */
-.tabs{display:flex;gap:8px;margin-bottom:12px}
-.tab{flex:1;background:#0f1720;border:1px solid #223142;border-radius:10px;padding:9px 0;text-align:center;font-size:13px;cursor:pointer}
-.tab.on{background:#1e4976;border-color:#1e4976;font-weight:700}
+
+.fbar{margin-bottom:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{background:#0f1720;border:1px solid #223142;border-radius:20px;color:#dce6f0;padding:7px 14px;font-size:12px;cursor:pointer}
+.chip.on{background:#1e4976;border-color:#1e4976;font-weight:700}
+.dates{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dates input{background:#0f1720;border:1px solid #223142;border-radius:8px;color:#dce6f0;padding:7px;font-size:12px}
 .big{background:#0f1720;border:1px solid #223142;border-radius:14px;padding:16px;margin-bottom:12px}
 .big .lbl{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1px}
 .big .num{font-size:30px;font-weight:800;margin-top:2px}
@@ -41,11 +42,30 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .mini{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px}
 .mini .lbl{font-size:10px;opacity:.6;text-transform:uppercase}
 .mini .num{font-size:20px;font-weight:700;margin-top:2px}
-.delta-up{color:#6fd68f}.delta-dn{color:#ff6b6b}
-.stbar{display:flex;border-radius:8px;overflow:hidden;height:10px;margin-top:8px}
-.stbar div{height:100%}
-.legend{display:flex;gap:12px;font-size:11px;opacity:.8;margin-top:6px;flex-wrap:wrap}
-.legend b{font-weight:700}
+.toprow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #1a2735}
+.toprow:last-child{border-bottom:none}
+.topn{background:#1e4976;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
+.topname{flex:1;font-size:13px}
+.topval{font-size:12px;opacity:.8}
+.fbar2{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.olist{display:flex;flex-direction:column;gap:8px}
+.orow{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:11px;cursor:pointer}
+.orow-top{display:flex;justify-content:space-between;font-size:13px}
+.odate{opacity:.6;font-size:11px}
+.orow-mid{font-size:12px;opacity:.85;margin:3px 0}
+.orow-bot{display:flex;justify-content:space-between;align-items:center}
+.tagx{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+.tf{background:#12313d;color:#5cc8ff}.tn{background:#4a3a10;color:#f0c040}.tq{background:#2a2a3a;color:#b0a8e8}
+.oval{font-size:12px;font-weight:700}
+.odetail{margin-top:10px;border-top:1px solid #1a2735;padding-top:8px;cursor:default}
+.pline{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #141f2b}
+.pline:last-child{border-bottom:none}
+.pimg{width:42px;height:42px;border-radius:8px;object-fit:cover;background:#1a2735;flex:none}
+.pimg-ph{display:flex;align-items:center;justify-content:center;font-size:18px}
+.pinfo{flex:1;min-width:0}
+.pname{font-size:12px;font-weight:600}
+.pmeta{font-size:10px;opacity:.65;margin-top:2px}
+.psub{font-size:12px;font-weight:700;flex:none}
 
 .cbz-header h2{margin:0 0 10px}
 .cbz-kpis{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -82,6 +102,9 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .cbz-switch input:checked + .cbz-slider{background:#2e9e5b}
 .cbz-switch input:checked + .cbz-slider:before{transform:translateX(20px)}
 .cbz-loading,.cbz-error{padding:20px;text-align:center;opacity:.8}
+.cbz-btn-sec{background:#1c2a3a;border:1px solid #2e4257;color:#dce6f0;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer}
+.cbz-danger{border-color:#7a2020;color:#ff8080}
+.cbz-chooser{background:#0b141d;border-radius:10px;padding:8px}
 
 </style>
 </head>
@@ -102,8 +125,8 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
   </div>
 
   <div id="home" class="mods">
-    <div class="mod" onclick="openMod('dash')"><div class="ico">📊</div><h3>Dashboard</h3><p>Avance de ventas: hoy, semana y mes</p></div>
-    <div class="mod" onclick="openMod('cbz')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios y escalamiento</p></div>
+    <div class="mod" onclick="openMod('dash')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>
+    <div class="mod" onclick="openMod('cbz')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>
     <div class="mod soon"><div class="ico">📦</div><h3>Inventario</h3><p>Cantidades y ubicaciones</p><span class="tag">Próximamente</span></div>
     <div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>
   </div>
@@ -114,10 +137,13 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 
 <script>
 
-var API_URL = 'https://script.google.com/macros/s/AKfycbyr2yHbrwf6N9V8cM9-5iv9SnjCXS1HHFI8jRRW77i1IOMSV__e5VjZFIcxMSs0_Dol/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 
 var Cobranza = (function () {
   var clientes = [];
+  var expanded = {};   // idx -> {mails:bool, tels:bool}
+  var chooser = null;  // idx con selector de nivel abierto
+  var waTemplate = '';
 
   function fmt(n) {
     n = parseFloat(n) || 0;
@@ -141,6 +167,8 @@ var Cobranza = (function () {
     api({ action: 'getCxcConfig' }).then(function (res) {
       if (!res.ok) { el.innerHTML = '<div class="cbz-error">Error: ' + res.error + '</div>'; return; }
       clientes = res.clientes;
+      waTemplate = res.waTemplate || '';
+      chooser = null;
       render();
     }).catch(function (e) {
       el.innerHTML = '<div class="cbz-error">Sin conexión con el API de cobranza.</div>';
@@ -187,22 +215,82 @@ var Cobranza = (function () {
       '<span class="cbz-money">Vencido: <b class="cbz-red">' + fmt(c.vencido) + '</b></span>' +
       (c.porVencer > 0 ? '<span class="cbz-money cbz-muted">Por vencer: ' + fmt(c.porVencer) + '</span>' : '') +
       '</div>' +
+      '<div class="cbz-card-row">' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'mails\')">\u2709\ufe0f Correos (' + countList(c.emails) + ')</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'tels\')">\ud83d\udcf1 Tel\u00e9fonos (' + countList(c.whatsapp) + ')</button>' +
+      '</div>' +
+      (isOpen(idx, 'mails') ?
       '<div class="cbz-card-row cbz-emails">' + emailChips +
       '<input class="cbz-email-input" type="email" placeholder="+ agregar email" ' +
       'onkeydown="Cobranza.emailKey(event,' + idx + ', this)" onblur="Cobranza.emailBlur(' + idx + ', this)">' +
-      '</div>' +
+      '</div>' : '') +
       '<div class="cbz-card-row cbz-controls">' +
       '<span class="cbz-freq">Frecuencia: <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',-1)">−</button>' +
       '<b>' + c.frecuencia + '</b> días <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',1)">+</button></span>' +
       '<label class="cbz-esc"><input type="checkbox" ' + (c.escalamiento ? 'checked' : '') +
       ' onchange="Cobranza.escala(' + idx + ', this.checked)"> Escalamiento</label>' +
       '</div>' +
+      (isOpen(idx, 'tels') ?
+      '<div class="cbz-card-row cbz-emails">' + waChips(c, idx) +
+      '<input class="cbz-email-input" type="tel" placeholder="+ agregar WhatsApp" ' +
+      'onkeydown="Cobranza.waKey(event,' + idx + ', this)" onblur="Cobranza.waBlur(' + idx + ', this)">' +
+      '</div>' : '') +
       '<div class="cbz-card-row cbz-actions">' +
       (c.ultimoEnvio ? '<span class="cbz-muted">Último envío: ' + c.ultimoEnvio + '</span>' : '<span class="cbz-muted">Nunca enviado</span>') +
-      '<button class="cbz-btn" onclick="Cobranza.sendNow(' + idx + ')" ' + (c.activo && c.vencido > 0 ? '' : 'disabled') + '>Enviar ahora</button>' +
-      '<button class="cbz-btn cbz-btn-wa" onclick="Cobranza.whatsapp(' + idx + ')">WhatsApp</button>' +
+      '<button class="cbz-btn" onclick="Cobranza.openChooser(' + idx + ')" ' + (c.activo && c.vencido > 0 ? '' : 'disabled') + '>Enviar ahora</button>' +
+      waButtons(c, idx) +
       '</div>' +
+      (chooser === idx ?
+      '<div class="cbz-card-row cbz-chooser">' +
+      '<span class="cbz-muted">Mensaje:</span>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 0)">Automático</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 1)">N1 Amable</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 2)">N2 Firme</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 3)">N3 Urgente</button>' +
+      '<button class="cbz-btn-sec cbz-danger" onclick="Cobranza.doSend(' + idx + ', 4)">N4 Final</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.closeChooser()">Cancelar</button>' +
+      '</div>' : '') +
       '</div>';
+  }
+
+  function countList(s) {
+    if (!s) return 0;
+    return s.split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; }).length;
+  }
+  function isOpen(idx, which) { return expanded[idx] && expanded[idx][which]; }
+  function expand(idx, which) {
+    if (!expanded[idx]) expanded[idx] = {};
+    expanded[idx][which] = !expanded[idx][which];
+    render();
+  }
+  function openChooser(idx) { chooser = idx; render(); }
+  function closeChooser() { chooser = null; render(); }
+  function doSend(idx, nivel) {
+    var c = clientes[idx];
+    var lbl = nivel === 0 ? 'automático' : 'N' + nivel;
+    if (!confirm('¿Enviar mensaje ' + lbl + ' AHORA a ' + c.cliente + '?')) return;
+    chooser = null;
+    api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined }).then(function (res) {
+      alert(res.ok ? res.resultado : 'Error: ' + (res.error || res.resultado));
+      init();
+    });
+  }
+
+  function waChips(c, idx) {
+    if (!c.whatsapp) return '<span class="cbz-muted">Sin WhatsApp</span>';
+    return c.whatsapp.split(',').map(function (n) {
+      n = n.trim();
+      return n ? '<span class="cbz-chip">📱 ' + n +
+        '<button class="cbz-chip-x" onclick="Cobranza.removeWa(' + idx + ',\'' + n + '\')">&times;</button></span>' : '';
+    }).join('');
+  }
+  function waButtons(c, idx) {
+    if (!c.whatsapp) return '';
+    return c.whatsapp.split(',').map(function (n) {
+      n = n.trim();
+      if (!n) return '';
+      return '<button class="cbz-btn cbz-btn-wa" onclick="Cobranza.sendWa(' + idx + ',\'' + n + '\')">WA \u2026' + n.slice(-4) + '</button>';
+    }).join('');
   }
 
   /** ==== Acciones ==== */
@@ -254,93 +342,159 @@ var Cobranza = (function () {
       .then(render);
   }
 
-  function sendNow(idx) {
-    var c = clientes[idx];
-    if (!confirm('¿Enviar recordatorio de cobranza AHORA a ' + c.cliente + '?')) return;
-    api({ action: 'sendNow', cliente: c.cliente }).then(function (res) {
-      alert(res.ok ? 'Enviado. Nivel: ' + res.resultado : 'Error: ' + res.error);
-      init();
-    });
+  /** WhatsApp: números guardados por cliente */
+  function waKey(ev, idx, input) {
+    if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); addWa(idx, input); }
   }
-
-  /** WhatsApp click-to-chat con mensaje pre-armado */
-  function whatsapp(idx) {
+  function waBlur(idx, input) { if (input.value.trim()) addWa(idx, input); }
+  function addWa(idx, input) {
+    var n = input.value.replace(/[^0-9]/g, '');
+    if (n.length < 8) { input.classList.add('cbz-input-bad'); return; }
+    input.classList.remove('cbz-input-bad');
+    var current = clientes[idx].whatsapp ? clientes[idx].whatsapp + ', ' + n : n;
+    clientes[idx].whatsapp = current;
+    input.value = '';
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: current })
+      .then(function (res) { if (res.ok) { clientes[idx].whatsapp = res.valor; render(); } });
+  }
+  function removeWa(idx, num) {
+    var list = clientes[idx].whatsapp.split(',').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x && x !== num; });
+    var val = list.join(', ');
+    clientes[idx].whatsapp = val;
+    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: val })
+      .then(render);
+  }
+  function sendWa(idx, num) {
     var c = clientes[idx];
-    var msg = 'Estimados ' + c.cliente + ', les saluda Minecore S.A.S. ' +
-      'Les recordamos que mantienen valores vencidos por ' + fmt(c.vencido) +
-      (c.maxMora > 0 ? ' (mora máxima ' + c.maxMora + ' días)' : '') +
-      '. Les hemos enviado el estado de cuenta detallado a su correo. ' +
-      'Quedamos atentos para coordinar el pago. Gracias.';
-    var phone = prompt('Número de WhatsApp del cliente (con código de país, ej. 5939XXXXXXXX):');
-    if (!phone) return;
-    phone = phone.replace(/[^0-9]/g, '');
-    window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+    var msg = waTemplate || 'Estimados {CLIENTE}, les saluda Minecore S.A.S. Les recordamos que mantienen valores vencidos por {VENCIDO} (mora máxima {MORA} días). Quedamos atentos para coordinar el pago. Gracias.';
+    msg = msg.replace(/{CLIENTE}/g, c.cliente).replace(/{VENCIDO}/g, fmt(c.vencido)).replace(/{MORA}/g, c.maxMora);
+    window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
   }
 
   return {
     init: init, toggle: toggle, escala: escala, freq: freq,
     emailKey: emailKey, emailBlur: emailBlur, removeEmail: removeEmail,
-    sendNow: sendNow, whatsapp: whatsapp
+    expand: expand, openChooser: openChooser, closeChooser: closeChooser, doSend: doSend,
+    waKey: waKey, waBlur: waBlur, removeWa: removeWa, sendWa: sendWa
   };
 })();
 
 
-
-/* ===================== DASHBOARD ===================== */
+/* ===================== DASHBOARD v2 ===================== */
 var Dash = (function(){
-  var data = null, period = 'hoy';
+  var agg=null, top=[], orders=[], filter='todas', openId=null, from='', to='';
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+  function preset(p){
+    var now=new Date(), t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    var f=new Date(t);
+    if(p==='hoy'){}
+    else if(p==='semana'){f.setDate(t.getDate()-((t.getDay()+6)%7));}
+    else if(p==='mes'){f=new Date(t.getFullYear(),t.getMonth(),1);}
+    else if(p==='trimestre'){f=new Date(t.getFullYear(),Math.floor(t.getMonth()/3)*3,1);}
+    else if(p==='ano'){f=new Date(t.getFullYear(),0,1);}
+    from=iso(f); to=iso(t);
+    document.getElementById('d-from').value=from;
+    document.getElementById('d-to').value=to;
+    load();
+  }
+  function applyCustom(){
+    from=document.getElementById('d-from').value;
+    to=document.getElementById('d-to').value;
+    if(from&&to) load();
+  }
   function init(){
-    var el = document.getElementById('dash-screen');
-    el.innerHTML = '<div class="cbz-loading">Cargando ventas...</div>';
+    var el=document.getElementById('dash-screen');
+    el.innerHTML='<div class="fbar">'+
+      '<div class="chips">'+
+      chip('hoy','Hoy')+chip('semana','Semana')+chip('mes','Mes')+chip('trimestre','Trimestre')+chip('ano','Año')+
+      '</div>'+
+      '<div class="dates"><input type="date" id="d-from"> <span>→</span> <input type="date" id="d-to">'+
+      '<button class="cbz-btn" onclick="Dash.applyCustom()">Aplicar</button></div></div>'+
+      '<div id="dash-body"><div class="cbz-loading">Elige un período...</div></div>';
+    preset('hoy');
+  }
+  function chip(id,lbl){return '<button class="chip" onclick="Dash.preset(\''+id+'\')">'+lbl+'</button>';}
+  function load(){
+    var body=document.getElementById('dash-body');
+    body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
+    openId=null;
     fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'getDashboard',pin:sessionStorage.getItem('mc_pin')||''})})
-    .then(function(r){return r.json();}).then(function(res){
-      if(!res.ok){el.innerHTML='<div class="cbz-error">Error: '+res.error+'</div>';return;}
-      data = res; render();
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+      body:JSON.stringify({action:'getDashboard',fromDate:from,toDate:to,pin:sessionStorage.getItem('mc_pin')||''})})
+    .then(function(r){return r.text();}).then(function(txt){
+      var res;
+      try { res = JSON.parse(txt); }
+      catch(e){ body.innerHTML='<div class="cbz-error">El servidor no respondió JSON (¿autorización o versión vieja?). Respuesta: '+txt.slice(0,120)+'</div>'; return; }
+      if(!res.ok){body.innerHTML='<div class="cbz-error">Error del servidor: '+(res.error||'desconocido')+'</div>';return;}
+      if(!res.agg){body.innerHTML='<div class="cbz-error">El AdminAPI desplegado es una versión antigua (sin agg). Pega AdminAPI_v3 y crea Nueva versión de la implementación.</div>';return;}
+      agg=res.agg; top=res.topClientes||[]; orders=res.orders||[];
+      try { render(); } catch(e){ body.innerHTML='<div class="cbz-error">Error pintando: '+e+'</div>'; }
+    }).catch(function(e){body.innerHTML='<div class="cbz-error">Fallo de red: '+e+'</div>';});
   }
   function render(){
-    var p = data[period];
-    var el = document.getElementById('dash-screen');
-    var html = '<div class="tabs">'+
-      tab('hoy','Hoy')+tab('semana','Semana')+tab('mes','Mes')+'</div>';
-    html += '<div class="big"><div class="lbl">Ingreso ('+period+')</div>'+
-      '<div class="num">'+fmt(p.subtotal)+'</div>'+
-      '<div class="sub">+ IVA '+fmt(p.iva)+' &nbsp;·&nbsp; Total '+fmt(p.total)+'</div>';
-    if(period==='mes' && data.mesAnteriorMismoDia){
-      var prev = data.mesAnteriorMismoDia.subtotal;
-      if(prev>0){
-        var d = ((p.subtotal-prev)/prev*100);
-        html += '<div class="sub '+(d>=0?'delta-up':'delta-dn')+'">'+(d>=0?'▲':'▼')+' '+Math.abs(d).toFixed(1)+
-          '% vs. mes anterior al mismo día ('+fmt(prev)+')</div>';
-      }
+    var body=document.getElementById('dash-body');
+    var h='<div class="big"><div class="lbl">Ingreso ('+from+' → '+to+')</div>'+
+      '<div class="num">'+fmt(agg.subtotal)+'</div>'+
+      '<div class="sub">+ IVA '+fmt(agg.iva)+' · Total '+fmt(agg.total)+'</div></div>';
+    h+='<div class="grid2">'+mini('Órdenes',agg.ordenes)+mini('Facturadas',agg.invoiced)+
+       mini('Fulfilled',agg.fulfilled)+mini('Cotizaciones',agg.cotizaciones)+'</div>';
+    if(top.length){
+      h+='<div class="big"><div class="lbl">Top clientes del período</div>';
+      top.forEach(function(t,i){
+        h+='<div class="toprow"><span class="topn">'+(i+1)+'</span><span class="topname">'+t.cliente+'</span>'+
+           '<span class="topval">'+fmt(t.subtotal)+' · '+t.ordenes+' ord.</span></div>';
+      });
+      h+='</div>';
     }
-    html += '</div>';
-    html += '<div class="grid2">'+
-      mini('Órdenes creadas', p.ordenes)+
-      mini('Facturadas', p.invoiced)+
-      mini('Fulfilled', p.fulfilled)+
-      mini('Pendientes', p.unfulfilled + p.started)+
-      '</div>';
-    var tot = Math.max(1, p.ordenes);
-    html += '<div class="big"><div class="lbl">Estado de las órdenes</div>'+
-      '<div class="stbar">'+
-      '<div style="width:'+(p.fulfilled/tot*100)+'%;background:#2e9e5b"></div>'+
-      '<div style="width:'+(p.started/tot*100)+'%;background:#f0c040"></div>'+
-      '<div style="width:'+(p.unfulfilled/tot*100)+'%;background:#4a5a6c"></div>'+
-      '</div>'+
-      '<div class="legend"><span><b style="color:#6fd68f">●</b> Fulfilled '+p.fulfilled+'</span>'+
-      '<span><b style="color:#f0c040">●</b> En proceso '+p.started+'</span>'+
-      '<span><b style="color:#9fb2c4">●</b> Sin despachar '+p.unfulfilled+'</span>'+
-      '<span><b style="color:#5cc8ff">●</b> Facturadas '+p.invoiced+'</span></div></div>';
-    el.innerHTML = html;
+    h+='<div class="fbar2">'+fchip('todas','Todas')+fchip('facturadas','Facturadas')+
+       fchip('nofact','No facturadas')+fchip('cotiz','Cotizaciones')+'</div>';
+    h+='<div class="olist">'+orders.filter(passFilter).map(orow).join('')+'</div>';
+    body.innerHTML=h;
   }
-  function tab(id,lbl){return '<div class="tab '+(period===id?'on':'')+'" onclick="Dash.setPeriod(\''+id+'\')">'+lbl+'</div>';}
-  function mini(lbl,val){return '<div class="mini"><div class="lbl">'+lbl+'</div><div class="num">'+val+'</div></div>';}
-  function setPeriod(pd){period=pd;render();}
-  return {init:init,setPeriod:setPeriod};
+  function passFilter(o){
+    if(filter==='facturadas')return !o.cotizacion&&o.facturada;
+    if(filter==='nofact')return !o.cotizacion&&!o.facturada;
+    if(filter==='cotiz')return o.cotizacion;
+    return true;
+  }
+  function fchip(id,lbl){return '<button class="chip '+(filter===id?'on':'')+'" onclick="Dash.setFilter(\''+id+'\')">'+lbl+'</button>';}
+  function setFilter(f){filter=f;render();}
+  function orow(o){
+    var st=o.cotizacion?'<span class="tagx tq">COT</span>':
+      (o.facturada?'<span class="tagx tf">FACT '+(o.factura||'')+'</span>':'<span class="tagx tn">SIN FACT</span>');
+    var open=openId===o.id;
+    return '<div class="orow" onclick="Dash.toggleOrder(\''+o.id+'\')">'+
+      '<div class="orow-top"><b>'+o.ov+'</b><span class="odate">'+o.fecha+'</span></div>'+
+      '<div class="orow-mid">'+o.cliente+'</div>'+
+      '<div class="orow-bot">'+st+'<span class="oval">'+fmt(o.total)+(o.saldo>0?' · debe '+fmt(o.saldo):'')+'</span></div>'+
+      (open?'<div class="odetail" id="det-'+o.id+'" onclick="event.stopPropagation()"><div class="cbz-loading">Cargando detalle...</div></div>':'')+
+      '</div>';
+  }
+  function toggleOrder(id){
+    if(!id){alert('Esta orden no tiene ID (corre syncAll con la v12 primero).');return;}
+    openId = (openId===id)?null:id;
+    render();
+    if(openId){
+      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'getOrderDetail',orderId:id,pin:sessionStorage.getItem('mc_pin')||''})})
+      .then(function(r){return r.json();}).then(function(res){
+        var det=document.getElementById('det-'+id);
+        if(!det)return;
+        if(!res.ok){det.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+        det.innerHTML=res.lines.map(function(l){
+          return '<div class="pline">'+
+            (l.img?'<img src="'+l.img+'" class="pimg" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
+            '<div class="pinfo"><div class="pname">'+l.producto+'</div>'+
+            '<div class="pmeta">SKU: '+(l.sku||'-')+' · Cant: '+l.cantidad+' · P.U: '+fmt(l.precio)+'</div></div>'+
+            '<div class="psub">'+fmt(l.subtotal)+'</div></div>';
+        }).join('')||'<div class="cbz-muted">Sin líneas</div>';
+      }).catch(function(){});
+    }
+  }
+  return {init:init,preset:preset,applyCustom:applyCustom,setFilter:setFilter,toggleOrder:toggleOrder};
 })();
+
 
 /* ===================== NAVEGACIÓN ===================== */
 function openMod(m){
