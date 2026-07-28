@@ -38,6 +38,7 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .big .lbl{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:1px}
 .big .num{font-size:30px;font-weight:800;margin-top:2px}
 .big .sub{font-size:12px;opacity:.75;margin-top:4px}
+.big-est{border-color:#1e4976;background:#0d1a28}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 .mini{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px}
 .mini .lbl{font-size:10px;opacity:.6;text-transform:uppercase}
@@ -57,6 +58,12 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .tagx{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
 .tf{background:#12313d;color:#5cc8ff}.tn{background:#4a3a10;color:#f0c040}.tq{background:#2a2a3a;color:#b0a8e8}
 .oval{font-size:12px;font-weight:700}
+.omoney{display:flex;flex-direction:column;align-items:flex-end}
+.osub{font-size:15px;font-weight:800}
+.osmall{font-size:10px;opacity:.65}
+.ocobrar{margin-top:6px;font-size:11px;font-weight:700}
+.ocobrar-p{color:#ff6b6b}
+.ocobrar-0{color:#6fd68f}
 .odetail{margin-top:10px;border-top:1px solid #1a2735;padding-top:8px;cursor:default}
 .pline{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #141f2b}
 .pline:last-child{border-bottom:none}
@@ -435,9 +442,15 @@ var Dash = (function(){
   }
   function render(){
     var body=document.getElementById('dash-body');
-    var h='<div class="big"><div class="lbl">Ingreso ('+from+' → '+to+')</div>'+
+    var h='<div class="big"><div class="lbl">Facturado ('+from+' → '+to+')</div>'+
+      '<div class="num">'+fmt(agg.subtotalFact||0)+'</div>'+
+      '<div class="sub">+ IVA '+fmt(agg.ivaFact||0)+' · Total '+fmt(agg.totalFact||0)+' · '+agg.invoiced+' factura(s)</div></div>';
+    h+='<div class="big"><div class="lbl">Por facturar / completar</div>'+
+      '<div class="num">'+fmt(agg.subtotalNoFact||0)+'</div>'+
+      '<div class="sub">+ IVA '+fmt(agg.ivaNoFact||0)+' · Total '+fmt(agg.totalNoFact||0)+' · '+(agg.ordenes-agg.invoiced)+' orden(es)</div></div>';
+    h+='<div class="big big-est"><div class="lbl">Estimado del período (facturado + por facturar)</div>'+
       '<div class="num">'+fmt(agg.subtotal)+'</div>'+
-      '<div class="sub">+ IVA '+fmt(agg.iva)+' · Total '+fmt(agg.total)+'</div></div>';
+      '<div class="sub">+ IVA '+fmt(agg.iva)+' · Total '+fmt(agg.total)+' · '+agg.ordenes+' órdenes</div></div>';
     h+='<div class="grid2">'+mini('Órdenes',agg.ordenes)+mini('Facturadas',agg.invoiced)+
        mini('Fulfilled',agg.fulfilled)+mini('Cotizaciones',agg.cotizaciones)+'</div>';
     if(top.length){
@@ -465,10 +478,16 @@ var Dash = (function(){
     var st=o.cotizacion?'<span class="tagx tq">COT</span>':
       (o.facturada?'<span class="tagx tf">FACT '+(o.factura||'')+'</span>':'<span class="tagx tn">SIN FACT</span>');
     var open=openId===o.id;
+    var cobrar = o.cotizacion ? '' :
+      (o.saldo>0 ? '<div class="ocobrar ocobrar-p">Por cobrar: '+fmt(o.saldo)+'</div>'
+                 : '<div class="ocobrar ocobrar-0">Por cobrar: $0.00 ✓</div>');
     return '<div class="orow" onclick="Dash.toggleOrder(\''+o.id+'\')">'+
       '<div class="orow-top"><b>'+o.ov+'</b><span class="odate">'+o.fecha+'</span></div>'+
       '<div class="orow-mid">'+o.cliente+'</div>'+
-      '<div class="orow-bot">'+st+'<span class="oval">'+fmt(o.total)+(o.saldo>0?' · debe '+fmt(o.saldo):'')+'</span></div>'+
+      '<div class="orow-bot">'+st+
+      '<span class="omoney"><span class="osub">'+fmt(o.subtotal)+'</span>'+
+      '<span class="osmall">IVA '+fmt(o.iva)+' · Total '+fmt(o.total)+'</span></span></div>'+
+      cobrar+
       (open?'<div class="odetail" id="det-'+o.id+'" onclick="event.stopPropagation()"><div class="cbz-loading">Cargando detalle...</div></div>':'')+
       '</div>';
   }
