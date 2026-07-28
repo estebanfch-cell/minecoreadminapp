@@ -416,6 +416,7 @@ var Dash = (function(){
     preset('hoy');
   }
   function chip(id,lbl){return '<button class="chip" onclick="Dash.preset(\''+id+'\')">'+lbl+'</button>';}
+  function mini(lbl,val){return '<div class="mini"><div class="lbl">'+lbl+'</div><div class="num">'+val+'</div></div>';}
   function load(){
     var body=document.getElementById('dash-body');
     body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
