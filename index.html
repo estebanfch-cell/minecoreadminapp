@@ -1009,6 +1009,7 @@ var Users = (function(){
 var Inv = (function(){
   var items=[], esAdmin=false, esCliente=false, cats=[], marcas=[];
   var q='', filtro='todos', cat='', marca='', abierto=null, vista='inv', reo=null;
+  var fDesc='', fMm='';   // filtros finos de brocas (descarga y milimetraje)
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function api(p){
     p.user=getUserName();p.pin=getPin();
@@ -1038,6 +1039,17 @@ var Inv = (function(){
       var toks=q.toLowerCase().split(/\s+/).filter(String);
       for(var i=0;i<toks.length;i++){if(it._b.indexOf(toks[i])<0)return false;}
     }
+    if(esContextoBroca()){
+      var N=' '+it.nombre.toUpperCase()+' ';
+      if(fDesc){
+        var ok=(N.indexOf(' '+fDesc+',')>=0||N.indexOf(' '+fDesc+' ')>=0||N.indexOf(', '+fDesc+',')>=0||N.indexOf(', '+fDesc+' ')>=0);
+        if(!ok)return false;
+      }
+      if(fMm){
+        var mmm=N.match(/(\d{1,2})\s*MM/);
+        if(!mmm||mmm[1]!==fMm)return false;
+      }
+    }
     return true;
   }
   function sel(id,opts,val,fn,ph){
@@ -1064,11 +1076,51 @@ var Inv = (function(){
       sel('cat',cats,cat,'Inv.setCat','Todas las categorías')+
       sel('marca',marcas,marca,'Inv.setMarca','Todas las marcas')+
       chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
-      '</div><div id="inv-list"></div>';
+      '</div>'+brocaFiltersHtml()+'<div id="inv-list"></div>';
     el.innerHTML=h;
     renderList();
   }
   function chip(id,lbl){return '<button class="chip '+(filtro===id?'on':'')+'" onclick="Inv.setF(\''+id+'\')">'+lbl+'</button>';}
+
+  /** Contexto broca: la categoría o la búsqueda mencionan "broca" */
+  function esContextoBroca(){
+    return (cat&&cat.toLowerCase().indexOf('broca')>=0)||(q&&q.toLowerCase().indexOf('broca')>=0);
+  }
+  var DESCARGAS=['ZDL','DL','DWW','ZWW','WW'];
+  function brocaFiltersHtml(){
+    if(!esContextoBroca()){fDesc='';fMm='';return '';}
+    // opciones presentes en los items del contexto actual (sin filtros finos aplicados)
+    var pool=items.filter(function(it){
+      if(cat&&it.categoria!==cat)return false;
+      if(marca&&it.marca!==marca)return false;
+      return true;
+    });
+    var descSet={},mmSet={};
+    pool.forEach(function(it){
+      var n=' '+it.nombre.toUpperCase()+' ';
+      for(var i=0;i<DESCARGAS.length;i++){
+        var d=DESCARGAS[i];
+        if(n.indexOf(' '+d+',')>=0||n.indexOf(' '+d+' ')>=0||n.indexOf(','+d+',')>=0||n.indexOf(', '+d+',')>=0||n.indexOf(', '+d+' ')>=0){descSet[d]=1;}
+      }
+      var m=n.match(/(\d{1,2})\s*MM/);
+      if(m)mmSet[m[1]]=1;
+    });
+    var h='<div class="cbz-card-row" style="margin-bottom:6px"><span class="cbz-muted" style="font-size:11px">Descarga:</span>'+
+      '<button class="chip '+(fDesc===''?'on':'')+'" onclick="Inv.setDesc(\'\')">Todas</button>'+
+      DESCARGAS.filter(function(d){return descSet[d];}).map(function(d){
+        return '<button class="chip '+(fDesc===d?'on':'')+'" onclick="Inv.setDesc(\''+d+'\')">'+d+'</button>';
+      }).join('')+'</div>';
+    var mms=Object.keys(mmSet).sort(function(a,b){return a-b;});
+    if(mms.length){
+      h+='<div class="cbz-card-row" style="margin-bottom:8px"><span class="cbz-muted" style="font-size:11px">Milímetros:</span>'+
+        '<button class="chip '+(fMm===''?'on':'')+'" onclick="Inv.setMm(\'\')">Todos</button>'+
+        mms.map(function(mm){
+          return '<button class="chip '+(fMm===mm?'on':'')+'" onclick="Inv.setMm(\''+mm+'\')">'+mm+' mm</button>';
+        }).join('')+'</div>';
+    }
+    return h;
+  }
+
 
   /** KPIs dinámicos: se recalculan sobre lo filtrado */
   function renderKpis(fil){
@@ -1133,7 +1185,7 @@ var Inv = (function(){
       '<label class="cbz-esc">Lead time (días de importación)<br><input class="uinput" id="r-lead" type="number" value="'+(reo?reo.lead:20)+'" style="max-width:120px"></label>'+
       '<label class="cbz-esc">Colchón de seguridad (días)<br><input class="uinput" id="r-cob" type="number" value="'+(reo?reo.colchon:10)+'" style="max-width:120px"></label>'+
       '<label class="cbz-esc">Ciclo de importación (días)<br><input class="uinput" id="r-ped" type="number" value="'+(reo&&reo.ciclo?reo.ciclo:30)+'" style="max-width:120px"></label>'+
-      '</div><div class="cbz-muted" style="margin:4px 0 8px">La cantidad de cada pedido la decide el motor por rotación: alta (≥10/mes) = 6 meses · media (2-10) = 4 meses · baja = 3 meses. REPOSICIÓN PERIÓDICA (FIFO): cada producto tiene su nivel objetivo = su venta durante (ciclo de importación + fabricación + colchón). En cada importación se repone hasta el objetivo descontando el stock — el producto entra, sale, y se agota justo cuando llega el siguiente pedido. Solo entran RECURRENTES por FRECUENCIA (≥3 ventas/año); una venta gigante única NO es rotación: va a NO REPONER.</div><div class="cbz-card-row">'+
+      '</div><div class="cbz-muted" style="margin:4px 0 8px">La cantidad de cada pedido la decide el motor por rotación: alta (≥10/mes) = 6 meses · media (2-10) = 4 meses · baja = 3 meses. REPOSICIÓN PERIÓDICA (FIFO) SENSIBLE AL COSTO: cada producto tiene su nivel objetivo = su venta durante (ciclo + fabricación + colchón), AMPLIADO si es barato (≤$5: ~8 meses; ≤$25: ~5; ≤$100: ~3) y APRETADO si es caro (>$300: solo lo justo entre importaciones). En cada importación se repone hasta el objetivo descontando el stock — el producto entra, sale, y se agota justo cuando llega el siguiente pedido. Solo entran RECURRENTES por FRECUENCIA (≥3 ventas/año); una venta gigante única NO es rotación: va a NO REPONER.</div><div class="cbz-card-row">'+
       '<button class="cbz-btn" onclick="Inv.calcular()">Calcular recomendaciones</button>'+
       (reo?'<button class="cbz-btn-sec" onclick="Inv.csv()">⬇ Lista de pedidos ('+reo.reordenar.length+')</button>':'')+
       '</div></div></div>'+
@@ -1169,7 +1221,7 @@ var Inv = (function(){
     h+=reo.reordenar.slice(0,50).map(function(r){
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
         '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Vende '+r.velMes+'/mes · Stock: <b class="cbz-red">'+r.stock+'</b> (te alcanza '+r.cubreDias+' días)</div>'+
-        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> en esta importación (repone al objetivo de '+r.objetivo+') · Alerta si baja de '+r.puntoReorden+' · Inversión: '+fmt(r.costoPedido)+'</div></div>';
+        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> (objetivo '+r.objetivo+' = '+r.diasCobertura+' días de cobertura según su costo) · Alerta: '+r.puntoReorden+' · Inversión: '+fmt(r.costoPedido)+'</div></div>';
     }).join('');
     if(reo.reordenar.length>50)h+='<div class="cbz-muted" style="padding:6px;text-align:center">+'+(reo.reordenar.length-50)+' más en el CSV</div>';
     h+=secc('🚫 NO REPONER — venta esporádica: comprar contra pedido','#ff9f43',reo.noReponer.length);
@@ -1293,11 +1345,13 @@ var Inv = (function(){
     });
   }
   function setVista(v){vista=v;render();}
-  function setQ(v){q=v;renderList();}
+  function setQ(v){q=v;render();var i2=document.querySelector('.cbz-search');if(i2){i2.focus();var vv=i2.value;i2.value='';i2.value=vv;}}
   function setF(f){filtro=f;render();}
-  function setCat(c){cat=c;render();}
+  function setCat(c){cat=c;fDesc='';fMm='';render();}
   function setMarca(m){marca=m;render();}
-  return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,
+  function setDesc(d){fDesc=d;render();}
+  function setMm(m){fMm=m;render();}
+  return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setMm:setMm,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel};
 })();
 
