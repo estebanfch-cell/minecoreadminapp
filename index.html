@@ -191,7 +191,7 @@ function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.r
 function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
 function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var bin=atob(s);var a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a.buffer;}
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
-function webauthnAvailable(){return !!(window.PublicKeyCredential&&navigator.credentials);}
+function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 
@@ -1336,6 +1336,7 @@ function cambiarUsuario(){
   location.reload();
 }
 function entrar(res,usr,pin,recordarPin){
+  try{
   try{localStorage.setItem('mc_user_name',res.user||usr);}catch(e){}
   if(recordarPin){try{localStorage.setItem('mc_pin',pin);}catch(e){}}
   try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||usr,rol:res.rol||'usuario',modulos:res.modulos||[]}));}catch(e){}
@@ -1343,6 +1344,7 @@ function entrar(res,usr,pin,recordarPin){
   document.getElementById('login').style.display='none';
   document.getElementById('shell').style.display='block';
   renderHome();
+  }catch(e){alert('Error al iniciar la app: '+(e&&e.message?e.message:e));}
 }
 function doLogin(){
   if(window._loginBusy)return;
@@ -1361,6 +1363,7 @@ function doLogin(){
     err.textContent='';
     // ¿Activar Face ID?
     if(webauthnAvailable()&&!bioEnabled()&&confirm('¿Activar Face ID / huella para entrar sin PIN en este dispositivo?')){
+      try{
       var uid=new Uint8Array(16);crypto.getRandomValues(uid);
       navigator.credentials.create({publicKey:{
         challenge:crypto.getRandomValues(new Uint8Array(32)),
@@ -1374,10 +1377,14 @@ function doLogin(){
         localStorage.setItem('mc_bio','1');
         entrar(res,usr,pin,true);
       }).catch(function(){entrar(res,usr,pin,false);});
+      }catch(e){entrar(res,usr,pin,false);}
     } else {
       entrar(res,usr,pin,bioEnabled());
     }
-  }).catch(function(){err.textContent='Sin conexion con el servidor.';});
+  }).catch(function(e){
+    window._loginBusy=false;err.style.color='';
+    err.textContent=(e&&e.message?'Error: '+e.message:'Sin conexión con el servidor.');
+  });
 }
 function doBioLogin(){
   if(window._bioBusy)return;           // candado: un solo Face ID a la vez
