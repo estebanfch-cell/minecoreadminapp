@@ -17,6 +17,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 #login .box{max-width:380px;margin:0 auto}
 #login h1{font-size:22px;margin-bottom:4px;letter-spacing:2px;color:#0b1219}
 #login p{color:#5a6a7a;font-size:12px;margin-bottom:22px}
+.pinmask{-webkit-text-security:disc;text-security:disc}
 #pin{width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:22px;text-align:center;letter-spacing:8px;padding:12px}
 #login button{width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
 #login .err{color:#ff6b6b;font-size:12px;margin-top:10px;min-height:16px}
@@ -139,8 +140,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <img src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore" style="width:230px;max-width:80%;display:block;margin:0 auto 6px;">
   <p style="color:#5a6a7a;font-size:12px;margin-bottom:20px">Crea tu usuario de la Admin App</p>
   <input id="inv-nombre" placeholder="Tu nombre o iniciales" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
-  <input id="inv-pin" type="password" inputmode="numeric" maxlength="8" placeholder="Elige tu PIN (4-8 dígitos)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
-  <input id="inv-pin2" type="password" inputmode="numeric" maxlength="8" placeholder="Repite tu PIN" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;text-align:center">
+  <input id="inv-pin" type="text" class="pinmask" autocomplete="off" name="inv_pin_nosave" inputmode="numeric" maxlength="8" placeholder="Elige tu PIN (4-8 dígitos)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-pin2" type="text" class="pinmask" autocomplete="off" name="inv_pin2_nosave" inputmode="numeric" maxlength="8" placeholder="Repite tu PIN" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;text-align:center">
   <button onclick="doRedeem()" style="width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Crear mi usuario</button>
   <div id="invErr" style="color:#c62828;font-size:12px;margin-top:10px;min-height:16px"></div>
 </div>
@@ -151,10 +152,11 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
        onerror="this.style.display='none';document.getElementById('loginTitle').style.display='block';">
   <h1 id="loginTitle" style="display:none">MINECORE</h1>
   <div id="saludo" style="display:none;color:#0b1219;font-size:16px;font-weight:700;margin-bottom:12px"></div>
-  <input id="usr" placeholder="Usuario" autocomplete="username"
+  <input id="usr" placeholder="Usuario" autocomplete="off" name="mc_usr_nosave"
          style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:16px;text-align:center;padding:12px;margin-bottom:10px"
          onkeydown="if(event.key==='Enter')document.getElementById('pin').focus()">
-  <input id="pin" type="password" inputmode="numeric" placeholder="PIN" maxlength="8"
+  <input id="pin" type="text" inputmode="numeric" class="pinmask" placeholder="PIN" maxlength="8"
+         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="mc_pin_nosave"
          onkeydown="if(event.key==='Enter')doLogin()">
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
@@ -1107,13 +1109,22 @@ var Inv = (function(){
     var box=document.getElementById('reo-body');
     box.innerHTML='<div class="cbz-card"><div class="cbz-card-name">🔁 Motor de reorden</div>'+
       '<div class="uform"><div class="cbz-card-row">'+
-      '<label class="cbz-esc">Lead time (días de importación)<br><input class="uinput" id="r-lead" type="number" value="'+(reo?reo.lead:90)+'" style="max-width:120px"></label>'+
-      '<label class="cbz-esc">Cobertura extra (días)<br><input class="uinput" id="r-cob" type="number" value="'+(reo?reo.cobertura:60)+'" style="max-width:120px"></label>'+
-      '<label class="cbz-esc">Pedido en volumen (días)<br><input class="uinput" id="r-vol" type="number" value="'+(reo?reo.volumen:180)+'" style="max-width:120px"></label>'+
-      '</div><div class="cbz-card-row">'+
+      '<label class="cbz-esc">Lead time (días de importación)<br><input class="uinput" id="r-lead" type="number" value="'+(reo?reo.lead:20)+'" style="max-width:120px"></label>'+
+      '<label class="cbz-esc">Colchón de seguridad (días)<br><input class="uinput" id="r-cob" type="number" value="'+(reo?reo.colchon:10)+'" style="max-width:120px"></label>'+
+      '</div><div class="cbz-muted" style="margin:4px 0 8px">La cantidad de cada pedido la decide el motor por rotación: alta (≥10/mes) = 6 meses · media (2-10) = 4 meses · baja = 3 meses. Al pedido solo entran productos RECURRENTES por FRECUENCIA: ≥3 ventas (órdenes, sin importar cantidad) en los últimos 12 meses, o ≥2 órdenes/año sostenidas en 3 de los últimos 4 años. Vender 1,000 unidades en una sola venta NO es rotación: va a NO REPONER.</div><div class="cbz-card-row">'+
       '<button class="cbz-btn" onclick="Inv.calcular()">Calcular recomendaciones</button>'+
-      (reo?'<button class="cbz-btn-sec" onclick="Inv.csv()">⬇ CSV para inFlow ('+reo.reordenar.length+')</button>':'')+
-      '</div></div></div><div id="reo-res">'+(reo?'':'<div class="cbz-muted" style="padding:14px;text-align:center">Configura los parámetros y calcula.</div>')+'</div>';
+      (reo?'<button class="cbz-btn-sec" onclick="Inv.csv()">⬇ Lista de pedidos ('+reo.reordenar.length+')</button>':'')+
+      '</div></div></div>'+
+      '<div class="cbz-card"><div class="cbz-card-name">⚙️ Reorder Settings de inFlow</div>'+
+      '<div class="cbz-muted" style="margin:6px 0">1) Exporta de inFlow los Reorder Settings y pégalos tal cual (con encabezados) en la pestaña <b>Import_Reorder_Base</b> del Sheet. 2) Genera aquí el archivo recalculado con la rotación real y la comparación contra tus valores manuales. 3) Impórtalo de vuelta a inFlow.</div>'+
+      '<div class="cbz-card-row"><button class="cbz-btn" onclick="Inv.settings()">Generar Reorder Settings</button></div>'+
+      '<div id="rs-res"></div></div>'+
+      '<div class="cbz-card"><div class="cbz-card-name">💲 Precios por markup</div>'+
+      '<div class="cbz-muted" style="margin:6px 0">Genera el CSV con precios nuevos = costo × (1 + markup). Recuerda: markup 50% = margen 33.3% sobre venta.</div>'+
+      '<div class="cbz-card-row"><input class="uinput" id="r-mk" type="number" value="50" style="max-width:110px"> <span class="cbz-muted">% de markup</span>'+
+      '<button class="cbz-btn" onclick="Inv.precios()">⬇ Generar precios</button></div>'+
+      '<div id="mk-res"></div></div>'+
+      '<div id="reo-res">'+(reo?'':'<div class="cbz-muted" style="padding:14px;text-align:center">Configura los parámetros y calcula.</div>')+'</div>';
     if(reo)pintarReo();
   }
   function calcular(){
@@ -1121,8 +1132,7 @@ var Inv = (function(){
     box.innerHTML='<div class="cbz-loading">Analizando rotación histórica...</div>';
     api({action:'getReorder',
       leadDias:document.getElementById('r-lead').value,
-      coberturaDias:document.getElementById('r-cob').value,
-      volumenDias:document.getElementById('r-vol').value
+      coberturaDias:document.getElementById('r-cob').value
     }).then(function(res){
       if(!res.ok){box.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       reo=res;renderReo();
@@ -1136,33 +1146,103 @@ var Inv = (function(){
     h+=reo.reordenar.slice(0,50).map(function(r){
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
         '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Stock: <b class="cbz-red">'+r.stock+'</b> · Vende '+r.velMes+'/mes · Cubre '+r.cubreDias+' días</div>'+
-        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> (punto de reorden: '+r.puntoReorden+') · Inversión aprox: '+fmt(r.costoPedido)+'</div></div>';
+        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> ('+r.cobMeses+' meses de cobertura) · Punto mínimo: '+r.puntoReorden+' · Inversión: '+fmt(r.costoPedido)+'</div></div>';
     }).join('');
     if(reo.reordenar.length>50)h+='<div class="cbz-muted" style="padding:6px;text-align:center">+'+(reo.reordenar.length-50)+' más en el CSV</div>';
-    h+=secc('📦 ALTA ROTACIÓN — conviene pedir en volumen ('+reo.volumen+' días de cobertura)','#5cc8ff',reo.volumenAlto.length);
+    h+=secc('🚫 NO REPONER — venta esporádica: comprar contra pedido','#ff9f43',reo.noReponer.length);
+    h+=reo.noReponer.slice(0,40).map(function(r){
+      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
+        '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Stock: '+r.stock+'</div>'+
+        '<div class="pmeta" style="color:#ff9f43">→ '+r.razon+'</div></div>';
+    }).join('');
+    h+=secc('📦 ALTA ROTACIÓN — el motor ya los pide en volumen (6 meses)','#5cc8ff',reo.volumenAlto.length);
     h+=reo.volumenAlto.map(function(r){
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
         '<div class="pmeta">SKU '+r.sku+' · Vende '+r.velMes+'/mes · Stock: '+r.stock+'</div>'+
         '<div class="pmeta" style="color:#5cc8ff">→ Un solo pedido de <b>'+r.sugerido+' und.</b> te dura ~'+r.duraDias+' días · Inversión: '+fmt(r.costoPedido)+'</div></div>';
     }).join('');
     h+=secc('🏷 PONER EN PROMOCIÓN — con stock y sin ventas en +1 año','#f0c040',reo.promo.length);
+    h+='<div class="cbz-card-row" style="margin:4px 0"><button class="cbz-btn-sec" onclick="Inv.dlAccion(\'getPromoCsv\')">⬇ CSV de promociones</button></div>';
     h+=reo.promo.slice(0,40).map(function(r){
-      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
+      var tag=r.tipo==='costo'?'<span class="tagx tn">AL COSTO</span>':'<span class="tagx" style="background:#4a3d12;color:#f0c040">PROMO/LOTE</span>';
+      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+' '+tag+'</div>'+
         '<div class="pmeta">SKU '+r.sku+' · Stock: '+r.stock+' · Última venta: '+r.ultimaVenta+'</div>'+
-        '<div class="pmeta" style="color:#f0c040">→ Capital dormido: '+fmt(r.valorCosto)+' — baja el precio o arma combo para recuperar la inversión</div></div>';
+        '<div class="pmeta" style="color:#f0c040">→ Capital dormido: '+fmt(r.valorCosto)+
+        (r.tipo==='costo'?' — nunca se vendió: liquidar al costo ('+fmt(r.precioSugerido)+')':' — arma lote o baja a '+fmt(r.precioSugerido)+' (-30%)')+'</div></div>';
     }).join('');
     h+=secc('⏸ PAUSAR SKU — sin stock y sin ventas en +1 año','#9fb2c4',reo.pausar.length);
+    h+='<div class="cbz-card-row" style="margin:4px 0"><button class="cbz-btn-sec" onclick="Inv.dlAccion(\'getPausarCsv\')">⬇ CSV para inactivar en inFlow</button></div>';
     h+=reo.pausar.slice(0,40).map(function(r){
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
         '<div class="pmeta">SKU '+r.sku+' · Última venta: '+r.ultimaVenta+' → desactívalo en inFlow para limpiar el inventario</div></div>';
     }).join('');
     box.innerHTML=h;
   }
+  function settings(){
+    var box=document.getElementById('rs-res');
+    box.innerHTML='<div class="cbz-loading">Comparando tu configuración manual contra la rotación real...</div>';
+    api({action:'getReorderSettings',
+      leadDias:document.getElementById('r-lead').value,
+      coberturaDias:document.getElementById('r-cob').value
+    }).then(function(res){
+      if(!res.ok){box.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      var s=res.stats;
+      var h='<div class="cbz-kpis" style="margin:10px 0">'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num">'+s.evaluados+'</span><span class="cbz-kpi-lbl">Productos evaluados</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+s.encendidos+'</span><span class="cbz-kpi-lbl">Con reorden activo</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#f0c040">'+s.apagados+'</span><span class="cbz-kpi-lbl">Apagados (sin rotación)</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num">'+s.subieron+' ▲</span><span class="cbz-kpi-lbl">Puntos que subieron</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num">'+s.bajaron+' ▼</span><span class="cbz-kpi-lbl">Puntos que bajaron</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num">'+s.iguales+'</span><span class="cbz-kpi-lbl">Clavaste igual 🎯</span></div>'+
+        '</div>';
+      if(res.topDifs&&res.topDifs.length){
+        h+='<div class="cbz-fact-head" style="color:#5cc8ff">Mayores diferencias (tu número vs. la realidad)</div>';
+        h+=res.topDifs.map(function(d){
+          return '<div class="cbz-fact-row"><span class="cbz-fact-id" style="min-width:0;flex:1">'+d.nombre+'</span>'+
+            '<span class="cbz-muted">Manual: <b>'+d.manual+'</b> → Real: <b>'+d.calculado+'</b> ('+d.velMes+'/mes)</span></div>';
+        }).join('');
+      }
+      h+='<div class="cbz-card-row" style="margin-top:10px"><button class="cbz-btn" onclick="Inv.settingsDl()">⬇ Descargar CSV para importar a inFlow</button></div>';
+      box.innerHTML=h;
+      window._rsFile={b64:res.b64,filename:res.filename};
+    });
+  }
+  function settingsDl(){
+    var f=window._rsFile;
+    if(!f)return;
+    dl(f.b64,f.filename);
+  }
+  function dl(b64,filename){
+    var bin=atob(b64),arr=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([arr],{type:'text/csv'}));
+    a.download=filename;
+    document.body.appendChild(a);a.click();a.remove();
+  }
+  function dlAccion(accion){
+    api({action:accion,
+      leadDias:document.getElementById('r-lead').value,
+      coberturaDias:document.getElementById('r-cob').value
+    }).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);return;}
+      dl(res.b64,res.filename);
+    });
+  }
+  function precios(){
+    var mk=document.getElementById('r-mk').value;
+    var box=document.getElementById('mk-res');
+    box.innerHTML='<div class="cbz-loading">Calculando precios...</div>';
+    api({action:'getPriceCsv',markup:mk}).then(function(res){
+      if(!res.ok){box.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      box.innerHTML='<div class="cbz-muted" style="margin:6px 0">'+res.n+' productos · markup '+res.markup+'% sobre costo = margen del <b>'+res.margenPct+'%</b> sobre venta.</div>';
+      dl(res.b64,res.filename);
+    });
+  }
   function csv(){
     api({action:'getReorderCsv',
       leadDias:document.getElementById('r-lead').value,
-      coberturaDias:document.getElementById('r-cob').value,
-      volumenDias:document.getElementById('r-vol').value
+      coberturaDias:document.getElementById('r-cob').value
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
       var bin=atob(res.b64),arr=new Uint8Array(bin.length);
@@ -1179,7 +1259,7 @@ var Inv = (function(){
   function setCat(c){cat=c;render();}
   function setMarca(m){marca=m;render();}
   return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,
-          setVista:setVista,calcular:calcular,csv:csv};
+          setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios};
 })();
 
 /* ===================== NAVEGACIÓN ===================== */
@@ -1265,14 +1345,20 @@ function entrar(res,usr,pin,recordarPin){
   renderHome();
 }
 function doLogin(){
+  if(window._loginBusy)return;
   var usr = document.getElementById('usr').value.trim();
   var pin = document.getElementById('pin').value.trim();
   var err = document.getElementById('loginErr');
-  err.textContent='';
+  window._loginBusy=true;
+  err.style.color='#5a6a7a';
+  err.textContent='Verificando...';
   fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify({action:'ping',user:usr,pin:pin})})
   .then(function(r){return r.json();}).then(function(res){
+    window._loginBusy=false;
+    err.style.color='';
     if(!res.ok){err.textContent=res.error||'Usuario o PIN incorrectos';return;}
+    err.textContent='';
     // ¿Activar Face ID?
     if(webauthnAvailable()&&!bioEnabled()&&confirm('¿Activar Face ID / huella para entrar sin PIN en este dispositivo?')){
       var uid=new Uint8Array(16);crypto.getRandomValues(uid);
@@ -1294,24 +1380,53 @@ function doLogin(){
   }).catch(function(){err.textContent='Sin conexion con el servidor.';});
 }
 function doBioLogin(){
+  if(window._bioBusy)return;           // candado: un solo Face ID a la vez
   var err=document.getElementById('loginErr');
   var credId=localStorage.getItem('mc_cred');
   var pin=getPin();
   var u=getUserName();
   if(!credId||!pin||!u){err.textContent='Face ID no configurado: entra con tu PIN.';return;}
+  window._bioBusy=true;
+  err.style.color='#5a6a7a';
+  err.textContent='🔒 Verificando Face ID...';
   navigator.credentials.get({publicKey:{
     challenge:crypto.getRandomValues(new Uint8Array(32)),
     allowCredentials:[{type:'public-key',id:b64uToBuf(credId)}],
     userVerification:'required',
     timeout:60000
   }}).then(function(){
-    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'ping',user:u,pin:pin})})
-    .then(function(r){return r.json();}).then(function(res){
-      if(res.ok){entrar(res,u,pin,true);}
-      else{err.textContent='Sesión inválida: entra con tu PIN.';}
-    });
-  }).catch(function(){/* usuario canceló Face ID: que use PIN */});
+    // Cara verificada: entrada INMEDIATA con el perfil guardado; el servidor valida en segundo plano
+    window._bioBusy=false;
+    err.textContent='';
+    var perfil=null;
+    try{perfil=JSON.parse(localStorage.getItem('mc_profile')||'null');}catch(e){}
+    if(perfil&&perfil.nombre){
+      window._pinSesion=pin;
+      document.getElementById('login').style.display='none';
+      document.getElementById('shell').style.display='block';
+      renderHome();
+      // Revalidación en segundo plano (por si el PIN cambió o el usuario fue desactivado)
+      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'ping',user:u,pin:pin})})
+      .then(function(r){return r.json();}).then(function(res){
+        if(!res.ok){clearCreds();alert('Tu sesión ya no es válida. Ingresa de nuevo.');location.reload();}
+        else{try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||u,rol:res.rol||'usuario',modulos:res.modulos||[]}));}catch(e){}}
+      }).catch(function(){});
+    } else {
+      // sin perfil guardado: valida contra el servidor con aviso visible
+      err.textContent='Conectando...';
+      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'ping',user:u,pin:pin})})
+      .then(function(r){return r.json();}).then(function(res){
+        err.textContent='';
+        if(res.ok){entrar(res,u,pin,true);}
+        else{err.style.color='';err.textContent='Sesión inválida: entra con tu PIN.';}
+      }).catch(function(){err.style.color='';err.textContent='Sin conexión con el servidor.';});
+    }
+  }).catch(function(){
+    window._bioBusy=false;
+    err.textContent='';               // canceló Face ID: que use el PIN sin drama
+  });
 }
 function doLogout(){
   if(!confirm('¿Cerrar tu sesion en este dispositivo? (Se desactivará también Face ID)'))return;
