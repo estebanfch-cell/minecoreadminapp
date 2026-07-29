@@ -64,6 +64,14 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .ocobrar{margin-top:6px;font-size:11px;font-weight:700}
 .ocobrar-p{color:#ff6b6b}
 .ocobrar-0{color:#6fd68f}
+.outil{margin-top:2px;font-size:11px;font-weight:700;color:#5cc8ff}
+.uti{color:#6fd68f}
+.pdesc{color:#f0c040}
+.ores{margin-top:10px;margin-left:auto;max-width:240px;font-size:12px}
+.ores div{display:flex;justify-content:space-between;padding:2px 0}
+.ores-tot{font-weight:800;border-top:1px solid #2e4257;margin-top:4px;padding-top:4px!important;font-size:13px}
+.ores-util{color:#6fd68f;font-weight:700;margin-top:2px}
+.onotas{margin-top:8px;font-size:11px;background:#101c29;border-left:3px solid #1e4976;padding:8px;border-radius:6px}
 .odetail{margin-top:10px;border-top:1px solid #1a2735;padding-top:8px;cursor:default}
 .pline{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #141f2b}
 .pline:last-child{border-bottom:none}
@@ -112,12 +120,17 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .cbz-btn-sec{background:#1c2a3a;border:1px solid #2e4257;color:#dce6f0;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer}
 .cbz-danger{border-color:#7a2020;color:#ff8080}
 .cbz-chooser{background:#0b141d;border-radius:10px;padding:8px}
+.uform{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.uinput{background:#0b1219;border:1px solid #2e4257;border-radius:8px;color:#dce6f0;padding:9px;font-size:13px;width:100%}
 
 </style>
 </head>
 <body>
 <div id="login">
-  <h1>MINECORE</h1>
+  <img id="loginLogo" src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore"
+       style="width:230px;max-width:80%;display:block;margin:0 auto 6px;"
+       onerror="this.style.display='none';document.getElementById('loginTitle').style.display='block';">
+  <h1 id="loginTitle" style="display:none">MINECORE</h1>
   <p>Admin App · Gestión gerencial</p>
   <input id="pin" type="password" inputmode="numeric" placeholder="PIN" maxlength="8"
          onkeydown="if(event.key==='Enter')doLogin()">
@@ -128,18 +141,15 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 <div id="shell" style="display:none">
   <div class="topbar">
     <span class="dot"></span><h1 id="title">MINECORE ADMIN</h1>
+    <button id="syncBtn" style="display:none" onclick="doSyncNow()">⟳ Sync</button>
     <button id="backBtn" style="display:none" onclick="goHome()">← Menú</button>
   </div>
 
-  <div id="home" class="mods">
-    <div class="mod" onclick="openMod('dash')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>
-    <div class="mod" onclick="openMod('cbz')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>
-    <div class="mod soon"><div class="ico">📦</div><h3>Inventario</h3><p>Cantidades y ubicaciones</p><span class="tag">Próximamente</span></div>
-    <div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>
-  </div>
+  <div id="home" class="mods"></div>
 
   <div id="dash-screen" style="display:none"></div>
   <div id="cobranza-screen" style="display:none"></div>
+  <div id="users-screen" style="display:none"></div>
 </div>
 
 <script>
@@ -442,19 +452,25 @@ var Dash = (function(){
   }
   function render(){
     var body=document.getElementById('dash-body');
-    var h='<div class="big"><div class="lbl">Facturado ('+from+' → '+to+')</div>'+
+    var mgF = agg.subtotalFact>0&&agg.utilFact!==undefined?Math.round(agg.utilFact/agg.subtotalFact*1000)/10:null;
+    var mgN = agg.subtotalNoFact>0&&agg.utilNoFact!==undefined?Math.round(agg.utilNoFact/agg.subtotalNoFact*1000)/10:null;
+    var h='<div class="big"><div class="lbl">Facturado por fecha de factura ('+from+' → '+to+')</div>'+
       '<div class="num">'+fmt(agg.subtotalFact||0)+'</div>'+
-      '<div class="sub">+ IVA '+fmt(agg.ivaFact||0)+' · Total '+fmt(agg.totalFact||0)+' · '+agg.invoiced+' factura(s)</div></div>';
+      '<div class="sub">+ IVA '+fmt(agg.ivaFact||0)+' · Total '+fmt(agg.totalFact||0)+' · '+agg.invoiced+' factura(s)</div>'+
+      (mgF!==null?'<div class="sub uti">Utilidad bruta: <b>'+fmt(agg.utilFact)+'</b> · Margen '+mgF+'%</div>':'')+
+      '</div>';
     h+='<div class="big"><div class="lbl">Por facturar / completar</div>'+
       '<div class="num">'+fmt(agg.subtotalNoFact||0)+'</div>'+
-      '<div class="sub">+ IVA '+fmt(agg.ivaNoFact||0)+' · Total '+fmt(agg.totalNoFact||0)+' · '+(agg.ordenes-agg.invoiced)+' orden(es)</div></div>';
+      '<div class="sub">+ IVA '+fmt(agg.ivaNoFact||0)+' · Total '+fmt(agg.totalNoFact||0)+' · '+(agg.ordenes-agg.invoiced)+' orden(es)</div>'+
+      (mgN!==null?'<div class="sub uti">Utilidad bruta est.: <b>'+fmt(agg.utilNoFact)+'</b> · Margen '+mgN+'%</div>':'')+
+      '</div>';
     h+='<div class="big big-est"><div class="lbl">Estimado del período (facturado + por facturar)</div>'+
       '<div class="num">'+fmt(agg.subtotal)+'</div>'+
       '<div class="sub">+ IVA '+fmt(agg.iva)+' · Total '+fmt(agg.total)+' · '+agg.ordenes+' órdenes</div></div>';
     h+='<div class="grid2">'+mini('Órdenes',agg.ordenes)+mini('Facturadas',agg.invoiced)+
        mini('Fulfilled',agg.fulfilled)+mini('Cotizaciones',agg.cotizaciones)+'</div>';
     if(top.length){
-      h+='<div class="big"><div class="lbl">Top clientes del período</div>';
+      h+='<div class="big"><div class="lbl">Top clientes del período (solo facturado)</div>';
       top.forEach(function(t,i){
         h+='<div class="toprow"><span class="topn">'+(i+1)+'</span><span class="topname">'+t.cliente+'</span>'+
            '<span class="topval">'+fmt(t.subtotal)+' · '+t.ordenes+' ord.</span></div>';
@@ -481,6 +497,10 @@ var Dash = (function(){
     var cobrar = o.cotizacion ? '' :
       (o.saldo>0 ? '<div class="ocobrar ocobrar-p">Por cobrar: '+fmt(o.saldo)+'</div>'
                  : '<div class="ocobrar ocobrar-0">Por cobrar: $0.00 ✓</div>');
+    if(!o.cotizacion && o.utilidad!==null && o.utilidad!==undefined){
+      var mg=o.subtotal>0?Math.round(o.utilidad/o.subtotal*1000)/10:0;
+      cobrar+='<div class="outil">Utilidad: '+fmt(o.utilidad)+' · '+mg+'%</div>';
+    }
     return '<div class="orow" onclick="Dash.toggleOrder(\''+o.id+'\')">'+
       '<div class="orow-top"><b>'+o.ov+'</b><span class="odate">'+o.fecha+'</span></div>'+
       '<div class="orow-mid">'+o.cliente+'</div>'+
@@ -502,30 +522,170 @@ var Dash = (function(){
         var det=document.getElementById('det-'+id);
         if(!det)return;
         if(!res.ok){det.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-        det.innerHTML=res.lines.map(function(l){
+        var dh=res.lines.map(function(l){
           return '<div class="pline">'+
             (l.img?'<img src="'+l.img+'" class="pimg" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
             '<div class="pinfo"><div class="pname">'+l.producto+'</div>'+
-            '<div class="pmeta">SKU: '+(l.sku||'-')+' · Cant: '+l.cantidad+' · P.U: '+fmt(l.precio)+'</div></div>'+
+            '<div class="pmeta">SKU: '+(l.sku||'-')+' · Cant: '+l.cantidad+' · P.U: '+fmt(l.precio)+
+            (l.desc?' · <span class="pdesc">Desc: '+l.desc+'</span>':'')+'</div></div>'+
             '<div class="psub">'+fmt(l.subtotal)+'</div></div>';
         }).join('')||'<div class="cbz-muted">Sin líneas</div>';
+        if(res.resumen){
+          dh+='<div class="ores">'+
+            (res.resumen.descuento>0?'<div><span>Descuento aplicado</span><span class="ocobrar-p">-'+fmt(res.resumen.descuento)+'</span></div>':'')+
+            '<div><span>Subtotal</span><span>'+fmt(res.resumen.subtotal)+'</span></div>'+
+            '<div><span>IVA</span><span>'+fmt(res.resumen.iva)+'</span></div>'+
+            '<div class="ores-tot"><span>TOTAL</span><span>'+fmt(res.resumen.total)+'</span></div>'+
+            (res.resumen.utilidad!==null&&res.resumen.utilidad!==undefined?
+              '<div class="ores-util"><span>Utilidad bruta</span><span>'+fmt(res.resumen.utilidad)+' · '+res.resumen.margen+'%</span></div>':'')+
+            '</div>';
+        }
+        if(res.notas) dh+='<div class="onotas">📝 '+res.notas+'</div>';
+        dh+='<div style="margin-top:10px"><button class="cbz-btn" onclick="Dash.dlPdf(\''+id+'\')">⬇ Descargar PDF</button></div>';
+        det.innerHTML=dh;
       }).catch(function(){});
     }
   }
-  return {init:init,preset:preset,applyCustom:applyCustom,setFilter:setFilter,toggleOrder:toggleOrder};
+  function dlPdf(id){
+    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'getOrderPdf',orderId:id,pin:sessionStorage.getItem('mc_pin')||''})})
+    .then(function(r){return r.json();}).then(function(res){
+      if(!res.ok){alert('Error: '+(res.error||'no se pudo generar el PDF'));return;}
+      var bin=atob(res.b64), arr=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      var blob=new Blob([arr],{type:'application/pdf'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=res.filename||'orden.pdf';
+      document.body.appendChild(a);a.click();a.remove();
+    }).catch(function(){alert('Fallo de red generando el PDF');});
+  }
+  return {init:init,preset:preset,applyCustom:applyCustom,setFilter:setFilter,toggleOrder:toggleOrder,dlPdf:dlPdf};
 })();
 
 
+/* ===================== USUARIOS (solo admin) ===================== */
+var Users = (function(){
+  var lista = [], mods = [], editing = null;
+  function api(p){
+    p.pin = sessionStorage.getItem('mc_pin')||'';
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
+      .then(function(r){return r.json();});
+  }
+  function init(){
+    var el=document.getElementById('users-screen');
+    el.innerHTML='<div class="cbz-loading">Cargando usuarios...</div>';
+    api({action:'listUsers'}).then(function(res){
+      if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      lista=res.usuarios; mods=res.modulosDisponibles; editing=null; render();
+    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+  }
+  function render(){
+    var el=document.getElementById('users-screen');
+    var h='<button class="cbz-btn" style="margin-bottom:12px" onclick="Users.nuevo()">+ Nuevo usuario</button>';
+    h+=lista.map(function(u,i){
+      var isEd = editing===i;
+      var card='<div class="cbz-card'+(u.activo?'':' cbz-card-off')+'">'+
+        '<div class="cbz-card-top"><div class="cbz-card-name">'+u.nombre+
+        (u.rol==='admin'?' <span class="tagx tf">ADMIN</span>':'')+
+        (u.activo?'':' <span class="tagx tn">INACTIVO</span>')+'</div>'+
+        '<button class="cbz-btn-sec" onclick="Users.edit('+i+')">'+(isEd?'Cerrar':'Editar')+'</button></div>'+
+        '<div class="cbz-card-row cbz-muted">Módulos: '+(u.modulos||'ninguno')+'</div>';
+      if(isEd) card+=formHtml(u,false);
+      return card+'</div>';
+    }).join('');
+    if(editing==='new') h='<div class="cbz-card">'+ '<div class="cbz-card-name">Nuevo usuario</div>'+formHtml({nombre:'',pin:'',rol:'usuario',modulos:'',activo:true},true)+'</div>'+h;
+    el.innerHTML=h;
+  }
+  function formHtml(u,isNew){
+    var checks=mods.map(function(m){
+      var on=(u.modulos||'').indexOf(m)>=0;
+      return '<label class="cbz-esc"><input type="checkbox" id="f-mod-'+m+'" '+(on?'checked':'')+'> '+m+'</label>';
+    }).join(' ');
+    return '<div class="uform">'+
+      '<input class="uinput" id="f-nombre" placeholder="Nombre/iniciales" value="'+u.nombre+'" '+(isNew?'':'readonly')+'>'+
+      '<input class="uinput" id="f-pin" placeholder="PIN (4-8 dígitos)" value="'+u.pin+'" inputmode="numeric" maxlength="8">'+
+      '<select class="uinput" id="f-rol"><option value="usuario"'+(u.rol!=='admin'?' selected':'')+'>Usuario (solo ver)</option>'+
+      '<option value="admin"'+(u.rol==='admin'?' selected':'')+'>Administrador</option></select>'+
+      '<div class="cbz-card-row">'+checks+'</div>'+
+      '<label class="cbz-esc"><input type="checkbox" id="f-activo" '+(u.activo?'checked':'')+'> Activo</label>'+
+      '<div class="cbz-card-row">'+
+      '<button class="cbz-btn" onclick="Users.save('+(isNew?'true':'false')+')">Guardar</button>'+
+      (isNew?'':'<button class="cbz-btn-sec cbz-danger" onclick="Users.borrar(\''+u.nombre+'\')">Eliminar</button>')+
+      '</div></div>';
+  }
+  function nuevo(){editing='new';render();}
+  function edit(i){editing=(editing===i)?null:i;render();}
+  function save(isNew){
+    var modsSel=mods.filter(function(m){return document.getElementById('f-mod-'+m).checked;}).join(',');
+    api({action:'saveUser',
+      nombre:document.getElementById('f-nombre').value.trim(),
+      userPin:document.getElementById('f-pin').value.trim(),
+      rol:document.getElementById('f-rol').value,
+      modulos:modsSel,
+      activo:document.getElementById('f-activo').checked
+    }).then(function(res){
+      alert(res.ok?('Usuario '+res.accion):('Error: '+res.error));
+      if(res.ok) init();
+    });
+  }
+  function borrar(nombre){
+    if(!confirm('¿Eliminar al usuario '+nombre+'? Esta acción no se puede deshacer.'))return;
+    api({action:'deleteUser',nombre:nombre}).then(function(res){
+      alert(res.ok?'Usuario eliminado':'Error: '+res.error);
+      if(res.ok) init();
+    });
+  }
+  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar};
+})();
+
 /* ===================== NAVEGACIÓN ===================== */
+function getProfile(){
+  try{return JSON.parse(sessionStorage.getItem('mc_user')||'{}');}catch(e){return {};}
+}
+function renderHome(){
+  var p=getProfile();
+  var can=function(m){return p.rol==='admin'||(p.modulos||[]).indexOf(m)>=0;};
+  var h='';
+  if(can('dashboard')) h+='<div class="mod" onclick="openMod(\'dash\')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>';
+  if(can('cobranza')) h+='<div class="mod" onclick="openMod(\'cbz\')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>';
+  if(can('inventario')) h+='<div class="mod soon"><div class="ico">📦</div><h3>Inventario</h3><p>Cantidades y ubicaciones</p><span class="tag">Próximamente</span></div>';
+  if(can('proveedores')) h+='<div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>';
+  if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
+  document.getElementById('home').innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
+  document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
+}
+function doSyncNow(){
+  var b=document.getElementById('syncBtn');
+  if(b.disabled)return;
+  if(!confirm('¿Sincronizar ahora con inFlow? Puede tardar 2-4 minutos.'))return;
+  b.disabled=true; b.textContent='⏳ Sincronizando...';
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'syncNow',pin:sessionStorage.getItem('mc_pin')||''})})
+  .then(function(r){return r.json();}).then(function(res){
+    b.disabled=false; b.textContent='⟳ Sync';
+    if(!res.ok){alert('Error en sync: '+(res.error||'desconocido'));return;}
+    alert('Sync completo a las '+res.hora+' ('+res.segundos+'s)\nOVs: '+res.ovs+' · OCs: '+res.ocs);
+    // refresca la pantalla activa
+    var d=document.getElementById('dash-screen'), c=document.getElementById('cobranza-screen');
+    if(d.style.display==='block') Dash.init();
+    else if(c.style.display==='block') Cobranza.init();
+  }).catch(function(){
+    b.disabled=false; b.textContent='⟳ Sync';
+    alert('El sync puede seguir corriendo en el servidor (tiempo de espera excedido). Revisa en 2-3 minutos con ⟳ Actualizar.');
+  });
+}
 function openMod(m){
   document.getElementById('home').style.display='none';
   document.getElementById('backBtn').style.display='block';
   if(m==='dash'){document.getElementById('dash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';Dash.init();}
   if(m==='cbz'){document.getElementById('cobranza-screen').style.display='block';document.getElementById('title').textContent='COBRANZA';Cobranza.init();}
+  if(m==='users'){document.getElementById('users-screen').style.display='block';document.getElementById('title').textContent='USUARIOS';Users.init();}
 }
 function goHome(){
   document.getElementById('dash-screen').style.display='none';
   document.getElementById('cobranza-screen').style.display='none';
+  document.getElementById('users-screen').style.display='none';
   document.getElementById('home').style.display='grid';
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='MINECORE ADMIN';
@@ -541,8 +701,10 @@ function doLogin(){
     body:JSON.stringify({action:'ping',pin:pin})})
   .then(function(r){return r.json();}).then(function(res){
     if(res.ok){
+      sessionStorage.setItem('mc_user', JSON.stringify({nombre:res.user||'',rol:res.rol||'usuario',modulos:res.modulos||[]}));
       document.getElementById('login').style.display='none';
       document.getElementById('shell').style.display='block';
+      renderHome();
     } else {
       sessionStorage.removeItem('mc_pin');
       err.textContent = res.error || 'PIN incorrecto';
