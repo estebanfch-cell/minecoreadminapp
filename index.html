@@ -984,7 +984,8 @@ var Users = (function(){
 
 /* ===================== INVENTARIO ===================== */
 var Inv = (function(){
-  var items=[], kpi=null, esAdmin=false, cats=[], q='', filtro='todos', cat='';
+  var items=[], esAdmin=false, esCliente=false, cats=[], marcas=[];
+  var q='', filtro='todos', cat='', marca='', abierto=null, vista='inv', reo=null;
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function api(p){
     p.user=getUserName();p.pin=getPin();
@@ -992,81 +993,193 @@ var Inv = (function(){
       .then(function(r){return r.json();});
   }
   function init(){
+    vista='inv';
     var el=document.getElementById('inv-screen');
     el.innerHTML='<div class="cbz-loading">Cargando inventario...</div>';
     api({action:'getInventario'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      items=res.items;kpi=res.kpi;esAdmin=res.esAdmin;cats=res.categorias||[];
-      // blob de búsqueda por producto: todo lo buscable en minúsculas
+      items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
+      cats=res.categorias||[];marcas=res.marcas||[];
       items.forEach(function(it){
         it._b=(it.nombre+' '+it.sku+' '+it.codigo+' '+it.categoria+' '+it.marca+' '+it.extra).toLowerCase();
       });
       render();
     }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
   }
+  function pasa(it){
+    if(cat && it.categoria!==cat)return false;
+    if(marca && it.marca!==marca)return false;
+    if(filtro==='con'&&it.stock<=0)return false;
+    if(filtro==='agotados'&&it.stock>0)return false;
+    if(q){
+      var toks=q.toLowerCase().split(/\s+/).filter(String);
+      for(var i=0;i<toks.length;i++){if(it._b.indexOf(toks[i])<0)return false;}
+    }
+    return true;
+  }
+  function sel(id,opts,val,fn,ph){
+    return '<select class="uinput" style="max-width:220px;padding:8px" onchange="'+fn+'(this.value)">'+
+      '<option value="">'+ph+'</option>'+
+      opts.map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'"'+(val===c?' selected':'')+'>'+c+'</option>';}).join('')+
+      '</select>';
+  }
   function render(){
     var el=document.getElementById('inv-screen');
-    var h='<div class="cbz-kpis" style="margin-bottom:12px">'+
-      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+kpi.skus+'</span><span class="cbz-kpi-lbl">SKUs activos</span></div>'+
-      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+kpi.unidades+'</span><span class="cbz-kpi-lbl">Unidades</span></div>'+
-      '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+kpi.agotados+'</span><span class="cbz-kpi-lbl">Agotados</span></div>'+
-      (kpi.valorCosto!==null?'<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmt(kpi.valorCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
-      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmt(kpi.valorPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>'+
-      '</div>';
-    h+='<div class="cbz-card-row" style="margin-bottom:6px">'+
-      '<input class="cbz-search" placeholder="🔍 Nombre, SKU, código, serie, DL/WW, mm, marca..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Inv.setQ(this.value)">'+
+    var h='';
+    if(esAdmin){
+      h+='<div class="cbz-card-row" style="justify-content:flex-end;margin-bottom:8px">'+
+        '<button class="chip '+(vista==='inv'?'on':'')+'" onclick="Inv.setVista(\'inv\')">📦 Inventario</button>'+
+        '<button class="chip '+(vista==='reo'?'on':'')+'" onclick="Inv.setVista(\'reo\')">🔁 Reorden & Recomendaciones</button>'+
+        '</div>';
+    }
+    if(vista==='reo'){el.innerHTML=h+'<div id="reo-body"></div>';renderReo();return;}
+    h+='<div id="inv-kpis"></div>'+
+      '<div class="cbz-card-row" style="margin-bottom:6px">'+
+      '<input class="cbz-search" placeholder="🔍 Nombre, SKU, código, serie, DL/WW, mm..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Inv.setQ(this.value)">'+
       '</div>'+
       '<div class="cbz-card-row" style="margin-bottom:10px">'+
-      '<select class="uinput" style="max-width:260px;padding:8px" onchange="Inv.setCat(this.value)">'+
-      '<option value="">Todas las categorías</option>'+
-      cats.map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'"'+(cat===c?' selected':'')+'>'+c+'</option>';}).join('')+
-      '</select>'+
+      sel('cat',cats,cat,'Inv.setCat','Todas las categorías')+
+      sel('marca',marcas,marca,'Inv.setMarca','Todas las marcas')+
       chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
       '</div><div id="inv-list"></div>';
     el.innerHTML=h;
     renderList();
   }
   function chip(id,lbl){return '<button class="chip '+(filtro===id?'on':'')+'" onclick="Inv.setF(\''+id+'\')">'+lbl+'</button>';}
-  function pasa(it){
-    if(cat && it.categoria!==cat)return false;
-    if(filtro==='con'&&it.stock<=0)return false;
-    if(filtro==='agotados'&&it.stock>0)return false;
-    if(q){
-      // búsqueda por tokens: todas las palabras deben aparecer ("ng-11 13 mm dl" encuentra la broca exacta)
-      var toks=q.toLowerCase().split(/\s+/).filter(String);
-      for(var i=0;i<toks.length;i++){
-        if(it._b.indexOf(toks[i])<0)return false;
-      }
-    }
-    return true;
+
+  /** KPIs dinámicos: se recalculan sobre lo filtrado */
+  function renderKpis(fil){
+    var box=document.getElementById('inv-kpis');
+    if(!box)return;
+    var k={skus:0,unidades:0,agotados:0,vCosto:0,vPrecio:0,mSum:0,mN:0};
+    fil.forEach(function(it){
+      k.skus++;k.unidades+=it.stock;
+      if(it.stock<=0)k.agotados++;
+      if(esAdmin&&it.costo)k.vCosto+=it.stock*it.costo;
+      if(it.precio)k.vPrecio+=it.stock*it.precio;
+      if(esAdmin&&it.margenPct!==undefined){k.mSum+=it.margenPct;k.mN++;}
+    });
+    box.innerHTML='<div class="cbz-kpis" style="margin-bottom:12px">'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+k.skus+'</span><span class="cbz-kpi-lbl">SKUs</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+Math.round(k.unidades*100)/100+'</span><span class="cbz-kpi-lbl">Unidades</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+k.agotados+'</span><span class="cbz-kpi-lbl">Agotados</span></div>'+
+      (esAdmin?'<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmt(k.vCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
+      (!esCliente?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmt(k.vPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>':'')+
+      (esAdmin&&k.mN?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#5cc8ff">'+Math.round(k.mSum/k.mN*10)/10+'%</span><span class="cbz-kpi-lbl">Margen prom.</span></div>':'')+
+      '</div>';
   }
   function renderList(){
     var box=document.getElementById('inv-list');
     if(!box)return;
     var fil=items.filter(pasa);
+    renderKpis(fil);
     var MAX=150;
-    var h=fil.slice(0,MAX).map(function(it){
-      var st=it.stock<=0?'<span class="tagx tn">AGOTADO</span>':
-        '<span class="tagx tf">'+it.stock+' und.</span>';
-      return '<div class="cbz-card" style="padding:10px 12px">'+
-        '<div class="cbz-card-row" style="justify-content:space-between;align-items:flex-start">'+
-        '<div style="flex:1;min-width:0"><div class="pname">'+it.nombre+'</div>'+
-        '<div class="pmeta">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div>'+
-        '<div class="pmeta">'+(it.categoria||'')+(it.marca?' · '+it.marca:'')+'</div>'+
-        (it.ubicaciones?'<div class="pmeta" style="color:#9fc3e8">📍 '+it.ubicaciones+'</div>':'')+
-        '</div>'+
+    var h=fil.slice(0,MAX).map(function(it,ix){
+      var st=it.stock<=0?'<span class="tagx tn">AGOTADO</span>':'<span class="tagx tf">'+it.stock+' und.</span>';
+      var open=abierto===it.sku;
+      var card='<div class="cbz-card" style="padding:10px 12px">'+
+        '<div class="cbz-card-row" style="justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="Inv.abrir(\''+it.sku+'\')">'+
+        (it.img?'<img src="'+it.img+'" class="pimg" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
+        '<div style="flex:1;min-width:0"><div class="pname">'+(open?'▾ ':'')+it.nombre+'</div>'+
+        '<div class="pmeta">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div></div>'+
         '<div style="text-align:right;flex:none">'+st+
-        (it.precio?'<div class="pname" style="margin-top:4px">'+fmt(it.precio)+'</div>':'')+
-        (esAdmin&&it.costo?'<div class="pmeta">Costo: '+fmt(it.costo)+'</div>':'')+
-        '</div></div></div>';
+        (it.precio!==undefined&&it.precio?'<div class="pname" style="margin-top:4px">'+fmt(it.precio)+'</div>':'')+
+        '</div></div>';
+      if(open){
+        card+='<div class="odetail">'+
+          '<div class="pmeta">'+(it.categoria||'Sin categoría')+(it.marca?' · Marca: '+it.marca:'')+'</div>'+
+          (it.ubicaciones?'<div class="pmeta" style="color:#9fc3e8">📍 '+it.ubicaciones+'</div>':'<div class="pmeta">📍 Sin stock en bodegas</div>')+
+          (it.extra?'<div class="pmeta">'+it.extra+'</div>':'')+
+          (it.v365!==undefined?'<div class="pmeta" style="color:#f0c040">Rotación: '+(it.v90||0)+' (90d) · '+(it.v180||0)+' (180d) · '+(it.v365||0)+' (365d)'+(it.ultimaVenta?' · Últ. venta: '+it.ultimaVenta:'')+'</div>':'')+
+          (esAdmin&&it.costo!==undefined?'<div class="pmeta" style="color:#5cc8ff">Costo: '+fmt(it.costo)+
+            (it.margen!==undefined?' · Margen: '+fmt(it.margen)+' ('+it.margenPct+'%)':'')+'</div>':'')+
+          '</div>';
+      }
+      return card+'</div>';
     }).join('');
     if(fil.length>MAX) h+='<div class="cbz-muted" style="text-align:center;padding:10px">Mostrando '+MAX+' de '+fil.length+' — afina la búsqueda</div>';
     box.innerHTML=h||'<div class="cbz-muted" style="padding:16px;text-align:center">Sin resultados</div>';
   }
+  function abrir(sku){abierto=(abierto===sku)?null:sku;renderList();}
+
+  /* ---------- Reorden & Recomendaciones ---------- */
+  function renderReo(){
+    var box=document.getElementById('reo-body');
+    box.innerHTML='<div class="cbz-card"><div class="cbz-card-name">🔁 Motor de reorden</div>'+
+      '<div class="uform"><div class="cbz-card-row">'+
+      '<label class="cbz-esc">Lead time (días de importación)<br><input class="uinput" id="r-lead" type="number" value="'+(reo?reo.lead:90)+'" style="max-width:120px"></label>'+
+      '<label class="cbz-esc">Cobertura extra (días)<br><input class="uinput" id="r-cob" type="number" value="'+(reo?reo.cobertura:60)+'" style="max-width:120px"></label>'+
+      '<label class="cbz-esc">Pedido en volumen (días)<br><input class="uinput" id="r-vol" type="number" value="'+(reo?reo.volumen:180)+'" style="max-width:120px"></label>'+
+      '</div><div class="cbz-card-row">'+
+      '<button class="cbz-btn" onclick="Inv.calcular()">Calcular recomendaciones</button>'+
+      (reo?'<button class="cbz-btn-sec" onclick="Inv.csv()">⬇ CSV para inFlow ('+reo.reordenar.length+')</button>':'')+
+      '</div></div></div><div id="reo-res">'+(reo?'':'<div class="cbz-muted" style="padding:14px;text-align:center">Configura los parámetros y calcula.</div>')+'</div>';
+    if(reo)pintarReo();
+  }
+  function calcular(){
+    var box=document.getElementById('reo-res');
+    box.innerHTML='<div class="cbz-loading">Analizando rotación histórica...</div>';
+    api({action:'getReorder',
+      leadDias:document.getElementById('r-lead').value,
+      coberturaDias:document.getElementById('r-cob').value,
+      volumenDias:document.getElementById('r-vol').value
+    }).then(function(res){
+      if(!res.ok){box.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      reo=res;renderReo();
+    });
+  }
+  function secc(t,color,n){return '<div class="cbz-fact-head" style="color:'+color+';font-size:13px;margin:16px 0 6px">'+t+' ('+n+')</div>';}
+  function pintarReo(){
+    var box=document.getElementById('reo-res');
+    var h='';
+    h+=secc('🚨 REORDENAR YA — stock bajo el punto de reorden','#ff6b6b',reo.reordenar.length);
+    h+=reo.reordenar.slice(0,50).map(function(r){
+      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
+        '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Stock: <b class="cbz-red">'+r.stock+'</b> · Vende '+r.velMes+'/mes · Cubre '+r.cubreDias+' días</div>'+
+        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> (punto de reorden: '+r.puntoReorden+') · Inversión aprox: '+fmt(r.costoPedido)+'</div></div>';
+    }).join('');
+    if(reo.reordenar.length>50)h+='<div class="cbz-muted" style="padding:6px;text-align:center">+'+(reo.reordenar.length-50)+' más en el CSV</div>';
+    h+=secc('📦 ALTA ROTACIÓN — conviene pedir en volumen ('+reo.volumen+' días de cobertura)','#5cc8ff',reo.volumenAlto.length);
+    h+=reo.volumenAlto.map(function(r){
+      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
+        '<div class="pmeta">SKU '+r.sku+' · Vende '+r.velMes+'/mes · Stock: '+r.stock+'</div>'+
+        '<div class="pmeta" style="color:#5cc8ff">→ Un solo pedido de <b>'+r.sugerido+' und.</b> te dura ~'+r.duraDias+' días · Inversión: '+fmt(r.costoPedido)+'</div></div>';
+    }).join('');
+    h+=secc('🏷 PONER EN PROMOCIÓN — con stock y sin ventas en +1 año','#f0c040',reo.promo.length);
+    h+=reo.promo.slice(0,40).map(function(r){
+      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
+        '<div class="pmeta">SKU '+r.sku+' · Stock: '+r.stock+' · Última venta: '+r.ultimaVenta+'</div>'+
+        '<div class="pmeta" style="color:#f0c040">→ Capital dormido: '+fmt(r.valorCosto)+' — baja el precio o arma combo para recuperar la inversión</div></div>';
+    }).join('');
+    h+=secc('⏸ PAUSAR SKU — sin stock y sin ventas en +1 año','#9fb2c4',reo.pausar.length);
+    h+=reo.pausar.slice(0,40).map(function(r){
+      return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
+        '<div class="pmeta">SKU '+r.sku+' · Última venta: '+r.ultimaVenta+' → desactívalo en inFlow para limpiar el inventario</div></div>';
+    }).join('');
+    box.innerHTML=h;
+  }
+  function csv(){
+    api({action:'getReorderCsv',
+      leadDias:document.getElementById('r-lead').value,
+      coberturaDias:document.getElementById('r-cob').value,
+      volumenDias:document.getElementById('r-vol').value
+    }).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);return;}
+      var bin=atob(res.b64),arr=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([arr],{type:'text/csv'}));
+      a.download=res.filename;
+      document.body.appendChild(a);a.click();a.remove();
+    });
+  }
+  function setVista(v){vista=v;render();}
   function setQ(v){q=v;renderList();}
   function setF(f){filtro=f;render();}
   function setCat(c){cat=c;render();}
-  return {init:init,setQ:setQ,setF:setF,setCat:setCat};
+  function setMarca(m){marca=m;render();}
+  return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,
+          setVista:setVista,calcular:calcular,csv:csv};
 })();
 
 /* ===================== NAVEGACIÓN ===================== */
