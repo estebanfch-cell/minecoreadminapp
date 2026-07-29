@@ -7,16 +7,17 @@
 <meta name="theme-color" content="#0b1219">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
+html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
 #shell{max-width:640px;margin:0 auto;padding:16px}
 .topbar{display:flex;align-items:center;gap:10px;padding:6px 0 14px}
 .topbar .dot{width:10px;height:10px;border-radius:50%;background:#2e9e5b;flex:none}
 .topbar h1{font-size:17px;letter-spacing:1px;flex:1}
 .topbar button{background:#1c2a3a;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer}
-#login{max-width:320px;margin:16vh auto 0;text-align:center;padding:0 16px}
-#login h1{font-size:22px;margin-bottom:4px;letter-spacing:2px}
-#login p{opacity:.6;font-size:12px;margin-bottom:22px}
-#pin{width:100%;background:#0f1720;border:1px solid #223142;border-radius:10px;color:#fff;font-size:22px;text-align:center;letter-spacing:8px;padding:12px}
+#login{position:fixed;inset:0;background:#fff;text-align:center;padding:12vh 24px 40px;box-sizing:border-box;overflow:auto}
+#login .box{max-width:380px;margin:0 auto}
+#login h1{font-size:22px;margin-bottom:4px;letter-spacing:2px;color:#0b1219}
+#login p{color:#5a6a7a;font-size:12px;margin-bottom:22px}
+#pin{width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:22px;text-align:center;letter-spacing:8px;padding:12px}
 #login button{width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
 #login .err{color:#ff6b6b;font-size:12px;margin-top:10px;min-height:16px}
 .mods{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -120,28 +121,54 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 .cbz-btn-sec{background:#1c2a3a;border:1px solid #2e4257;color:#dce6f0;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer}
 .cbz-danger{border-color:#7a2020;color:#ff8080}
 .cbz-chooser{background:#0b141d;border-radius:10px;padding:8px}
+.cbz-search{flex:1;min-width:160px;background:#0f1720;border:1px solid #223142;border-radius:20px;color:#dce6f0;font-size:13px;padding:9px 14px}
+.cbz-fact-list{margin-top:8px;border-top:1px solid #1a2735;padding-top:6px}
+.cbz-fact-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid #141f2b;font-size:11.5px}
+.cbz-fact-row:last-child{border-bottom:none}
+.cbz-fact-id{font-weight:700;min-width:150px}
+.cbz-fact-saldo{font-weight:800;margin-left:auto}
+.cbz-fact-est{font-size:11px}
+.cbz-fact-head{font-size:11px;font-weight:800;letter-spacing:.5px;margin:8px 0 2px}
 .uform{margin-top:10px;display:flex;flex-direction:column;gap:8px}
 .uinput{background:#0b1219;border:1px solid #2e4257;border-radius:8px;color:#dce6f0;padding:9px;font-size:13px;width:100%}
 
 </style>
 </head>
 <body>
-<div id="login">
+<div id="invite" style="display:none;max-width:360px;margin:0 auto;text-align:center;padding:14vh 24px 40px;background:#fff;min-height:100vh;box-sizing:border-box">
+  <img src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore" style="width:230px;max-width:80%;display:block;margin:0 auto 6px;">
+  <p style="color:#5a6a7a;font-size:12px;margin-bottom:20px">Crea tu usuario de la Admin App</p>
+  <input id="inv-nombre" placeholder="Tu nombre o iniciales" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-pin" type="password" inputmode="numeric" maxlength="8" placeholder="Elige tu PIN (4-8 dígitos)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-pin2" type="password" inputmode="numeric" maxlength="8" placeholder="Repite tu PIN" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;text-align:center">
+  <button onclick="doRedeem()" style="width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Crear mi usuario</button>
+  <div id="invErr" style="color:#c62828;font-size:12px;margin-top:10px;min-height:16px"></div>
+</div>
+
+<div id="login"><div class="box">
   <img id="loginLogo" src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore"
-       style="width:230px;max-width:80%;display:block;margin:0 auto 6px;"
+       style="width:320px;max-width:92%;display:block;margin:0 auto 26px;"
        onerror="this.style.display='none';document.getElementById('loginTitle').style.display='block';">
   <h1 id="loginTitle" style="display:none">MINECORE</h1>
-  <p>Admin App · Gestión gerencial</p>
+  <div id="saludo" style="display:none;color:#0b1219;font-size:16px;font-weight:700;margin-bottom:12px"></div>
+  <input id="usr" placeholder="Usuario" autocomplete="username"
+         style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:16px;text-align:center;padding:12px;margin-bottom:10px"
+         onkeydown="if(event.key==='Enter')document.getElementById('pin').focus()">
   <input id="pin" type="password" inputmode="numeric" placeholder="PIN" maxlength="8"
          onkeydown="if(event.key==='Enter')doLogin()">
   <button onclick="doLogin()">Ingresar</button>
+  <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-</div>
+  <div id="cambiarUsr" style="display:none;margin-top:14px">
+    <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
+  </div>
+</div></div>
 
 <div id="shell" style="display:none">
   <div class="topbar">
     <span class="dot"></span><h1 id="title">MINECORE ADMIN</h1>
     <button id="syncBtn" style="display:none" onclick="doSyncNow()">⟳ Sync</button>
+    <button onclick="doLogout()" title="Cerrar sesion">⎋ Salir</button>
     <button id="backBtn" style="display:none" onclick="goHome()">← Menú</button>
   </div>
 
@@ -149,18 +176,36 @@ body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Robot
 
   <div id="dash-screen" style="display:none"></div>
   <div id="cobranza-screen" style="display:none"></div>
+  <div id="inv-screen" style="display:none"></div>
   <div id="users-screen" style="display:none"></div>
 </div>
 
 <script>
+/* ===== Credenciales persistentes (hasta cerrar sesion) ===== */
+function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);localStorage.setItem('mc_pin',p);}catch(e){}}
+function getUserName(){try{return localStorage.getItem('mc_user_name')||'';}catch(e){return '';}}
+function getPin(){try{return localStorage.getItem('mc_pin')||'';}catch(e){return '';}}
+function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');}catch(e){}}
+function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
+function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var bin=atob(s);var a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a.buffer;}
+function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function webauthnAvailable(){return !!(window.PublicKeyCredential&&navigator.credentials);}
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 
 var Cobranza = (function () {
+  function puedeInteractuar(){
+    var p=getProfile();var ms=p.modulos||[];
+    return p.rol==='admin'||ms.indexOf('cobranza+')>=0;
+  }
   var clientes = [];
-  var expanded = {};   // idx -> {mails:bool, tels:bool}
-  var chooser = null;  // idx con selector de nivel abierto
+  var expanded = {};
+  var chooser = null;
   var waTemplate = '';
+  var vista = 'dash';      // 'dash' | 'config'
+  var actaOpen = null;     // idx con formulario de acta abierto
+  var q = '';              // texto de búsqueda
+  var fMora = 'todos';     // todos | mora | aldia
 
   function fmt(n) {
     n = parseFloat(n) || 0;
@@ -170,7 +215,7 @@ var Cobranza = (function () {
   }
 
   function api(payload) {
-    payload.pin = sessionStorage.getItem('mc_pin') || '';
+    payload.user = getUserName(); payload.pin = getPin();
     return fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
@@ -183,8 +228,10 @@ var Cobranza = (function () {
     el.innerHTML = '<div class="cbz-loading">Cargando cartera...</div>';
     api({ action: 'getCxcConfig' }).then(function (res) {
       if (!res.ok) { el.innerHTML = '<div class="cbz-error">Error: ' + res.error + '</div>'; return; }
-      clientes = res.clientes;
-      waTemplate = res.waTemplate || '';
+      clientes = (res.clientes || []).sort(function (a, b) {
+        return (b.maxMora - a.maxMora) || (b.vencido - a.vencido);
+      });
+      waTemplate = res.waTemplates || {};
       chooser = null;
       render();
     }).catch(function (e) {
@@ -192,27 +239,115 @@ var Cobranza = (function () {
     });
   }
 
+  function norm(s){return String(s||'').toLowerCase();}
+  function pasa(c){
+    if(q && norm(c.cliente).indexOf(norm(q))<0) return false;
+    if(fMora==='mora' && !(c.vencido>0)) return false;
+    if(fMora==='aldia' && c.vencido>0) return false;
+    return true;
+  }
+
+  /** Render de página: arma la cáscara (KPIs + buscador) una vez y la lista aparte */
   function render() {
     var el = document.getElementById('cobranza-screen');
     var totalVencido = clientes.reduce(function (s, c) { return s + c.vencido; }, 0);
+    var totalPorVencer = clientes.reduce(function (s, c) { return s + c.porVencer; }, 0);
+    var enMora = clientes.filter(function (c) { return c.vencido > 0; }).length;
+    var alDia = clientes.length - enMora;
     var activos = clientes.filter(function (c) { return c.activo; }).length;
-
-    var html =
-      '<div class="cbz-header">' +
-      '<h2>Cobranza</h2>' +
-      '<div class="cbz-kpis">' +
-      '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">' + fmt(totalVencido) + '</span><span class="cbz-kpi-lbl">Total vencido</span></div>' +
-      '<div class="cbz-kpi"><span class="cbz-kpi-num">' + clientes.filter(function (c) { return c.vencido > 0; }).length + '</span><span class="cbz-kpi-lbl">Clientes con mora</span></div>' +
-      '<div class="cbz-kpi"><span class="cbz-kpi-num">' + activos + '</span><span class="cbz-kpi-lbl">Recordatorios activos</span></div>' +
-      '</div></div>';
-
-    html += clientes.map(function (c, idx) { return cardHtml(c, idx); }).join('');
-    el.innerHTML = html;
+    var h = '';
+    if (vista === 'dash') {
+      h += '<div class="cbz-card-row" style="justify-content:space-between">'+
+        '<h2 style="margin:0">Cartera</h2>'+
+        '<button class="cbz-btn" onclick="Cobranza.setVista(\'config\')">⚙️ Configuración</button></div>'+
+        '<div class="cbz-kpis" style="margin:10px 0 14px">'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+fmt(totalVencido)+'</span><span class="cbz-kpi-lbl">Total vencido</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmt(totalVencido+totalPorVencer)+'</span><span class="cbz-kpi-lbl">Cartera total</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#f0c040">'+fmt(totalPorVencer)+'</span><span class="cbz-kpi-lbl">Por vencer</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+enMora+'</span><span class="cbz-kpi-lbl">En mora</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+alDia+'</span><span class="cbz-kpi-lbl">Al día</span></div>'+
+        '<div class="cbz-kpi"><span class="cbz-kpi-num">'+activos+'</span><span class="cbz-kpi-lbl">Activos</span></div>'+
+        '</div>';
+    } else {
+      h += '<div class="cbz-card-row" style="justify-content:space-between;margin-bottom:8px">'+
+        '<h2 style="margin:0">Configuración de cobranza</h2>'+
+        '<button class="cbz-btn-sec" onclick="Cobranza.setVista(\'dash\')">← Cartera</button></div>';
+    }
+    h += '<div class="cbz-card-row" style="margin-bottom:10px">'+
+      '<input class="cbz-search" id="cbz-q" placeholder="🔍 Buscar cliente..." value="'+q.replace(/"/g,'&quot;')+'" '+
+      'oninput="Cobranza.setQ(this.value)">'+
+      '<button class="chip '+(fMora==='todos'?'on':'')+'" onclick="Cobranza.setFMora(\'todos\')">Todos</button>'+
+      '<button class="chip '+(fMora==='mora'?'on':'')+'" onclick="Cobranza.setFMora(\'mora\')">En mora</button>'+
+      '<button class="chip '+(fMora==='aldia'?'on':'')+'" onclick="Cobranza.setFMora(\'aldia\')">Al día</button>'+
+      '</div>'+
+      '<div id="cbz-list"></div>';
+    el.innerHTML = h;
+    renderList();
   }
 
+  /** Solo la lista: se actualiza al teclear sin perder el foco del buscador */
+  function renderList(){
+    var box = document.getElementById('cbz-list');
+    if(!box) return;
+    var items = clientes.map(function(c,i){
+      if(!pasa(c)) return '';
+      return vista==='dash' ? dashCard(c,i) : cardHtml(c,i);
+    }).join('');
+    box.innerHTML = items || '<div class="cbz-muted" style="padding:16px;text-align:center">Sin resultados para "'+q+'"</div>';
+  }
+
+  /** Tarjeta del dashboard de cartera: expandible con el detalle factura por factura */
+  function dashCard(c, idx) {
+    var moraClass = c.maxMora > 90 ? 'cbz-n4' : c.maxMora > 60 ? 'cbz-n3' : c.maxMora > 30 ? 'cbz-n2' : c.maxMora > 0 ? 'cbz-n1' : 'cbz-ok';
+    var moraTxt = c.procesoLegal ? '⚖️ PROCESO LEGAL' : (c.maxMora > 250 ? ('⚖️ N5 · Mora ' + c.maxMora + ' días') : (c.maxMora > 0 ? ('Mora máx. ' + c.maxMora + ' días') : 'Al corriente'));
+    var open = expanded['d'+idx];
+    var h = '<div class="cbz-card">' +
+      '<div class="cbz-card-top" style="cursor:pointer" onclick="Cobranza.expandDash(' + idx + ')">' +
+      '<div class="cbz-card-name">' + (open?'▾ ':'▸ ') + c.cliente + '</div>' +
+      '<span class="cbz-badge ' + (c.procesoLegal ? 'cbz-n4' : moraClass) + '">' + moraTxt + '</span></div>' +
+      '<div class="cbz-card-row" style="cursor:pointer" onclick="Cobranza.expandDash(' + idx + ')">' +
+      '<span class="cbz-money">Vencido: <b class="cbz-red">' + fmt(c.vencido) + '</b></span>' +
+      '<span class="cbz-money" style="color:#f0c040">Por vencer: ' + fmt(c.porVencer) + '</span>' +
+      '<span class="cbz-money"><b>Total: ' + fmt(c.vencido + c.porVencer) + '</b></span>' +
+      '<span class="cbz-muted">' + c.nFacturas + ' fact.</span>' +
+      '</div>';
+    if (open) {
+      var fs = c.facturas || [];
+      var venc = fs.filter(function(f){return f.mora>0;});
+      var vig  = fs.filter(function(f){return f.mora<=0;});
+      function fRow(f){
+        var est = f.mora>0 ? '<span class="cbz-red">vencida hace '+f.mora+' días</span>'
+                : (f.mora===0 ? '<span style="color:#f0c040">vence HOY</span>'
+                : '<span style="color:#f0c040">vence en '+Math.abs(f.mora)+' días</span>');
+        return '<div class="cbz-fact-row">'+
+          '<span class="cbz-fact-id">'+(f.factura?('Fact. '+f.factura):f.ov)+'</span>'+
+          '<span class="cbz-muted">Valor '+fmt(f.total)+' · Pagado '+fmt(f.pagado)+'</span>'+
+          '<span class="cbz-fact-saldo">'+fmt(f.saldo)+'</span>'+
+          '<span class="cbz-fact-est">'+est+'</span></div>';
+      }
+      h += '<div class="cbz-fact-list">';
+      if (venc.length) {
+        h += '<div class="cbz-fact-head cbz-red">VENCIDAS ('+venc.length+') — '+fmt(c.vencido)+'</div>'+
+             venc.map(fRow).join('');
+      }
+      if (vig.length) {
+        h += '<div class="cbz-fact-head" style="color:#f0c040">VIGENTES / POR VENCER ('+vig.length+') — '+fmt(c.porVencer)+'</div>'+
+             vig.map(fRow).join('');
+      }
+      h += '<div class="cbz-fact-head" style="color:#9fc3e8">CARTERA TOTAL — '+fmt(c.vencido+c.porVencer)+'</div>';
+      h += '</div>' +
+      '<div class="cbz-card-row" style="margin-top:8px">'+
+      '<button class="cbz-btn" onclick="Cobranza.statement(' + idx + ')">⬇ Estado de cuenta PDF</button>'+
+      (puedeInteractuar()?'<button class="cbz-btn-sec" onclick="Cobranza.irConfig(' + idx + ')">⚙️ Configurar</button>':'')+
+      '</div>';
+    }
+    return h + '</div>';
+  }
+
+  /** Tarjeta completa de configuración de un cliente */
   function cardHtml(c, idx) {
     var moraClass = c.maxMora > 90 ? 'cbz-n4' : c.maxMora > 60 ? 'cbz-n3' : c.maxMora > 30 ? 'cbz-n2' : c.maxMora > 0 ? 'cbz-n1' : 'cbz-ok';
-    var moraTxt = c.maxMora > 0 ? ('Mora máx. ' + c.maxMora + ' días') : 'Al corriente';
+    var moraTxt = c.procesoLegal ? '⚖️ PROCESO LEGAL' : (c.maxMora > 250 ? ('⚖️ N5 · Mora ' + c.maxMora + ' días') : (c.maxMora > 0 ? ('Mora máx. ' + c.maxMora + ' días') : 'Al corriente'));
     var emailChips = c.emails ? c.emails.split(',').map(function (e) {
       e = e.trim();
       return e ? '<span class="cbz-chip">' + e +
@@ -227,36 +362,60 @@ var Cobranza = (function () {
       ' onchange="Cobranza.toggle(' + idx + ', this.checked)"><span class="cbz-slider"></span></label>' +
       '</div>' +
       '<div class="cbz-card-row">' +
-      '<span class="cbz-badge ' + moraClass + '">' + moraTxt + '</span>' +
+      '<span class="cbz-badge ' + (c.procesoLegal ? 'cbz-n4' : moraClass) + '">' + moraTxt + '</span>' +
       (c.nivel ? '<span class="cbz-badge cbz-badge-lvl">' + c.nivel + '</span>' : '') +
       '<span class="cbz-money">Vencido: <b class="cbz-red">' + fmt(c.vencido) + '</b></span>' +
       (c.porVencer > 0 ? '<span class="cbz-money cbz-muted">Por vencer: ' + fmt(c.porVencer) + '</span>' : '') +
       '</div>' +
       '<div class="cbz-card-row">' +
-      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'mails\')">\u2709\ufe0f Correos (' + countList(c.emails) + ')</button>' +
-      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'tels\')">\ud83d\udcf1 Tel\u00e9fonos (' + countList(c.whatsapp) + ')</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'mails\')">✉️ Correos (' + countList(c.emails) + ')</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.expand(' + idx + ',\'tels\')">📱 Teléfonos (' + countList(c.whatsapp) + ')</button>' +
       '</div>' +
       (isOpen(idx, 'mails') ?
       '<div class="cbz-card-row cbz-emails">' + emailChips +
       '<input class="cbz-email-input" type="email" placeholder="+ agregar email" ' +
       'onkeydown="Cobranza.emailKey(event,' + idx + ', this)" onblur="Cobranza.emailBlur(' + idx + ', this)">' +
       '</div>' : '') +
-      '<div class="cbz-card-row cbz-controls">' +
-      '<span class="cbz-freq">Frecuencia: <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',-1)">−</button>' +
-      '<b>' + c.frecuencia + '</b> días <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',1)">+</button></span>' +
-      '<label class="cbz-esc"><input type="checkbox" ' + (c.escalamiento ? 'checked' : '') +
-      ' onchange="Cobranza.escala(' + idx + ', this.checked)"> Escalamiento</label>' +
-      '</div>' +
       (isOpen(idx, 'tels') ?
       '<div class="cbz-card-row cbz-emails">' + waChips(c, idx) +
       '<input class="cbz-email-input" type="tel" placeholder="+ agregar WhatsApp" ' +
       'onkeydown="Cobranza.waKey(event,' + idx + ', this)" onblur="Cobranza.waBlur(' + idx + ', this)">' +
       '</div>' : '') +
+      '<div class="cbz-card-row cbz-controls">' +
+      '<span class="cbz-freq">Frecuencia: <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',-1)">−</button>' +
+      '<b>' + c.frecuencia + '</b> días <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',1)">+</button></span>' +
+      '<label class="cbz-esc"><input type="checkbox" ' + (c.escalamiento ? 'checked' : '') +
+      ' onchange="Cobranza.escala(' + idx + ', this.checked)"> Escalamiento</label>' +
+      '<label class="cbz-esc" style="color:#ff8080"><input type="checkbox" ' + (c.procesoLegal ? 'checked' : '') +
+      ' onchange="Cobranza.legal(' + idx + ', this.checked)"> ⚖️ Proceso legal</label>' +
+      ((c.procesoLegal || c.maxMora > 250) ? '<button class="cbz-btn-sec cbz-danger" onclick="Cobranza.actaForm(' + idx + ')">📄 Acta</button>' : '') +
+      (c.actaAprobada ? '<button class="cbz-badge cbz-ok" style="border:none;cursor:pointer" onclick="Cobranza.verActa(' + idx + ')">Acta aprobada ✓ ' + c.actaAprobada + ' 👁</button>' : '') +
+      '</div>' +
       '<div class="cbz-card-row cbz-actions">' +
       (c.ultimoEnvio ? '<span class="cbz-muted">Último envío: ' + c.ultimoEnvio + '</span>' : '<span class="cbz-muted">Nunca enviado</span>') +
       '<button class="cbz-btn" onclick="Cobranza.openChooser(' + idx + ')" ' + (c.activo && c.vencido > 0 ? '' : 'disabled') + '>Enviar ahora</button>' +
       waButtons(c, idx) +
       '</div>' +
+      (actaOpen === idx ?
+      '<div class="cbz-chooser" style="margin-top:8px"><div class="cbz-card-name" style="font-size:13px;margin-bottom:8px">📄 Acta transaccional — ' + c.cliente + '</div>' +
+      '<div class="uform">' +
+      '<div class="cbz-card-row"><input class="uinput" id="a-meses" type="number" placeholder="Plazo (meses)" value="24" style="max-width:140px">' +
+      '<input class="uinput" id="a-tasa" type="number" step="0.5" placeholder="Tasa anual %" value="8" style="max-width:140px">' +
+      '<select class="uinput" id="a-firmante" style="max-width:260px">' +
+      '<option value="martin">Firma: Martín Pinto (Presidente)</option>' +
+      '<option value="esteban">Firma: Esteban Ferlito (Gerente General)</option></select></div>' +
+      '<input class="uinput" id="a-nombre" placeholder="Gerente general del cliente (si se conoce)">' +
+      '<div class="cbz-card-row"><input class="uinput" id="a-cedula" placeholder="Cédula (si se conoce)" style="max-width:200px">' +
+      '<input class="uinput" id="a-ciudad" placeholder="Ciudad de domicilio" style="max-width:200px">' +
+      '<input class="uinput" id="a-ruc" placeholder="RUC del cliente" style="max-width:200px"></div>' +
+      '<input class="uinput" id="a-email" type="email" placeholder="Email para citaciones (si se conoce)">' +
+      '<div class="cbz-card-row">' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.actaGo(' + idx + ', true)">👁 Vista previa</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.actaGo(' + idx + ', false)">⬇ Descargar</button>' +
+      '<button class="cbz-btn" onclick="Cobranza.actaAprobar(' + idx + ')">✅ Aprobar acta</button>' +
+      '<button class="cbz-btn-sec" onclick="Cobranza.actaForm(null)">Cancelar</button></div>' +
+      '<div class="cbz-muted">Los campos vacíos salen con línea en blanco para llenar a mano.</div>' +
+      '</div></div>' : '') +
       (chooser === idx ?
       '<div class="cbz-card-row cbz-chooser">' +
       '<span class="cbz-muted">Mensaje:</span>' +
@@ -265,9 +424,28 @@ var Cobranza = (function () {
       '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 2)">N2 Firme</button>' +
       '<button class="cbz-btn-sec" onclick="Cobranza.doSend(' + idx + ', 3)">N3 Urgente</button>' +
       '<button class="cbz-btn-sec cbz-danger" onclick="Cobranza.doSend(' + idx + ', 4)">N4 Final</button>' +
+      '<button class="cbz-btn-sec cbz-danger" onclick="Cobranza.doSend(' + idx + ', 5)">N5 Legal</button>' +
       '<button class="cbz-btn-sec" onclick="Cobranza.closeChooser()">Cancelar</button>' +
       '</div>' : '') +
       '</div>';
+  }
+
+  function setVista(v){vista=v;render();}
+  function setQ(v){q=v;renderList();}
+  function setFMora(v){fMora=v;render();}
+  function irConfig(idx){vista='config';q=clientes[idx].cliente;render();}
+  function expandDash(idx){expanded['d'+idx]=!expanded['d'+idx];renderList();}
+  function statement(idx){
+    var c=clientes[idx];
+    api({action:'getStatementPdf',cliente:c.cliente}).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);return;}
+      var bin=atob(res.b64),arr=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      var blob=new Blob([arr],{type:'application/pdf'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);a.download=res.filename;
+      document.body.appendChild(a);a.click();a.remove();
+    });
   }
 
   function countList(s) {
@@ -278,16 +456,21 @@ var Cobranza = (function () {
   function expand(idx, which) {
     if (!expanded[idx]) expanded[idx] = {};
     expanded[idx][which] = !expanded[idx][which];
-    render();
+    renderList();
   }
-  function openChooser(idx) { chooser = idx; render(); }
-  function closeChooser() { chooser = null; render(); }
+  function openChooser(idx) { chooser = idx; renderList(); }
+  function closeChooser() { chooser = null; renderList(); }
   function doSend(idx, nivel) {
     var c = clientes[idx];
     var lbl = nivel === 0 ? 'automático' : 'N' + nivel;
     if (!confirm('¿Enviar mensaje ' + lbl + ' AHORA a ' + c.cliente + '?')) return;
+    var esN5 = nivel === 5 || (nivel === 0 && c.nivelNum === 5);
+    var conActa = true;
+    if (esN5) {
+      conActa = confirm('¿Adjuntar el acta transaccional' + (c.actaAprobada ? ' APROBADA del ' + c.actaAprobada : ' (modelo)') + '?\nAceptar = con acta · Cancelar = solo estado de cuenta');
+    }
     chooser = null;
-    api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined }).then(function (res) {
+    api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined, conActa: conActa }).then(function (res) {
       alert(res.ok ? res.resultado : 'Error: ' + (res.error || res.resultado));
       init();
     });
@@ -382,18 +565,120 @@ var Cobranza = (function () {
     api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: val })
       .then(render);
   }
+  function legal(idx, on) {
+    var c = clientes[idx];
+    var msg = on ? '¿Marcar a ' + c.cliente + ' en PROCESO LEGAL? Sus recordatorios pasarán al nivel 5 (semanal).'
+                 : '¿Quitar a ' + c.cliente + ' del proceso legal?';
+    if (!confirm(msg)) { render(); return; }
+    clientes[idx].procesoLegal = on;
+    api({ action: 'updateCxcClient', cliente: c.cliente, campo: 'proceso', valor: on ? 'SI' : 'NO' })
+      .then(render);
+  }
+
+  function actaForm(idx) {
+    actaOpen = (actaOpen === idx) ? null : idx;
+    renderList();
+    if (actaOpen === null || idx === null) return;
+    var c = clientes[idx];
+    if (!c.actaAprobada) return;
+    // pre-carga los datos del acta aprobada para editarla
+    api({ action: 'getActaAprobada', cliente: c.cliente, conPdf: false }).then(function (res) {
+      if (!res.ok || actaOpen !== idx) return;
+      function set(id, v) { var el = document.getElementById(id); if (el && v !== undefined && v !== null && v !== '') el.value = v; }
+      set('a-meses', res.meses); set('a-tasa', res.tasa); set('a-firmante', res.firmante);
+      set('a-nombre', res.repNombre); set('a-cedula', res.repCedula);
+      set('a-ciudad', res.repCiudad); set('a-ruc', res.clienteRuc); set('a-email', res.repEmail);
+    });
+  }
+  function verActa(idx) {
+    var c = clientes[idx];
+    var w = window.open('', '_blank');
+    api({ action: 'getActaAprobada', cliente: c.cliente }).then(function (res) {
+      if (!res.ok) { if (w) w.close(); alert('Error: ' + res.error); return; }
+      var bin = atob(res.b64), arr = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+      if (w) w.location = url; else window.open(url, '_blank');
+    }).catch(function () { if (w) w.close(); alert('No se pudo abrir el acta.'); });
+  }
+  function actaAprobar(idx) {
+    var c = clientes[idx];
+    if (!confirm('¿Aprobar esta acta para ' + c.cliente + '? Quedará guardada y se adjuntará en los envíos de nivel 5.')) return;
+    api({ action: 'aprobarActa', cliente: c.cliente,
+      meses: document.getElementById('a-meses').value,
+      tasa: document.getElementById('a-tasa').value,
+      firmante: document.getElementById('a-firmante').value,
+      repNombre: document.getElementById('a-nombre').value,
+      repCedula: document.getElementById('a-cedula').value,
+      repCiudad: document.getElementById('a-ciudad').value,
+      clienteRuc: document.getElementById('a-ruc').value,
+      repEmail: document.getElementById('a-email').value
+    }).then(function (res) {
+      if (!res.ok) { alert('Error: ' + res.error); return; }
+      alert('Acta aprobada y guardada (' + res.meses + ' cuotas de ' + fmt(res.cuota) + ' al ' + res.tasa + '%). Se adjuntará en los envíos N5.');
+      actaOpen = null;
+      init();
+    });
+  }
+  function actaGo(idx, preview) {
+    var c = clientes[idx];
+    var w = preview ? window.open('', '_blank') : null; // abrir antes del fetch (popup blockers)
+    api({ action: 'generarActa', cliente: c.cliente,
+      meses: document.getElementById('a-meses').value,
+      tasa: document.getElementById('a-tasa').value,
+      firmante: document.getElementById('a-firmante').value,
+      repNombre: document.getElementById('a-nombre').value,
+      repCedula: document.getElementById('a-cedula').value,
+      repCiudad: document.getElementById('a-ciudad').value,
+      clienteRuc: document.getElementById('a-ruc').value,
+      repEmail: document.getElementById('a-email').value
+    }).then(function (res) {
+      if (!res.ok) { if (w) w.close(); alert('Error: ' + res.error); return; }
+      var bin = atob(res.b64), arr = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      var blob = new Blob([arr], { type: 'application/pdf' });
+      var url = URL.createObjectURL(blob);
+      if (preview) {
+        if (w) w.location = url; else window.open(url, '_blank');
+      } else {
+        var a = document.createElement('a');
+        a.href = url; a.download = res.filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        actaOpen = null; renderList();
+        alert('Acta descargada: ' + res.meses + ' cuotas de ' + fmt(res.cuota) + ' al ' + res.tasa + '% sobre ' + fmt(res.monto) + '.');
+      }
+    }).catch(function(){ if (w) w.close(); alert('Error de red generando el acta.'); });
+  }
+
+
+
   function sendWa(idx, num) {
     var c = clientes[idx];
-    var msg = waTemplate || 'Estimados {CLIENTE}, les saluda Minecore S.A.S. Les recordamos que mantienen valores vencidos por {VENCIDO} (mora máxima {MORA} días). Quedamos atentos para coordinar el pago. Gracias.';
-    msg = msg.replace(/{CLIENTE}/g, c.cliente).replace(/{VENCIDO}/g, fmt(c.vencido)).replace(/{MORA}/g, c.maxMora);
-    window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(msg), '_blank');
+    var lvl = c.nivelNum || 1;
+    var tpl = (waTemplate && waTemplate[lvl]) ||
+      'Estimados {CLIENTE}, les saluda Minecore S.A.S. Mantienen valores vencidos por {VENCIDO} (mora {MORA} días). Estado de cuenta: {LINK} — Departamento de Cobranzas, Minecore S.A.S.';
+    // Abre la ventana ANTES del fetch para que el navegador no la bloquee
+    var w = window.open('', '_blank');
+    api({ action: 'getStatementLink', cliente: c.cliente }).then(function (res) {
+      var link = (res.ok && res.url) ? res.url : '';
+      var msg = tpl.replace(/{CLIENTE}/g, c.cliente)
+                   .replace(/{VENCIDO}/g, fmt(c.vencido))
+                   .replace(/{MORA}/g, c.maxMora)
+                   .replace(/{LINK}/g, link || '(estado de cuenta enviado por correo)');
+      var url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
+      if (w) w.location = url; else window.open(url, '_blank');
+    }).catch(function(){ if (w) w.close(); alert('No se pudo generar el link del estado de cuenta.'); });
   }
+
 
   return {
     init: init, toggle: toggle, escala: escala, freq: freq,
     emailKey: emailKey, emailBlur: emailBlur, removeEmail: removeEmail,
     expand: expand, openChooser: openChooser, closeChooser: closeChooser, doSend: doSend,
-    waKey: waKey, waBlur: waBlur, removeWa: removeWa, sendWa: sendWa
+    waKey: waKey, waBlur: waBlur, removeWa: removeWa, sendWa: sendWa,
+    setVista: setVista, setQ: setQ, setFMora: setFMora, irConfig: irConfig,
+    expandDash: expandDash, statement: statement,
+    legal: legal, actaForm: actaForm, actaGo: actaGo, actaAprobar: actaAprobar, verActa: verActa
   };
 })();
 
@@ -439,7 +724,7 @@ var Dash = (function(){
     body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
     openId=null;
     fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'getDashboard',fromDate:from,toDate:to,pin:sessionStorage.getItem('mc_pin')||''})})
+      body:JSON.stringify({action:'getDashboard',fromDate:from,toDate:to,user:getUserName(),pin:getPin()})})
     .then(function(r){return r.text();}).then(function(txt){
       var res;
       try { res = JSON.parse(txt); }
@@ -517,7 +802,7 @@ var Dash = (function(){
     render();
     if(openId){
       fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({action:'getOrderDetail',orderId:id,pin:sessionStorage.getItem('mc_pin')||''})})
+        body:JSON.stringify({action:'getOrderDetail',orderId:id,user:getUserName(),pin:getPin()})})
       .then(function(r){return r.json();}).then(function(res){
         var det=document.getElementById('det-'+id);
         if(!det)return;
@@ -548,7 +833,7 @@ var Dash = (function(){
   }
   function dlPdf(id){
     fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'getOrderPdf',orderId:id,pin:sessionStorage.getItem('mc_pin')||''})})
+      body:JSON.stringify({action:'getOrderPdf',orderId:id,user:getUserName(),pin:getPin()})})
     .then(function(r){return r.json();}).then(function(res){
       if(!res.ok){alert('Error: '+(res.error||'no se pudo generar el PDF'));return;}
       var bin=atob(res.b64), arr=new Uint8Array(bin.length);
@@ -568,7 +853,7 @@ var Dash = (function(){
 var Users = (function(){
   var lista = [], mods = [], editing = null;
   function api(p){
-    p.pin = sessionStorage.getItem('mc_pin')||'';
+    p.user = getUserName(); p.pin = getPin();
     return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
       .then(function(r){return r.json();});
   }
@@ -582,7 +867,9 @@ var Users = (function(){
   }
   function render(){
     var el=document.getElementById('users-screen');
-    var h='<button class="cbz-btn" style="margin-bottom:12px" onclick="Users.nuevo()">+ Nuevo usuario</button>';
+    var h='<div class="cbz-card-row" style="margin-bottom:12px">'+
+      '<button class="cbz-btn" onclick="Users.nuevo()">+ Nuevo usuario</button>'+
+      '<button class="cbz-btn-sec" onclick="Users.invitar()">🔗 Generar invitación</button></div>';
     h+=lista.map(function(u,i){
       var isEd = editing===i;
       var card='<div class="cbz-card'+(u.activo?'':' cbz-card-off')+'">'+
@@ -595,13 +882,18 @@ var Users = (function(){
       return card+'</div>';
     }).join('');
     if(editing==='new') h='<div class="cbz-card">'+ '<div class="cbz-card-name">Nuevo usuario</div>'+formHtml({nombre:'',pin:'',rol:'usuario',modulos:'',activo:true},true)+'</div>'+h;
+    if(editing==='invite') h=inviteFormHtml()+h;
     el.innerHTML=h;
   }
   function formHtml(u,isNew){
+    var toks=(u.modulos||'').split(',').map(function(x){return x.trim();});
     var checks=mods.map(function(m){
-      var on=(u.modulos||'').indexOf(m)>=0;
-      return '<label class="cbz-esc"><input type="checkbox" id="f-mod-'+m+'" '+(on?'checked':'')+'> '+m+'</label>';
-    }).join(' ');
+      var ver=toks.indexOf(m)>=0||toks.indexOf(m+'+')>=0;
+      var act=toks.indexOf(m+'+')>=0;
+      return '<div class="cbz-card-row" style="gap:14px"><b style="min-width:100px;font-size:12px">'+m+'</b>'+
+        '<label class="cbz-esc"><input type="checkbox" id="f-mod-'+m+'" '+(ver?'checked':'')+'> Ver</label>'+
+        '<label class="cbz-esc"><input type="checkbox" id="f-act-'+m+'" '+(act?'checked':'')+'> Interactuar</label></div>';
+    }).join('');
     return '<div class="uform">'+
       '<input class="uinput" id="f-nombre" placeholder="Nombre/iniciales" value="'+u.nombre+'" '+(isNew?'':'readonly')+'>'+
       '<input class="uinput" id="f-pin" placeholder="PIN (4-8 dígitos)" value="'+u.pin+'" inputmode="numeric" maxlength="8">'+
@@ -617,7 +909,11 @@ var Users = (function(){
   function nuevo(){editing='new';render();}
   function edit(i){editing=(editing===i)?null:i;render();}
   function save(isNew){
-    var modsSel=mods.filter(function(m){return document.getElementById('f-mod-'+m).checked;}).join(',');
+    var modsSel=mods.map(function(m){
+      var act=document.getElementById('f-act-'+m).checked;
+      var ver=document.getElementById('f-mod-'+m).checked;
+      return act?(m+'+'):(ver?m:'');
+    }).filter(String).join(',');
     api({action:'saveUser',
       nombre:document.getElementById('f-nombre').value.trim(),
       userPin:document.getElementById('f-pin').value.trim(),
@@ -636,20 +932,132 @@ var Users = (function(){
       if(res.ok) init();
     });
   }
-  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar};
+  function invitar(){ editing='invite'; render(); }
+  function inviteFormHtml(){
+    var checks=mods.map(function(m){
+      return '<div class="cbz-card-row" style="gap:14px"><b style="min-width:100px;font-size:12px">'+m+'</b>'+
+        '<label class="cbz-esc"><input type="checkbox" id="i-mod-'+m+'"> Ver</label>'+
+        '<label class="cbz-esc"><input type="checkbox" id="i-act-'+m+'"> Interactuar</label></div>';
+    }).join('');
+    return '<div class="cbz-card"><div class="cbz-card-name">🔗 Nueva invitación</div>'+
+      '<div class="uform">'+
+      '<select class="uinput" id="i-rol">'+
+      '<option value="usuario">Usuario interno (solo ver)</option>'+
+      '<option value="admin">Administrador</option>'+
+      '<option value="cliente">Cliente (portal — próximamente)</option>'+
+      '</select>'+
+      '<div class="cbz-card-row">'+checks+'</div>'+
+      '<div class="cbz-card-row">'+
+      '<button class="cbz-btn" onclick="Users.crearInvite()">Crear link de invitación</button>'+
+      '<button class="cbz-btn-sec" onclick="Users.cancelInvite()">Cancelar</button></div>'+
+      '<div id="i-result"></div>'+
+      '</div></div>';
+  }
+  function crearInvite(){
+    var modsSel=mods.map(function(m){
+      var act=document.getElementById('i-act-'+m).checked;
+      var ver=document.getElementById('i-mod-'+m).checked;
+      return act?(m+'+'):(ver?m:'');
+    }).filter(String).join(',');
+    var rol=document.getElementById('i-rol').value;
+    api({action:'createInvite',rol:rol,modulos:modsSel}).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);return;}
+      var link=location.origin+location.pathname+'?invite='+res.token;
+      var box=document.getElementById('i-result');
+      box.innerHTML='<div class="cbz-muted" style="margin:8px 0 4px">Link listo ('+res.rol+' · '+(res.modulos||'sin módulos')+') — envíalo por WhatsApp o correo. La persona crea su propio nombre y PIN:</div>'+
+        '<input class="uinput" id="i-link" readonly value="'+link+'">'+
+        '<div class="cbz-card-row" style="margin-top:6px">'+
+        '<button class="cbz-btn" onclick="Users.copyLink()">📋 Copiar link</button>'+
+        '<a class="cbz-btn cbz-btn-wa" style="text-decoration:none" target="_blank" href="https://wa.me/?text='+encodeURIComponent('Hola! Crea tu acceso a la Minecore Admin App aquí: '+link)+'">Enviar por WhatsApp</a>'+
+        '</div>';
+    });
+  }
+  function copyLink(){
+    var inp=document.getElementById('i-link');
+    inp.select();inp.setSelectionRange(0,99999);
+    try{document.execCommand('copy');alert('Link copiado');}catch(e){alert('Copia manualmente el link');}
+  }
+  function cancelInvite(){editing=null;render();}
+  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite};
+})();
+
+
+/* ===================== INVENTARIO ===================== */
+var Inv = (function(){
+  var items=[], kpi=null, esAdmin=false, q='', filtro='todos';
+  function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  function api(p){
+    p.user=getUserName();p.pin=getPin();
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
+      .then(function(r){return r.json();});
+  }
+  function init(){
+    var el=document.getElementById('inv-screen');
+    el.innerHTML='<div class="cbz-loading">Cargando inventario...</div>';
+    api({action:'getInventario'}).then(function(res){
+      if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      items=res.items;kpi=res.kpi;esAdmin=res.esAdmin;
+      render();
+    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+  }
+  function render(){
+    var el=document.getElementById('inv-screen');
+    var h='<div class="cbz-kpis" style="margin-bottom:12px">'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+kpi.skus+'</span><span class="cbz-kpi-lbl">SKUs activos</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+kpi.unidades+'</span><span class="cbz-kpi-lbl">Unidades</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+kpi.agotados+'</span><span class="cbz-kpi-lbl">Agotados</span></div>'+
+      (kpi.valorCosto!==null?'<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmt(kpi.valorCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmt(kpi.valorPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>'+
+      '</div>'+
+      '<div class="cbz-card-row" style="margin-bottom:10px">'+
+      '<input class="cbz-search" placeholder="🔍 Buscar por nombre o SKU..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Inv.setQ(this.value)">'+
+      chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
+      '</div><div id="inv-list"></div>';
+    el.innerHTML=h;
+    renderList();
+  }
+  function chip(id,lbl){return '<button class="chip '+(filtro===id?'on':'')+'" onclick="Inv.setF(\''+id+'\')">'+lbl+'</button>';}
+  function pasa(it){
+    if(q){var s=(it.nombre+' '+it.sku).toLowerCase();if(s.indexOf(q.toLowerCase())<0)return false;}
+    if(filtro==='con'&&it.stock<=0)return false;
+    if(filtro==='agotados'&&it.stock>0)return false;
+    return true;
+  }
+  function renderList(){
+    var box=document.getElementById('inv-list');
+    if(!box)return;
+    var fil=items.filter(pasa);
+    var MAX=200;
+    var h=fil.slice(0,MAX).map(function(it){
+      var st=it.stock<=0?'<span class="tagx tn">AGOTADO</span>':
+        '<span class="tagx tf">'+it.stock+' und.</span>';
+      return '<div class="cbz-card" style="padding:10px 12px">'+
+        '<div class="cbz-card-row" style="justify-content:space-between">'+
+        '<div style="flex:1;min-width:0"><div class="pname">'+it.nombre+'</div>'+
+        '<div class="pmeta">SKU: '+it.sku+(esAdmin&&it.costo?' · Costo: '+fmt(it.costo):'')+'</div></div>'+
+        '<div style="text-align:right">'+st+
+        (it.precio?'<div class="pname" style="margin-top:4px">'+fmt(it.precio)+'</div>':'')+
+        '</div></div></div>';
+    }).join('');
+    if(fil.length>MAX) h+='<div class="cbz-muted" style="text-align:center;padding:10px">Mostrando '+MAX+' de '+fil.length+' — usa el buscador para afinar</div>';
+    box.innerHTML=h||'<div class="cbz-muted" style="padding:16px;text-align:center">Sin resultados</div>';
+  }
+  function setQ(v){q=v;renderList();}
+  function setF(f){filtro=f;render();}
+  return {init:init,setQ:setQ,setF:setF};
 })();
 
 /* ===================== NAVEGACIÓN ===================== */
 function getProfile(){
-  try{return JSON.parse(sessionStorage.getItem('mc_user')||'{}');}catch(e){return {};}
+  try{return JSON.parse(localStorage.getItem('mc_profile')||'{}');}catch(e){return {};}
 }
 function renderHome(){
   var p=getProfile();
-  var can=function(m){return p.rol==='admin'||(p.modulos||[]).indexOf(m)>=0;};
+  var can=function(m){var ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;};
   var h='';
   if(can('dashboard')) h+='<div class="mod" onclick="openMod(\'dash\')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>';
   if(can('cobranza')) h+='<div class="mod" onclick="openMod(\'cbz\')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>';
-  if(can('inventario')) h+='<div class="mod soon"><div class="ico">📦</div><h3>Inventario</h3><p>Cantidades y ubicaciones</p><span class="tag">Próximamente</span></div>';
+  if(can('inventario')) h+='<div class="mod" onclick="openMod(\'inv\')"><div class="ico">📦</div><h3>Inventario</h3><p>Stock por producto, agotados y valorización</p></div>';
   if(can('proveedores')) h+='<div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
   document.getElementById('home').innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
@@ -661,7 +1069,7 @@ function doSyncNow(){
   if(!confirm('¿Sincronizar ahora con inFlow? Puede tardar 2-4 minutos.'))return;
   b.disabled=true; b.textContent='⏳ Sincronizando...';
   fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action:'syncNow',pin:sessionStorage.getItem('mc_pin')||''})})
+    body:JSON.stringify({action:'syncNow',user:getUserName(),pin:getPin()})})
   .then(function(r){return r.json();}).then(function(res){
     b.disabled=false; b.textContent='⟳ Sync';
     if(!res.ok){alert('Error en sync: '+(res.error||'desconocido'));return;}
@@ -680,11 +1088,13 @@ function openMod(m){
   document.getElementById('backBtn').style.display='block';
   if(m==='dash'){document.getElementById('dash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';Dash.init();}
   if(m==='cbz'){document.getElementById('cobranza-screen').style.display='block';document.getElementById('title').textContent='COBRANZA';Cobranza.init();}
+  if(m==='inv'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='INVENTARIO';Inv.init();}
   if(m==='users'){document.getElementById('users-screen').style.display='block';document.getElementById('title').textContent='USUARIOS';Users.init();}
 }
 function goHome(){
   document.getElementById('dash-screen').style.display='none';
   document.getElementById('cobranza-screen').style.display='none';
+  document.getElementById('inv-screen').style.display='none';
   document.getElementById('users-screen').style.display='none';
   document.getElementById('home').style.display='grid';
   document.getElementById('backBtn').style.display='none';
@@ -692,26 +1102,92 @@ function goHome(){
 }
 
 /* ===================== LOGIN ===================== */
+function prepararLogin(){
+  var u=getUserName();
+  if(u){
+    document.getElementById('saludo').textContent='Hola, '+u;
+    document.getElementById('saludo').style.display='block';
+    document.getElementById('usr').style.display='none';
+    document.getElementById('usr').value=u;
+    document.getElementById('cambiarUsr').style.display='block';
+    if(bioEnabled()&&webauthnAvailable()){
+      document.getElementById('bioBtn').style.display='block';
+      doBioLogin(); // intenta Face ID de una
+    }
+  }
+}
+function cambiarUsuario(){
+  clearCreds();
+  location.reload();
+}
+function entrar(res,usr,pin,recordarPin){
+  try{localStorage.setItem('mc_user_name',res.user||usr);}catch(e){}
+  if(recordarPin){try{localStorage.setItem('mc_pin',pin);}catch(e){}}
+  try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||usr,rol:res.rol||'usuario',modulos:res.modulos||[]}));}catch(e){}
+  window._pinSesion=pin;
+  document.getElementById('login').style.display='none';
+  document.getElementById('shell').style.display='block';
+  renderHome();
+}
 function doLogin(){
+  var usr = document.getElementById('usr').value.trim();
   var pin = document.getElementById('pin').value.trim();
   var err = document.getElementById('loginErr');
   err.textContent='';
-  sessionStorage.setItem('mc_pin', pin);
   fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action:'ping',pin:pin})})
+    body:JSON.stringify({action:'ping',user:usr,pin:pin})})
   .then(function(r){return r.json();}).then(function(res){
-    if(res.ok){
-      sessionStorage.setItem('mc_user', JSON.stringify({nombre:res.user||'',rol:res.rol||'usuario',modulos:res.modulos||[]}));
-      document.getElementById('login').style.display='none';
-      document.getElementById('shell').style.display='block';
-      renderHome();
+    if(!res.ok){err.textContent=res.error||'Usuario o PIN incorrectos';return;}
+    // ¿Activar Face ID?
+    if(webauthnAvailable()&&!bioEnabled()&&confirm('¿Activar Face ID / huella para entrar sin PIN en este dispositivo?')){
+      var uid=new Uint8Array(16);crypto.getRandomValues(uid);
+      navigator.credentials.create({publicKey:{
+        challenge:crypto.getRandomValues(new Uint8Array(32)),
+        rp:{name:'Minecore Admin',id:location.hostname},
+        user:{id:uid,name:usr,displayName:usr},
+        pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+        authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required'},
+        timeout:60000
+      }}).then(function(cred){
+        localStorage.setItem('mc_cred',bufToB64u(cred.rawId));
+        localStorage.setItem('mc_bio','1');
+        entrar(res,usr,pin,true);
+      }).catch(function(){entrar(res,usr,pin,false);});
     } else {
-      sessionStorage.removeItem('mc_pin');
-      err.textContent = res.error || 'PIN incorrecto';
+      entrar(res,usr,pin,bioEnabled());
     }
-  }).catch(function(){err.textContent='Sin conexión con el servidor.';});
+  }).catch(function(){err.textContent='Sin conexion con el servidor.';});
 }
-if(sessionStorage.getItem('mc_pin')){doLogin();}
+function doBioLogin(){
+  var err=document.getElementById('loginErr');
+  var credId=localStorage.getItem('mc_cred');
+  var pin=getPin();
+  var u=getUserName();
+  if(!credId||!pin||!u){err.textContent='Face ID no configurado: entra con tu PIN.';return;}
+  navigator.credentials.get({publicKey:{
+    challenge:crypto.getRandomValues(new Uint8Array(32)),
+    allowCredentials:[{type:'public-key',id:b64uToBuf(credId)}],
+    userVerification:'required',
+    timeout:60000
+  }}).then(function(){
+    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'ping',user:u,pin:pin})})
+    .then(function(r){return r.json();}).then(function(res){
+      if(res.ok){entrar(res,u,pin,true);}
+      else{err.textContent='Sesión inválida: entra con tu PIN.';}
+    });
+  }).catch(function(){/* usuario canceló Face ID: que use PIN */});
+}
+function doLogout(){
+  if(!confirm('¿Cerrar tu sesion en este dispositivo? (Se desactivará también Face ID)'))return;
+  clearCreds();
+  location.reload();
+}
+
+if(/[?&]invite=/.test(location.search)){
+  document.getElementById('login').style.display='none';
+  document.getElementById('invite').style.display='block';
+} else { prepararLogin(); }
 </script>
 </body>
 </html>
