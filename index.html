@@ -161,6 +161,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v38</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -183,13 +184,33 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 </div>
 
 <script>
+window.onerror=function(msg,src,line,col){
+  try{
+    var er=document.getElementById('loginErr');
+    if(er){er.textContent='⚠ '+msg+' [línea '+line+':'+col+']';}
+  }catch(e){}
+};
+window.addEventListener&&window.addEventListener('unhandledrejection',function(ev){
+  try{
+    var er=document.getElementById('loginErr');
+    var r=ev&&ev.reason;
+    if(er&&r){er.textContent='⚠ Promesa: '+(r.name||'')+' '+(r.message||r);}
+  }catch(e){}
+});
 /* ===== Credenciales persistentes (hasta cerrar sesion) ===== */
 function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);localStorage.setItem('mc_pin',p);}catch(e){}}
 function getUserName(){try{return localStorage.getItem('mc_user_name')||'';}catch(e){return '';}}
 function getPin(){try{return localStorage.getItem('mc_pin')||window._pinSesion||'';}catch(e){return window._pinSesion||'';}}
 function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');}catch(e){}}
 function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
-function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var bin=atob(s);var a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a.buffer;}
+function b64uToBuf(s){
+  s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');
+  while(s.length%4)s+='=';           // padding que Safari exige
+  var bin=atob(s);
+  var a=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
+  return a.buffer;
+}
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
@@ -1111,7 +1132,8 @@ var Inv = (function(){
       '<div class="uform"><div class="cbz-card-row">'+
       '<label class="cbz-esc">Lead time (días de importación)<br><input class="uinput" id="r-lead" type="number" value="'+(reo?reo.lead:20)+'" style="max-width:120px"></label>'+
       '<label class="cbz-esc">Colchón de seguridad (días)<br><input class="uinput" id="r-cob" type="number" value="'+(reo?reo.colchon:10)+'" style="max-width:120px"></label>'+
-      '</div><div class="cbz-muted" style="margin:4px 0 8px">La cantidad de cada pedido la decide el motor por rotación: alta (≥10/mes) = 6 meses · media (2-10) = 4 meses · baja = 3 meses. Al pedido solo entran productos RECURRENTES por FRECUENCIA: ≥3 ventas (órdenes, sin importar cantidad) en los últimos 12 meses, o ≥2 órdenes/año sostenidas en 3 de los últimos 4 años. Vender 1,000 unidades en una sola venta NO es rotación: va a NO REPONER.</div><div class="cbz-card-row">'+
+      '<label class="cbz-esc">Ciclo de importación (días)<br><input class="uinput" id="r-ped" type="number" value="'+(reo&&reo.ciclo?reo.ciclo:30)+'" style="max-width:120px"></label>'+
+      '</div><div class="cbz-muted" style="margin:4px 0 8px">La cantidad de cada pedido la decide el motor por rotación: alta (≥10/mes) = 6 meses · media (2-10) = 4 meses · baja = 3 meses. REPOSICIÓN PERIÓDICA (FIFO): cada producto tiene su nivel objetivo = su venta durante (ciclo de importación + fabricación + colchón). En cada importación se repone hasta el objetivo descontando el stock — el producto entra, sale, y se agota justo cuando llega el siguiente pedido. Solo entran RECURRENTES por FRECUENCIA (≥3 ventas/año); una venta gigante única NO es rotación: va a NO REPONER.</div><div class="cbz-card-row">'+
       '<button class="cbz-btn" onclick="Inv.calcular()">Calcular recomendaciones</button>'+
       (reo?'<button class="cbz-btn-sec" onclick="Inv.csv()">⬇ Lista de pedidos ('+reo.reordenar.length+')</button>':'')+
       '</div></div></div>'+
@@ -1132,7 +1154,8 @@ var Inv = (function(){
     box.innerHTML='<div class="cbz-loading">Analizando rotación histórica...</div>';
     api({action:'getReorder',
       leadDias:document.getElementById('r-lead').value,
-      coberturaDias:document.getElementById('r-cob').value
+      coberturaDias:document.getElementById('r-cob').value,
+      cicloDias:document.getElementById('r-ped').value
     }).then(function(res){
       if(!res.ok){box.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       reo=res;renderReo();
@@ -1142,11 +1165,11 @@ var Inv = (function(){
   function pintarReo(){
     var box=document.getElementById('reo-res');
     var h='';
-    h+=secc('🚨 REORDENAR YA — stock bajo el punto de reorden','#ff6b6b',reo.reordenar.length);
+    h+=secc('🚨 PEDIDO DE ESTA IMPORTACIÓN — reponer cada producto a su nivel objetivo','#ff6b6b',reo.reordenar.length);
     h+=reo.reordenar.slice(0,50).map(function(r){
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
-        '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Stock: <b class="cbz-red">'+r.stock+'</b> · Vende '+r.velMes+'/mes · Cubre '+r.cubreDias+' días</div>'+
-        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> ('+r.cobMeses+' meses de cobertura) · Punto mínimo: '+r.puntoReorden+' · Inversión: '+fmt(r.costoPedido)+'</div></div>';
+        '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Vende '+r.velMes+'/mes · Stock: <b class="cbz-red">'+r.stock+'</b> (te alcanza '+r.cubreDias+' días)</div>'+
+        '<div class="pmeta" style="color:#6fd68f">→ Pedir <b>'+r.sugerido+' und.</b> en esta importación (repone al objetivo de '+r.objetivo+') · Alerta si baja de '+r.puntoReorden+' · Inversión: '+fmt(r.costoPedido)+'</div></div>';
     }).join('');
     if(reo.reordenar.length>50)h+='<div class="cbz-muted" style="padding:6px;text-align:center">+'+(reo.reordenar.length-50)+' más en el CSV</div>';
     h+=secc('🚫 NO REPONER — venta esporádica: comprar contra pedido','#ff9f43',reo.noReponer.length);
@@ -1155,14 +1178,16 @@ var Inv = (function(){
         '<div class="pmeta">SKU '+r.sku+(r.marca?' · '+r.marca:'')+' · Stock: '+r.stock+'</div>'+
         '<div class="pmeta" style="color:#ff9f43">→ '+r.razon+'</div></div>';
     }).join('');
-    h+=secc('📦 ALTA ROTACIÓN — el motor ya los pide en volumen (6 meses)','#5cc8ff',reo.volumenAlto.length);
+    h+=secc('📦 ALTA ROTACIÓN — aquí va primero la inversión: venta segura y rápida','#5cc8ff',reo.volumenAlto.length);
     h+=reo.volumenAlto.map(function(r){
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+'</div>'+
         '<div class="pmeta">SKU '+r.sku+' · Vende '+r.velMes+'/mes · Stock: '+r.stock+'</div>'+
         '<div class="pmeta" style="color:#5cc8ff">→ Un solo pedido de <b>'+r.sugerido+' und.</b> te dura ~'+r.duraDias+' días · Inversión: '+fmt(r.costoPedido)+'</div></div>';
     }).join('');
     h+=secc('🏷 PONER EN PROMOCIÓN — con stock y sin ventas en +1 año','#f0c040',reo.promo.length);
-    h+='<div class="cbz-card-row" style="margin:4px 0"><button class="cbz-btn-sec" onclick="Inv.dlAccion(\'getPromoCsv\')">⬇ CSV de promociones</button></div>';
+    h+='<div class="cbz-card-row" style="margin:4px 0">'+
+      '<button class="cbz-btn" onclick="Inv.promoExcel()">📄 Excel para clientes (con logo)</button>'+
+      '<button class="cbz-btn-sec" onclick="Inv.dlAccion(\'getPromoCsv\')">⬇ CSV interno</button></div>';
     h+=reo.promo.slice(0,40).map(function(r){
       var tag=r.tipo==='costo'?'<span class="tagx tn">AL COSTO</span>':'<span class="tagx" style="background:#4a3d12;color:#f0c040">PROMO/LOTE</span>';
       return '<div class="cbz-card" style="padding:9px 12px"><div class="pname">'+r.nombre+' '+tag+'</div>'+
@@ -1183,7 +1208,8 @@ var Inv = (function(){
     box.innerHTML='<div class="cbz-loading">Comparando tu configuración manual contra la rotación real...</div>';
     api({action:'getReorderSettings',
       leadDias:document.getElementById('r-lead').value,
-      coberturaDias:document.getElementById('r-cob').value
+      coberturaDias:document.getElementById('r-cob').value,
+      cicloDias:document.getElementById('r-ped').value
     }).then(function(res){
       if(!res.ok){box.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       var s=res.stats;
@@ -1220,10 +1246,22 @@ var Inv = (function(){
     a.download=filename;
     document.body.appendChild(a);a.click();a.remove();
   }
+  function promoExcel(){
+    var w=window.open('','_blank'); // popup-safe
+    api({action:'getPromoSheet',
+      leadDias:document.getElementById('r-lead').value,
+      coberturaDias:document.getElementById('r-cob').value,
+      cicloDias:document.getElementById('r-ped').value
+    }).then(function(res){
+      if(!res.ok){if(w)w.close();alert('Error: '+res.error);return;}
+      if(w)w.location=res.url;else window.open(res.url,'_blank');
+    }).catch(function(){if(w)w.close();alert('No se pudo crear el archivo.');});
+  }
   function dlAccion(accion){
     api({action:accion,
       leadDias:document.getElementById('r-lead').value,
-      coberturaDias:document.getElementById('r-cob').value
+      coberturaDias:document.getElementById('r-cob').value,
+      cicloDias:document.getElementById('r-ped').value
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
       dl(res.b64,res.filename);
@@ -1242,7 +1280,8 @@ var Inv = (function(){
   function csv(){
     api({action:'getReorderCsv',
       leadDias:document.getElementById('r-lead').value,
-      coberturaDias:document.getElementById('r-cob').value
+      coberturaDias:document.getElementById('r-cob').value,
+      cicloDias:document.getElementById('r-ped').value
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
       var bin=atob(res.b64),arr=new Uint8Array(bin.length);
@@ -1259,7 +1298,7 @@ var Inv = (function(){
   function setCat(c){cat=c;render();}
   function setMarca(m){marca=m;render();}
   return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,
-          setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios};
+          setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel};
 })();
 
 /* ===================== NAVEGACIÓN ===================== */
@@ -1347,6 +1386,7 @@ function entrar(res,usr,pin,recordarPin){
   }catch(e){alert('Error al iniciar la app: '+(e&&e.message?e.message:e));}
 }
 function doLogin(){
+  try{
   if(window._loginBusy)return;
   var usr = document.getElementById('usr').value.trim();
   var pin = document.getElementById('pin').value.trim();
@@ -1383,8 +1423,13 @@ function doLogin(){
     }
   }).catch(function(e){
     window._loginBusy=false;err.style.color='';
-    err.textContent=(e&&e.message?'Error: '+e.message:'Sin conexión con el servidor.');
+    err.textContent=(e&&e.message?'Error ('+(e.name||'')+'): '+e.message:'Sin conexión con el servidor.');
   });
+  }catch(e){
+    window._loginBusy=false;
+    var er=document.getElementById('loginErr');
+    if(er)er.textContent='Error ('+(e.name||'app')+'): '+(e.message||e);
+  }
 }
 function doBioLogin(){
   if(window._bioBusy)return;           // candado: un solo Face ID a la vez
@@ -1393,12 +1438,21 @@ function doBioLogin(){
   var pin=getPin();
   var u=getUserName();
   if(!credId||!pin||!u){err.textContent='Face ID no configurado: entra con tu PIN.';return;}
+  var credBuf;
+  try{credBuf=b64uToBuf(credId);}
+  catch(e){
+    // credencial guardada corrupta: se elimina sola y queda el PIN
+    try{localStorage.removeItem('mc_cred');localStorage.removeItem('mc_bio');}catch(e2){}
+    document.getElementById('bioBtn').style.display='none';
+    err.textContent='Face ID se reinició en este dispositivo: entra con tu PIN y actívalo de nuevo.';
+    return;
+  }
   window._bioBusy=true;
   err.style.color='#5a6a7a';
   err.textContent='🔒 Verificando Face ID...';
   navigator.credentials.get({publicKey:{
     challenge:crypto.getRandomValues(new Uint8Array(32)),
-    allowCredentials:[{type:'public-key',id:b64uToBuf(credId)}],
+    allowCredentials:[{type:'public-key',id:credBuf}],
     userVerification:'required',
     timeout:60000
   }}).then(function(){
