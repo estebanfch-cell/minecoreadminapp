@@ -184,7 +184,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 /* ===== Credenciales persistentes (hasta cerrar sesion) ===== */
 function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);localStorage.setItem('mc_pin',p);}catch(e){}}
 function getUserName(){try{return localStorage.getItem('mc_user_name')||'';}catch(e){return '';}}
-function getPin(){try{return localStorage.getItem('mc_pin')||'';}catch(e){return '';}}
+function getPin(){try{return localStorage.getItem('mc_pin')||window._pinSesion||'';}catch(e){return window._pinSesion||'';}}
 function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');}catch(e){}}
 function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
 function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var bin=atob(s);var a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a.buffer;}
@@ -984,7 +984,7 @@ var Users = (function(){
 
 /* ===================== INVENTARIO ===================== */
 var Inv = (function(){
-  var items=[], kpi=null, esAdmin=false, q='', filtro='todos';
+  var items=[], kpi=null, esAdmin=false, cats=[], q='', filtro='todos', cat='';
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function api(p){
     p.user=getUserName();p.pin=getPin();
@@ -996,7 +996,11 @@ var Inv = (function(){
     el.innerHTML='<div class="cbz-loading">Cargando inventario...</div>';
     api({action:'getInventario'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      items=res.items;kpi=res.kpi;esAdmin=res.esAdmin;
+      items=res.items;kpi=res.kpi;esAdmin=res.esAdmin;cats=res.categorias||[];
+      // blob de búsqueda por producto: todo lo buscable en minúsculas
+      items.forEach(function(it){
+        it._b=(it.nombre+' '+it.sku+' '+it.codigo+' '+it.categoria+' '+it.marca+' '+it.extra).toLowerCase();
+      });
       render();
     }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
   }
@@ -1008,9 +1012,15 @@ var Inv = (function(){
       '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+kpi.agotados+'</span><span class="cbz-kpi-lbl">Agotados</span></div>'+
       (kpi.valorCosto!==null?'<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmt(kpi.valorCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
       '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmt(kpi.valorPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>'+
+      '</div>';
+    h+='<div class="cbz-card-row" style="margin-bottom:6px">'+
+      '<input class="cbz-search" placeholder="🔍 Nombre, SKU, código, serie, DL/WW, mm, marca..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Inv.setQ(this.value)">'+
       '</div>'+
       '<div class="cbz-card-row" style="margin-bottom:10px">'+
-      '<input class="cbz-search" placeholder="🔍 Buscar por nombre o SKU..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Inv.setQ(this.value)">'+
+      '<select class="uinput" style="max-width:260px;padding:8px" onchange="Inv.setCat(this.value)">'+
+      '<option value="">Todas las categorías</option>'+
+      cats.map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'"'+(cat===c?' selected':'')+'>'+c+'</option>';}).join('')+
+      '</select>'+
       chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
       '</div><div id="inv-list"></div>';
     el.innerHTML=h;
@@ -1018,33 +1028,45 @@ var Inv = (function(){
   }
   function chip(id,lbl){return '<button class="chip '+(filtro===id?'on':'')+'" onclick="Inv.setF(\''+id+'\')">'+lbl+'</button>';}
   function pasa(it){
-    if(q){var s=(it.nombre+' '+it.sku).toLowerCase();if(s.indexOf(q.toLowerCase())<0)return false;}
+    if(cat && it.categoria!==cat)return false;
     if(filtro==='con'&&it.stock<=0)return false;
     if(filtro==='agotados'&&it.stock>0)return false;
+    if(q){
+      // búsqueda por tokens: todas las palabras deben aparecer ("ng-11 13 mm dl" encuentra la broca exacta)
+      var toks=q.toLowerCase().split(/\s+/).filter(String);
+      for(var i=0;i<toks.length;i++){
+        if(it._b.indexOf(toks[i])<0)return false;
+      }
+    }
     return true;
   }
   function renderList(){
     var box=document.getElementById('inv-list');
     if(!box)return;
     var fil=items.filter(pasa);
-    var MAX=200;
+    var MAX=150;
     var h=fil.slice(0,MAX).map(function(it){
       var st=it.stock<=0?'<span class="tagx tn">AGOTADO</span>':
         '<span class="tagx tf">'+it.stock+' und.</span>';
       return '<div class="cbz-card" style="padding:10px 12px">'+
-        '<div class="cbz-card-row" style="justify-content:space-between">'+
+        '<div class="cbz-card-row" style="justify-content:space-between;align-items:flex-start">'+
         '<div style="flex:1;min-width:0"><div class="pname">'+it.nombre+'</div>'+
-        '<div class="pmeta">SKU: '+it.sku+(esAdmin&&it.costo?' · Costo: '+fmt(it.costo):'')+'</div></div>'+
-        '<div style="text-align:right">'+st+
+        '<div class="pmeta">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div>'+
+        '<div class="pmeta">'+(it.categoria||'')+(it.marca?' · '+it.marca:'')+'</div>'+
+        (it.ubicaciones?'<div class="pmeta" style="color:#9fc3e8">📍 '+it.ubicaciones+'</div>':'')+
+        '</div>'+
+        '<div style="text-align:right;flex:none">'+st+
         (it.precio?'<div class="pname" style="margin-top:4px">'+fmt(it.precio)+'</div>':'')+
+        (esAdmin&&it.costo?'<div class="pmeta">Costo: '+fmt(it.costo)+'</div>':'')+
         '</div></div></div>';
     }).join('');
-    if(fil.length>MAX) h+='<div class="cbz-muted" style="text-align:center;padding:10px">Mostrando '+MAX+' de '+fil.length+' — usa el buscador para afinar</div>';
+    if(fil.length>MAX) h+='<div class="cbz-muted" style="text-align:center;padding:10px">Mostrando '+MAX+' de '+fil.length+' — afina la búsqueda</div>';
     box.innerHTML=h||'<div class="cbz-muted" style="padding:16px;text-align:center">Sin resultados</div>';
   }
   function setQ(v){q=v;renderList();}
   function setF(f){filtro=f;render();}
-  return {init:init,setQ:setQ,setF:setF};
+  function setCat(c){cat=c;render();}
+  return {init:init,setQ:setQ,setF:setF,setCat:setCat};
 })();
 
 /* ===================== NAVEGACIÓN ===================== */
