@@ -191,6 +191,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <div id="minv-screen" style="display:none"></div>
   <div id="sols-screen" style="display:none"></div>
   <div id="consig-screen" style="display:none"></div>
+  <div id="cot-screen" style="display:none"></div>
 </div>
 
 <script>
@@ -1760,6 +1761,281 @@ var Inv = (function(){
           setVCart:setVCart,vaciarCarrito:vaciarCarrito};
 })();
 
+/* ===================== COTIZACIONES (módulo admin) ===================== */
+var Cot = (function(){
+  var lista=null, det=null;
+  function api(p){
+    p.user=getUserName();p.pin=getPin();
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
+      .then(function(r){return r.json();});
+  }
+  function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  function puedeEscribir(){
+    var p=getProfile();var ms=p.modulos||[];
+    return p.rol==='admin'||ms.indexOf('cotizaciones+')>=0;
+  }
+  function el(){return document.getElementById('cot-screen');}
+  function badge(e){
+    var c=e==='CREADA'?'#6fd68f':(e==='EN REVISION'?'#5cc8ff':'#f0c040');
+    return '<span style="color:'+c+';font-weight:bold;font-size:11px">'+e+'</span>';
+  }
+  function init(){det=null;lista=null;cargar();}
+  function cargar(){
+    el().innerHTML='<div class="cbz-loading">Cargando solicitudes...</div>';
+    api({action:'getCotAdmin'}).then(function(res){
+      if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      lista=res.solicitudes||[];renderLista();
+    }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+  }
+  function renderLista(){
+    if(!lista.length){
+      el().innerHTML='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🧾</div>'+
+        '<div class="cbz-card-name" style="margin:8px 0">Sin solicitudes de cotización</div>'+
+        '<div class="cbz-muted">Cuando un cliente envíe su carrito desde el portal, aparecerá aquí.</div></div>';
+      return;
+    }
+    el().innerHTML='<div class="cbz-muted" style="margin-bottom:8px">'+lista.length+' solicitud'+(lista.length===1?'':'es')+' · toca una para revisarla</div>'+
+      lista.map(function(s){
+        return '<div class="cbz-card" style="cursor:pointer" onclick="Cot.abrir('+s.id+')">'+
+          '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
+          '<div class="cbz-card-name">🏢 '+s.empresa+'</div>'+badge(s.estado)+'</div>'+
+          '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between">'+
+          '<span>'+s.fecha+' · '+s.usuario+(s.contacto?' · '+s.contacto:'')+'</span>'+
+          '<span>'+s.n+' ítem'+(s.n===1?'':'s')+(s.inflowNum?' · inFlow '+s.inflowNum:'')+'</span></div></div>';
+      }).join('');
+  }
+  function abrir(id){
+    el().innerHTML='<div class="cbz-loading">Cargando detalle...</div>';
+    api({action:'getCotDetalle',id:id}).then(function(res){
+      if(!res.ok){alert(res.error);renderLista();return;}
+      det=res;renderDet();
+    }).catch(function(){alert('Sin conexión');renderLista();});
+  }
+  function renderDet(){
+    var c=det.cot, creada=(c.estado==='CREADA');
+    var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';
+    h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
+      '<div class="cbz-card-name">🏢 '+c.empresa+'</div>'+badge(c.estado)+'</div>'+
+      '<div class="cbz-muted" style="font-size:11px">'+c.fecha+' · Solicitó: '+c.usuario+(c.contacto?' · '+c.contacto:'')+'</div>'+
+      (c.inflowNum?'<div style="color:#6fd68f;margin-top:4px">✔ Creada en inFlow: <b>'+c.inflowNum+'</b></div>':'')+
+      vinculoHtml()+'</div>';
+    h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Regla aplicada como sugerencia: el precio propuesto es el MAYOR entre el precio de lista y el último precio vendido a este cliente. Tú tienes la última palabra en cada línea.</div>';
+    det.lineas.forEach(function(l,i){
+      var refCli=l.ultCliente?('Últ. a este cliente: <b>'+fmt(l.ultCliente.p)+'</b> ('+l.ultCliente.f+')')
+                             :'<span style="color:#f0c040">Nunca vendido a este cliente</span>'+
+                              (l.ultGlobal?' · Últ. global: '+fmt(l.ultGlobal.p)+' ('+l.ultGlobal.f+')':'');
+      var alerta=(l.ultCliente&&l.lista<l.ultCliente.p)?'<span style="color:#f0c040"> ⚠ lista por debajo del último vendido</span>':'';
+      var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en inFlow — esta línea no se puede cotizar</div>':'';
+      h+='<div class="cbz-card">'+
+        '<div class="cbz-card-name" style="font-size:13px">'+l.nombre+'</div>'+
+        '<div class="cbz-muted" style="font-size:11px">SKU: '+l.sku+' · Stock: '+l.stock+'</div>'+sinPid+
+        '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Lista: <b>'+fmt(l.lista)+'</b>'+alerta+' · '+refCli+'</div>'+
+        '<div class="cbz-card-row" style="gap:10px;align-items:center;flex-wrap:wrap">'+
+        '<span class="cbz-muted" style="font-size:11px">Cant:</span>'+
+        '<input type="number" min="1" inputmode="numeric" class="uinput" style="width:64px;text-align:center;padding:6px" value="'+l.cantidad+'" '+(creada?'disabled':'onchange="Cot.setCant('+i+',this.value)"')+'>'+
+        '<span class="cbz-muted" style="font-size:11px">Precio:</span>'+
+        '<input type="number" min="0" step="0.01" inputmode="decimal" class="uinput" style="width:96px;text-align:center;padding:6px" value="'+(parseFloat(l.precio)||0).toFixed(2)+'" '+(creada?'disabled':'onchange="Cot.setPrecio('+i+',this.value)"')+'>'+
+        '<span style="margin-left:auto">= <b>'+fmt(l.cantidad*l.precio)+'</b></span></div></div>';
+    });
+    var tot=0;det.lineas.forEach(function(l){tot+=(parseFloat(l.precio)||0)*(parseInt(l.cantidad,10)||0);});
+    h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between"><span class="cbz-card-name">Subtotal (sin IVA)</span><span class="cbz-card-name">'+fmt(tot)+'</span></div>'+
+      '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales los calcula inFlow según el esquema del cliente.</div></div>';
+    if(puedeEscribir()&&!creada){
+      h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
+        '<button class="cbz-btn-sec" onclick="Cot.guardar()">💾 Guardar borrador</button>'+
+        '<button class="cbz-btn" onclick="Cot.crear()">⚡ Crear cotización en inFlow</button></div>';
+    }
+    if(creada){
+      h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px">'+
+        '<button class="cbz-btn" onclick="Cot.pdf()">🧾 Planilla de cotización (imprimir / PDF)</button></div>';
+    }
+    el().innerHTML=h;
+  }
+  function vinculoHtml(){
+    if(det.vinculo)return '<div class="cbz-muted" style="font-size:11px;margin-top:4px">🔗 Cliente inFlow: <b style="color:#9fc3e8">'+det.vinculo.nombre+'</b></div>';
+    if(!det.candidatos.length)return '<div style="color:#f0c040;font-size:11px;margin-top:4px">⚠ Sin cliente de inFlow vinculado ni candidatos por nombre. Corre el sync o revisa el nombre de la empresa.</div>';
+    return '<div style="margin-top:6px"><div style="color:#f0c040;font-size:11px">⚠ Confirma con qué cliente de inFlow se empareja esta empresa (una sola vez):</div>'+
+      '<div class="cbz-card-row" style="gap:6px;margin-top:4px;flex-wrap:wrap">'+
+      det.candidatos.map(function(cd,i){
+        return '<button class="chip'+(cd.exacto?' on':'')+'" onclick="Cot.vincular('+i+')">'+(cd.exacto?'✔ ':'')+cd.nombre+'</button>';
+      }).join('')+'</div></div>';
+  }
+  function vincular(i){
+    var cd=det.candidatos[i];
+    if(!confirm('¿Vincular "'+det.cot.empresa+'" con el cliente de inFlow "'+cd.nombre+'"? Quedará memorizado para todas sus cotizaciones.'))return;
+    api({action:'vincularClienteCot',empresa:det.cot.empresa,customerId:cd.customerId,nombre:cd.nombre}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      det.vinculo={customerId:cd.customerId,nombre:cd.nombre};renderDet();
+    });
+  }
+  function setPrecio(i,v){det.lineas[i].precio=parseFloat(v)||0;renderDet();}
+  function setCant(i,v){var n=parseInt(v,10)||1;if(n<1)n=1;det.lineas[i].cantidad=n;renderDet();}
+  function payloadPrecios(){
+    var pr={},ca={};
+    det.lineas.forEach(function(l){pr[l.sku]=parseFloat(l.precio)||0;ca[l.sku]=parseInt(l.cantidad,10)||1;});
+    return {precios:pr,cantidades:ca};
+  }
+  function guardar(){
+    var p=payloadPrecios();
+    api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      det.cot.estado='EN REVISION';renderDet();
+    });
+  }
+  function crear(){
+    if(!det.vinculo){alert('Primero vincula la empresa con su cliente de inFlow (botones amarillos arriba).');return;}
+    var lineas=det.lineas.filter(function(l){return l.productId;});
+    if(!lineas.length){alert('Ninguna línea tiene producto de inFlow.');return;}
+    var omitidas=det.lineas.length-lineas.length;
+    var msg='¿Crear la cotización en inFlow para '+det.vinculo.nombre+' con '+lineas.length+' línea'+(lineas.length===1?'':'s')+'?'+
+      (omitidas?'\n(Se omitirán '+omitidas+' línea(s) sin producto de inFlow.)':'');
+    if(!confirm(msg))return;
+    el().innerHTML='<div class="cbz-loading">Creando cotización en inFlow...</div>';
+    api({action:'crearCotInflow',id:det.cot.id,
+         lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio};})
+    }).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
+      alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+'\n\nYa puedes verla y ajustarla en inFlow, o revisarla aquí.');
+      abrir(det.cot.id);
+    }).catch(function(){alert('Sin conexión. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
+  }
+  function volver(){det=null;cargar();}
+  /* ---------- Planilla de cotización: réplica del formato inFlow ---------- */
+  function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function fMes(f){ // 'yyyy-MM-dd...' -> 'Jul 30, 2026' (mismo formato que inFlow)
+    var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var s=String(f||'').slice(0,10).split('-');
+    if(s.length<3)return String(f||'');
+    return m[parseInt(s[1],10)-1]+' '+parseInt(s[2],10)+', '+s[0];
+  }
+  function pdf(){
+    if(!det||!det.vinculo){alert('Falta el vínculo del cliente.');return;}
+    api({action:'getClienteInflowData',customerId:det.vinculo.customerId}).then(function(res){
+      var cli=(res.ok&&res.cliente)?res.cliente:{nombre:det.vinculo.nombre,ruc:'',direccion:'',contacto:'',telefono:'',email:'',terminos:''};
+      abrePlanilla(cli);
+    }).catch(function(){abrePlanilla({nombre:det.vinculo.nombre,ruc:'',direccion:'',contacto:'',telefono:'',email:'',terminos:''});});
+  }
+  function abrePlanilla(cli){
+    var c=det.cot;
+    var base=new URL('assets/cotizacion/',location.href).href;
+    var lineas=det.lineas.filter(function(l){return l.productId;});
+    var sub=0;lineas.forEach(function(l){sub+=(parseFloat(l.precio)||0)*(parseInt(l.cantidad,10)||0);});
+    var iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
+    function f2(n){var p=(parseFloat(n)||0).toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+    var filas=lineas.map(function(l,i){
+      return '<tr'+(i%2?' class="alt"':'')+'><td class="num">'+(i+1)+'</td>'+
+        '<td><div class="pnom" contenteditable="true">'+esc(l.nombre)+'</div>'+
+        (l.codigo?'<div class="pcod" contenteditable="true">'+esc(l.codigo)+'</div>':'')+
+        '<div class="pcod psku" contenteditable="true">'+esc(l.sku)+'</div></td>'+
+        '<td class="cat" contenteditable="true">'+esc(l.categoria)+'</td>'+
+        '<td class="qty"><span class="chipq">'+l.cantidad+'</span></td>'+
+        '<td class="mon">'+f2(l.precio)+'</td>'+
+        '<td class="mon">'+f2(l.cantidad*l.precio)+'</td></tr>';
+    }).join('');
+    var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(c.inflowNum)+'</title>'+
+      '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
+      '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>'+
+      '<style>'+
+      '*{box-sizing:border-box}body{font-family:Roboto,Arial,sans-serif;font-size:9.6pt;color:#000;margin:0;background:#f4f4f4}'+
+      '.hoja{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:14mm 12mm;position:relative}'+
+      '.tools{position:sticky;top:0;background:#444824;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;z-index:9}'+
+      '.tools button{background:#fff;color:#444824;border:0;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer}'+
+      '.tools .hint{font-size:11px;opacity:.9}'+
+      '.head{display:flex;gap:14px}'+
+      '.head .logo img{width:118px}'+
+      '.head .emp{flex:1;line-height:1.35}'+
+      '.head .emp b{font-size:11.2pt}'+
+      '.head .der{width:265px;text-align:right}'+
+      '.titulo{font-size:16pt;color:#444824;font-weight:400;letter-spacing:.5px}'+
+      '#bc{width:250px;height:34px;margin-top:2px}'+
+      '.meta{margin-top:6px;font-size:9.6pt}'+
+      '.meta .fila{display:flex;justify-content:space-between}'+
+      '.meta .fila b{text-align:left}'+
+      '.bloques{display:flex;gap:18px;margin-top:16px}'+
+      '.bloques>div{flex:1}'+
+      '.bt{color:#444824;font-weight:700;font-size:10.2pt;margin-bottom:2px}'+
+      '.oferta{margin:16px 0 8px;font-size:9.6pt}'+
+      'table{width:100%;border-collapse:collapse}'+
+      'thead td{border-bottom:1.5px solid #000;padding:4px 6px;font-size:9.3pt}'+
+      'tbody td{padding:8px 6px;vertical-align:top}'+
+      'tr.alt td{background:#eaeaea}'+
+      '.num{width:18px;color:#444}'+
+      '.pnom{font-weight:700}'+
+      '.pcod{font-size:8.8pt}.psku{font-style:italic}'+
+      '.cat{width:88px;font-size:9pt}'+
+      '.qty{width:64px;text-align:center}'+
+      '.chipq{background:#e4e4e4;border-radius:4px;padding:2px 10px;display:inline-block}'+
+      '.mon{width:86px;text-align:right;white-space:nowrap}'+
+      '.pie{display:flex;gap:18px;margin-top:14px;align-items:flex-start}'+
+      '.cond{flex:1}'+
+      '.cond .ct{font-weight:400;letter-spacing:.3px;margin-bottom:8px}'+
+      '.cond div{margin:7px 0}'+
+      '.tot{width:300px}'+
+      '.tot .r{display:flex;justify-content:space-between;padding:7px 12px;background:#444824;color:#fff;margin-bottom:2px}'+
+      '.tot .r.total{font-weight:700;font-size:10.5pt}'+
+      '.banco{text-align:center;margin-top:40px;font-size:9.6pt}'+
+      '.marcas{display:flex;justify-content:space-between;align-items:center;margin-top:46px;padding:0 8mm}'+
+      '.marcas img{height:34px}.marcas img.cb{height:40px}.marcas img.fd{height:44px}'+
+      '[contenteditable]:hover{outline:1px dashed #b5b5b5}'+
+      '@media print{body{background:#fff}.tools{display:none}.hoja{margin:0;width:auto;padding:10mm 10mm}[contenteditable]:hover{outline:none}}'+
+      '</style></head><body>'+
+      '<div class="tools"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button>'+
+      '<button onclick="toggleIva()">IVA: <span id="ivaEstado">CON IVA 15%</span></button>'+
+      '<span class="hint">Puedes tocar y corregir cualquier texto de la planilla antes de imprimir.</span></div>'+
+      '<div class="hoja">'+
+      '<div class="head">'+
+      '<div class="logo"><img src="'+base+'logo_minecore.png" onerror="this.style.display=\'none\'"></div>'+
+      '<div class="emp"><b>MINECORE S.A.S</b><br>RUC 1793194965001<br>Alpallana y Diego de Almagro<br>Quito, Pichincha<br>170518 Ecuador<br>www.minecore.ec</div>'+
+      '<div class="der"><div class="titulo">COTIZACIÓN DE VENTAS</div>'+
+      '<svg id="bc"></svg>'+
+      '<div class="meta">'+
+      '<div class="fila"><b>Numero de Orden</b><span contenteditable="true">'+esc(c.inflowNum)+'</span></div>'+
+      '<div class="fila"><b>Fecha</b><span contenteditable="true">'+fMes(c.fechaCreada||c.fecha)+'</span></div>'+
+      '<div class="fila"><b>Cliente</b><span contenteditable="true">'+esc(cli.nombre)+'</span></div>'+
+      '<div class="fila"><b>RUC</b><span contenteditable="true">'+esc(cli.ruc)+'</span></div>'+
+      '</div></div></div>'+
+      '<div class="bloques">'+
+      '<div><div class="bt">Dirección de Envio</div><div contenteditable="true">'+esc(cli.nombre)+(cli.direccion?'<br>'+esc(cli.direccion).replace(/\n/g,'<br>'):'')+'</div></div>'+
+      '<div><div class="bt">Contacto</div><div contenteditable="true">'+esc(det.cot.contacto||cli.contacto)+'</div>'+
+      '<div class="bt" style="margin-top:10px">Email</div><div contenteditable="true">'+esc(cli.email)+'</div></div>'+
+      '<div><div class="bt">Teléfono</div><div contenteditable="true">'+esc(cli.telefono)+'</div>'+
+      '<div class="bt" style="margin-top:10px">Términos de pago</div><div contenteditable="true">'+esc(cli.terminos||'CONTADO')+'</div></div>'+
+      '</div>'+
+      '<div class="bloques"><div><div class="bt">Representante de ventas</div><div contenteditable="true">Esteban Ferlito</div></div>'+
+      '<div><div class="bt">Tiempo de Entrega</div><div contenteditable="true">INMEDIATA</div></div><div></div></div>'+
+      '<div class="oferta">A CONTINUACIÓN PRESENTAMOS NUESTRA OFERTA, QUE ESPERAMOS SEA DE SU CONFORMIDAD</div>'+
+      '<table><thead><tr><td></td><td>Producto</td><td>Categoria</td><td style="text-align:center">Cantidad</td><td style="text-align:right">Precio unitario</td><td style="text-align:right">Subtotal</td></tr></thead>'+
+      '<tbody>'+filas+'</tbody></table>'+
+      '<div class="pie">'+
+      '<div class="cond"><div class="ct">CONDICIONES COMERCIALES</div>'+
+      '<div contenteditable="true">- Los precios unitarios no incluyen IVA</div>'+
+      '<div contenteditable="true">- Los precios son en dólares americanos</div>'+
+      '<div contenteditable="true">- Los precios pueden variar sin previo aviso</div>'+
+      '<div contenteditable="true">- Todas las ventas son finales, pasados los 7 días de facturación no se aceptara devolución de productos</div></div>'+
+      '<div class="tot"><div class="r"><span>Subtotal</span><span>'+f2(sub)+'</span></div>'+
+      '<div class="r" id="filaIva"><span>IVA 15%</span><span>'+f2(iva)+'</span></div>'+
+      '<div class="r total"><span>Total</span><span id="totVal">'+f2(tot)+'</span></div></div></div>'+
+      '<div class="banco">Minecore S.A.S - RUC 1793194965001 - Banco Pichincha - Cuenta Corriente - 2100267034</div>'+
+      '<div class="marcas"><img class="cb" src="'+base+'logo_christensen_boyles.png" onerror="this.style.display=\'none\'">'+
+      '<img src="'+base+'logo_hydracore.png" onerror="this.style.display=\'none\'">'+
+      '<img class="fd" src="'+base+'logo_fordia.png" onerror="this.style.display=\'none\'"></div>'+
+      '</div>'+
+      '<script>var conIva=true;var SUB='+sub+';'+
+      'function toggleIva(){conIva=!conIva;'+
+      'document.getElementById("filaIva").style.display=conIva?"flex":"none";'+
+      'document.getElementById("ivaEstado").textContent=conIva?"CON IVA 15%":"SIN IVA";'+
+      'var t=conIva?SUB*1.15:SUB;var p=t.toFixed(2).split(".");p[0]=p[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g,",");'+
+      'document.getElementById("totVal").textContent="$"+p.join(".");}'+
+      'try{JsBarcode("#bc","'+esc(c.inflowNum||'MCOR-SQ')+'",{format:"CODE128",displayValue:false,height:30,margin:0,width:1.6});}catch(e){document.getElementById("bc").style.display="none";}'+
+      '<\/script></body></html>';
+    var w=window.open('','_blank');
+    if(!w){alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');return;}
+    w.document.open();w.document.write(html);w.document.close();
+  }
+  return {init:init,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,
+          guardar:guardar,crear:crear,vincular:vincular,pdf:pdf};
+})();
+
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
 var Edc = (function(){
   var data=null, vistaE='cartera', detalle=null, q='', ordenDesc=true;
@@ -2288,6 +2564,7 @@ function renderHome(){
   if(can('dashboard')) h+='<div class="mod" onclick="openMod(\'dash\')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>';
   if(can('cobranza')) h+='<div class="mod" onclick="openMod(\'cbz\')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>';
   if(can('inventario')) h+='<div class="mod" onclick="openMod(\'inv\')"><div class="ico">📦</div><h3>Inventario</h3><p>Stock por producto, agotados y valorización</p></div>';
+  if(p.rol!=='cliente'&&can('cotizaciones')) h+='<div class="mod" onclick="openMod(\'cot\')"><div class="ico">🧾</div><h3>Cotizaciones</h3><p>Solicitudes de clientes, precios y creación en inFlow</p></div>';
   if(p.rol==='cliente'&&p.vinculada===false) h+='<div class="mod" onclick="Vinc.run()" style="border-color:#f0c040"><div class="ico">🔎</div><h3>Confirma tu organización</h3><p>Toca aquí para encontrar tu empresa y vincular tu cuenta</p></div>';
   if(p.rol==='cliente'&&can('consignacion')) h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>Qué tienes, desde qué acta y cuántos días</p></div>';
   if(p.rol==='cliente') h+='<div class="mod" onclick="openMod(\'edc\')"><div class="ico">💳</div><h3>Estado de cuenta</h3><p>Tu cartera, facturas e historial de órdenes</p></div>';
@@ -2330,6 +2607,7 @@ function openMod(m){
   if(m==='minv'){document.getElementById('minv-screen').style.display='block';document.getElementById('title').textContent='MI EQUIPO';MInv.init();}
   if(m==='sols'){document.getElementById('sols-screen').style.display='block';document.getElementById('title').textContent='APROBACIONES';Sols.init();}
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
+  if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
 }
 function goHome(){
   document.getElementById('dash-screen').style.display='none';
@@ -2340,6 +2618,7 @@ function goHome(){
   document.getElementById('minv-screen').style.display='none';
   document.getElementById('sols-screen').style.display='none';
   document.getElementById('consig-screen').style.display='none';
+  document.getElementById('cot-screen').style.display='none';
   document.getElementById('home').style.display='grid';
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='';
