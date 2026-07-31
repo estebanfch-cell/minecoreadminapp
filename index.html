@@ -171,7 +171,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v88</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v92</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -1026,7 +1026,7 @@ var Users = (function(){
     var rol=document.getElementById('f-rol').value;
     var modsSel;
     if(rol==='cliente'){
-      modsSel=['inventario','estadocuenta'].filter(function(m){
+      modsSel=['inventario','estadocuenta','consignacion'].filter(function(m){
         var c=document.getElementById('f-cmod-'+m);return c&&c.checked;
       }).join(',');
     } else {
@@ -1099,7 +1099,7 @@ var Users = (function(){
     var rol=document.getElementById('i-rol').value;
     var modsSel;
     if(rol==='cliente'){
-      modsSel=['inventario','estadocuenta'].filter(function(m){
+      modsSel=['inventario','estadocuenta','consignacion'].filter(function(m){
         var c=document.getElementById('i-cmod-'+m);return c&&c.checked;
       }).join(',');
     } else {
@@ -1152,8 +1152,8 @@ var Inv = (function(){
     return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
       .then(function(r){return r.json();});
   }
-  function init(){
-    vista='inv';
+  function init(v){
+    vista=v||'inv';
     cartLoad();
     var el=document.getElementById('inv-screen');
     el.innerHTML='<div class="cbz-loading">Cargando inventario...</div>';
@@ -1208,6 +1208,7 @@ var Inv = (function(){
       '</div>';
     if(vista==='reo'){el.innerHTML=h+'<div id="reo-body"></div>';renderReo();return;}
     if(vista==='desp'||vista==='man'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();return;}
+    if(vista==='miscot'){el.innerHTML=misCotHtml();if(enviadas===null)cargarEnviadas();return;}
     if(vista==='inv')h=avisoCotListas()+h;
     if(vista==='cart'){el.innerHTML=h+cartHtml();return;}
     h+='<div id="inv-kpis"></div>'+
@@ -1435,6 +1436,52 @@ var Inv = (function(){
         (lista&&s.subtotal!==undefined?'<div class="cbz-card-row" style="justify-content:flex-end;margin-top:6px"><span class="cbz-card-name">Subtotal (sin IVA): '+fmt(s.subtotal)+'</span></div>':'')+
         '</div>';
     }).join('');
+  }
+  var miscotOpen={};
+  function misCotHtml(){
+    if(enviadas===null)return '<div class="cbz-loading">Cargando tus cotizaciones...</div>';
+    try{
+      localStorage.setItem('mc_cot_vistas_'+(getUserName()||'').toLowerCase(),String(enviadas.filter(function(x){return x.estado==='CREADA';}).length));
+      var maxU='';enviadas.forEach(function(x){if(x.fechaActualizada&&x.fechaActualizada>maxU)maxU=x.fechaActualizada;});
+      if(maxU)localStorage.setItem('mc_cot_upd_'+(getUserName()||'').toLowerCase(),maxU);
+    }catch(e){}
+    if(!enviadas.length)return '<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🧾</div>'+
+      '<div class="cbz-card-name" style="margin:8px 0">Aún no tienes cotizaciones</div>'+
+      '<div class="cbz-muted">Arma tu solicitud desde el catálogo (📦 Inventario → ➕ Cotizar) y Minecore te cotiza.</div></div>';
+    var vistoUpd='';try{vistoUpd=localStorage.getItem('mc_cot_upd_'+(getUserName()||'').toLowerCase())||'';}catch(e){}
+    return enviadas.map(function(so,ix){
+      var abierta=!!miscotOpen[ix];
+      var lista=(so.estado==='CREADA');
+      var actualizada=lista&&so.fechaActualizada&&so.fechaActualizada>=vistoUpd&&so.fechaActualizada!=='';
+      var badge=lista?'<span style="color:#6fd68f;font-weight:bold;font-size:11px">✅ '+(so.inflowNum||'COTIZADA')+'</span>'
+                     :'<span style="color:#f0c040;font-weight:bold;font-size:11px">⏳ EN PROCESO</span>';
+      var h2='<div class="cbz-card" style="'+(lista?'border-color:#2e5c3e':'')+'">'+
+        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Inv.miscotToggle('+ix+')">'+
+        '<div class="cbz-card-name">'+(abierta?'▾ ':'▸ ')+'🧾 '+so.fecha+' · '+so.n+' producto'+(so.n===1?'':'s')+'</div>'+badge+'</div>';
+      if(so.fechaActualizada)h2+='<div class="cbz-muted" style="font-size:10px">✏️ Actualizada: '+so.fechaActualizada+'</div>';
+      if(abierta){
+        h2+=(so.items||[]).map(function(it){
+          var precio=(lista&&it.precioFinal!==undefined)?'<span style="color:#9fc3e8;font-weight:bold;white-space:nowrap">'+fmt(it.precioFinal)+'</span>':'';
+          return '<div class="cbz-fact-row" style="align-items:center;gap:8px">'+
+            (it.img?'<img src="'+it.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:44px;height:44px;flex:none">📦</div>')+
+            '<span class="cbz-fact-id" style="flex:1;min-width:0">'+it.nombre+'<div class="pmeta">SKU: '+it.sku+'</div></span>'+
+            '<span class="cbz-muted">× '+fmtQty2(it.cantidad)+'</span>'+precio+'</div>';
+        }).join('');
+        if(lista&&so.subtotal!==undefined)h2+='<div class="cbz-card-row" style="justify-content:flex-end;margin-top:6px"><span class="cbz-card-name">Subtotal (sin IVA): '+fmt(so.subtotal)+'</span></div>';
+        if(lista)h2+='<div class="cbz-card-row" style="gap:8px;margin-top:8px"><button class="cbz-btn" onclick="Inv.miscotPdf('+ix+')">⬇ Descargar cotización</button></div>';
+      }
+      return h2+'</div>';
+    }).join('');
+  }
+  function miscotToggle(ix){miscotOpen[ix]=!miscotOpen[ix];render();}
+  function miscotPdf(ix){
+    var so=enviadas[ix];if(!so)return;
+    MCPlanillaCot({
+      num:so.inflowNum||'',fecha:so.fechaCreada||so.fecha,
+      cliente:{nombre:so.empresa,ruc:'',direccion:'',contacto:'',telefono:'',email:'',terminos:''},
+      lineas:(so.items||[]).map(function(it){return {nombre:it.nombre,codigo:'',sku:it.sku,categoria:'',cantidad:it.cantidad,precioLista:it.precio||it.precioFinal||0,descuento:it.descuento||0,precioFinal:it.precioFinal||0,img:it.img||''};}),
+      subtotal:so.subtotal||0
+    });
   }
   function avisoCotListas(){
     if(!esCliente)return '';
@@ -1807,20 +1854,40 @@ var Inv = (function(){
             wrap.style.background='#fff';
             listoAlgo=true;
             return page.getTextContent().then(function(tc){
+              // 1) Agrupar fragmentos de texto por renglón (misma altura y misma línea base)
+              var lineas={};
               tc.items.forEach(function(it){
                 var str=String(it.str||'');
-                var re=/\d{9,14}/g,mm;
-                if(!re.test(str))return;
-                re.lastIndex=0;
+                if(!str)return;
                 var tr=window.pdfjsLib.Util.transform(vp.transform,it.transform);
-                var fh=Math.hypot(tr[2],tr[3]);
-                var x=tr[4],yTop=tr[5]-fh;
+                if(Math.abs(tr[1])>0.01||Math.abs(tr[2])>0.01)return; // texto rotado: fuera
+                var fh=Math.hypot(tr[2],tr[3])||Math.abs(tr[3]);
+                if(fh<4)return;
+                var x=tr[4], yBase=tr[5];
                 var wTot=(it.width||0)*vp.scale;
-                while((mm=re.exec(str))){
-                  var fx=str.length?mm.index/str.length:0;
-                  var fw=str.length?mm[0].length/str.length:1;
+                var key=Math.round(yBase*2)/2;
+                (lineas[key]=lineas[key]||[]).push({x:x,w:wTot,str:str,fh:fh,yBase:yBase});
+              });
+              // 2) Por renglón: ordenar, unir con mapa de posición por carácter y separar columnas lejanas
+              Object.keys(lineas).forEach(function(k){
+                var frs=lineas[k].sort(function(a,b){return a.x-b.x;});
+                var chars=[], texto='';
+                for(var f=0;f<frs.length;f++){
+                  var it=frs[f], n=it.str.length, cw=n?it.w/n:0;
+                  if(f>0){
+                    var prev=frs[f-1], gap=it.x-(prev.x+prev.w);
+                    var cwRef=Math.max(cw,(prev.str.length?prev.w/prev.str.length:0),3);
+                    if(gap>cwRef*1.6){texto+='\u0001';chars.push(null);} // otra columna: corta la unión
+                  }
+                  for(var c=0;c<n;c++){texto+=it.str[c];chars.push({x:it.x+cw*c,w:cw,fh:it.fh,yBase:it.yBase});}
+                }
+                var re=/\d{9,14}/g,mm;
+                while((mm=re.exec(texto))){
+                  var c0=chars[mm.index], c1=chars[mm.index+mm[0].length-1];
+                  if(!c0||!c1)continue;
+                  var fh=c0.fh, yTop=c0.yBase-fh;
                   var hot=document.createElement('div');
-                  hot.style.cssText='position:absolute;left:'+(x+wTot*fx)+'px;top:'+yTop+'px;width:'+Math.max(wTot*fw,26)+'px;height:'+(fh*1.25)+'px;background:rgba(240,192,64,.16);border-bottom:2px solid rgba(240,192,64,.85);border-radius:2px;cursor:pointer';
+                  hot.style.cssText='position:absolute;left:'+(c0.x-1)+'px;top:'+yTop+'px;width:'+Math.max(c1.x+c1.w-c0.x+2,26)+'px;height:'+(fh*1.3)+'px;background:rgba(240,192,64,.16);border-bottom:2px solid rgba(240,192,64,.85);border-radius:2px;cursor:pointer';
                   (function(cod){hot.onclick=function(ev){ev.stopPropagation();Inv.despFichaPdf(cod);};})(mm[0]);
                   wrap.appendChild(hot);
                 }
@@ -1928,10 +1995,126 @@ var Inv = (function(){
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
           despVer:despVer,despCerrar:despCerrar,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
           despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,
+          miscotToggle:miscotToggle,miscotPdf:miscotPdf,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel,
           addCart:addCart,verCarrito:verCarrito,cartQty:cartQty,cartSet:cartSet,enviarCarrito:enviarCarrito,
           setVCart:setVCart,vaciarCarrito:vaciarCarrito};
 })();
+
+/* ===== Planilla de cotización (compartida admin/cliente) — réplica del formato inFlow ===== */
+function MCPlanillaCot(cfg){
+  function esc(x){return String(x===undefined||x===null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function f2(n){var p=(parseFloat(n)||0).toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  function fMes(f){var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];var p=String(f||'').slice(0,10).split('-');if(p.length<3)return String(f||'');return M[parseInt(p[1],10)-1]+' '+parseInt(p[2],10)+', '+p[0];}
+  var base=(location.protocol==='file:')?'https://estebanfch-cell.github.io/minecoreadminapp/assets/cotizacion/':new URL('assets/cotizacion/',location.href).href;
+  var cli=cfg.cliente||{};
+  var lineas=cfg.lineas||[];
+  var hayFoto=lineas.some(function(l){return l.img;});
+  var hayDesc=lineas.some(function(l){return (parseFloat(l.descuento)||0)>0;});
+  var sub=cfg.subtotal||0, iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
+  var filas=lineas.map(function(l,i){
+    return '<tr'+(i%2?' class="alt"':'')+'><td class="num">'+(i+1)+'</td>'+
+      (hayFoto?'<td class="foto">'+(l.img?'<img src="'+l.img+'" onerror="this.style.display=\'none\'">':'')+'</td>':'')+
+      '<td><div class="pnom" contenteditable="true">'+esc(l.nombre)+'</div>'+
+      (l.codigo?'<div class="pcod" contenteditable="true">'+esc(l.codigo)+'</div>':'')+
+      '<div class="pcod psku" contenteditable="true">'+esc(l.sku)+'</div></td>'+
+      '<td class="cat" contenteditable="true">'+esc(l.categoria)+'</td>'+
+      '<td class="qty"><span class="chipq">'+l.cantidad+'</span></td>'+
+      (hayDesc?'<td class="mon">'+f2(l.precioLista!==undefined?l.precioLista:l.precioFinal)+'</td><td class="mon" style="width:64px">'+(parseFloat(l.descuento)||0)+' %</td>':'<td class="mon">'+f2(l.precioFinal)+'</td>')+
+      '<td class="mon">'+f2(l.cantidad*l.precioFinal)+'</td></tr>';
+  }).join('');
+  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(cfg.num)+'</title>'+
+    '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>'+
+    '<style>'+
+    '*{box-sizing:border-box}body{font-family:Roboto,Arial,sans-serif;font-size:9.6pt;color:#000;margin:0;background:#f4f4f4}'+
+    '.hoja{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:14mm 12mm;position:relative}'+
+    '.tools{position:sticky;top:0;background:#444824;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;z-index:9;flex-wrap:wrap}'+
+    '.tools button{background:#fff;color:#444824;border:0;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer}'+
+    '.tools .hint{font-size:11px;opacity:.9}'+
+    '.head{display:flex;gap:14px}.head .logo img{width:118px}'+
+    '.head .emp{flex:1;line-height:1.35}.head .emp b{font-size:11.2pt}'+
+    '.head .der{width:265px;text-align:right}'+
+    '.titulo{font-size:16pt;color:#444824;font-weight:400;letter-spacing:.5px}'+
+    '#bc{width:250px;height:34px;margin-top:2px}'+
+    '.meta{margin-top:6px}.meta .fila{display:flex;justify-content:space-between}'+
+    '.bloques{display:flex;gap:18px;margin-top:16px}.bloques>div{flex:1}'+
+    '.bt{color:#444824;font-weight:700;font-size:10.2pt;margin-bottom:2px}'+
+    '.oferta{margin:16px 0 8px}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'thead td{border-bottom:1.5px solid #000;padding:4px 6px;font-size:9.3pt}'+
+    'tbody td{padding:8px 6px;vertical-align:top}'+
+    'tr.alt td{background:#eaeaea}'+
+    '.num{width:18px;color:#444}.foto{width:52px}.foto img{width:44px;height:44px;object-fit:contain;background:#fff}'+
+    '.pnom{font-weight:700}.pcod{font-size:8.8pt}.psku{font-style:italic}'+
+    '.cat{width:88px;font-size:9pt}.qty{width:64px;text-align:center}'+
+    '.chipq{background:#e4e4e4;border-radius:4px;padding:2px 10px;display:inline-block}'+
+    '.mon{width:86px;text-align:right;white-space:nowrap}'+
+    '.pie{display:flex;gap:18px;margin-top:14px;align-items:flex-start}'+
+    '.cond{flex:1}.cond .ct{letter-spacing:.3px;margin-bottom:8px}.cond div{margin:7px 0}'+
+    '.tot{width:300px}.tot .r{display:flex;justify-content:space-between;padding:7px 12px;background:#444824;color:#fff;margin-bottom:2px}'+
+    '.tot .r.total{font-weight:700;font-size:10.5pt}'+
+    '.banco{text-align:center;margin-top:40px}'+
+    '.marcas{display:flex;justify-content:space-between;align-items:center;margin-top:46px;padding:0 8mm}'+
+    '.marcas img{height:34px}.marcas img.cb{height:40px}.marcas img.fd{height:44px}'+
+    '[contenteditable]:hover{outline:1px dashed #b5b5b5}'+
+    '@media print{body{background:#fff}.tools{display:none}.hoja{margin:0;width:auto;padding:10mm 10mm}[contenteditable]:hover{outline:none}}'+
+    '</style></head><body>'+
+    '<div class="tools"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button>'+
+    '<button onclick="toggleIva()">IVA: <span id="ivaEstado">CON IVA 15%</span></button>'+
+    '<span class="hint">Puedes tocar y corregir cualquier texto de la planilla antes de imprimir.</span></div>'+
+    '<div class="hoja">'+
+    '<div class="head">'+
+    '<div class="logo"><img src="'+base+'logo_minecore.png" onerror="this.style.display=\'none\'"></div>'+
+    '<div class="emp"><b>MINECORE S.A.S</b><br>RUC 1793194965001<br>Alpallana y Diego de Almagro<br>Quito, Pichincha<br>170518 Ecuador<br>www.minecore.ec</div>'+
+    '<div class="der"><div class="titulo">COTIZACIÓN DE VENTAS</div>'+
+    '<svg id="bc"></svg>'+
+    '<div class="meta">'+
+    '<div class="fila"><b>Numero de Orden</b><span contenteditable="true">'+esc(cfg.num)+'</span></div>'+
+    '<div class="fila"><b>Fecha</b><span contenteditable="true">'+fMes(cfg.fecha)+'</span></div>'+
+    '<div class="fila"><b>Cliente</b><span contenteditable="true">'+esc(cli.nombre)+'</span></div>'+
+    '<div class="fila"><b>RUC</b><span contenteditable="true">'+esc(cli.ruc||'')+'</span></div>'+
+    '</div></div></div>'+
+    '<div class="bloques">'+
+    '<div><div class="bt">Dirección de Envio</div><div contenteditable="true">'+esc(cli.nombre)+(cli.direccion?'<br>'+esc(cli.direccion).replace(/\n/g,'<br>'):'')+'</div></div>'+
+    '<div><div class="bt">Contacto</div><div contenteditable="true">'+esc(cfg.contacto||cli.contacto||'')+'</div>'+
+    '<div class="bt" style="margin-top:10px">Email</div><div contenteditable="true">'+esc(cli.email||'')+'</div></div>'+
+    '<div><div class="bt">Teléfono</div><div contenteditable="true">'+esc(cli.telefono||'')+'</div>'+
+    '<div class="bt" style="margin-top:10px">Términos de pago</div><div contenteditable="true">'+esc(cli.terminos||'')+'</div></div>'+
+    '</div>'+
+    '<div class="bloques"><div><div class="bt">Representante de ventas</div><div contenteditable="true">Esteban Ferlito</div></div>'+
+    '<div><div class="bt">Tiempo de Entrega</div><div contenteditable="true">INMEDIATA</div></div><div></div></div>'+
+    '<div class="oferta">A CONTINUACIÓN PRESENTAMOS NUESTRA OFERTA, QUE ESPERAMOS SEA DE SU CONFORMIDAD</div>'+
+    '<table><thead><tr><td></td>'+(hayFoto?'<td></td>':'')+'<td>Producto</td><td>Categoria</td><td style="text-align:center">Cantidad</td><td style="text-align:right">Precio unitario</td>'+(hayDesc?'<td style="text-align:right">Descuento</td>':'')+'<td style="text-align:right">Subtotal</td></tr></thead>'+
+    '<tbody>'+filas+'</tbody></table>'+
+    '<div class="pie">'+
+    '<div class="cond"><div class="ct">CONDICIONES COMERCIALES</div>'+
+    '<div contenteditable="true">- Los precios unitarios no incluyen IVA</div>'+
+    '<div contenteditable="true">- Los precios son en dólares americanos</div>'+
+    '<div contenteditable="true">- Los precios pueden variar sin previo aviso</div>'+
+    '<div contenteditable="true">- Todas las ventas son finales, pasados los 7 días de facturación no se aceptara devolución de productos</div></div>'+
+    '<div class="tot"><div class="r"><span>Subtotal</span><span>'+f2(sub)+'</span></div>'+
+    '<div class="r" id="filaIva"><span>IVA 15%</span><span>'+f2(iva)+'</span></div>'+
+    '<div class="r total"><span>Total</span><span id="totVal">'+f2(tot)+'</span></div></div></div>'+
+    '<div class="banco">Minecore S.A.S - RUC 1793194965001 - Banco Pichincha - Cuenta Corriente - 2100267034</div>'+
+    '<div class="marcas"><img class="cb" src="'+base+'logo_christensen_boyles.png" onerror="this.style.display=\'none\'">'+
+    '<img src="'+base+'logo_hydracore.png" onerror="this.style.display=\'none\'">'+
+    '<img class="fd" src="'+base+'logo_fordia.png" onerror="this.style.display=\'none\'"></div>'+
+    '</div>'+
+    '<script>var conIva=true;var SUB='+sub+';'+
+    'function toggleIva(){conIva=!conIva;'+
+    'document.getElementById("filaIva").style.display=conIva?"flex":"none";'+
+    'document.getElementById("ivaEstado").textContent=conIva?"CON IVA 15%":"SIN IVA";'+
+    'var t=conIva?SUB*1.15:SUB;var p=t.toFixed(2).split(".");p[0]=p[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g,",");'+
+    'document.getElementById("totVal").textContent="$"+p.join(".");}'+
+    'try{JsBarcode("#bc","'+esc(cfg.num||'MCOR-SQ')+'",{format:"CODE128",displayValue:false,height:30,margin:0,width:1.6});}catch(e){document.getElementById("bc").style.display="none";}'+
+    '<\/script></body></html>';
+  var blob=new Blob([html],{type:'text/html'});
+  var url=URL.createObjectURL(blob);
+  var w=window.open(url,'_blank');
+  if(!w){alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');return;}
+  setTimeout(function(){try{URL.revokeObjectURL(url);}catch(e){}},60000);
+}
 
 /* ===================== COTIZACIONES (módulo admin) ===================== */
 var Cot = (function(){
@@ -1959,21 +2142,48 @@ var Cot = (function(){
       lista=res.solicitudes||[];renderLista();
     }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
   }
+  var filtroEmp='';
   function renderLista(){
     if(!lista.length){
       el().innerHTML='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🧾</div>'+
         '<div class="cbz-card-name" style="margin:8px 0">Sin solicitudes de cotización</div>'+
-        '<div class="cbz-muted">Cuando un cliente envíe su carrito desde el portal, aparecerá aquí.</div></div>';
+        '<div class="cbz-muted">Cuando un cliente envíe su carrito, o crees una solicitud interna, aparecerá aquí.</div></div>';
       return;
     }
-    el().innerHTML='<div class="cbz-muted" style="margin-bottom:8px">'+lista.length+' solicitud'+(lista.length===1?'':'es')+' · toca una para revisarla</div>'+
-      lista.map(function(s){
+    // Nivel 1: carpetas por cliente, con contador y marca de nuevas
+    if(!filtroEmp){
+      var porEmp={};
+      lista.forEach(function(x){
+        var e2=x.empresa||'(sin cliente)';
+        if(!porEmp[e2])porEmp[e2]={n:0,nuevas:0,ult:''};
+        porEmp[e2].n++;
+        if(x.estado==='NUEVA')porEmp[e2].nuevas++;
+        if(x.fecha>porEmp[e2].ult)porEmp[e2].ult=x.fecha;
+      });
+      el().innerHTML='<div class="cbz-muted" style="margin-bottom:8px">📁 Cotizaciones por cliente · toca una carpeta</div>'+
+        Object.keys(porEmp).sort().map(function(e2){
+          var d=porEmp[e2];
+          return '<div class="cbz-card" style="cursor:pointer'+(d.nuevas?';border-color:#f0c040':'')+'" onclick="Cot.filtrar(\''+e2.replace(/'/g,'')+'\')">'+
+            '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
+            '<div class="cbz-card-name">📁 '+e2+(d.nuevas?' <span style="background:#f0c040;color:#111;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;margin-left:6px">🔔 '+d.nuevas+' nueva'+(d.nuevas===1?'':'s')+'</span>':'')+'</div>'+
+            '<span class="cbz-muted">'+d.n+' cotización'+(d.n===1?'':'es')+' ›</span></div>'+
+            '<div class="cbz-muted" style="font-size:10px">Última: '+d.ult+'</div></div>';
+        }).join('');
+      return;
+    }
+    // Nivel 2: solicitudes del cliente elegido
+    var visibles=lista.filter(function(x){return (x.empresa||'(sin cliente)')===filtroEmp;});
+    el().innerHTML='<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;align-items:center;flex-wrap:wrap">'+
+      '<button class="chip" onclick="Cot.filtrar(\'\')">← Clientes</button>'+
+      '<span class="cbz-card-name">📁 '+filtroEmp+'</span>'+
+      '<span class="cbz-muted" style="font-size:11px">'+visibles.length+' cotización'+(visibles.length===1?'':'es')+'</span></div>'+
+      visibles.map(function(s){
         return '<div class="cbz-card" style="cursor:pointer" onclick="Cot.abrir('+s.id+')">'+
           '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
-          '<div class="cbz-card-name">🏢 '+s.empresa+'</div>'+badge(s.estado)+'</div>'+
+          '<div class="cbz-card-name">'+(s.inflowNum?'🧾 '+s.inflowNum:'🧾 Solicitud')+'</div>'+badge(s.estado)+'</div>'+
           '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between">'+
           '<span>'+s.fecha+' · '+s.usuario+(s.contacto?' · '+s.contacto:'')+'</span>'+
-          '<span>'+s.n+' ítem'+(s.n===1?'':'s')+(s.inflowNum?' · inFlow '+s.inflowNum:'')+'</span></div></div>';
+          '<span>'+s.n+' ítem'+(s.n===1?'':'s')+'</span></div></div>';
       }).join('');
   }
   function abrir(id){
@@ -1983,8 +2193,9 @@ var Cot = (function(){
       det=res;renderDet();
     }).catch(function(){alert('Sin conexión');renderLista();});
   }
+  var editandoCreada=false;
   function renderDet(){
-    var c=det.cot, creada=(c.estado==='CREADA');
+    var c=det.cot, creada=(c.estado==='CREADA')&&!editandoCreada;
     var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
       '<div class="cbz-card-name">🏢 '+c.empresa+'</div>'+badge(c.estado)+'</div>'+
@@ -1999,7 +2210,9 @@ var Cot = (function(){
       var alerta=(l.ultCliente&&l.lista<l.ultCliente.p)?'<span style="color:#f0c040"> ⚠ lista por debajo del último vendido</span>':'';
       var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en inFlow — esta línea no se puede cotizar</div>':'';
       h+='<div class="cbz-card">'+
-        '<div class="cbz-card-name" style="font-size:13px">'+l.nombre+'</div>'+
+        '<div class="cbz-card-row" style="gap:8px;align-items:flex-start">'+
+        (l.img?'<img src="'+l.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'')+
+        '<div class="cbz-card-name" style="font-size:13px;flex:1">'+l.nombre+'</div></div>'+
         '<div class="cbz-muted" style="font-size:11px">SKU: '+l.sku+' · Stock: '+l.stock+'</div>'+sinPid+
         '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Lista: <b>'+fmt(l.lista)+'</b>'+alerta+' · '+refCli+'</div>'+
         '<div class="cbz-card-row" style="gap:10px;align-items:center;flex-wrap:wrap">'+
@@ -2015,18 +2228,47 @@ var Cot = (function(){
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between"><span class="cbz-card-name">Subtotal (sin IVA)</span><span class="cbz-card-name">'+fmt(tot)+'</span></div>'+
       '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales los calcula inFlow según el esquema del cliente.</div></div>';
     if(puedeEscribir()&&!creada){
+      h+=camposHtml();
       h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
         '<button class="cbz-btn-sec" onclick="Cot.guardar()">💾 Guardar borrador</button>'+
         '<button class="cbz-btn" onclick="Cot.crear()">⚡ Crear cotización en inFlow</button></div>';
     }
     if(creada){
-      h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px">'+
-        '<button class="cbz-btn" onclick="Cot.pdf()">🧾 Planilla de cotización (imprimir / PDF)</button></div>';
+      h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
+        '<button class="cbz-btn" onclick="Cot.pdf()">🧾 Planilla (imprimir / PDF)</button>'+
+        (puedeEscribir()?'<button class="cbz-btn-sec" onclick="Cot.editarCreada()">✏️ Editar precios (avisa al cliente)</button>':'')+'</div>';
+    }
+    if(editandoCreada&&c.estado==='CREADA'){
+      h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la cotización '+c.inflowNum+': al guardar, se actualiza en inFlow y el cliente recibe el aviso de que fue modificada.</div>'+
+        '<div class="cbz-card-row" style="gap:8px;margin-top:8px">'+
+        '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios y avisar al cliente</button>'+
+        '<button class="chip" onclick="Cot.cancelarEdicion()">✖ Cancelar</button></div></div>';
     }
     el().innerHTML=h;
   }
   function finU(l){var d=parseFloat(l.descuento)||0;return Math.round((parseFloat(l.precio)||0)*(1-d/100)*100)/100;}
   function setDesc(i,v){var d=parseFloat(v)||0;if(d<0)d=0;if(d>=100)d=99;det.lineas[i].descuento=d;renderDet();}
+  var camposOpen=false;
+  var CAMPOS_INFLOW=[['poNumber','ORDEN DE COMPRA #'],['custom1','FACTURA'],['custom2','ANTICIPO'],
+    ['custom3','ORDEN CONSIGNADA A'],['custom6','ENTREGA'],['custom8','PACKING TYPE'],
+    ['custom4','GROSS WEIGHT (KG)'],['custom9','NET WEIGHT (KG)'],['custom5','PACKAGE L×W×H (M)']];
+  function camposHtml(){
+    if(!det.campos)det.campos={};
+    var h2='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Cot.togCampos()">'+
+      '<div class="cbz-card-name" style="font-size:13px">'+(camposOpen?'▾':'▸')+' 📋 Campos de inFlow (opcional)</div>'+
+      '<span class="cbz-muted" style="font-size:11px">factura, anticipo, entrega, pesos...</span></div>';
+    if(camposOpen){
+      h2+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'+
+        CAMPOS_INFLOW.map(function(cf){
+          return '<div><div class="cbz-muted" style="font-size:10px;margin-bottom:2px">'+cf[1]+'</div>'+
+            '<input class="uinput" style="padding:7px" value="'+String(det.campos[cf[0]]||'').replace(/"/g,'&quot;')+'" onchange="Cot.setCampo(\''+cf[0]+'\',this.value)"></div>';
+        }).join('')+'</div>'+
+        '<div class="cbz-muted" style="font-size:10px;margin-top:6px">Estos valores viajan a inFlow al crear la cotización. Si alguno cae en otra casilla, avísame para remapearlo.</div>';
+    }
+    return h2+'</div>';
+  }
+  function togCampos(){camposOpen=!camposOpen;renderDet();}
+  function setCampo(k,v){if(!det.campos)det.campos={};det.campos[k]=v;}
   function vinculoHtml(){
     if(det.vinculo)return '<div class="cbz-muted" style="font-size:11px;margin-top:4px">🔗 Cliente inFlow: <b style="color:#9fc3e8">'+det.vinculo.nombre+'</b></div>';
     if(!det.candidatos.length)return '<div style="color:#f0c040;font-size:11px;margin-top:4px">⚠ Sin cliente de inFlow vinculado ni candidatos por nombre. Corre el sync o revisa el nombre de la empresa.</div>';
@@ -2067,7 +2309,7 @@ var Cot = (function(){
       (omitidas?'\n(Se omitirán '+omitidas+' línea(s) sin producto de inFlow.)':'');
     if(!confirm(msg))return;
     el().innerHTML='<div class="cbz-loading">Creando cotización en inFlow...</div>';
-    api({action:'crearCotInflow',id:det.cot.id,
+    api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},
          lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
@@ -2075,7 +2317,23 @@ var Cot = (function(){
       abrir(det.cot.id);
     }).catch(function(){alert('Sin conexión. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
   }
-  function volver(){det=null;cargar();}
+  function editarCreada(){editandoCreada=true;renderDet();}
+  function cancelarEdicion(){editandoCreada=false;abrir(det.cot.id);}
+  function guardarEdicion(){
+    var lineas=det.lineas.filter(function(l){return l.productId;});
+    if(!confirm('¿Guardar los cambios de '+det.cot.inflowNum+'?\nSe actualizará en inFlow y el cliente recibirá el aviso.'))return;
+    el().innerHTML='<div class="cbz-loading">Actualizando cotización...</div>';
+    api({action:'editarCotCreada',id:det.cot.id,
+         lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
+    }).then(function(res){
+      editandoCreada=false;
+      if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
+      alert('✔ Cotización '+res.orderNumber+' actualizada en inFlow.'+(res.emailEnviado?'\n📧 Aviso enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale por tu canal habitual)'));
+      abrir(det.cot.id);
+    }).catch(function(){editandoCreada=false;alert('Sin conexión. Verifica en inFlow antes de reintentar.');abrir(det.cot.id);});
+  }
+  function filtrar(e2){filtroEmp=e2;renderLista();}
+  function volver(){det=null;filtroEmp=filtroEmp;cargar();}
   /* ---------- Planilla de cotización: réplica del formato inFlow ---------- */
   function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function fMes(f){ // 'yyyy-MM-dd...' -> 'Jul 30, 2026' (mismo formato que inFlow)
@@ -2093,124 +2351,20 @@ var Cot = (function(){
   }
   function abrePlanilla(cli){
     var c=det.cot;
-    var base=(location.protocol==='file:')?'https://estebanfch-cell.github.io/minecoreadminapp/assets/cotizacion/':new URL('assets/cotizacion/',location.href).href;
     var lineas=det.lineas.filter(function(l){return l.productId;});
-    function pfin(l){var d=parseFloat(l.descuento)||0;return Math.round((parseFloat(l.precio)||0)*(1-d/100)*100)/100;}
-    var sub=0;lineas.forEach(function(l){sub+=pfin(l)*(parseInt(l.cantidad,10)||0);});
-    var iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
-    function f2(n){var p=(parseFloat(n)||0).toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
-    var filas=lineas.map(function(l,i){
-      return '<tr'+(i%2?' class="alt"':'')+'><td class="num">'+(i+1)+'</td>'+
-        '<td><div class="pnom" contenteditable="true">'+esc(l.nombre)+'</div>'+
-        (l.codigo?'<div class="pcod" contenteditable="true">'+esc(l.codigo)+'</div>':'')+
-        '<div class="pcod psku" contenteditable="true">'+esc(l.sku)+'</div></td>'+
-        '<td class="cat" contenteditable="true">'+esc(l.categoria)+'</td>'+
-        '<td class="qty"><span class="chipq">'+l.cantidad+'</span></td>'+
-        '<td class="mon">'+f2(pfin(l))+'</td>'+
-        '<td class="mon">'+f2(l.cantidad*pfin(l))+'</td></tr>';
-    }).join('');
-    var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(c.inflowNum)+'</title>'+
-      '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
-      '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>'+
-      '<style>'+
-      '*{box-sizing:border-box}body{font-family:Roboto,Arial,sans-serif;font-size:9.6pt;color:#000;margin:0;background:#f4f4f4}'+
-      '.hoja{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:14mm 12mm;position:relative}'+
-      '.tools{position:sticky;top:0;background:#444824;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;z-index:9}'+
-      '.tools button{background:#fff;color:#444824;border:0;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer}'+
-      '.tools .hint{font-size:11px;opacity:.9}'+
-      '.head{display:flex;gap:14px}'+
-      '.head .logo img{width:118px}'+
-      '.head .emp{flex:1;line-height:1.35}'+
-      '.head .emp b{font-size:11.2pt}'+
-      '.head .der{width:265px;text-align:right}'+
-      '.titulo{font-size:16pt;color:#444824;font-weight:400;letter-spacing:.5px}'+
-      '#bc{width:250px;height:34px;margin-top:2px}'+
-      '.meta{margin-top:6px;font-size:9.6pt}'+
-      '.meta .fila{display:flex;justify-content:space-between}'+
-      '.meta .fila b{text-align:left}'+
-      '.bloques{display:flex;gap:18px;margin-top:16px}'+
-      '.bloques>div{flex:1}'+
-      '.bt{color:#444824;font-weight:700;font-size:10.2pt;margin-bottom:2px}'+
-      '.oferta{margin:16px 0 8px;font-size:9.6pt}'+
-      'table{width:100%;border-collapse:collapse}'+
-      'thead td{border-bottom:1.5px solid #000;padding:4px 6px;font-size:9.3pt}'+
-      'tbody td{padding:8px 6px;vertical-align:top}'+
-      'tr.alt td{background:#eaeaea}'+
-      '.num{width:18px;color:#444}'+
-      '.pnom{font-weight:700}'+
-      '.pcod{font-size:8.8pt}.psku{font-style:italic}'+
-      '.cat{width:88px;font-size:9pt}'+
-      '.qty{width:64px;text-align:center}'+
-      '.chipq{background:#e4e4e4;border-radius:4px;padding:2px 10px;display:inline-block}'+
-      '.mon{width:86px;text-align:right;white-space:nowrap}'+
-      '.pie{display:flex;gap:18px;margin-top:14px;align-items:flex-start}'+
-      '.cond{flex:1}'+
-      '.cond .ct{font-weight:400;letter-spacing:.3px;margin-bottom:8px}'+
-      '.cond div{margin:7px 0}'+
-      '.tot{width:300px}'+
-      '.tot .r{display:flex;justify-content:space-between;padding:7px 12px;background:#444824;color:#fff;margin-bottom:2px}'+
-      '.tot .r.total{font-weight:700;font-size:10.5pt}'+
-      '.banco{text-align:center;margin-top:40px;font-size:9.6pt}'+
-      '.marcas{display:flex;justify-content:space-between;align-items:center;margin-top:46px;padding:0 8mm}'+
-      '.marcas img{height:34px}.marcas img.cb{height:40px}.marcas img.fd{height:44px}'+
-      '[contenteditable]:hover{outline:1px dashed #b5b5b5}'+
-      '@media print{body{background:#fff}.tools{display:none}.hoja{margin:0;width:auto;padding:10mm 10mm}[contenteditable]:hover{outline:none}}'+
-      '</style></head><body>'+
-      '<div class="tools"><button onclick="window.print()">🖨 Imprimir / Guardar como PDF</button>'+
-      '<button onclick="toggleIva()">IVA: <span id="ivaEstado">CON IVA 15%</span></button>'+
-      '<span class="hint">Puedes tocar y corregir cualquier texto de la planilla antes de imprimir.</span></div>'+
-      '<div class="hoja">'+
-      '<div class="head">'+
-      '<div class="logo"><img src="'+base+'logo_minecore.png" onerror="this.style.display=\'none\'"></div>'+
-      '<div class="emp"><b>MINECORE S.A.S</b><br>RUC 1793194965001<br>Alpallana y Diego de Almagro<br>Quito, Pichincha<br>170518 Ecuador<br>www.minecore.ec</div>'+
-      '<div class="der"><div class="titulo">COTIZACIÓN DE VENTAS</div>'+
-      '<svg id="bc"></svg>'+
-      '<div class="meta">'+
-      '<div class="fila"><b>Numero de Orden</b><span contenteditable="true">'+esc(c.inflowNum)+'</span></div>'+
-      '<div class="fila"><b>Fecha</b><span contenteditable="true">'+fMes(c.fechaCreada||c.fecha)+'</span></div>'+
-      '<div class="fila"><b>Cliente</b><span contenteditable="true">'+esc(cli.nombre)+'</span></div>'+
-      '<div class="fila"><b>RUC</b><span contenteditable="true">'+esc(cli.ruc)+'</span></div>'+
-      '</div></div></div>'+
-      '<div class="bloques">'+
-      '<div><div class="bt">Dirección de Envio</div><div contenteditable="true">'+esc(cli.nombre)+(cli.direccion?'<br>'+esc(cli.direccion).replace(/\n/g,'<br>'):'')+'</div></div>'+
-      '<div><div class="bt">Contacto</div><div contenteditable="true">'+esc(det.cot.contacto||cli.contacto)+'</div>'+
-      '<div class="bt" style="margin-top:10px">Email</div><div contenteditable="true">'+esc(cli.email)+'</div></div>'+
-      '<div><div class="bt">Teléfono</div><div contenteditable="true">'+esc(cli.telefono)+'</div>'+
-      '<div class="bt" style="margin-top:10px">Términos de pago</div><div contenteditable="true">'+esc(cli.terminos||'CONTADO')+'</div></div>'+
-      '</div>'+
-      '<div class="bloques"><div><div class="bt">Representante de ventas</div><div contenteditable="true">Esteban Ferlito</div></div>'+
-      '<div><div class="bt">Tiempo de Entrega</div><div contenteditable="true">INMEDIATA</div></div><div></div></div>'+
-      '<div class="oferta">A CONTINUACIÓN PRESENTAMOS NUESTRA OFERTA, QUE ESPERAMOS SEA DE SU CONFORMIDAD</div>'+
-      '<table><thead><tr><td></td><td>Producto</td><td>Categoria</td><td style="text-align:center">Cantidad</td><td style="text-align:right">Precio unitario</td><td style="text-align:right">Subtotal</td></tr></thead>'+
-      '<tbody>'+filas+'</tbody></table>'+
-      '<div class="pie">'+
-      '<div class="cond"><div class="ct">CONDICIONES COMERCIALES</div>'+
-      '<div contenteditable="true">- Los precios unitarios no incluyen IVA</div>'+
-      '<div contenteditable="true">- Los precios son en dólares americanos</div>'+
-      '<div contenteditable="true">- Los precios pueden variar sin previo aviso</div>'+
-      '<div contenteditable="true">- Todas las ventas son finales, pasados los 7 días de facturación no se aceptara devolución de productos</div></div>'+
-      '<div class="tot"><div class="r"><span>Subtotal</span><span>'+f2(sub)+'</span></div>'+
-      '<div class="r" id="filaIva"><span>IVA 15%</span><span>'+f2(iva)+'</span></div>'+
-      '<div class="r total"><span>Total</span><span id="totVal">'+f2(tot)+'</span></div></div></div>'+
-      '<div class="banco">Minecore S.A.S - RUC 1793194965001 - Banco Pichincha - Cuenta Corriente - 2100267034</div>'+
-      '<div class="marcas"><img class="cb" src="'+base+'logo_christensen_boyles.png" onerror="this.style.display=\'none\'">'+
-      '<img src="'+base+'logo_hydracore.png" onerror="this.style.display=\'none\'">'+
-      '<img class="fd" src="'+base+'logo_fordia.png" onerror="this.style.display=\'none\'"></div>'+
-      '</div>'+
-      '<script>var conIva=true;var SUB='+sub+';'+
-      'function toggleIva(){conIva=!conIva;'+
-      'document.getElementById("filaIva").style.display=conIva?"flex":"none";'+
-      'document.getElementById("ivaEstado").textContent=conIva?"CON IVA 15%":"SIN IVA";'+
-      'var t=conIva?SUB*1.15:SUB;var p=t.toFixed(2).split(".");p[0]=p[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g,",");'+
-      'document.getElementById("totVal").textContent="$"+p.join(".");}'+
-      'try{JsBarcode("#bc","'+esc(c.inflowNum||'MCOR-SQ')+'",{format:"CODE128",displayValue:false,height:30,margin:0,width:1.6});}catch(e){document.getElementById("bc").style.display="none";}'+
-      '<\/script></body></html>';
-    var w=window.open('','_blank');
-    if(!w){alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');return;}
-    w.document.open();w.document.write(html);w.document.close();
+    function pf(l){var d=parseFloat(l.descuento)||0;return Math.round((parseFloat(l.precio)||0)*(1-d/100)*100)/100;}
+    var sub=0;lineas.forEach(function(l){sub+=pf(l)*(parseInt(l.cantidad,10)||0);});
+    MCPlanillaCot({
+      num:c.inflowNum,fecha:c.fechaCreada||c.fecha,
+      cliente:cli,contacto:det.cot.contacto,
+      lineas:lineas.map(function(l){return {nombre:l.nombre,codigo:l.codigo||'',sku:l.sku,categoria:l.categoria||'',cantidad:l.cantidad,precioLista:parseFloat(l.precio)||0,descuento:parseFloat(l.descuento)||0,precioFinal:pf(l),img:l.img||''};}),
+      subtotal:Math.round(sub*100)/100
+    });
   }
   return {init:init,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
-          guardar:guardar,crear:crear,vincular:vincular,pdf:pdf};
+          guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
+          filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
+          togCampos:togCampos,setCampo:setCampo};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -2743,6 +2897,7 @@ function renderHome(){
   if(can('inventario')) h+='<div class="mod" onclick="openMod(\'inv\')"><div class="ico">📦</div><h3>Inventario</h3><p>Stock por producto, agotados y valorización</p></div>';
   if(p.rol!=='cliente'&&can('cotizaciones')) h+='<div class="mod" onclick="openMod(\'cot\')"><div class="ico">🧾</div><h3>Cotizaciones</h3><p>Solicitudes de clientes, precios y creación en inFlow</p></div>';
   if(p.rol==='cliente'&&p.vinculada===false) h+='<div class="mod" onclick="Vinc.run()" style="border-color:#f0c040"><div class="ico">🔎</div><h3>Confirma tu organización</h3><p>Toca aquí para encontrar tu empresa y vincular tu cuenta</p></div>';
+  if(p.rol==='cliente') h+='<div class="mod" id="card-miscot" onclick="openMod(\'miscot\')" style="position:relative"><div class="ico">🧾</div><h3>Cotizaciones</h3><p>Tus solicitudes y cotizaciones con precios</p></div>';
   if(p.rol==='cliente'&&can('consignacion')) h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>Qué tienes, desde qué acta y cuántos días</p></div>';
   if(p.rol==='cliente') h+='<div class="mod" onclick="openMod(\'edc\')"><div class="ico">💳</div><h3>Estado de cuenta</h3><p>Tu cartera, facturas e historial de órdenes</p></div>';
   if(p.rol==='cliente'&&p.master) h+='<div class="mod" onclick="openMod(\'minv\')"><div class="ico">👥</div><h3>Mi equipo</h3><p>Invita usuarios de tu organización</p></div>';
@@ -2750,8 +2905,32 @@ function renderHome(){
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>De todos los clientes, con días por acta</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'sols\')"><div class="ico">🔔</div><h3>Aprobaciones</h3><p>Solicitudes de acceso de clientes</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
+  if(p.rol==='admin') h+='<div id="api-ver" class="cbz-muted" style="grid-column:1/-1;font-size:10px;text-align:right;opacity:.5"></div>';
   document.getElementById('home').innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
   document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
+  if(p.rol==='admin'){
+    fetch(API_URL).then(function(r){return r.json();}).then(function(d){
+      var e=document.getElementById('api-ver');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v69'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+    }).catch(function(){});
+  }
+  if(p.rol==='cliente'){
+    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'misCotizaciones',user:getUserName(),pin:getPin()})})
+    .then(function(r){return r.json();}).then(function(res){
+      if(!res.ok)return;
+      var sols=res.solicitudes||[];
+      var listas=sols.filter(function(x){return x.estado==='CREADA';}).length;
+      var vistas=0,updVisto='';
+      try{vistas=parseInt(localStorage.getItem('mc_cot_vistas_'+(getUserName()||'').toLowerCase()),10)||0;
+          updVisto=localStorage.getItem('mc_cot_upd_'+(getUserName()||'').toLowerCase())||'';}catch(e){}
+      var hayUpd=sols.some(function(x){return x.fechaActualizada&&x.fechaActualizada>updVisto;});
+      if(listas>vistas||hayUpd){
+        var card=document.getElementById('card-miscot');
+        if(card)card.insertAdjacentHTML('beforeend','<span style="position:absolute;top:10px;right:12px;background:#e05c5c;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:2px 8px">🔔 '+(listas>vistas?(listas-vistas):'!')+'</span>');
+      }
+    }).catch(function(){});
+  }
 }
 function doSyncNow(){
   var b=document.getElementById('syncBtn');
@@ -2785,6 +2964,7 @@ function openMod(m){
   if(m==='sols'){document.getElementById('sols-screen').style.display='block';document.getElementById('title').textContent='APROBACIONES';Sols.init();}
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
+  if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
 }
 function goHome(){
   document.getElementById('dash-screen').style.display='none';
