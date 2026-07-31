@@ -12,11 +12,14 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
 #shell{max-width:640px;margin:0 auto;padding:16px}
-.topbar{display:flex;align-items:center;gap:10px;padding:6px 0 14px}
+.topbar{display:flex;align-items:center;gap:8px;padding:6px 0 14px;flex-wrap:nowrap}
 .topbar .dot{width:10px;height:10px;border-radius:50%;background:#2e9e5b;flex:none}
 .topbar h1{font-size:17px;letter-spacing:1px;flex:1}
 #title:empty{display:none}
-.topbar button{background:#1c2a3a;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer}
+.topbar button{background:#1c2a3a;border:1px solid #26405c;color:#fff;border-radius:999px;width:38px;height:38px;padding:0;font-size:15px;cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.topbar button .lbl{display:none}
+.topbar #whoami{flex:none}
+@media(min-width:560px){.topbar button{width:auto;padding:0 14px;font-size:12px;border-radius:10px}.topbar button .lbl{display:inline;margin-left:6px}}
 #login{position:fixed;inset:0;background:#fff;text-align:center;padding:12vh 24px 40px;box-sizing:border-box;overflow:auto}
 #login .box{max-width:380px;margin:0 auto}
 #login h1{font-size:22px;margin-bottom:4px;letter-spacing:2px;color:#0b1219}
@@ -166,7 +169,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v79</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v83</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -174,10 +177,10 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 
 <div id="shell" style="display:none">
   <div class="topbar">
-    <span class="dot"></span><img id="hdrLogo" alt="Minecore" style="height:34px;display:none;flex:none" onload="this.style.display='inline-block'"><span style="flex:1"></span><span id="whoami" style="color:#8fa3b8;font-size:12px;font-weight:700;margin-right:6px"></span>
-    <button id="syncBtn" style="display:none" onclick="doSyncNow()">⟳ Sync</button>
-    <button onclick="doLogout()" title="Cerrar sesion">⎋ Salir</button>
-    <button id="backBtn" style="display:none" onclick="goHome()">← Menú</button>
+    <span class="dot"></span><img id="hdrLogo" alt="Minecore" style="height:30px;display:none;flex:none" onload="this.style.display='inline-block'"><span style="flex:1"></span><span id="whoami" style="color:#8fa3b8;font-size:12px;font-weight:700;margin-right:6px"></span>
+    <button id="syncBtn" style="display:none" onclick="doSyncNow()" title="Sincronizar con inFlow">⟳<span class="lbl">Sync</span></button>
+    <button onclick="doLogout()" title="Cerrar sesión">⎋<span class="lbl">Salir</span></button>
+    <button id="backBtn" style="display:none" onclick="goHome()" title="Volver al menú">←<span class="lbl">Menú</span></button>
   </div>
   <h1 id="title" style="font-size:17px;letter-spacing:1px;margin:0 0 12px"></h1>
 
@@ -1194,9 +1197,10 @@ var Inv = (function(){
       '<button class="chip '+(vista==='inv'?'on':'')+'" onclick="Inv.setVista(\'inv\')">📦 Inventario</button>'+
       (esAdmin?'<button class="chip '+(vista==='reo'?'on':'')+'" onclick="Inv.setVista(\'reo\')">🔁 Reorden & Recomendaciones</button>':'')+
       '<button class="chip '+(vista==='desp'?'on':'')+'" onclick="Inv.setVista(\'desp\')">📄 Despieces</button>'+
+      '<button class="chip '+(vista==='man'?'on':'')+'" onclick="Inv.setVista(\'man\')">📘 Manuales</button>'+
       '</div>';
     if(vista==='reo'){el.innerHTML=h+'<div id="reo-body"></div>';renderReo();return;}
-    if(vista==='desp'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();return;}
+    if(vista==='desp'||vista==='man'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();return;}
     if(vista==='cart'){el.innerHTML=h+cartHtml();return;}
     h+='<div id="inv-kpis"></div>'+
       '<div class="cbz-card-row" style="margin-bottom:6px">'+
@@ -1207,7 +1211,7 @@ var Inv = (function(){
       sel('marca',(esCliente?marcas.filter(function(m){return /BOYLES|FORDIA/i.test(m);}):marcas),marca,'Inv.setMarca','Todas las marcas')+
       chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
       '</div>'+'<div id="inv-broca">'+brocaFiltersHtml()+'</div>'+'<div id="inv-list"></div>'+
-      (esCliente?'<div id="cart-fab" class="cbz-btn" style="position:fixed;bottom:18px;right:16px;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer" onclick="Inv.verCarrito()">🛒 Carrito ('+cartCount()+')</div>':'');
+      ((esCliente||cartCount()>0)?'<div id="cart-fab" class="cbz-btn" style="position:fixed;bottom:18px;right:16px;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer" onclick="Inv.verCarrito()">🛒 Carrito ('+cartCount()+')</div>':'');
     el.innerHTML=h;
     renderList();
   }
@@ -1370,13 +1374,22 @@ var Inv = (function(){
         '<button class="chip" onclick="Inv.cartQty(\''+sku+'\',1)">＋</button>'+
         '<button class="chip" onclick="Inv.cartQty(\''+sku+'\',-'+c.cantidad+')">✕</button></div>';
     }).join('');
-    h+='<div class="uform" style="margin-top:12px">'+
-      '<input class="uinput" id="cart-emp" placeholder="Empresa" value="'+emp.replace(/"/g,'&quot;')+'">'+
+    h+='<div class="uform" style="margin-top:12px">';
+    if(esCliente){
+      h+='<input class="uinput" id="cart-emp" placeholder="Empresa" value="'+emp.replace(/"/g,'&quot;')+'">'+
       '<input class="uinput" id="cart-con" placeholder="Nombre y contacto (email o teléfono)" value="'+con.replace(/"/g,'&quot;')+'">'+
       '<textarea class="uinput" id="cart-com" rows="3" placeholder="Comentario (opcional)"></textarea>'+
       '<div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Inv.enviarCarrito()">📨 Solicitar cotización</button></div>'+
-      '<div class="cbz-muted">Minecore te enviará la cotización al contacto indicado.</div>'+
-      '</div></div>';
+      '<div class="cbz-muted">Minecore te enviará la cotización al contacto indicado.</div>';
+    } else {
+      h+='<div class="cbz-muted" style="margin-bottom:6px">🧾 Crear solicitud de cotización directa para un cliente:</div>'+
+      '<input class="uinput" id="cart-cli" list="cart-clis" placeholder="Escribe el nombre del cliente de inFlow...">'+
+      '<datalist id="cart-clis"></datalist>'+
+      '<div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Inv.crearSolInterna()">🧾 Crear solicitud de cotización</button></div>'+
+      '<div class="cbz-muted">La solicitud cae al módulo Cotizaciones con estado NUEVA: ahí revisas precios y la creas en inFlow.</div>';
+      setTimeout(function(){Inv.cargarClisCarrito();},0);
+    }
+    h+='</div></div>';
     return h;
   }
   function setVCart(v){vistaCart=v;render();}
@@ -1616,34 +1629,40 @@ var Inv = (function(){
         '<div class="cbz-muted">Los diagramas de partes aparecerán aquí.</div></div>';
       return;
     }
-    // Carpeta de categoría: despieces/PROVEEDOR/CATEGORIA/archivo.pdf → partes[2]
+    // Raíz activa: despieces o manuales (pestañas separadas)
+    var root=(vista==='man')?'manuales':'despieces';
+    function esDeRoot(d){var ar=String(d.archivo||'');return root==='manuales'?ar.indexOf('manuales/')===0:ar.indexOf('manuales/')!==0;}
     function catDe(d){var pa=String(d.archivo||'').split('/');return pa.length>=4?pa[2]:'GENERAL';}
     function catNice(c){return c.replace(/_/g,' ');}
-    // Nivel 1: carpetas por proveedor (derivadas de despieces/PROVEEDOR/...)
+    var enRoot=despArr.filter(esDeRoot);
+    if(!enRoot.length){
+      box.innerHTML='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">'+(root==='manuales'?'📘':'📄')+'</div>'+
+        '<div class="cbz-card-name" style="margin:8px 0">Aún no hay '+(root==='manuales'?'manuales':'despieces')+' cargados</div></div>';
+      return;
+    }
+    // Nivel 1: SIEMPRE mostrar las carpetas de proveedor
     var provs={};
-    despArr.forEach(function(d){var p=d.proveedor||'GENERAL';provs[p]=(provs[p]||0)+1;});
+    enRoot.forEach(function(d){var p=d.proveedor||'GENERAL';provs[p]=(provs[p]||0)+1;});
     var provKeys=Object.keys(provs).sort();
-    if(despProv===null&&provKeys.length===1)despProv=provKeys[0];
     if(despProv===null){
       box.innerHTML='<div class="cbz-muted" style="margin-bottom:8px">Elige el proveedor / la marca:</div>'+
         provKeys.map(function(p){
           return '<div class="cbz-card" style="cursor:pointer" onclick="Inv.despProv(\''+p.replace(/'/g,'')+'\')">'+
             '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
-            '<div class="cbz-card-name">📁 '+p+'</div>'+
-            '<span class="cbz-muted">'+provs[p]+' despiece'+(provs[p]===1?'':'s')+' ›</span></div></div>';
+            '<div class="cbz-card-name">📁 '+catNice(p)+'</div>'+
+            '<span class="cbz-muted">'+provs[p]+' archivo'+(provs[p]===1?'':'s')+' ›</span></div></div>';
         }).join('');
       return;
     }
-    var delProv=despArr.filter(function(d){return (d.proveedor||'GENERAL')===despProv;});
-    // Nivel 2: carpetas por categoría dentro del proveedor
+    var delProv=enRoot.filter(function(d){return (d.proveedor||'GENERAL')===despProv;});
+    // Nivel 2: carpetas por categoría
     var cats2={};
     delProv.forEach(function(d){var c=catDe(d);cats2[c]=(cats2[c]||0)+1;});
     var catKeys=Object.keys(cats2).sort();
     if(despCat===null&&catKeys.length===1)despCat=catKeys[0];
-    var migajaProv=(provKeys.length>1?'<button class="chip" onclick="Inv.despProv(null)">← Proveedores</button>':'');
     if(despCat===null){
-      box.innerHTML='<div class="cbz-card-row" style="margin-bottom:8px">'+migajaProv+
-        '<span class="cbz-card-name" style="align-self:center">📁 '+despProv+'</span></div>'+
+      box.innerHTML='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Inv.despProv(null)">← Proveedores</button>'+
+        '<span class="cbz-card-name" style="align-self:center">📁 '+catNice(despProv)+'</span></div>'+
         catKeys.map(function(c){
           return '<div class="cbz-card" style="cursor:pointer" onclick="Inv.despCat(\''+c.replace(/'/g,'')+'\')">'+
             '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
@@ -1652,58 +1671,137 @@ var Inv = (function(){
         }).join('');
       return;
     }
-    // Nivel 3: despieces de la categoría, con piezas cruzadas con stock
+    // Nivel 3: archivos — SOLO título + Visualizar / Descargar (sin lista de códigos)
     var lista=delProv.filter(function(d){return catDe(d)===despCat;});
-    var porCod={};
-    items.forEach(function(it){if(it.codigo)porCod[String(it.codigo).trim()]=it;});
-    var migaja='<div class="cbz-card-row" style="margin-bottom:8px;flex-wrap:wrap">'+
-      (catKeys.length>1?'<button class="chip" onclick="Inv.despCat(null)">← Carpetas</button>':migajaProv)+
-      '<span class="cbz-card-name" style="align-self:center">📁 '+despProv+' / '+catNice(despCat)+'</span></div>';
-    box.innerHTML=migaja+lista.map(function(d){
-      var open=!!despOpen[d.nombre];
-      var c='<div class="cbz-card">'+
-        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Inv.despToggle(\''+d.nombre.replace(/'/g,'')+'\')">'+
-        '<div class="cbz-card-name">'+(open?'▾ ':'▸ ')+'📄 '+d.nombre+'</div>'+
-        '<span class="cbz-muted">'+d.piezas.length+' pieza'+(d.piezas.length===1?'':'s')+'</span></div>';
-      if(open){
-        if(d.archivo)c+='<div class="cbz-card-row" style="margin:6px 0;gap:8px">'+
-          '<button class="cbz-btn-sec" onclick="Inv.despVer(\''+d.archivo+'\',\''+d.nombre.replace(/'/g,'')+'\')">👁 Visualizar</button>'+
-          '<a class="cbz-btn-sec" style="text-decoration:none" href="'+d.archivo+'" download>⬇ Descargar</a></div>';
-        c+='<div class="cbz-muted" style="font-size:11px;margin:4px 0">👆 Aplasta cualquier código y te mostramos el producto al instante, sin salir de aquí.</div>';
-        c+='<div class="cbz-card-row" style="flex-wrap:wrap;gap:6px">'+d.piezas.map(function(p){
-          var it=porCod[p.codigo];
-          var badge, extra=' onclick="Inv.despFicha(\''+p.codigo+'\')" style="cursor:pointer';
-          if(!it){badge='<span style="color:#7a8a9a">❔</span>';extra+='"';}
-          else if(it.stock>0){badge='<span style="color:#6fd68f">✅ '+(it.stock%1===0?Math.round(it.stock):it.stock)+'</span>';extra+=';border-color:#2e5c3e"';}
-          else {badge='<span style="color:#e05c5c">agotado</span>';extra+='"';}
-          return '<button class="chip"'+extra+'>'+p.codigo+' · '+p.desc+' '+badge+'</button>';
-        }).join('')+'</div>';
-      }
-      return c+'</div>';
-    }).join('');
+    box.innerHTML='<div class="cbz-card-row" style="margin-bottom:8px;flex-wrap:wrap">'+
+      (catKeys.length>1?'<button class="chip" onclick="Inv.despCat(null)">← Carpetas</button>':'<button class="chip" onclick="Inv.despProv(null)">← Proveedores</button>')+
+      '<span class="cbz-card-name" style="align-self:center">📁 '+catNice(despProv)+' / '+catNice(despCat)+'</span></div>'+
+      '<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">👁 Visualizar abre el documento aquí mismo: toca cualquier código dentro del PDF y te mostramos el producto y su stock al instante.</div>'+
+      lista.map(function(d){
+        return '<div class="cbz-card">'+
+          '<div class="cbz-card-name" style="margin-bottom:8px">'+(root==='manuales'?'📘 ':'📄 ')+d.nombre+'</div>'+
+          '<div class="cbz-card-row" style="gap:8px">'+
+          '<button class="cbz-btn" onclick="Inv.despVer(\''+d.archivo+'\',\''+d.nombre.replace(/'/g,'')+'\')">👁 Visualizar</button>'+
+          '<a class="cbz-btn-sec" style="text-decoration:none" href="'+d.archivo+'" download>⬇ Descargar</a></div></div>';
+      }).join('');
   }
   function despToggle(k){despOpen[k]=!despOpen[k];renderDesp();}
   function despProvSet(p){despProv=p;despCat=null;despOpen={};renderDesp();}
   function despCatSet(c){despCat=c;despOpen={};renderDesp();}
-  /* ---------- Visor PDF embebido (sin salir del sistema) ---------- */
-  function despModal(html){
-    var m=document.getElementById('desp-modal');
-    if(!m){m=document.createElement('div');m.id='desp-modal';document.body.appendChild(m);}
-    m.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(4,10,18,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;box-sizing:border-box';
+  /* ---------- Capas modales (visor z:200, ficha z:300 encima) ---------- */
+  function despModal(html,capa){
+    var id=capa===2?'desp-modal2':'desp-modal';
+    var m=document.getElementById(id);
+    if(!m){m=document.createElement('div');m.id=id;document.body.appendChild(m);}
+    m.style.cssText='position:fixed;inset:0;z-index:'+(capa===2?300:200)+';background:rgba(4,10,18,'+(capa===2?'.72':'.88')+');display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;box-sizing:border-box';
     m.innerHTML=html;
+    return m;
   }
-  function despCerrar(){var m=document.getElementById('desp-modal');if(m)m.remove();}
+  function despCerrar(capa){
+    if(capa===2){var m2=document.getElementById('desp-modal2');if(m2)m2.remove();return;}
+    var m=document.getElementById('desp-modal');if(m)m.remove();
+    var n=document.getElementById('desp-modal2');if(n)n.remove();
+  }
+  /* ---------- Visor PDF interactivo: códigos tocables sobre el documento ---------- */
+  var pdfjsCargando=null;
+  function cargarPdfjs(){
+    if(window.pdfjsLib)return Promise.resolve();
+    if(pdfjsCargando)return pdfjsCargando;
+    pdfjsCargando=new Promise(function(res,rej){
+      var s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload=function(){
+        try{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}catch(e){}
+        res();
+      };
+      s.onerror=function(){rej(new Error('pdfjs'));};
+      document.head.appendChild(s);
+    });
+    return pdfjsCargando;
+  }
   function despVer(archivo,nombre){
-    despModal('<div style="width:100%;max-width:900px;height:92%;display:flex;flex-direction:column;background:#0d1622;border:1px solid #1e3247;border-radius:12px;overflow:hidden">'+
-      '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:10px 12px;flex:none">'+
-      '<div class="cbz-card-name" style="font-size:13px">📄 '+nombre+'</div>'+
-      '<div style="display:flex;gap:8px">'+
-      '<a class="chip" style="text-decoration:none" href="'+archivo+'" download>⬇ Descargar</a>'+
-      '<a class="chip" style="text-decoration:none" href="'+archivo+'" target="_blank">↗ Pestaña</a>'+
+    var m=despModal('<div style="width:100%;max-width:920px;height:94%;display:flex;flex-direction:column;background:#0d1622;border:1px solid #1e3247;border-radius:12px;overflow:hidden">'+
+      '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:10px 12px;flex:none;flex-wrap:wrap;gap:6px">'+
+      '<div class="cbz-card-name" style="font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">📄 '+nombre+'</div>'+
+      '<div style="display:flex;gap:8px;flex:none">'+
+      '<a class="chip" style="text-decoration:none" href="'+archivo+'" download>⬇</a>'+
+      '<a class="chip" style="text-decoration:none" href="'+archivo+'" target="_blank">↗</a>'+
       '<button class="chip" onclick="Inv.despCerrar()">✕ Cerrar</button></div></div>'+
-      '<iframe src="'+archivo+'" style="border:0;flex:1;width:100%;background:#fff"></iframe></div>');
+      '<div style="background:#12233a;color:#9fc3e8;font-size:11px;padding:6px 12px;flex:none">👆 Toca cualquier <b style="color:#f0c040">código resaltado</b> del documento y te mostramos el producto y su stock al instante.</div>'+
+      '<div id="pdf-vis" style="flex:1;overflow:auto;background:#3a3f46;padding:10px 0;-webkit-overflow-scrolling:touch"><div class="cbz-loading" style="color:#fff">Cargando documento...</div></div></div>');
+    cargarPdfjs().then(function(){
+      return window.pdfjsLib.getDocument(archivo).promise;
+    }).then(function(pdf){
+      var cont=document.getElementById('pdf-vis');
+      if(!cont)return;
+      cont.innerHTML='';
+      var maxPag=Math.min(pdf.numPages,15);
+      var ancho=Math.min(cont.clientWidth-16,880);
+      function pinta(n){
+        if(n>maxPag){
+          if(pdf.numPages>maxPag)cont.insertAdjacentHTML('beforeend','<div style="color:#fff;text-align:center;padding:12px">Documento largo: mostrando '+maxPag+' de '+pdf.numPages+' páginas. <a style="color:#f0c040" href="'+archivo+'" target="_blank">Abrir completo ↗</a></div>');
+          return;
+        }
+        pdf.getPage(n).then(function(page){
+          var vp0=page.getViewport({scale:1});
+          var esc=ancho/vp0.width;
+          var vp=page.getViewport({scale:esc});
+          var dpr=Math.min(window.devicePixelRatio||1,2);
+          var wrap=document.createElement('div');
+          wrap.style.cssText='position:relative;margin:0 auto 12px;width:'+vp.width+'px;height:'+vp.height+'px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4)';
+          var cv=document.createElement('canvas');
+          cv.width=vp.width*dpr;cv.height=vp.height*dpr;
+          cv.style.cssText='width:'+vp.width+'px;height:'+vp.height+'px;display:block';
+          wrap.appendChild(cv);
+          cont.appendChild(wrap);
+          var ctx=cv.getContext('2d');
+          ctx.scale(dpr,dpr);
+          page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){
+            return page.getTextContent();
+          }).then(function(tc){
+            tc.items.forEach(function(it){
+              var str=String(it.str||'');
+              var re=/\d{9,14}/g,mm;
+              if(!re.test(str))return;
+              re.lastIndex=0;
+              var tr=window.pdfjsLib.Util.transform(vp.transform,it.transform);
+              var fh=Math.hypot(tr[2],tr[3]);
+              var x=tr[4],yTop=tr[5]-fh;
+              var wTot=(it.width||0)*vp.scale;
+              while((mm=re.exec(str))){
+                var fx=str.length?mm.index/str.length:0;
+                var fw=str.length?mm[0].length/str.length:1;
+                var hot=document.createElement('div');
+                hot.style.cssText='position:absolute;left:'+(x+wTot*fx)+'px;top:'+yTop+'px;width:'+Math.max(wTot*fw,26)+'px;height:'+(fh*1.25)+'px;background:rgba(240,192,64,.16);border-bottom:2px solid rgba(240,192,64,.85);border-radius:2px;cursor:pointer';
+                (function(cod){hot.onclick=function(ev){ev.stopPropagation();Inv.despFichaPdf(cod);};})(mm[0]);
+                wrap.appendChild(hot);
+              }
+            });
+            pinta(n+1);
+          }).catch(function(){pinta(n+1);});
+        }).catch(function(){pinta(n+1);});
+      }
+      pinta(1);
+    }).catch(function(){
+      // Respaldo: visor nativo en iframe si pdf.js no carga
+      var cont=document.getElementById('pdf-vis');
+      if(cont)cont.innerHTML='<iframe src="'+archivo+'" style="border:0;width:100%;height:100%;background:#fff"></iframe>';
+    });
   }
-  /* ---------- Ficha de producto desde un chip ---------- */
+  function despFichaPdf(cod){
+    // Normaliza el código impreso contra el catálogo de inFlow: exacto → sin prefijo 120 → sin prefijo 150
+    var cands=[cod];
+    if(cod.length>=12&&cod.indexOf('120')===0)cands.push(cod.slice(3));
+    if(cod.length>=12&&cod.indexOf('150')===0)cands.push(cod.slice(3));
+    var elegido=cod;
+    for(var i=0;i<cands.length;i++){
+      var hay=false;
+      for(var j=0;j<items.length;j++){if(String(items[j].codigo||'').trim()===cands[i]){hay=true;break;}}
+      if(hay){elegido=cands[i];break;}
+    }
+    despFicha(elegido);
+  }
+  /* ---------- Ficha de producto (capa sobre el visor) ---------- */
   function despFicha(cod,agregado){
     var it=null;
     for(var i=0;i<items.length;i++){if(String(items[i].codigo||'').trim()===String(cod).trim()){it=items[i];break;}}
@@ -1714,27 +1812,49 @@ var Inv = (function(){
         '<div class="cbz-muted" style="margin-bottom:14px">Este código no está en nuestro catálogo en línea. <b>Consúltanos:</b> Minecore puede verificar con fábrica si está disponible bajo pedido.</div>'+
         '<div class="cbz-card-row" style="justify-content:center;gap:8px">'+
         '<button class="chip" onclick="Inv.despCopiar(\''+cod+'\',this)">📋 Copiar código</button>'+
-        '<button class="chip" onclick="Inv.despCerrar()">Cerrar</button></div>';
+        '<button class="chip" onclick="Inv.despCerrar(2)">Cerrar</button></div>';
     } else {
       var st=it.stock>0?'<span style="color:#6fd68f;font-weight:bold">✅ '+(it.stock%1===0?Math.round(it.stock):it.stock)+' en stock</span>'
                        :'<span style="color:#e05c5c;font-weight:bold">Agotado</span> <span class="cbz-muted">— consúltanos el tiempo de reposición</span>';
       inner='<div class="cbz-card-name" style="margin-bottom:6px">'+it.nombre+'</div>'+
         '<div class="cbz-muted" style="margin-bottom:4px">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div>'+
         '<div style="margin:6px 0">'+st+'</div>'+
-        (it.ubicaciones?'<div class="cbz-muted" style="margin-bottom:4px">📍 '+it.ubicaciones+'</div>':'')+
+        (it.ubicaciones&&!esCliente?'<div class="cbz-muted" style="margin-bottom:4px">📍 '+it.ubicaciones+'</div>':'')+
         (it.precio!==undefined&&it.precio?'<div class="cbz-card-name" style="margin:6px 0">'+fmt(it.precio)+'</div>':'')+
         (agregado?'<div style="color:#6fd68f;margin:8px 0">✔ Agregado al carrito ('+cartCount()+')</div>':'')+
         '<div class="cbz-card-row" style="justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">'+
-        (esCliente&&!agregado?'<button class="cbz-btn" onclick="Inv.despCotizar(\''+it.sku.replace(/'/g,'')+'\',\''+cod+'\')">➕ Cotizar esta pieza</button>':'')+
-        (esCliente&&agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito</button>':'')+
-        '<button class="chip" onclick="Inv.despCerrar();Inv.despBuscar(\''+cod+'\')">🔎 Ver en inventario</button>'+
-        '<button class="chip" onclick="Inv.despCerrar()">Cerrar</button></div>';
+        (!agregado?'<button class="cbz-btn" onclick="Inv.despCotizar(\''+String(it.sku).replace(/'/g,'')+'\',\''+cod+'\')">➕ Cotizar esta pieza</button>':'')+
+        (agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>':'')+
+        '<button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div>';
     }
-    despModal('<div class="cbz-card" style="max-width:420px;width:100%;text-align:center;padding:20px" onclick="event.stopPropagation()">'+inner+'</div>');
-    var m=document.getElementById('desp-modal');
-    if(m)m.onclick=function(e){if(e.target===m)despCerrar();};
+    var m=despModal('<div class="cbz-card" style="max-width:420px;width:100%;text-align:center;padding:20px" onclick="event.stopPropagation()">'+inner+'</div>',2);
+    m.onclick=function(e){if(e.target===m)despCerrar(2);};
   }
   function despCotizar(sku,cod){addCart(sku);despFicha(cod,true);}
+  var clisInflow=null;
+  function cargarClisCarrito(){
+    var dl=document.getElementById('cart-clis');
+    if(!dl)return;
+    if(clisInflow){dl.innerHTML=clisInflow.map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'">';}).join('');return;}
+    api({action:'getClientesInflowLista'}).then(function(res){
+      clisInflow=(res.ok?(res.clientes||[]):[]).map(function(c){return c.nombre;});
+      cargarClisCarrito();
+    }).catch(function(){});
+  }
+  function crearSolInterna(){
+    var inp=document.getElementById('cart-cli');
+    var cli=inp?inp.value.trim():'';
+    if(!cli){alert('Escribe o elige el cliente de inFlow.');return;}
+    var items2=Object.keys(carrito).map(function(sku){return {sku:sku,nombre:carrito[sku].nombre,cantidad:carrito[sku].cantidad};});
+    if(!items2.length){alert('El carrito está vacío.');return;}
+    if(!confirm('¿Crear solicitud de cotización para "'+cli+'" con '+items2.length+' producto'+(items2.length===1?'':'s')+'?'))return;
+    api({action:'crearSolicitudInterna',empresa:cli,items:items2}).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);return;}
+      carrito={};cartSave();updateFab();
+      alert('✔ Solicitud creada. Ábrela en el módulo 🧾 Cotizaciones del menú para revisar precios y crearla en inFlow.');
+      render();
+    }).catch(function(){alert('Sin conexión.');});
+  }
   function despCopiar(cod,btn){
     try{
       if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cod);}
@@ -1746,7 +1866,10 @@ var Inv = (function(){
     vista='inv';q=String(cod);filtro='todos';
     render();
   }
-  function setVista(v){vista=v;render();}
+  function setVista(v){
+    if((v==='desp'||v==='man')&&v!==vista){despProv=null;despCat=null;despOpen={};}
+    vista=v;render();
+  }
   function setQ(v){q=v;var bf=document.getElementById('inv-broca');if(bf)bf.innerHTML=brocaFiltersHtml();renderList();}
   function setF(f){filtro=f;render();}
   function setCat(c){cat=c;fDesc='';fMm='';render();}
@@ -1756,6 +1879,7 @@ var Inv = (function(){
   return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setMm:setMm,
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
           despVer:despVer,despCerrar:despCerrar,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
+          despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel,
           addCart:addCart,verCarrito:verCarrito,cartQty:cartQty,cartSet:cartSet,enviarCarrito:enviarCarrito,
           setVCart:setVCart,vaciarCarrito:vaciarCarrito};
@@ -2580,11 +2704,11 @@ function doSyncNow(){
   var b=document.getElementById('syncBtn');
   if(b.disabled)return;
   if(!confirm('¿Sincronizar ahora con inFlow? Puede tardar 2-4 minutos.'))return;
-  b.disabled=true; b.textContent='⏳ Sincronizando...';
+  b.disabled=true; b.innerHTML='⏳<span class="lbl">Sincronizando...</span>';
   fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify({action:'syncNow',user:getUserName(),pin:getPin()})})
   .then(function(r){return r.json();}).then(function(res){
-    b.disabled=false; b.textContent='⟳ Sync';
+    b.disabled=false; b.innerHTML='⟳<span class="lbl">Sync</span>';
     if(!res.ok){alert('Error en sync: '+(res.error||'desconocido'));return;}
     alert('Sync completo a las '+res.hora+' ('+res.segundos+'s)\nOVs: '+res.ovs+' · OCs: '+res.ocs);
     // refresca la pantalla activa
@@ -2592,7 +2716,7 @@ function doSyncNow(){
     if(d.style.display==='block') Dash.init();
     else if(c.style.display==='block') Cobranza.init();
   }).catch(function(){
-    b.disabled=false; b.textContent='⟳ Sync';
+    b.disabled=false; b.innerHTML='⟳<span class="lbl">Sync</span>';
     alert('El sync puede seguir corriendo en el servidor (tiempo de espera excedido). Revisa en 2-3 minutos con ⟳ Actualizar.');
   });
 }
