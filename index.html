@@ -148,7 +148,10 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 <div id="invite" style="display:none;max-width:360px;margin:0 auto;text-align:center;padding:14vh 24px 40px;background:#fff;min-height:100vh;box-sizing:border-box">
   <img id="invLogo" src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore" style="width:230px;max-width:80%;display:block;margin:0 auto 6px;">
   <p style="color:#5a6a7a;font-size:12px;margin-bottom:20px">Crea tu usuario del portal Minecore</p>
-  <input id="inv-nombre" placeholder="Tu nombre o iniciales" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-full" placeholder="Nombre completo" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-nombre" placeholder="Nombre de usuario (corto, para entrar)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-mail" type="email" placeholder="Correo electrónico" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-tel" type="tel" placeholder="Teléfono" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-emp" placeholder="Empresa u organización" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-pin" type="text" class="pinmask" autocomplete="one-time-code" name="inv_pin_nosave" inputmode="numeric" maxlength="8" placeholder="Elige tu PIN (4-8 dígitos)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-pin2" type="text" class="pinmask" autocomplete="one-time-code" name="inv_pin2_nosave" inputmode="numeric" maxlength="8" placeholder="Repite tu PIN" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;text-align:center">
@@ -171,7 +174,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v92</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v93</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -973,7 +976,7 @@ var Users = (function(){
     }).join('')+
     '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Ver = solo consulta · Interactuar = además puede ejecutar (cobranza: enviar correos/actas · inventario: motor de reorden).</div>';
     // grid cliente: solo modulos del portal, siempre en Ver
-    var CMODS=[['inventario','Inventario y carrito'],['estadocuenta','Estado de cuenta'],['consignacion','Consignación y alquiler']];
+    var CMODS=CMODS_REG.map(function(cm){return [cm[0],cm[1]+' '+cm[2]];});
     var gridCli=CMODS.map(function(cm){
       var on=toks.indexOf(cm[0])>=0||toks.indexOf(cm[0]+'+')>=0;
       return '<label class="cbz-esc" style="margin-right:14px"><input type="checkbox" id="f-cmod-'+cm[0]+'" '+(on?'checked':'')+'> '+cm[1]+'</label>';
@@ -1026,7 +1029,7 @@ var Users = (function(){
     var rol=document.getElementById('f-rol').value;
     var modsSel;
     if(rol==='cliente'){
-      modsSel=['inventario','estadocuenta','consignacion'].filter(function(m){
+      modsSel=CMODS_REG.map(function(cm){return cm[0];}).filter(function(m){
         var c=document.getElementById('f-cmod-'+m);return c&&c.checked;
       }).join(',');
     } else {
@@ -1067,7 +1070,7 @@ var Users = (function(){
         '<label class="cbz-esc"><input type="checkbox" id="i-mod-'+m+'"> Ver</label>'+
         '<label class="cbz-esc"><input type="checkbox" id="i-act-'+m+'"> Interactuar</label></div>';
     }).join('');
-    var CMODS=[['inventario','Inventario y carrito'],['estadocuenta','Estado de cuenta'],['consignacion','Consignación y alquiler']];
+    var CMODS=CMODS_REG.map(function(cm){return [cm[0],cm[1]+' '+cm[2]];});
     var gridCli=CMODS.map(function(cm){
       return '<label class="cbz-esc" style="margin-right:14px"><input type="checkbox" id="i-cmod-'+cm[0]+'" checked> '+cm[1]+'</label>';
     }).join('');
@@ -1099,7 +1102,7 @@ var Users = (function(){
     var rol=document.getElementById('i-rol').value;
     var modsSel;
     if(rol==='cliente'){
-      modsSel=['inventario','estadocuenta','consignacion'].filter(function(m){
+      modsSel=CMODS_REG.map(function(cm){return cm[0];}).filter(function(m){
         var c=document.getElementById('i-cmod-'+m);return c&&c.checked;
       }).join(',');
     } else {
@@ -2229,7 +2232,8 @@ var Cot = (function(){
       '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales los calcula inFlow según el esquema del cliente.</div></div>';
     if(puedeEscribir()&&!creada){
       h+=camposHtml();
-      h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
+      h+='<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email al crear (con la tabla de precios)</label>'+
+        '<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
         '<button class="cbz-btn-sec" onclick="Cot.guardar()">💾 Guardar borrador</button>'+
         '<button class="cbz-btn" onclick="Cot.crear()">⚡ Crear cotización en inFlow</button></div>';
     }
@@ -2240,8 +2244,9 @@ var Cot = (function(){
     }
     if(editandoCreada&&c.estado==='CREADA'){
       h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la cotización '+c.inflowNum+': al guardar, se actualiza en inFlow y el cliente recibe el aviso de que fue modificada.</div>'+
+        '<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email del cambio</label>'+
         '<div class="cbz-card-row" style="gap:8px;margin-top:8px">'+
-        '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios y avisar al cliente</button>'+
+        '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>'+
         '<button class="chip" onclick="Cot.cancelarEdicion()">✖ Cancelar</button></div></div>';
     }
     el().innerHTML=h;
@@ -2309,7 +2314,8 @@ var Cot = (function(){
       (omitidas?'\n(Se omitirán '+omitidas+' línea(s) sin producto de inFlow.)':'');
     if(!confirm(msg))return;
     el().innerHTML='<div class="cbz-loading">Creando cotización en inFlow...</div>';
-    api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},
+    var avisar=!!(document.getElementById('cot-avisar')&&document.getElementById('cot-avisar').checked);
+    api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},avisar:avisar,
          lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
@@ -2321,9 +2327,10 @@ var Cot = (function(){
   function cancelarEdicion(){editandoCreada=false;abrir(det.cot.id);}
   function guardarEdicion(){
     var lineas=det.lineas.filter(function(l){return l.productId;});
-    if(!confirm('¿Guardar los cambios de '+det.cot.inflowNum+'?\nSe actualizará en inFlow y el cliente recibirá el aviso.'))return;
+    if(!confirm('¿Guardar los cambios de '+det.cot.inflowNum+'?\nSe actualizará en inFlow.'))return;
     el().innerHTML='<div class="cbz-loading">Actualizando cotización...</div>';
-    api({action:'editarCotCreada',id:det.cot.id,
+    var avisar=!!(document.getElementById('cot-avisar')&&document.getElementById('cot-avisar').checked);
+    api({action:'editarCotCreada',id:det.cot.id,avisar:avisar,
          lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
     }).then(function(res){
       editandoCreada=false;
@@ -2887,6 +2894,14 @@ var Sols = (function(){
 function getProfile(){
   try{return JSON.parse(localStorage.getItem('mc_profile')||'{}');}catch(e){return {};}
 }
+// REGISTRO CENTRAL de módulos disponibles para clientes: agregar aquí un módulo
+// lo hace aparecer AUTOMÁTICAMENTE en: home del cliente, form de Usuarios e Invitaciones.
+var CMODS_REG=[
+  ['inventario','📦','Inventario','Catálogo, stock y carrito de cotización','inv'],
+  ['cotizaciones','🧾','Cotizaciones','Tus solicitudes y cotizaciones con precios','miscot'],
+  ['estadocuenta','💳','Estado de cuenta','Tu cartera, facturas e historial de órdenes','edc'],
+  ['consignacion','🚚','Consignación y alquiler','Qué tienes, desde qué acta y cuántos días','consig']
+];
 function renderHome(){
   var p=getProfile();
   try{document.getElementById('whoami').textContent=getUserName()||'';}catch(e){}
@@ -2894,12 +2909,15 @@ function renderHome(){
   var h='';
   if(can('dashboard')) h+='<div class="mod" onclick="openMod(\'dash\')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>';
   if(can('cobranza')) h+='<div class="mod" onclick="openMod(\'cbz\')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>';
-  if(can('inventario')) h+='<div class="mod" onclick="openMod(\'inv\')"><div class="ico">📦</div><h3>Inventario</h3><p>Stock por producto, agotados y valorización</p></div>';
+  if(p.rol!=='cliente'&&can('inventario')) h+='<div class="mod" onclick="openMod(\'inv\')"><div class="ico">📦</div><h3>Inventario</h3><p>Stock por producto, agotados y valorización</p></div>';
   if(p.rol!=='cliente'&&can('cotizaciones')) h+='<div class="mod" onclick="openMod(\'cot\')"><div class="ico">🧾</div><h3>Cotizaciones</h3><p>Solicitudes de clientes, precios y creación en inFlow</p></div>';
   if(p.rol==='cliente'&&p.vinculada===false) h+='<div class="mod" onclick="Vinc.run()" style="border-color:#f0c040"><div class="ico">🔎</div><h3>Confirma tu organización</h3><p>Toca aquí para encontrar tu empresa y vincular tu cuenta</p></div>';
-  if(p.rol==='cliente') h+='<div class="mod" id="card-miscot" onclick="openMod(\'miscot\')" style="position:relative"><div class="ico">🧾</div><h3>Cotizaciones</h3><p>Tus solicitudes y cotizaciones con precios</p></div>';
-  if(p.rol==='cliente'&&can('consignacion')) h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>Qué tienes, desde qué acta y cuántos días</p></div>';
-  if(p.rol==='cliente') h+='<div class="mod" onclick="openMod(\'edc\')"><div class="ico">💳</div><h3>Estado de cuenta</h3><p>Tu cartera, facturas e historial de órdenes</p></div>';
+  if(p.rol==='cliente'){
+    CMODS_REG.forEach(function(cm){
+      if(!can(cm[0]))return;
+      h+='<div class="mod"'+(cm[0]==='cotizaciones'?' id="card-miscot"':'')+' onclick="openMod(\''+cm[4]+'\')" style="position:relative"><div class="ico">'+cm[1]+'</div><h3>'+cm[2]+'</h3><p>'+cm[3]+'</p></div>';
+    });
+  }
   if(p.rol==='cliente'&&p.master) h+='<div class="mod" onclick="openMod(\'minv\')"><div class="ico">👥</div><h3>Mi equipo</h3><p>Invita usuarios de tu organización</p></div>';
   if(can('proveedores')) h+='<div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>De todos los clientes, con días por acta</p></div>';
@@ -2911,7 +2929,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v69'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v72'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -3124,10 +3142,16 @@ function doLogout(){
 function doRedeem(){
   var err=document.getElementById('invErr');
   var nombre=document.getElementById('inv-nombre').value.trim();
+  var nombreCompleto=document.getElementById('inv-full').value.trim();
+  var email=document.getElementById('inv-mail').value.trim();
+  var telefono=document.getElementById('inv-tel').value.trim();
   var empresa=document.getElementById('inv-emp').value.trim();
   var pin=document.getElementById('inv-pin').value.replace(/[^0-9]/g,'');
   var pin2=document.getElementById('inv-pin2').value.replace(/[^0-9]/g,'');
-  if(!nombre){err.textContent='Escribe tu nombre o iniciales.';return;}
+  if(nombreCompleto.length<5){err.textContent='Escribe tu nombre completo.';return;}
+  if(!nombre){err.textContent='Elige un nombre de usuario corto.';return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)){err.textContent='Escribe un correo válido.';return;}
+  if(telefono.replace(/[^0-9]/g,'').length<7){err.textContent='Escribe un teléfono válido.';return;}
   if(pin.length<4||pin.length>8){err.textContent='El PIN debe tener de 4 a 8 dígitos.';return;}
   if(pin!==pin2){err.textContent='Los PIN no coinciden.';return;}
   var token=decodeURIComponent((location.search.match(/[?&]invite=([^&]+)/)||[])[1]||'');
@@ -3137,7 +3161,7 @@ function doRedeem(){
   function go(){
     if(btn){btn.disabled=true;btn.textContent='Creando...';}
     fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'redeemInvite',token:token,nombre:nombre,userPin:pin,empresa:empresa})})
+      body:JSON.stringify({action:'redeemInvite',token:token,nombre:nombre,userPin:pin,empresa:empresa,nombreCompleto:nombreCompleto,telefono:telefono,email:email})})
     .then(function(r){return r.json();})
     .then(function(res){
       if(btn){btn.disabled=false;btn.textContent='Crear mi usuario';}
