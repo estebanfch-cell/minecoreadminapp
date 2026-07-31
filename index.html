@@ -92,10 +92,12 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .psub{font-size:12px;font-weight:700;flex:none}
 
 .cbz-header h2{margin:0 0 10px}
-.cbz-kpis{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.cbz-kpi{background:#111a24;border:1px solid #223142;border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;min-width:100px}
-.cbz-kpi-num{font-size:18px;font-weight:700}
-.cbz-kpi-lbl{font-size:11px;opacity:.7}
+
+.cbz-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#223142;border:1px solid #223142;border-radius:12px;overflow:hidden}
+@media(min-width:640px){.cbz-kpis{grid-template-columns:repeat(6,1fr)}}
+.cbz-kpi{background:#111a24;padding:10px 8px;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.cbz-kpi-num{font-size:15px;font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cbz-kpi-lbl{font-size:9.5px;opacity:.65;text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
 .cbz-red{color:#ff5252}
 .cbz-muted{opacity:.6;font-size:12px}
 .cbz-card{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px;margin-bottom:10px}
@@ -169,7 +171,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v83</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v88</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -1131,7 +1133,10 @@ var Users = (function(){
 
 /* ===================== INVENTARIO ===================== */
 var Inv = (function(){
-  var items=[], esAdmin=false, esCliente=false, cats=[], marcas=[];
+  var items=[], esAdmin=false, esCliente=false, puedeCot=false, cats=[], marcas=[];
+  var BASE_PUB='https://estebanfch-cell.github.io/minecoreadminapp/';
+  function absUrl(p){p=String(p||'');if(/^https?:/i.test(p))return p;return (location.protocol==='file:'?BASE_PUB:'')+p;}
+  function fmtK(n){n=parseFloat(n)||0;if(Math.abs(n)>=1000000)return '$'+(n/1000000).toFixed(2)+'M';if(Math.abs(n)>=100000)return '$'+(n/1000).toFixed(1)+'K';return (function(){var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');})();}
   var carrito={}, vistaCart='cart', enviadas=null;
   var despArr=null, despOpen={}, despProv=null, despCat=null;
   function cartKey(){return 'mc_carrito_'+(getUserName()||'').toLowerCase();}
@@ -1155,6 +1160,8 @@ var Inv = (function(){
     api({action:'getInventario'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
+      var pmods=(getProfile().modulos||[]);
+      puedeCot=esCliente||esAdmin||pmods.indexOf('cotizaciones')>=0||pmods.indexOf('cotizaciones+')>=0;
       cats=res.categorias||[];marcas=res.marcas||[];
       items.forEach(function(it){
         it._b=(it.nombre+' '+it.sku+' '+it.codigo+' '+it.categoria+' '+it.marca+' '+it.extra).toLowerCase();
@@ -1201,6 +1208,7 @@ var Inv = (function(){
       '</div>';
     if(vista==='reo'){el.innerHTML=h+'<div id="reo-body"></div>';renderReo();return;}
     if(vista==='desp'||vista==='man'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();return;}
+    if(vista==='inv')h=avisoCotListas()+h;
     if(vista==='cart'){el.innerHTML=h+cartHtml();return;}
     h+='<div id="inv-kpis"></div>'+
       '<div class="cbz-card-row" style="margin-bottom:6px">'+
@@ -1211,7 +1219,7 @@ var Inv = (function(){
       sel('marca',(esCliente?marcas.filter(function(m){return /BOYLES|FORDIA/i.test(m);}):marcas),marca,'Inv.setMarca','Todas las marcas')+
       chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
       '</div>'+'<div id="inv-broca">'+brocaFiltersHtml()+'</div>'+'<div id="inv-list"></div>'+
-      ((esCliente||cartCount()>0)?'<div id="cart-fab" class="cbz-btn" style="position:fixed;bottom:18px;right:16px;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer" onclick="Inv.verCarrito()">🛒 Carrito ('+cartCount()+')</div>':'');
+      ((esCliente||(puedeCot&&cartCount()>0))?'<div id="cart-fab" class="cbz-btn" style="position:fixed;bottom:18px;right:16px;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer" onclick="Inv.verCarrito()">🛒 Carrito ('+cartCount()+')</div>':'');
     el.innerHTML=h;
     renderList();
   }
@@ -1274,8 +1282,8 @@ var Inv = (function(){
       '<div class="cbz-kpi"><span class="cbz-kpi-num">'+k.skus+'</span><span class="cbz-kpi-lbl">SKUs</span></div>'+
       '<div class="cbz-kpi"><span class="cbz-kpi-num">'+Math.round(k.unidades*100)/100+'</span><span class="cbz-kpi-lbl">Unidades</span></div>'+
       '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+k.agotados+'</span><span class="cbz-kpi-lbl">Agotados</span></div>'+
-      (esAdmin?'<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmt(k.vCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
-      (!esCliente?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmt(k.vPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>':'')+
+      (esAdmin?'<div class="cbz-kpi" title="'+fmt(k.vCosto)+'"><span class="cbz-kpi-num">'+fmtK(k.vCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
+      (!esCliente?'<div class="cbz-kpi" title="'+fmt(k.vPrecio)+'"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmtK(k.vPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>':'')+
       (esAdmin&&k.mN?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#5cc8ff">'+Math.round(k.mSum/k.mN*10)/10+'%</span><span class="cbz-kpi-lbl">Margen prom.</span></div>':'')+
       '</div>';
   }
@@ -1295,7 +1303,7 @@ var Inv = (function(){
         '<div class="pmeta">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div></div>'+
         '<div style="text-align:right;flex:none">'+st+
         (it.precio!==undefined&&it.precio?'<div class="pname" style="margin-top:4px">'+fmt(it.precio)+'</div>':'')+
-        (esCliente?(carrito[it.sku]?'<div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;align-items:center" onclick="event.stopPropagation()">🛒<input type="number" min="1" inputmode="numeric" class="uinput" style="width:58px;max-width:58px;text-align:center;padding:5px" value="'+carrito[it.sku].cantidad+'" onchange="Inv.cartSet(\''+it.sku+'\',this.value)"><button class="chip" onclick="Inv.cartQty(\''+it.sku+'\',1)">＋</button></div>':'<div style="margin-top:6px"><button class="chip" onclick="event.stopPropagation();Inv.addCart(\''+it.sku+'\')">➕ Cotizar</button></div>'):'')+
+        (puedeCot?(carrito[it.sku]?'<div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;align-items:center" onclick="event.stopPropagation()">🛒<input type="number" min="1" inputmode="numeric" class="uinput" style="width:58px;max-width:58px;text-align:center;padding:5px" value="'+carrito[it.sku].cantidad+'" onchange="Inv.cartSet(\''+it.sku+'\',this.value)"><button class="chip" onclick="Inv.cartQty(\''+it.sku+'\',1)">＋</button></div>':'<div style="margin-top:6px"><button class="chip" onclick="event.stopPropagation();Inv.addCart(\''+it.sku+'\')">➕ Cotizar</button></div>'):'')+
         '</div></div>';
       if(open){
         card+='<div class="odetail">'+
@@ -1411,14 +1419,32 @@ var Inv = (function(){
   function fmtQty2(v){var n=parseFloat(v)||0;return n%1===0?String(Math.round(n)):n.toFixed(2);}
   function sentHtml(){
     if(!enviadas||!enviadas.length)return '<div class="cbz-muted" style="padding:14px">Aún no has enviado solicitudes de cotización.</div>';
+    try{localStorage.setItem('mc_cot_vistas_'+(getUserName()||'').toLowerCase(),String(enviadas.filter(function(x){return x.estado==='CREADA';}).length));}catch(e){}
     return enviadas.map(function(s){
-      return '<div class="cbz-card" style="padding:10px 12px">'+
-        '<div class="pname">'+s.fecha+' · '+s.n+' producto'+(s.n===1?'':'s')+'</div>'+
-        '<div class="pmeta">'+(s.empresa||'')+'</div>'+
-        (s.items||[]).map(function(it){
-          return '<div class="cbz-fact-row"><span class="cbz-fact-id" style="flex:1;min-width:0">'+it.nombre+'<div class="pmeta">SKU: '+it.sku+'</div></span><span class="cbz-muted">× '+fmtQty2(it.cantidad)+'</span></div>';
-        }).join('')+'</div>';
+      var lista=(s.estado==='CREADA');
+      var badge=lista?'<span style="color:#6fd68f;font-weight:bold;font-size:11px">✅ COTIZADA'+(s.inflowNum?' · '+s.inflowNum:'')+'</span>'
+                     :'<span style="color:#f0c040;font-weight:bold;font-size:11px">⏳ EN PROCESO</span>';
+      var filas=(s.items||[]).map(function(it){
+        var precio=(lista&&it.precioFinal!==undefined)?'<span style="color:#9fc3e8;font-weight:bold">'+fmt(it.precioFinal)+'</span> <span class="cbz-muted">· '+fmt(it.subtotal)+'</span>':'';
+        return '<div class="cbz-fact-row"><span class="cbz-fact-id" style="flex:1;min-width:0">'+it.nombre+'<div class="pmeta">SKU: '+it.sku+'</div></span>'+
+          '<span class="cbz-muted" style="margin-right:8px">× '+fmtQty2(it.cantidad)+'</span>'+precio+'</div>';
+      }).join('');
+      return '<div class="cbz-card" style="padding:10px 12px'+(lista?';border-color:#2e5c3e':'')+'">'+
+        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center"><div class="pname">'+s.fecha+' · '+s.n+' producto'+(s.n===1?'':'s')+'</div>'+badge+'</div>'+
+        '<div class="pmeta">'+(s.empresa||'')+'</div>'+filas+
+        (lista&&s.subtotal!==undefined?'<div class="cbz-card-row" style="justify-content:flex-end;margin-top:6px"><span class="cbz-card-name">Subtotal (sin IVA): '+fmt(s.subtotal)+'</span></div>':'')+
+        '</div>';
     }).join('');
+  }
+  function avisoCotListas(){
+    if(!esCliente)return '';
+    if(enviadas===null){api({action:'misCotizaciones'}).then(function(res){enviadas=res.ok?(res.solicitudes||[]):[];render();}).catch(function(){});return '';}
+    var listas=enviadas.filter(function(x){return x.estado==='CREADA';}).length;
+    var vistas=0;try{vistas=parseInt(localStorage.getItem('mc_cot_vistas_'+(getUserName()||'').toLowerCase()),10)||0;}catch(e){}
+    if(listas>vistas)return '<div class="cbz-card" style="border-color:#2e5c3e;cursor:pointer;background:rgba(46,158,91,.08)" onclick="Inv.verCarrito();Inv.setVCart(\'sent\')">'+
+      '<div class="cbz-card-name">🔔 ¡Tienes '+(listas-vistas)+' cotización'+(listas-vistas===1?'':'es')+' lista'+(listas-vistas===1?'':'s')+' con precios!</div>'+
+      '<div class="cbz-muted" style="font-size:11px">Toca aquí para verla en Solicitudes enviadas.</div></div>';
+    return '';
   }
   function enviarCarrito(){
     var keys=Object.keys(carrito);if(!keys.length)return;
@@ -1682,7 +1708,7 @@ var Inv = (function(){
           '<div class="cbz-card-name" style="margin-bottom:8px">'+(root==='manuales'?'📘 ':'📄 ')+d.nombre+'</div>'+
           '<div class="cbz-card-row" style="gap:8px">'+
           '<button class="cbz-btn" onclick="Inv.despVer(\''+d.archivo+'\',\''+d.nombre.replace(/'/g,'')+'\')">👁 Visualizar</button>'+
-          '<a class="cbz-btn-sec" style="text-decoration:none" href="'+d.archivo+'" download>⬇ Descargar</a></div></div>';
+          '<a class="cbz-btn-sec" style="text-decoration:none" href="'+absUrl(d.archivo)+'" download>⬇ Descargar</a></div></div>';
       }).join('');
   }
   function despToggle(k){despOpen[k]=!despOpen[k];renderDesp();}
@@ -1705,21 +1731,29 @@ var Inv = (function(){
   /* ---------- Visor PDF interactivo: códigos tocables sobre el documento ---------- */
   var pdfjsCargando=null;
   function cargarPdfjs(){
-    if(window.pdfjsLib)return Promise.resolve();
+    if(window.pdfjsLib&&window.pdfjsLib.__mcListo)return Promise.resolve();
     if(pdfjsCargando)return pdfjsCargando;
     pdfjsCargando=new Promise(function(res,rej){
       var s=document.createElement('script');
       s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
       s.onload=function(){
-        try{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}catch(e){}
-        res();
+        var wurl='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // El worker de otro origen suele ser bloqueado: lo bajamos como blob local
+        fetch(wurl).then(function(r){return r.blob();}).then(function(b){
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(b);
+          window.pdfjsLib.__mcListo=true;res();
+        }).catch(function(){
+          try{window.pdfjsLib.GlobalWorkerOptions.workerSrc=wurl;}catch(e){}
+          window.pdfjsLib.__mcListo=true;res();
+        });
       };
-      s.onerror=function(){rej(new Error('pdfjs'));};
+      s.onerror=function(){rej(new Error('No se pudo cargar el motor PDF'));};
       document.head.appendChild(s);
     });
     return pdfjsCargando;
   }
   function despVer(archivo,nombre){
+    archivo=absUrl(archivo);
     var m=despModal('<div style="width:100%;max-width:920px;height:94%;display:flex;flex-direction:column;background:#0d1622;border:1px solid #1e3247;border-radius:12px;overflow:hidden">'+
       '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:10px 12px;flex:none;flex-wrap:wrap;gap:6px">'+
       '<div class="cbz-card-name" style="font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">📄 '+nombre+'</div>'+
@@ -1727,18 +1761,31 @@ var Inv = (function(){
       '<a class="chip" style="text-decoration:none" href="'+archivo+'" download>⬇</a>'+
       '<a class="chip" style="text-decoration:none" href="'+archivo+'" target="_blank">↗</a>'+
       '<button class="chip" onclick="Inv.despCerrar()">✕ Cerrar</button></div></div>'+
-      '<div style="background:#12233a;color:#9fc3e8;font-size:11px;padding:6px 12px;flex:none">👆 Toca cualquier <b style="color:#f0c040">código resaltado</b> del documento y te mostramos el producto y su stock al instante.</div>'+
+      '<div id="pdf-hint" style="background:#12233a;color:#9fc3e8;font-size:11px;padding:6px 12px;flex:none">👆 Toca cualquier <b style="color:#f0c040">código resaltado</b> del documento y te mostramos el producto y su stock al instante.</div>'+
       '<div id="pdf-vis" style="flex:1;overflow:auto;background:#3a3f46;padding:10px 0;-webkit-overflow-scrolling:touch"><div class="cbz-loading" style="color:#fff">Cargando documento...</div></div></div>');
-    cargarPdfjs().then(function(){
-      return window.pdfjsLib.getDocument(archivo).promise;
-    }).then(function(pdf){
+    var listoAlgo=false, caido=false;
+    function aIframe(motivo){
+      if(caido)return;caido=true;
       var cont=document.getElementById('pdf-vis');
       if(!cont)return;
+      cont.innerHTML='<iframe src="'+archivo+'" style="border:0;width:100%;height:100%;background:#fff"></iframe>';
+      var hb=document.getElementById('pdf-hint');
+      if(hb)hb.innerHTML='📄 Visor simple ('+motivo+'): los códigos no son tocables en este documento. Usa ⬇ o ↗ si no se ve.';
+    }
+    // Watchdog: si en 12s no se pintó ninguna página, cae al visor simple
+    setTimeout(function(){if(!listoAlgo)aIframe('tardó demasiado');},12000);
+    cargarPdfjs().then(function(){
+      return window.pdfjsLib.getDocument({url:archivo}).promise;
+    }).then(function(pdf){
+      var cont=document.getElementById('pdf-vis');
+      if(!cont||caido)return;
       cont.innerHTML='';
       var maxPag=Math.min(pdf.numPages,15);
-      var ancho=Math.min(cont.clientWidth-16,880);
+      var ancho=Math.max(Math.min(cont.clientWidth-16,880),280);
       function pinta(n){
+        if(caido)return;
         if(n>maxPag){
+          if(!listoAlgo){aIframe('no se pudo pintar');return;}
           if(pdf.numPages>maxPag)cont.insertAdjacentHTML('beforeend','<div style="color:#fff;text-align:center;padding:12px">Documento largo: mostrando '+maxPag+' de '+pdf.numPages+' páginas. <a style="color:#f0c040" href="'+archivo+'" target="_blank">Abrir completo ↗</a></div>');
           return;
         }
@@ -1748,44 +1795,45 @@ var Inv = (function(){
           var vp=page.getViewport({scale:esc});
           var dpr=Math.min(window.devicePixelRatio||1,2);
           var wrap=document.createElement('div');
-          wrap.style.cssText='position:relative;margin:0 auto 12px;width:'+vp.width+'px;height:'+vp.height+'px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4)';
+          wrap.style.cssText='position:relative;margin:0 auto 12px;width:'+vp.width+'px;height:'+vp.height+'px;background:#2c3138;box-shadow:0 2px 10px rgba(0,0,0,.4)';
           var cv=document.createElement('canvas');
-          cv.width=vp.width*dpr;cv.height=vp.height*dpr;
+          cv.width=Math.floor(vp.width*dpr);cv.height=Math.floor(vp.height*dpr);
           cv.style.cssText='width:'+vp.width+'px;height:'+vp.height+'px;display:block';
           wrap.appendChild(cv);
           cont.appendChild(wrap);
           var ctx=cv.getContext('2d');
           ctx.scale(dpr,dpr);
           page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){
-            return page.getTextContent();
-          }).then(function(tc){
-            tc.items.forEach(function(it){
-              var str=String(it.str||'');
-              var re=/\d{9,14}/g,mm;
-              if(!re.test(str))return;
-              re.lastIndex=0;
-              var tr=window.pdfjsLib.Util.transform(vp.transform,it.transform);
-              var fh=Math.hypot(tr[2],tr[3]);
-              var x=tr[4],yTop=tr[5]-fh;
-              var wTot=(it.width||0)*vp.scale;
-              while((mm=re.exec(str))){
-                var fx=str.length?mm.index/str.length:0;
-                var fw=str.length?mm[0].length/str.length:1;
-                var hot=document.createElement('div');
-                hot.style.cssText='position:absolute;left:'+(x+wTot*fx)+'px;top:'+yTop+'px;width:'+Math.max(wTot*fw,26)+'px;height:'+(fh*1.25)+'px;background:rgba(240,192,64,.16);border-bottom:2px solid rgba(240,192,64,.85);border-radius:2px;cursor:pointer';
-                (function(cod){hot.onclick=function(ev){ev.stopPropagation();Inv.despFichaPdf(cod);};})(mm[0]);
-                wrap.appendChild(hot);
-              }
-            });
-            pinta(n+1);
-          }).catch(function(){pinta(n+1);});
-        }).catch(function(){pinta(n+1);});
+            wrap.style.background='#fff';
+            listoAlgo=true;
+            return page.getTextContent().then(function(tc){
+              tc.items.forEach(function(it){
+                var str=String(it.str||'');
+                var re=/\d{9,14}/g,mm;
+                if(!re.test(str))return;
+                re.lastIndex=0;
+                var tr=window.pdfjsLib.Util.transform(vp.transform,it.transform);
+                var fh=Math.hypot(tr[2],tr[3]);
+                var x=tr[4],yTop=tr[5]-fh;
+                var wTot=(it.width||0)*vp.scale;
+                while((mm=re.exec(str))){
+                  var fx=str.length?mm.index/str.length:0;
+                  var fw=str.length?mm[0].length/str.length:1;
+                  var hot=document.createElement('div');
+                  hot.style.cssText='position:absolute;left:'+(x+wTot*fx)+'px;top:'+yTop+'px;width:'+Math.max(wTot*fw,26)+'px;height:'+(fh*1.25)+'px;background:rgba(240,192,64,.16);border-bottom:2px solid rgba(240,192,64,.85);border-radius:2px;cursor:pointer';
+                  (function(cod){hot.onclick=function(ev){ev.stopPropagation();Inv.despFichaPdf(cod);};})(mm[0]);
+                  wrap.appendChild(hot);
+                }
+              });
+            }).catch(function(){});
+          }).then(function(){pinta(n+1);})
+          .catch(function(eR){wrap.remove();console.error('render p'+n,eR);pinta(n+1);});
+        }).catch(function(eP){console.error('getPage '+n,eP);pinta(n+1);});
       }
       pinta(1);
-    }).catch(function(){
-      // Respaldo: visor nativo en iframe si pdf.js no carga
-      var cont=document.getElementById('pdf-vis');
-      if(cont)cont.innerHTML='<iframe src="'+archivo+'" style="border:0;width:100%;height:100%;background:#fff"></iframe>';
+    }).catch(function(eDoc){
+      console.error('pdfjs doc',eDoc);
+      aIframe(String(eDoc&&eDoc.message||'motor PDF no disponible').slice(0,60));
     });
   }
   function despFichaPdf(cod){
@@ -1823,8 +1871,8 @@ var Inv = (function(){
         (it.precio!==undefined&&it.precio?'<div class="cbz-card-name" style="margin:6px 0">'+fmt(it.precio)+'</div>':'')+
         (agregado?'<div style="color:#6fd68f;margin:8px 0">✔ Agregado al carrito ('+cartCount()+')</div>':'')+
         '<div class="cbz-card-row" style="justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">'+
-        (!agregado?'<button class="cbz-btn" onclick="Inv.despCotizar(\''+String(it.sku).replace(/'/g,'')+'\',\''+cod+'\')">➕ Cotizar esta pieza</button>':'')+
-        (agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>':'')+
+        (puedeCot&&!agregado?'<button class="cbz-btn" onclick="Inv.despCotizar(\''+String(it.sku).replace(/'/g,'')+'\',\''+cod+'\')">➕ Cotizar esta pieza</button>':'')+
+        (puedeCot&&agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>':'')+
         '<button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div>';
     }
     var m=despModal('<div class="cbz-card" style="max-width:420px;width:100%;text-align:center;padding:20px" onclick="event.stopPropagation()">'+inner+'</div>',2);
@@ -1943,7 +1991,7 @@ var Cot = (function(){
       '<div class="cbz-muted" style="font-size:11px">'+c.fecha+' · Solicitó: '+c.usuario+(c.contacto?' · '+c.contacto:'')+'</div>'+
       (c.inflowNum?'<div style="color:#6fd68f;margin-top:4px">✔ Creada en inFlow: <b>'+c.inflowNum+'</b></div>':'')+
       vinculoHtml()+'</div>';
-    h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Regla aplicada como sugerencia: el precio propuesto es el MAYOR entre el precio de lista y el último precio vendido a este cliente. Tú tienes la última palabra en cada línea.</div>';
+    h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Precio propuesto = el MAYOR entre lista y último vendido a este cliente. Descuento pre-cargado = el predeterminado del cliente'+(det.descCliente?' (<b style="color:#9fc3e8">'+det.descCliente+'%</b>)':' (0%)')+'. Tú tienes la última palabra en cada línea.</div>';
     det.lineas.forEach(function(l,i){
       var refCli=l.ultCliente?('Últ. a este cliente: <b>'+fmt(l.ultCliente.p)+'</b> ('+l.ultCliente.f+')')
                              :'<span style="color:#f0c040">Nunca vendido a este cliente</span>'+
@@ -1958,10 +2006,12 @@ var Cot = (function(){
         '<span class="cbz-muted" style="font-size:11px">Cant:</span>'+
         '<input type="number" min="1" inputmode="numeric" class="uinput" style="width:64px;text-align:center;padding:6px" value="'+l.cantidad+'" '+(creada?'disabled':'onchange="Cot.setCant('+i+',this.value)"')+'>'+
         '<span class="cbz-muted" style="font-size:11px">Precio:</span>'+
-        '<input type="number" min="0" step="0.01" inputmode="decimal" class="uinput" style="width:96px;text-align:center;padding:6px" value="'+(parseFloat(l.precio)||0).toFixed(2)+'" '+(creada?'disabled':'onchange="Cot.setPrecio('+i+',this.value)"')+'>'+
-        '<span style="margin-left:auto">= <b>'+fmt(l.cantidad*l.precio)+'</b></span></div></div>';
+        '<input type="number" min="0" step="0.01" inputmode="decimal" class="uinput" style="width:90px;text-align:center;padding:6px" value="'+(parseFloat(l.precio)||0).toFixed(2)+'" '+(creada?'disabled':'onchange="Cot.setPrecio('+i+',this.value)"')+'>'+
+        '<span class="cbz-muted" style="font-size:11px">Desc %:</span>'+
+        '<input type="number" min="0" max="99" step="0.5" inputmode="decimal" class="uinput" style="width:64px;text-align:center;padding:6px" value="'+(parseFloat(l.descuento)||0)+'" '+(creada?'disabled':'onchange="Cot.setDesc('+i+',this.value)"')+'>'+
+        '<span style="margin-left:auto">Final: <b style="color:#9fc3e8">'+fmt(finU(l))+'</b> · = <b>'+fmt(finU(l)*l.cantidad)+'</b></span></div></div>';
     });
-    var tot=0;det.lineas.forEach(function(l){tot+=(parseFloat(l.precio)||0)*(parseInt(l.cantidad,10)||0);});
+    var tot=0;det.lineas.forEach(function(l){tot+=finU(l)*(parseInt(l.cantidad,10)||0);});
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between"><span class="cbz-card-name">Subtotal (sin IVA)</span><span class="cbz-card-name">'+fmt(tot)+'</span></div>'+
       '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales los calcula inFlow según el esquema del cliente.</div></div>';
     if(puedeEscribir()&&!creada){
@@ -1975,6 +2025,8 @@ var Cot = (function(){
     }
     el().innerHTML=h;
   }
+  function finU(l){var d=parseFloat(l.descuento)||0;return Math.round((parseFloat(l.precio)||0)*(1-d/100)*100)/100;}
+  function setDesc(i,v){var d=parseFloat(v)||0;if(d<0)d=0;if(d>=100)d=99;det.lineas[i].descuento=d;renderDet();}
   function vinculoHtml(){
     if(det.vinculo)return '<div class="cbz-muted" style="font-size:11px;margin-top:4px">🔗 Cliente inFlow: <b style="color:#9fc3e8">'+det.vinculo.nombre+'</b></div>';
     if(!det.candidatos.length)return '<div style="color:#f0c040;font-size:11px;margin-top:4px">⚠ Sin cliente de inFlow vinculado ni candidatos por nombre. Corre el sync o revisa el nombre de la empresa.</div>';
@@ -1995,13 +2047,13 @@ var Cot = (function(){
   function setPrecio(i,v){det.lineas[i].precio=parseFloat(v)||0;renderDet();}
   function setCant(i,v){var n=parseInt(v,10)||1;if(n<1)n=1;det.lineas[i].cantidad=n;renderDet();}
   function payloadPrecios(){
-    var pr={},ca={};
-    det.lineas.forEach(function(l){pr[l.sku]=parseFloat(l.precio)||0;ca[l.sku]=parseInt(l.cantidad,10)||1;});
-    return {precios:pr,cantidades:ca};
+    var pr={},ca={},ds={};
+    det.lineas.forEach(function(l){pr[l.sku]=parseFloat(l.precio)||0;ca[l.sku]=parseInt(l.cantidad,10)||1;ds[l.sku]=parseFloat(l.descuento)||0;});
+    return {precios:pr,cantidades:ca,descuentos:ds};
   }
   function guardar(){
     var p=payloadPrecios();
-    api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades}).then(function(res){
+    api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos}).then(function(res){
       if(!res.ok){alert(res.error);return;}
       det.cot.estado='EN REVISION';renderDet();
     });
@@ -2016,10 +2068,10 @@ var Cot = (function(){
     if(!confirm(msg))return;
     el().innerHTML='<div class="cbz-loading">Creando cotización en inFlow...</div>';
     api({action:'crearCotInflow',id:det.cot.id,
-         lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio};})
+         lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
-      alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+'\n\nYa puedes verla y ajustarla en inFlow, o revisarla aquí.');
+      alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+(res.emailEnviado?'\n📧 Aviso con precios enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale al cliente por tu canal habitual)')+'\n\nYa puedes verla en inFlow o imprimir la planilla aquí.');
       abrir(det.cot.id);
     }).catch(function(){alert('Sin conexión. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
   }
@@ -2041,9 +2093,10 @@ var Cot = (function(){
   }
   function abrePlanilla(cli){
     var c=det.cot;
-    var base=new URL('assets/cotizacion/',location.href).href;
+    var base=(location.protocol==='file:')?'https://estebanfch-cell.github.io/minecoreadminapp/assets/cotizacion/':new URL('assets/cotizacion/',location.href).href;
     var lineas=det.lineas.filter(function(l){return l.productId;});
-    var sub=0;lineas.forEach(function(l){sub+=(parseFloat(l.precio)||0)*(parseInt(l.cantidad,10)||0);});
+    function pfin(l){var d=parseFloat(l.descuento)||0;return Math.round((parseFloat(l.precio)||0)*(1-d/100)*100)/100;}
+    var sub=0;lineas.forEach(function(l){sub+=pfin(l)*(parseInt(l.cantidad,10)||0);});
     var iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
     function f2(n){var p=(parseFloat(n)||0).toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
     var filas=lineas.map(function(l,i){
@@ -2053,8 +2106,8 @@ var Cot = (function(){
         '<div class="pcod psku" contenteditable="true">'+esc(l.sku)+'</div></td>'+
         '<td class="cat" contenteditable="true">'+esc(l.categoria)+'</td>'+
         '<td class="qty"><span class="chipq">'+l.cantidad+'</span></td>'+
-        '<td class="mon">'+f2(l.precio)+'</td>'+
-        '<td class="mon">'+f2(l.cantidad*l.precio)+'</td></tr>';
+        '<td class="mon">'+f2(pfin(l))+'</td>'+
+        '<td class="mon">'+f2(l.cantidad*pfin(l))+'</td></tr>';
     }).join('');
     var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(c.inflowNum)+'</title>'+
       '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
@@ -2156,7 +2209,7 @@ var Cot = (function(){
     if(!w){alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');return;}
     w.document.open();w.document.write(html);w.document.close();
   }
-  return {init:init,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,
+  return {init:init,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf};
 })();
 
