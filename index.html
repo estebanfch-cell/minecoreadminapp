@@ -174,7 +174,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v93</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v97</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -953,7 +953,8 @@ var Users = (function(){
     if(editing==='new') h='<div class="cbz-card">'+ '<div class="cbz-card-name">Nuevo usuario</div>'+formHtml({nombre:'',pin:'',rol:'usuario',modulos:'',activo:true,empresa:'',master:false},true)+'</div>'+h;
     if(editing==='invite') h=inviteFormHtml()+h;
     if(invites.length){
-      h+='<div class="cbz-card" style="margin-top:14px"><div class="cbz-card-name">🔗 Invitaciones enviadas</div>'+
+      h+='<div class="cbz-card" style="margin-top:14px"><div class="cbz-card-name" style="cursor:pointer" onclick="Users.togInvList()">'+(invListOpen?'▾':'▸')+' 🔗 Invitaciones enviadas ('+invites.length+')</div>'+(invListOpen?'':'</div>');
+      if(invListOpen)h+=''+
         invites.map(function(v){
           var estado=v.usadoPor?'<span class="tagx tf">USADA por '+v.usadoPor+(v.fechaUso?' · '+v.fechaUso:'')+'</span>':'<span class="tagx" style="background:#3a3a1c;color:#f0c040">PENDIENTE</span>';
           return '<div class="cbz-fact-row" style="flex-wrap:wrap;gap:6px">'+
@@ -1130,13 +1131,16 @@ var Users = (function(){
     try{document.execCommand('copy');alert('Link copiado');}catch(e){alert('Copia manualmente el link');}
   }
   function cancelInvite(){editing=null;render();}
-  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged};
+  var invListOpen=false;
+  function togInvList(){invListOpen=!invListOpen;render();}
+  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList};
 })();
 
 
 /* ===================== INVENTARIO ===================== */
 var Inv = (function(){
   var items=[], esAdmin=false, esCliente=false, puedeCot=false, cats=[], marcas=[];
+  function rolCli(){try{return getProfile().rol==='cliente';}catch(e){return true;}}
   var BASE_PUB='https://estebanfch-cell.github.io/minecoreadminapp/';
   function absUrl(p){p=String(p||'');if(/^https?:/i.test(p))return p;return (location.protocol==='file:'?BASE_PUB:'')+p;}
   function fmtK(n){n=parseFloat(n)||0;if(Math.abs(n)>=1000000)return '$'+(n/1000000).toFixed(2)+'M';if(Math.abs(n)>=100000)return '$'+(n/1000).toFixed(1)+'K';return (function(){var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');})();}
@@ -1183,14 +1187,9 @@ var Inv = (function(){
     }
     if(esContextoBroca()){
       var N=' '+it.nombre.toUpperCase()+' ';
-      if(fDesc){
-        var ok=(N.indexOf(' '+fDesc+',')>=0||N.indexOf(' '+fDesc+' ')>=0||N.indexOf(', '+fDesc+',')>=0||N.indexOf(', '+fDesc+' ')>=0);
-        if(!ok)return false;
-      }
-      if(fMm){
-        var mmm=N.match(/(\d{1,2})\s*MM/);
-        if(!mmm||mmm[1]!==fMm)return false;
-      }
+      if(fDesc&&!hayEn(it,fDesc))return false;
+      if(fMm&&!hayEn(it,fMm+' MM'))return false;
+      if(fLin&&!hayEn(it,fLin))return false;
     }
     return true;
   }
@@ -1205,7 +1204,7 @@ var Inv = (function(){
     var h='';
     h+='<div class="cbz-card-row" style="justify-content:flex-end;margin-bottom:8px">'+
       '<button class="chip '+(vista==='inv'?'on':'')+'" onclick="Inv.setVista(\'inv\')">📦 Inventario</button>'+
-      (esAdmin?'<button class="chip '+(vista==='reo'?'on':'')+'" onclick="Inv.setVista(\'reo\')">🔁 Reorden & Recomendaciones</button>':'')+
+      ((esAdmin&&!rolCli())?'<button class="chip '+(vista==='reo'?'on':'')+'" onclick="Inv.setVista(\'reo\')">🔁 Reorden & Recomendaciones</button>':'')+
       '<button class="chip '+(vista==='desp'?'on':'')+'" onclick="Inv.setVista(\'desp\')">📄 Despieces</button>'+
       '<button class="chip '+(vista==='man'?'on':'')+'" onclick="Inv.setVista(\'man\')">📘 Manuales</button>'+
       '</div>';
@@ -1233,41 +1232,27 @@ var Inv = (function(){
   function esContextoBroca(){
     return (cat&&cat.toLowerCase().indexOf('broca')>=0)||(q&&q.toLowerCase().indexOf('broca')>=0);
   }
-  var DESCARGAS=['ZDL','DL','DWW','ZWW','WW'];
+  var DESCARGAS=['DL','DF','DWW'];
+  var MMS_FIJOS=['13','16','20'];
+  var LINEAS=['HQ','NQ','PQ','BQ','IEW'];
+  var fLin='';
+  function hayEn(it,tok){ // busca el token en TODAS las columnas del producto, con bordes de palabra
+    var H=(String(it.nombre||'')+' '+String(it.codigo||'')+' '+String(it.categoria||'')+' '+String(it.marca||'')+' '+String(it.sku||'')).toUpperCase();
+    return new RegExp('(^|[^A-Z0-9])'+tok.replace(/\s+/g,'\\s*')+'([^A-Z0-9]|$)').test(H);
+  }
   function brocaFiltersHtml(){
-    if(!esContextoBroca()){fDesc='';fMm='';return '';}
-    // opciones presentes en los items del contexto actual (sin filtros finos aplicados)
-    var pool=items.filter(function(it){
-      if(cat&&it.categoria!==cat)return false;
-      if(marca&&it.marca!==marca)return false;
-      return true;
-    });
-    var descSet={},mmSet={};
-    pool.forEach(function(it){
-      var n=' '+it.nombre.toUpperCase()+' ';
-      for(var i=0;i<DESCARGAS.length;i++){
-        var d=DESCARGAS[i];
-        if(n.indexOf(' '+d+',')>=0||n.indexOf(' '+d+' ')>=0||n.indexOf(','+d+',')>=0||n.indexOf(', '+d+',')>=0||n.indexOf(', '+d+' ')>=0){descSet[d]=1;}
-      }
-      var m=n.match(/(\d{1,2})\s*MM/);
-      if(m)mmSet[m[1]]=1;
-    });
-    var h='<div class="cbz-card-row" style="margin-bottom:6px"><span class="cbz-muted" style="font-size:11px">Descarga:</span>'+
+    if(!esContextoBroca()){fDesc='';fMm='';fLin='';return '';}
+    var h='<div class="cbz-card-row" style="margin-bottom:6px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px">Línea:</span>'+
+      '<button class="chip '+(fLin===''?'on':'')+'" onclick="Inv.setLin(\'\')">Todas</button>'+
+      LINEAS.map(function(l){return '<button class="chip '+(fLin===l?'on':'')+'" onclick="Inv.setLin(\''+l+'\')">'+l+'</button>';}).join('')+'</div>';
+    h+='<div class="cbz-card-row" style="margin-bottom:6px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px">Descarga:</span>'+
       '<button class="chip '+(fDesc===''?'on':'')+'" onclick="Inv.setDesc(\'\')">Todas</button>'+
-      DESCARGAS.filter(function(d){return descSet[d];}).map(function(d){
-        return '<button class="chip '+(fDesc===d?'on':'')+'" onclick="Inv.setDesc(\''+d+'\')">'+d+'</button>';
-      }).join('')+'</div>';
-    var mms=Object.keys(mmSet).sort(function(a,b){return a-b;});
-    if(mms.length){
-      h+='<div class="cbz-card-row" style="margin-bottom:8px"><span class="cbz-muted" style="font-size:11px">Milímetros:</span>'+
-        '<button class="chip '+(fMm===''?'on':'')+'" onclick="Inv.setMm(\'\')">Todos</button>'+
-        mms.map(function(mm){
-          return '<button class="chip '+(fMm===mm?'on':'')+'" onclick="Inv.setMm(\''+mm+'\')">'+mm+' mm</button>';
-        }).join('')+'</div>';
-    }
+      DESCARGAS.map(function(d){return '<button class="chip '+(fDesc===d?'on':'')+'" onclick="Inv.setDesc(\''+d+'\')">'+d+'</button>';}).join('')+'</div>';
+    h+='<div class="cbz-card-row" style="margin-bottom:8px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px">Milímetros:</span>'+
+      '<button class="chip '+(fMm===''?'on':'')+'" onclick="Inv.setMm(\'\')">Todos</button>'+
+      MMS_FIJOS.map(function(mm){return '<button class="chip '+(fMm===mm?'on':'')+'" onclick="Inv.setMm(\''+mm+'\')">'+mm+' mm</button>';}).join('')+'</div>';
     return h;
   }
-
 
   /** KPIs dinámicos: se recalculan sobre lo filtrado */
   function renderKpis(fil){
@@ -1286,9 +1271,9 @@ var Inv = (function(){
       '<div class="cbz-kpi"><span class="cbz-kpi-num">'+k.skus+'</span><span class="cbz-kpi-lbl">SKUs</span></div>'+
       '<div class="cbz-kpi"><span class="cbz-kpi-num">'+Math.round(k.unidades*100)/100+'</span><span class="cbz-kpi-lbl">Unidades</span></div>'+
       '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+k.agotados+'</span><span class="cbz-kpi-lbl">Agotados</span></div>'+
-      (esAdmin?'<div class="cbz-kpi" title="'+fmt(k.vCosto)+'"><span class="cbz-kpi-num">'+fmtK(k.vCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
-      (!esCliente?'<div class="cbz-kpi" title="'+fmt(k.vPrecio)+'"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmtK(k.vPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>':'')+
-      (esAdmin&&k.mN?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#5cc8ff">'+Math.round(k.mSum/k.mN*10)/10+'%</span><span class="cbz-kpi-lbl">Margen prom.</span></div>':'')+
+      ((esAdmin&&!rolCli())?'<div class="cbz-kpi" title="'+fmt(k.vCosto)+'"><span class="cbz-kpi-num">'+fmtK(k.vCosto)+'</span><span class="cbz-kpi-lbl">Valor a costo</span></div>':'')+
+      ((!esCliente&&!rolCli())?'<div class="cbz-kpi" title="'+fmt(k.vPrecio)+'"><span class="cbz-kpi-num" style="color:#6fd68f">'+fmtK(k.vPrecio)+'</span><span class="cbz-kpi-lbl">Valor a precio</span></div>':'')+
+      ((esAdmin&&!rolCli())&&k.mN?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#5cc8ff">'+Math.round(k.mSum/k.mN*10)/10+'%</span><span class="cbz-kpi-lbl">Margen prom.</span></div>':'')+
       '</div>';
   }
   function renderList(){
@@ -1444,37 +1429,56 @@ var Inv = (function(){
   function misCotHtml(){
     if(enviadas===null)return '<div class="cbz-loading">Cargando tus cotizaciones...</div>';
     try{
-      localStorage.setItem('mc_cot_vistas_'+(getUserName()||'').toLowerCase(),String(enviadas.filter(function(x){return x.estado==='CREADA';}).length));
+      localStorage.setItem('mc_cot_vistas_'+(getUserName()||'').toLowerCase(),String(enviadas.filter(function(x){return x.estado==='CREADA'||x.estado==='APROBADA'||x.estado==='ORDEN';}).length));
       var maxU='';enviadas.forEach(function(x){if(x.fechaActualizada&&x.fechaActualizada>maxU)maxU=x.fechaActualizada;});
       if(maxU)localStorage.setItem('mc_cot_upd_'+(getUserName()||'').toLowerCase(),maxU);
     }catch(e){}
-    if(!enviadas.length)return '<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🧾</div>'+
+    var h='<div class="cbz-card-row" style="margin-bottom:10px"><button class="cbz-btn" onclick="Inv.setVista(\'inv\')" style="width:100%">🧾 Generar solicitud de cotización — elegir productos del catálogo</button></div>';
+    if(!enviadas.length)return h+'<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🧾</div>'+
       '<div class="cbz-card-name" style="margin:8px 0">Aún no tienes cotizaciones</div>'+
-      '<div class="cbz-muted">Arma tu solicitud desde el catálogo (📦 Inventario → ➕ Cotizar) y Minecore te cotiza.</div></div>';
-    var vistoUpd='';try{vistoUpd=localStorage.getItem('mc_cot_upd_'+(getUserName()||'').toLowerCase())||'';}catch(e){}
-    return enviadas.map(function(so,ix){
-      var abierta=!!miscotOpen[ix];
-      var lista=(so.estado==='CREADA');
-      var actualizada=lista&&so.fechaActualizada&&so.fechaActualizada>=vistoUpd&&so.fechaActualizada!=='';
-      var badge=lista?'<span style="color:#6fd68f;font-weight:bold;font-size:11px">✅ '+(so.inflowNum||'COTIZADA')+'</span>'
-                     :'<span style="color:#f0c040;font-weight:bold;font-size:11px">⏳ EN PROCESO</span>';
-      var h2='<div class="cbz-card" style="'+(lista?'border-color:#2e5c3e':'')+'">'+
-        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Inv.miscotToggle('+ix+')">'+
-        '<div class="cbz-card-name">'+(abierta?'▾ ':'▸ ')+'🧾 '+so.fecha+' · '+so.n+' producto'+(so.n===1?'':'s')+'</div>'+badge+'</div>';
-      if(so.fechaActualizada)h2+='<div class="cbz-muted" style="font-size:10px">✏️ Actualizada: '+so.fechaActualizada+'</div>';
-      if(abierta){
-        h2+=(so.items||[]).map(function(it){
-          var precio=(lista&&it.precioFinal!==undefined)?'<span style="color:#9fc3e8;font-weight:bold;white-space:nowrap">'+fmt(it.precioFinal)+'</span>':'';
-          return '<div class="cbz-fact-row" style="align-items:center;gap:8px">'+
-            (it.img?'<img src="'+it.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:44px;height:44px;flex:none">📦</div>')+
-            '<span class="cbz-fact-id" style="flex:1;min-width:0">'+it.nombre+'<div class="pmeta">SKU: '+it.sku+'</div></span>'+
-            '<span class="cbz-muted">× '+fmtQty2(it.cantidad)+'</span>'+precio+'</div>';
-        }).join('');
-        if(lista&&so.subtotal!==undefined)h2+='<div class="cbz-card-row" style="justify-content:flex-end;margin-top:6px"><span class="cbz-card-name">Subtotal (sin IVA): '+fmt(so.subtotal)+'</span></div>';
-        if(lista)h2+='<div class="cbz-card-row" style="gap:8px;margin-top:8px"><button class="cbz-btn" onclick="Inv.miscotPdf('+ix+')">⬇ Descargar cotización</button></div>';
-      }
-      return h2+'</div>';
-    }).join('');
+      '<div class="cbz-muted">Toca el botón de arriba, elige productos con ➕ Cotizar y envíanos tu solicitud.</div></div>';
+    var proc=enviadas.filter(function(x){return x.estado!=='CREADA'&&x.estado!=='APROBADA'&&x.estado!=='ORDEN';});
+    var listas=enviadas.filter(function(x){return x.estado==='CREADA'||x.estado==='APROBADA'||x.estado==='ORDEN';});
+    if(listas.length)h+='<div class="cbz-card-name" style="margin:10px 0 6px">✅ Cotizaciones ('+listas.length+')</div>'+listas.map(cardSol).join('');
+    if(proc.length)h+='<div class="cbz-card-name" style="margin:14px 0 6px">⏳ Solicitudes en proceso ('+proc.length+')</div>'+proc.map(cardSol).join('');
+    return h;
+  }
+  function cardSol(so){
+    var ix=enviadas.indexOf(so);
+    var abierta=!!miscotOpen[ix];
+    var lista=(so.estado==='CREADA'||so.estado==='APROBADA'||so.estado==='ORDEN');
+    var badge;
+    if(so.estado==='ORDEN')badge='<span style="color:#6fd68f;font-weight:bold;font-size:11px">📦 ORDEN '+(so.numOV||'')+'</span>';
+    else if(so.estado==='APROBADA')badge='<span style="color:#c58cff;font-weight:bold;font-size:11px">🟣 APROBADA · Minecore prepara tu orden</span>';
+    else if(so.estado==='CREADA')badge='<span style="color:#6fd68f;font-weight:bold;font-size:11px">✅ '+(so.inflowNum||'COTIZADA')+'</span>';
+    else badge='<span style="color:#f0c040;font-weight:bold;font-size:11px">⏳ EN PROCESO</span>';
+    var h2='<div class="cbz-card" style="'+(lista?'border-color:#2e5c3e':'')+'">'+
+      '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Inv.miscotToggle('+ix+')">'+
+      '<div class="cbz-card-name">'+(abierta?'▾ ':'▸ ')+'🧾 '+so.fecha+' · '+so.n+' producto'+(so.n===1?'':'s')+'</div>'+badge+'</div>';
+    if(so.fechaActualizada)h2+='<div class="cbz-muted" style="font-size:10px">✏️ Actualizada: '+so.fechaActualizada+'</div>';
+    if(abierta){
+      h2+=(so.items||[]).map(function(it){
+        var precio=(lista&&it.precioFinal!==undefined)?'<span style="color:#9fc3e8;font-weight:bold;white-space:nowrap">'+fmt(it.precioFinal)+'</span>':'';
+        return '<div class="cbz-fact-row" style="align-items:center;gap:8px">'+
+          (it.img?'<img src="'+it.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:44px;height:44px;flex:none">📦</div>')+
+          '<span class="cbz-fact-id" style="flex:1;min-width:0">'+it.nombre+'<div class="pmeta">SKU: '+it.sku+'</div></span>'+
+          '<span class="cbz-muted">× '+fmtQty2(it.cantidad)+'</span>'+precio+'</div>';
+      }).join('');
+      if(lista&&so.subtotal!==undefined)h2+='<div class="cbz-card-row" style="justify-content:flex-end;margin-top:6px"><span class="cbz-card-name">Subtotal (sin IVA): '+fmt(so.subtotal)+'</span></div>';
+      var botones='';
+      if(so.estado==='CREADA')botones+='<button class="cbz-btn" onclick="Inv.miscotAprobar('+so.id+')">✔ Aprobar y convertir en Orden de Venta</button>';
+      if(lista)botones+='<button class="cbz-btn-sec" onclick="Inv.miscotPdf('+ix+')">⬇ Descargar cotización</button>';
+      if(botones)h2+='<div class="cbz-card-row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'+botones+'</div>';
+    }
+    return h2+'</div>';
+  }
+  function miscotAprobar(id){
+    if(!confirm('¿Aprobar esta cotización y pedir a Minecore que la convierta en Orden de Venta?\nMinecore recibirá el aviso y preparará tu despacho.'))return;
+    api({action:'aprobarCotCliente',id:id}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      alert('✔ ¡Aprobada! Minecore ya fue notificado y convertirá tu cotización en Orden de Venta.');
+      enviadas=null;cargarEnviadas();
+    }).catch(function(){alert('Sin conexión.');});
   }
   function miscotToggle(ix){miscotOpen[ix]=!miscotOpen[ix];render();}
   function miscotPdf(ix){
@@ -1780,6 +1784,23 @@ var Inv = (function(){
   }
   /* ---------- Visor PDF interactivo: códigos tocables sobre el documento ---------- */
   var pdfjsCargando=null;
+  var despPdfActual=null,despZoomN=1,despMaxPag=15,despPintaRef=null,despVerArgs=null;
+  function despZoom(dir){
+    if(!despVerArgs)return;
+    var niveles=[1,1.4,1.9,2.6];
+    var i=niveles.indexOf(despZoomN);if(i<0)i=0;
+    i=Math.max(0,Math.min(niveles.length-1,i+dir));
+    if(niveles[i]===despZoomN)return;
+    despZoomN=niveles[i];
+    despVer(despVerArgs[0],despVerArgs[1],true);
+  }
+  function despMas(){
+    if(!despPdfActual||!despPintaRef)return;
+    var desde=despMaxPag+1;
+    despMaxPag=Math.min(despPdfActual.numPages,despMaxPag+15);
+    var m=document.getElementById('pdf-mas');if(m)m.remove();
+    despPintaRef(desde);
+  }
   function cargarPdfjs(){
     if(window.pdfjsLib&&window.pdfjsLib.__mcListo)return Promise.resolve();
     if(pdfjsCargando)return pdfjsCargando;
@@ -1802,12 +1823,16 @@ var Inv = (function(){
     });
     return pdfjsCargando;
   }
-  function despVer(archivo,nombre){
+  function despVer(archivo,nombre,esRezoom){
     archivo=absUrl(archivo);
+    despVerArgs=[archivo,nombre];
+    if(!esRezoom)despZoomN=1;
     var m=despModal('<div style="width:100%;max-width:920px;height:94%;display:flex;flex-direction:column;background:#0d1622;border:1px solid #1e3247;border-radius:12px;overflow:hidden">'+
       '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:10px 12px;flex:none;flex-wrap:wrap;gap:6px">'+
       '<div class="cbz-card-name" style="font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">📄 '+nombre+'</div>'+
       '<div style="display:flex;gap:8px;flex:none">'+
+      '<button class="chip" onclick="Inv.despZoom(-1)">🔍−</button>'+
+      '<button class="chip" onclick="Inv.despZoom(1)">🔍+</button>'+
       '<a class="chip" style="text-decoration:none" href="'+archivo+'" download>⬇</a>'+
       '<a class="chip" style="text-decoration:none" href="'+archivo+'" target="_blank">↗</a>'+
       '<button class="chip" onclick="Inv.despCerrar()">✕ Cerrar</button></div></div>'+
@@ -1829,14 +1854,16 @@ var Inv = (function(){
     }).then(function(pdf){
       var cont=document.getElementById('pdf-vis');
       if(!cont||caido)return;
+      despPdfActual=pdf;if(!esRezoom)despMaxPag=Math.min(pdf.numPages,15);else despMaxPag=Math.min(pdf.numPages,despMaxPag);
       cont.innerHTML='';
-      var maxPag=Math.min(pdf.numPages,15);
-      var ancho=Math.max(Math.min(cont.clientWidth-16,880),280);
+      var ancho=Math.max(Math.min(cont.clientWidth-16,880),280)*despZoomN;
       function pinta(n){
         if(caido)return;
+        var maxPag=despMaxPag;
         if(n>maxPag){
           if(!listoAlgo){aIframe('no se pudo pintar');return;}
-          if(pdf.numPages>maxPag)cont.insertAdjacentHTML('beforeend','<div style="color:#fff;text-align:center;padding:12px">Documento largo: mostrando '+maxPag+' de '+pdf.numPages+' páginas. <a style="color:#f0c040" href="'+archivo+'" target="_blank">Abrir completo ↗</a></div>');
+          if(pdf.numPages>maxPag)cont.insertAdjacentHTML('beforeend','<div id="pdf-mas" style="color:#fff;text-align:center;padding:12px">Mostrando '+maxPag+' de '+pdf.numPages+' páginas. '+
+            '<button class="chip" onclick="Inv.despMas()">⬇ Cargar 15 más (sin salir)</button></div>');
           return;
         }
         pdf.getPage(n).then(function(page){
@@ -1900,6 +1927,7 @@ var Inv = (function(){
           .catch(function(eR){wrap.remove();console.error('render p'+n,eR);pinta(n+1);});
         }).catch(function(eP){console.error('getPage '+n,eP);pinta(n+1);});
       }
+      despPintaRef=pinta;
       pinta(1);
     }).catch(function(eDoc){
       console.error('pdfjs doc',eDoc);
@@ -1928,8 +1956,8 @@ var Inv = (function(){
       inner='<div style="font-size:30px">🏭</div>'+
         '<div class="cbz-card-name" style="margin:8px 0">Código '+cod+'</div>'+
         '<div class="cbz-muted" style="margin-bottom:14px">Este código no está en nuestro catálogo en línea. <b>Consúltanos:</b> Minecore puede verificar con fábrica si está disponible bajo pedido.</div>'+
-        '<div class="cbz-card-row" style="justify-content:center;gap:8px">'+
-        '<button class="chip" onclick="Inv.despCopiar(\''+cod+'\',this)">📋 Copiar código</button>'+
+        '<div class="cbz-card-row" style="justify-content:center;gap:8px;flex-wrap:wrap">'+
+        (puedeCot?'<button class="cbz-btn" onclick="Inv.despConsulta(\''+cod+'\')">➕ Agregar a mi cotización (lo consultamos por ti)</button>':'')+
         '<button class="chip" onclick="Inv.despCerrar(2)">Cerrar</button></div>';
     } else {
       var st=it.stock>0?'<span style="color:#6fd68f;font-weight:bold">✅ '+(it.stock%1===0?Math.round(it.stock):it.stock)+' en stock</span>'
@@ -1949,6 +1977,17 @@ var Inv = (function(){
     m.onclick=function(e){if(e.target===m)despCerrar(2);};
   }
   function despCotizar(sku,cod){addCart(sku);despFicha(cod,true);}
+  function despConsulta(cod){
+    var k='CONS-'+cod;
+    if(!carrito[k])carrito[k]={nombre:'CONSULTA A FÁBRICA · código '+cod,cantidad:0,img:''};
+    carrito[k].cantidad++;cartSave();updateFab();
+    despModal('<div class="cbz-card" style="max-width:400px;width:100%;text-align:center;padding:20px">'+
+      '<div style="font-size:26px">✔</div><div class="cbz-card-name" style="margin:6px 0">Agregado a tu cotización</div>'+
+      '<div class="cbz-muted" style="margin-bottom:12px">Minecore consultará el código '+cod+' con fábrica y te lo cotiza junto al resto — no tienes que hacer nada más.</div>'+
+      '<div class="cbz-card-row" style="justify-content:center;gap:8px">'+
+      '<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>'+
+      '<button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div></div>',2);
+  }
   var clisInflow=null;
   function cargarClisCarrito(){
     var dl=document.getElementById('cart-clis');
@@ -1990,15 +2029,16 @@ var Inv = (function(){
   }
   function setQ(v){q=v;var bf=document.getElementById('inv-broca');if(bf)bf.innerHTML=brocaFiltersHtml();renderList();}
   function setF(f){filtro=f;render();}
-  function setCat(c){cat=c;fDesc='';fMm='';render();}
+  function setCat(c){cat=c;fDesc='';fMm='';fLin='';render();}
   function setMarca(m){marca=m;render();}
   function setDesc(d){fDesc=d;render();}
+  function setLin(l){fLin=l;render();}
   function setMm(m){fMm=m;render();}
-  return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setMm:setMm,
+  return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setLin:setLin,setMm:setMm,
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
           despVer:despVer,despCerrar:despCerrar,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
           despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,
-          miscotToggle:miscotToggle,miscotPdf:miscotPdf,
+          miscotToggle:miscotToggle,miscotPdf:miscotPdf,despConsulta:despConsulta,despZoom:despZoom,despMas:despMas,miscotAprobar:miscotAprobar,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel,
           addCart:addCart,verCarrito:verCarrito,cartQty:cartQty,cartSet:cartSet,enviarCarrito:enviarCarrito,
           setVCart:setVCart,vaciarCarrito:vaciarCarrito};
@@ -2134,8 +2174,9 @@ var Cot = (function(){
   }
   function el(){return document.getElementById('cot-screen');}
   function badge(e){
-    var c=e==='CREADA'?'#6fd68f':(e==='EN REVISION'?'#5cc8ff':'#f0c040');
-    return '<span style="color:'+c+';font-weight:bold;font-size:11px">'+e+'</span>';
+    var c=e==='ORDEN'?'#6fd68f':(e==='APROBADA'?'#c58cff':(e==='CREADA'?'#6fd68f':(e==='EN REVISION'?'#5cc8ff':'#f0c040')));
+    var t=e==='ORDEN'?'📦 ORDEN':(e==='APROBADA'?'🟣 APROBADA':e);
+    return '<span style="color:'+c+';font-weight:bold;font-size:11px">'+t+'</span>';
   }
   function init(){det=null;lista=null;cargar();}
   function cargar(){
@@ -2161,6 +2202,7 @@ var Cot = (function(){
         if(!porEmp[e2])porEmp[e2]={n:0,nuevas:0,ult:''};
         porEmp[e2].n++;
         if(x.estado==='NUEVA')porEmp[e2].nuevas++;
+        if(x.estado==='APROBADA')porEmp[e2].aprob=(porEmp[e2].aprob||0)+1;
         if(x.fecha>porEmp[e2].ult)porEmp[e2].ult=x.fecha;
       });
       el().innerHTML='<div class="cbz-muted" style="margin-bottom:8px">📁 Cotizaciones por cliente · toca una carpeta</div>'+
@@ -2168,7 +2210,7 @@ var Cot = (function(){
           var d=porEmp[e2];
           return '<div class="cbz-card" style="cursor:pointer'+(d.nuevas?';border-color:#f0c040':'')+'" onclick="Cot.filtrar(\''+e2.replace(/'/g,'')+'\')">'+
             '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
-            '<div class="cbz-card-name">📁 '+e2+(d.nuevas?' <span style="background:#f0c040;color:#111;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;margin-left:6px">🔔 '+d.nuevas+' nueva'+(d.nuevas===1?'':'s')+'</span>':'')+'</div>'+
+            '<div class="cbz-card-name">📁 '+e2+(d.nuevas?' <span style="background:#f0c040;color:#111;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;margin-left:6px">🔔 '+d.nuevas+' nueva'+(d.nuevas===1?'':'s')+'</span>':'')+(d.aprob?' <span style="background:#c58cff;color:#111;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;margin-left:6px">🟢 '+d.aprob+' por despachar</span>':'')+'</div>'+
             '<span class="cbz-muted">'+d.n+' cotización'+(d.n===1?'':'es')+' ›</span></div>'+
             '<div class="cbz-muted" style="font-size:10px">Última: '+d.ult+'</div></div>';
         }).join('');
@@ -2238,9 +2280,14 @@ var Cot = (function(){
         '<button class="cbz-btn" onclick="Cot.crear()">⚡ Crear cotización en inFlow</button></div>';
     }
     if(creada){
-      h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
+      var esAprob=(c.estado==='APROBADA'), esOrden=(c.estado==='ORDEN');
+      h+=(esAprob?'<div class="cbz-card" style="border-color:#c58cff"><div class="cbz-card-name">🟣 El cliente APROBÓ esta cotización</div><div class="cbz-muted" style="font-size:11px">'+'Conviértela en Orden de Venta para despachar.'+'</div></div>':'')+
+        (esOrden&&c.numOV?'<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-name">📦 Orden de Venta: '+c.numOV+'</div></div>':'')+
+        '<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
         '<button class="cbz-btn" onclick="Cot.pdf()">🧾 Planilla (imprimir / PDF)</button>'+
-        (puedeEscribir()?'<button class="cbz-btn-sec" onclick="Cot.editarCreada()">✏️ Editar precios (avisa al cliente)</button>':'')+'</div>';
+        (puedeEscribir()&&!esOrden?'<button class="cbz-btn-sec" onclick="Cot.editarCreada()">✏️ Editar precios</button>':'')+
+        (puedeEscribir()&&!esOrden?'<button class="cbz-btn" style="'+(esAprob?'':'opacity:.85')+'" onclick="Cot.convertirOV()">📦 Convertir en Orden de Venta</button>':'')+
+        '</div>';
     }
     if(editandoCreada&&c.estado==='CREADA'){
       h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la cotización '+c.inflowNum+': al guardar, se actualiza en inFlow y el cliente recibe el aviso de que fue modificada.</div>'+
@@ -2339,6 +2386,17 @@ var Cot = (function(){
       abrir(det.cot.id);
     }).catch(function(){editandoCreada=false;alert('Sin conexión. Verifica en inFlow antes de reintentar.');abrir(det.cot.id);});
   }
+  function convertirOV(){
+    var msg=det.cot.estado==='APROBADA'?'¿Convertir la cotización '+det.cot.inflowNum+' en ORDEN DE VENTA en inFlow?'
+      :'El cliente aún no ha aprobado esta cotización.\n¿Convertirla en ORDEN DE VENTA de todas formas?';
+    if(!confirm(msg))return;
+    el().innerHTML='<div class="cbz-loading">Convirtiendo en Orden de Venta...</div>';
+    api({action:'convertirCotOrden',id:det.cot.id}).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
+      alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despachar.');
+      abrir(det.cot.id);
+    }).catch(function(){alert('Sin conexión. Verifica en inFlow.');abrir(det.cot.id);});
+  }
   function filtrar(e2){filtroEmp=e2;renderLista();}
   function volver(){det=null;filtroEmp=filtroEmp;cargar();}
   /* ---------- Planilla de cotización: réplica del formato inFlow ---------- */
@@ -2371,7 +2429,7 @@ var Cot = (function(){
   return {init:init,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
-          togCampos:togCampos,setCampo:setCampo};
+          togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -2671,6 +2729,22 @@ var Vinc = (function(){
 /* ===================== CONSIGNACIÓN Y ALQUILER (portal cliente) ===================== */
 var Consig = (function(){
   var data=null, vistaC='consig', cliSel=0, abiertos={};
+  var esClienteC=false;
+  function pedirExt(key,item,acta){
+    if(!confirm('¿Solicitar a Minecore la extensión de plazo (30 → 60 días) para:\n'+item+' · '+acta+'?'))return;
+    api({action:'solicitarExtension',key:key,item:item,acta:acta}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      alert('✔ Solicitud enviada. Minecore la revisará y te aparecerá el estado aquí mismo.');
+      init();
+    }).catch(function(){alert('Sin conexión.');});
+  }
+  function resolverExt(key,aprobar){
+    if(!confirm((aprobar?'¿APROBAR':'¿RECHAZAR')+' la extensión de este lote?'))return;
+    api({action:'resolverExtension',key:key,aprobar:aprobar}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      init();
+    }).catch(function(){alert('Sin conexión.');});
+  }
   function api(p){
     p.user=getUserName();p.pin=getPin();
     return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
@@ -2702,7 +2776,7 @@ var Consig = (function(){
     el.innerHTML='<div class="cbz-loading">Cargando tu consignación...</div>';
     api({action:'getConsignacion'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      data=res;cliSel=0;abiertos={};
+      data=res;cliSel=0;abiertos={};esClienteC=!res.admin;
       if(data.admin){vistaC='consig';}
       else{vistaC=data.consignacion.length||!data.alquiler.length?'consig':'alq';}
       render();
@@ -2718,9 +2792,20 @@ var Consig = (function(){
       '<div style="flex:none">'+alertaDe(it,data.limiteDias,data.limiteExtendido,amb)+'</div></div>';
     if(open){
       c+='<div class="odetail">'+it.lotes.map(function(l){
-        return '<div class="cbz-fact-row" style="align-items:center;gap:8px;margin-top:4px">'+
+        var extra='';
+        if(l.ext==='APROBADA'&&l.dias<=data.limiteExtendido){
+          extra='<span style="color:#6fd68f;font-size:11px;font-weight:bold;white-space:nowrap">✅ AL DÍA · extensión</span>';
+        } else if(l.ext==='SOLICITADA'){
+          extra=esClienteC?'<span style="color:#5cc8ff;font-size:11px;white-space:nowrap">⏳ Extensión solicitada</span>'
+            :'<span style="color:#5cc8ff;font-size:11px;white-space:nowrap">⏳ Solicitada</span> '+
+             '<button class="cbz-btn" style="padding:5px 10px;font-size:11px" onclick="Consig.resolverExt(\''+String(l.key).replace(/'/g,'')+'\',true)">✅ Aprobar</button>'+
+             '<button class="chip" style="font-size:11px" onclick="Consig.resolverExt(\''+String(l.key).replace(/'/g,'')+'\',false)">✖ Rechazar</button>';
+        } else if(esClienteC&&l.dias>data.limiteDias&&l.dias<=data.limiteExtendido&&l.key){
+          extra='<button class="chip" style="font-size:11px" onclick="Consig.pedirExt(\''+String(l.key).replace(/'/g,'')+'\',\''+String(it.nombre).replace(/'/g,'')+'\',\''+String(l.acta).replace(/'/g,'')+'\')">⏳ Solicitar extensión</button>';
+        }
+        return '<div class="cbz-fact-row" style="align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">'+
           '<span class="cbz-fact-id" style="flex:1;min-width:0">'+l.acta+'<div class="pmeta">Entregado: '+(l.fecha||'—')+' · '+fmtQty(l.qty)+' und.</div></span>'+
-          semaforo(l.dias,data.limiteDias,data.limiteExtendido,amb)+'</div>';
+          ((l.ext==='APROBADA'&&l.dias<=data.limiteExtendido)?'':semaforo(l.dias,data.limiteDias,data.limiteExtendido,amb))+extra+'</div>';
       }).join('')+'</div>';
     }
     return c+'</div>';
@@ -2756,6 +2841,16 @@ var Consig = (function(){
     return out;
   }
   function render(){
+    var extBanner='';
+    if(data&&data.admin&&(data.extensiones||[]).length){
+      extBanner='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-card-name">🔔 Extensiones solicitadas ('+data.extensiones.length+')</div>'+
+        data.extensiones.map(function(x){
+          return '<div class="cbz-fact-row" style="align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">'+
+            '<span class="cbz-fact-id" style="flex:1;min-width:0">'+x.empresa+' · '+x.item+'<div class="pmeta">'+x.acta+' · pidió '+x.por+' · '+x.fecha+'</div></span>'+
+            '<button class="cbz-btn" style="padding:6px 12px" onclick="Consig.resolverExt(\''+String(x.key).replace(/'/g,'')+'\',true)">✅ Aprobar</button>'+
+            '<button class="chip" onclick="Consig.resolverExt(\''+String(x.key).replace(/'/g,'')+'\',false)">✖ Rechazar</button></div>';
+        }).join('')+'</div>';
+    }
     var el=document.getElementById('consig-screen');
     if(data.admin&&!data.clientes.length){
       el.innerHTML='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">📭</div>'+
@@ -2790,7 +2885,7 @@ var Consig = (function(){
           p.items.map(function(it,i){return itemCard(it,'a'+pi+'-'+i,'alq');}).join('')+'</div>';
       }).join(''):'<div class="cbz-muted" style="padding:14px;text-align:center">Sin equipos en alquiler.</div>';
     }
-    el.innerHTML=h;
+    el.innerHTML=extBanner+h;
   }
   function descargar(){
     var cli=data.admin?data.clientes[cliSel]:data;
@@ -2820,7 +2915,7 @@ var Consig = (function(){
   function toggle(k){abiertos[k]=!abiertos[k];render();}
   function setCli(i){cliSel=i;abiertos={};render();}
   function setV(v){vistaC=v;abiertos={};render();}
-  return {init:init,setV:setV,setCli:setCli,toggle:toggle,descargar:descargar};
+  return {init:init,setV:setV,setCli:setCli,toggle:toggle,descargar:descargar,pedirExt:pedirExt,resolverExt:resolverExt};
 })();
 
 /* ===================== APROBACIONES (admin) ===================== */
@@ -2924,12 +3019,27 @@ function renderHome(){
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'sols\')"><div class="ico">🔔</div><h3>Aprobaciones</h3><p>Solicitudes de acceso de clientes</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
   if(p.rol==='admin') h+='<div id="api-ver" class="cbz-muted" style="grid-column:1/-1;font-size:10px;text-align:right;opacity:.5"></div>';
+  h='<div id="notif-centro"></div>'+h;
   document.getElementById('home').innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'getNotificaciones',user:getUserName(),pin:getPin()})})
+  .then(function(r){return r.json();}).then(function(nres){
+    var nc=document.getElementById('notif-centro');
+    if(!nc||!nres.ok||!(nres.items||[]).length)return;
+    var tot=nres.items.reduce(function(a,x){return a+(x.n||1);},0);
+    nc.innerHTML='<div class="mod" style="grid-column:1/-1;border-color:#f0c040;cursor:default">'+
+      '<h3 style="margin:0 0 6px">🔔 Tienes '+tot+' notificación'+(tot===1?'':'es')+'</h3>'+
+      nres.items.map(function(x){
+        var ico=x.tipo==='cotAprobada'?'🟢':(x.tipo==='ext'?'⏳':(x.tipo==='user'?'👥':'🟡'));
+        return '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #223142;cursor:pointer" onclick="openMod(\''+x.destino+'\')">'+
+          '<span style="font-size:13px">'+ico+' '+x.texto+'</span><span class="cbz-muted">Abrir ›</span></div>';
+      }).join('')+'</div>';
+  }).catch(function(){});
   document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v72'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v75'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
