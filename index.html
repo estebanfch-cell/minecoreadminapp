@@ -174,7 +174,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v102</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v106</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -1300,8 +1300,8 @@ var Inv = (function(){
       var open=abierto===it.sku;
       var card='<div class="cbz-card" style="padding:10px 12px">'+
         '<div class="cbz-card-row" style="justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="Inv.abrir(\''+it.sku+'\')">'+
-        (it.img?'<img src="'+it.img+'" class="pimg" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
-        '<div style="flex:1;min-width:0"><div class="pname">'+(open?'▾ ':'')+it.nombre+'</div>'+
+        (it.img?'<img src="'+it.img+'" class="pimg" loading="lazy" style="cursor:zoom-in" onclick="MCfoto(\''+it.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
+        '<div style="flex:1;min-width:0"><div class="pname">'+(open?'▾ ':'▸ ')+it.nombre+'</div>'+
         '<div class="pmeta">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div></div>'+
         '<div style="text-align:right;flex:none">'+st+
         (it.precio!==undefined&&it.precio?'<div class="pname" style="margin-top:4px">'+fmt(it.precio)+'</div>':'')+
@@ -1309,6 +1309,7 @@ var Inv = (function(){
         '</div></div>';
       if(open){
         card+='<div class="odetail">'+
+          (it.img?'<div style="text-align:center;margin:6px 0"><img src="'+it.img+'" style="max-width:180px;max-height:150px;object-fit:contain;background:#fff;border-radius:8px;padding:6px;cursor:zoom-in" onclick="MCfoto(\''+it.img+'\',event)"></div>':'')+
           '<div class="pmeta">'+(it.categoria||'Sin categoría')+(it.marca?' · Marca: '+it.marca:'')+'</div>'+
           (it.ubicaciones?'<div class="pmeta" style="color:#9fc3e8">📍 '+it.ubicaciones+'</div>':'<div class="pmeta">📍 Sin stock en bodegas</div>')+
           (it.extra?'<div class="pmeta">'+it.extra+'</div>':'')+
@@ -1329,6 +1330,7 @@ var Inv = (function(){
     var f=document.getElementById('cart-fab');if(f)f.textContent='🛒 Carrito ('+cartCount()+')';
     var c=document.getElementById('cp-count');if(c)c.textContent=cartCount();
     var b=document.getElementById('cp-fin');if(b)b.style.opacity=cartCount()>0?'1':'.4';
+    if(window.MC_onCartChange)try{MC_onCartChange();}catch(e){}
   }
   function addCart(sku){
     var it=null;for(var i=0;i<items.length;i++){if(items[i].sku===sku){it=items[i];break;}}
@@ -1477,7 +1479,7 @@ var Inv = (function(){
       h2+=(so.items||[]).map(function(it){
         var precio=(lista&&it.precioFinal!==undefined)?'<span style="color:#9fc3e8;font-weight:bold;white-space:nowrap">'+fmt(it.precioFinal)+'</span>':'';
         return '<div class="cbz-fact-row" style="align-items:center;gap:8px">'+
-          (it.img?'<img src="'+it.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:44px;height:44px;flex:none">📦</div>')+
+          (it.img?'<img src="'+it.img+'" class="pimg" style="width:44px;height:44px;flex:none;cursor:zoom-in" loading="lazy" onclick="MCfoto(\''+it.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:44px;height:44px;flex:none">📦</div>')+
           '<span class="cbz-fact-id" style="flex:1;min-width:0">'+it.nombre+'<div class="pmeta">SKU: '+it.sku+'</div></span>'+
           '<span class="cbz-muted">× '+fmtQty2(it.cantidad)+'</span>'+precio+'</div>';
       }).join('');
@@ -1709,8 +1711,9 @@ var Inv = (function(){
       document.body.appendChild(a);a.click();a.remove();
     });
   }
+  var despTarget='desp-body';
   function renderDesp(){
-    var box=document.getElementById('desp-body');
+    var box=document.getElementById(despTarget);
     if(!box)return;
     if(despArr===null){
       box.innerHTML='<div class="cbz-loading">Cargando despieces...</div>';
@@ -1781,6 +1784,24 @@ var Inv = (function(){
           '<button class="cbz-btn" onclick="Inv.despVer(\''+d.archivo+'\',\''+d.nombre.replace(/'/g,'')+'\')">👁 Visualizar</button>'+
           '<a class="cbz-btn-sec" style="text-decoration:none" href="'+absUrl(d.archivo)+'" download>⬇ Descargar</a></div></div>';
       }).join('');
+  }
+  function ensureItems(cb){
+    if(items&&items.length){cb();return;}
+    api({action:'getInventario'}).then(function(res){
+      if(res.ok){
+        items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
+        var pmods=(getProfile().modulos||[]);
+        puedeCot=esCliente||esAdmin||pmods.indexOf('cotizaciones')>=0||pmods.indexOf('cotizaciones+')>=0;
+      }
+      cb();
+    }).catch(function(){cb();});
+  }
+  function mountDesp(targetId){
+    despTarget=targetId||'desp-body';
+    vista='desp';despProv=null;despCat=null;despOpen={};
+    var box=document.getElementById(despTarget);
+    if(box)box.innerHTML='<div class="cbz-loading">Cargando despieces...</div>';
+    ensureItems(function(){renderDesp();});
   }
   function despToggle(k){despOpen[k]=!despOpen[k];renderDesp();}
   function despProvSet(p){despProv=p;despCat=null;despOpen={};renderDesp();}
@@ -2067,12 +2088,24 @@ var Inv = (function(){
   return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setLin:setLin,setMm:setMm,
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
           despVer:despVer,despCerrar:despCerrar,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
-          despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,
+          despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,mountDesp:mountDesp,
           miscotToggle:miscotToggle,miscotPdf:miscotPdf,despConsulta:despConsulta,despZoom:despZoom,despMas:despMas,miscotAprobar:miscotAprobar,finalizarCotPara:finalizarCotPara,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel,
           addCart:addCart,verCarrito:verCarrito,cartQty:cartQty,cartSet:cartSet,enviarCarrito:enviarCarrito,
           setVCart:setVCart,vaciarCarrito:vaciarCarrito};
 })();
+
+/* ===== Visor de foto en grande (toca cualquier foto de producto) ===== */
+function MCfoto(url,ev){
+  if(ev){ev.stopPropagation();}
+  if(!url)return;
+  var m=document.createElement('div');
+  m.style.cssText='position:fixed;inset:0;z-index:400;background:rgba(2,6,12,.94);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+  m.innerHTML='<img src="'+url+'" style="max-width:94vw;max-height:86vh;object-fit:contain;border-radius:10px;background:#fff;padding:8px">'+
+    '<div style="position:absolute;top:14px;right:16px;background:#1c2a3a;border:1px solid #26405c;color:#fff;border-radius:999px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:17px">✕</div>';
+  m.onclick=function(){m.remove();};
+  document.body.appendChild(m);
+}
 
 /* ===== Cotizando-para: flujo cliente-primero (staff) ===== */
 var MC_cotPara=null;
@@ -2220,13 +2253,13 @@ var Cot = (function(){
     return '<span style="color:'+c+';font-weight:bold;font-size:11px">'+t+'</span>';
   }
   var cotTab='cotz', ioLista=null, ioDet=null, prodCat=null;
-  var czCliente=null, czClientes=null, czQ='', czCat='', czLin='', czDesc='', czMm='';
+  var czCliente=null, czClientes=null, czQ='', czCat='', czLin='', czDesc='', czMm='', czModo='buscar';
   var CZ_LINEAS=['HQ','NQ','PQ','BQ','IEW'], CZ_DESCARGAS=['DL','DF','DWW'], CZ_MMS=['13','16','20'];
   function czKey(){try{return 'mc_carrito_'+(getUserName()||'').toLowerCase();}catch(e){return 'mc_carrito_x';}}
   function czCartGet(){try{return JSON.parse(localStorage.getItem(czKey())||'{}');}catch(e){return {};}}
   function czCartSet(c){try{localStorage.setItem(czKey(),JSON.stringify(c));}catch(e){}}
-  function init(){det=null;lista=null;ioLista=null;ioDet=null;cotTab='cotz';renderCotizador();}
-  function setTab(t){cotTab=t;det=null;ioDet=null;
+  function init(){det=null;lista=null;ioLista=null;ioDet=null;cotTab='cotz';czCliente=null;czModo='buscar';window.MC_onCartChange=null;renderCotizador();}
+  function setTab(t){cotTab=t;det=null;ioDet=null;if(t!=='cotz')window.MC_onCartChange=null;
     if(t==='cotz'){renderCotizador();return;}
     if(t==='pre'){if(lista===null)cargar();else renderLista();}
     else{ioLista=null;cargarInflow();}
@@ -2253,13 +2286,23 @@ var Cot = (function(){
     h+='<div class="cbz-card" style="border-color:#5cc8ff"><div class="cbz-card-row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
       '<div class="cbz-card-name">🧾 <span style="color:#9fc3e8">'+czCliente+'</span></div>'+
       '<button class="chip" onclick="Cot.czCambiar()">↺ Cambiar cliente</button></div></div>';
+    h+='<div class="cbz-card-row" style="gap:8px;margin:2px 0 8px">'+
+      '<button class="chip '+(czModo==='buscar'?'on':'')+'" onclick="Cot.czSetModo(\'buscar\')">🔍 Buscador</button>'+
+      '<button class="chip '+(czModo==='desp'?'on':'')+'" onclick="Cot.czSetModo(\'desp\')">📄 Despieces</button></div>';
+    if(czModo==='desp'){
+      h+='<div id="cz-desp"></div>';
+      h+='<div id="cz-cart">'+czCartHtml()+'</div>';
+      el().innerHTML=h;
+      window.MC_onCartChange=czCartPinta;
+      Inv.mountDesp('cz-desp');
+      return;
+    }
+    h+='<input class="uinput" id="cz-q" placeholder="🔍 Busca el producto: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="margin-bottom:8px;width:100%">';
     h+='<div class="cbz-card-row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'+
-      '<input class="uinput" id="cz-q" placeholder="🔍 Busca: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="flex:1;min-width:170px">'+
-      '<select class="uinput" style="max-width:190px;padding:9px" onchange="Cot.czSetCat(this.value)">'+
+      '<select class="uinput" id="cz-cat" style="max-width:240px;padding:9px" onchange="Cot.czSetCat(this.value)">'+
       '<option value="">📂 Todas las categorías</option>'+
       (czCats()||[]).map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'"'+(czCat===c?' selected':'')+'>'+c+'</option>';}).join('')+
-      '</select>'+
-      '<button class="chip" onclick="Cot.czDespieces()">📄 Despieces</button></div>';
+      '</select></div>';
     if(czEsBroca()){
       function gp(lbl,val,ops,fn){
         return '<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap">'+
@@ -2287,8 +2330,11 @@ var Cot = (function(){
   function czElegir(){
     var v=(document.getElementById('cz-cli')||{}).value||'';v=v.trim();
     if(!v){alert('Escribe o elige el cliente.');return;}
-    czCliente=v;czQ='';renderCotizador();
+    czCliente=v;czQ='';czCat='';czLin='';czDesc='';czMm='';czModo='buscar';
+    czCartSet({}); // cada cotización nace en CERO
+    renderCotizador();
   }
+  function czSetModo(m){czModo=m;renderCotizador();}
   function czCambiar(){if(Object.keys(czCart).length&&!confirm('¿Cambiar de cliente? El carrito actual se mantiene.'))return;czCliente=null;renderCotizador();}
   function czBuscar(v){czQ=v;czRender();}
   function czCats(){
@@ -2318,6 +2364,10 @@ var Cot = (function(){
       if(!res.ok)return;
       prodCat=(res.items||[]).map(function(it){return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||'',stock:it.stock||0,codigo:it.codigo||'',categoria:it.categoria||''};});
       czCats._c=null;
+      var sel=document.getElementById('cz-cat');
+      if(sel&&sel.options.length<=1){
+        czCats().forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+      }
       czRender();
       var dl=document.getElementById('io-prods');
       if(dl)dl.innerHTML=prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join('');
@@ -2346,7 +2396,7 @@ var Cot = (function(){
     box.innerHTML=res.map(function(p){
       var en=czCartGet()[p.sku];
       return '<div class="cbz-card" style="padding:8px 10px"><div class="cbz-card-row" style="gap:8px;align-items:center">'+
-        (p.img?'<img src="'+p.img+'" class="pimg" style="width:38px;height:38px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:38px;height:38px;flex:none">📦</div>')+
+        (p.img?'<img src="'+p.img+'" class="pimg" style="width:38px;height:38px;flex:none;cursor:zoom-in" loading="lazy" onclick="MCfoto(\''+p.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:38px;height:38px;flex:none">📦</div>')+
         '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;line-height:1.25">'+p.nombre+'</div>'+
         '<div class="cbz-muted" style="font-size:10.5px">'+p.sku+(p.stock>0?' · <span style="color:#6fd68f">'+(p.stock%1?p.stock:Math.round(p.stock))+' und.</span>':' · <span style="color:#e05c5c">agotado</span>')+(p.precio?' · '+fmt(p.precio):'')+'</div></div>'+
         (en?'<div style="display:flex;align-items:center;gap:6px;flex:none">'+
@@ -2399,7 +2449,7 @@ var Cot = (function(){
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Creando la cotización...</div>';
     api({action:'crearSolicitudInterna',empresa:czCliente,items:items2}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);renderCotizador();return;}
-      czCartSet({});czQ='';
+      czCartSet({});czQ='';czCliente=null;window.MC_onCartChange=null;
       cotTab='pre';lista=null;
       if(res.fila)abrir(res.fila);else cargar();
     }).catch(function(){alert('Sin conexión.');renderCotizador();});
@@ -2437,19 +2487,33 @@ var Cot = (function(){
     }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
   }
   var filtroEmp='';
+  function pendCount(){return (lista||[]).filter(function(x){return x.estado==='NUEVA'||x.estado==='EN REVISION';}).length;}
+  function coladaOVGlobal(){
+    var pd=(lista||[]).filter(function(x){return x.estado==='APROBADA';});
+    if(!pd.length)return '';
+    return '<div class="cbz-card" style="border-color:#c58cff"><div class="cbz-card-name">🟣 Aprobadas por el cliente — por convertir en OV ('+pd.length+')</div>'+
+      pd.map(function(x){return '<div class="cbz-fact-row" style="align-items:center;justify-content:space-between;cursor:pointer" onclick="Cot.abrir('+x.id+')">'+
+        '<span class="cbz-fact-id">'+(x.inflowNum||'')+' · '+x.empresa+'</span><span class="cbz-muted">Abrir ›</span></div>';}).join('')+'</div>';
+  }
   function renderLista(){
-    if(!lista.length){
-      el().innerHTML=tabsHtml()+
+    if(!pendCount()){
+      el().innerHTML=tabsHtml()+coladaOVGlobal()+
         '<div class="cbz-card-row" style="margin-bottom:8px"><button class="cbz-btn" onclick="Cot.nuevaCotizacion()">➕ Nueva cotización para un cliente</button></div>'+
         '<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🧾</div>'+
         '<div class="cbz-card-name" style="margin:8px 0">Sin pre-cotizaciones</div>'+
         '<div class="cbz-muted">Cuando un cliente envíe su carrito, o crees una solicitud interna, aparecerá aquí.</div></div>';
       return;
     }
+    // Pre-cotizaciones = SOLO lo pendiente de trabajar. Lo ya enviado vive en Cotizaciones inFlow.
+    var pend=lista.filter(function(x){return x.estado==='NUEVA'||x.estado==='EN REVISION';});
+    var porDespachar=lista.filter(function(x){return x.estado==='APROBADA';});
+    var coladaOV=porDespachar.length?('<div class="cbz-card" style="border-color:#c58cff"><div class="cbz-card-name">🟣 Aprobadas por el cliente — por convertir en OV ('+porDespachar.length+')</div>'+
+      porDespachar.map(function(x){return '<div class="cbz-fact-row" style="align-items:center;justify-content:space-between;cursor:pointer" onclick="Cot.abrir('+x.id+')">'+
+        '<span class="cbz-fact-id">'+(x.inflowNum||'')+' · '+x.empresa+'</span><span class="cbz-muted">Abrir ›</span></div>';}).join('')+'</div>'):'';
     // Nivel 1: carpetas por cliente, con contador y marca de nuevas
     if(!filtroEmp){
       var porEmp={};
-      lista.forEach(function(x){
+      pend.forEach(function(x){
         var e2=x.empresa||'(sin cliente)';
         if(!porEmp[e2])porEmp[e2]={n:0,nuevas:0,ult:''};
         porEmp[e2].n++;
@@ -2457,9 +2521,9 @@ var Cot = (function(){
         if(x.estado==='APROBADA')porEmp[e2].aprob=(porEmp[e2].aprob||0)+1;
         if(x.fecha>porEmp[e2].ult)porEmp[e2].ult=x.fecha;
       });
-      el().innerHTML=tabsHtml()+
+      el().innerHTML=tabsHtml()+coladaOV+
       '<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap"><button class="cbz-btn" onclick="Cot.nuevaCotizacion()">➕ Nueva cotización para un cliente</button></div>'+
-      '<div class="cbz-muted" style="margin-bottom:8px">📁 Pre-cotizaciones por cliente · toca una carpeta</div>'+
+      '<div class="cbz-muted" style="margin-bottom:8px">📁 Pre-cotizaciones pendientes por cliente · toca una carpeta</div>'+
         Object.keys(porEmp).sort().map(function(e2){
           var d=porEmp[e2];
           return '<div class="cbz-card" style="cursor:pointer'+(d.nuevas?';border-color:#f0c040':'')+'" onclick="Cot.filtrar(\''+e2.replace(/'/g,'')+'\')">'+
@@ -2471,7 +2535,7 @@ var Cot = (function(){
       return;
     }
     // Nivel 2: solicitudes del cliente elegido
-    var visibles=lista.filter(function(x){return (x.empresa||'(sin cliente)')===filtroEmp;});
+    var visibles=pend.filter(function(x){return (x.empresa||'(sin cliente)')===filtroEmp;});
     el().innerHTML=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<button class="chip" onclick="Cot.filtrar(\'\')">← Clientes</button>'+
       '<span class="cbz-card-name">📁 '+filtroEmp+'</span>'+
@@ -2479,7 +2543,9 @@ var Cot = (function(){
       visibles.map(function(s){
         return '<div class="cbz-card" style="cursor:pointer" onclick="Cot.abrir('+s.id+')">'+
           '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
-          '<div class="cbz-card-name">'+(s.inflowNum?'🧾 '+s.inflowNum:'🧾 Solicitud')+'</div>'+badge(s.estado)+'</div>'+
+          '<div class="cbz-card-name">'+(s.inflowNum?'🧾 '+s.inflowNum:'🧾 Solicitud')+'</div>'+
+          '<div style="display:flex;gap:8px;align-items:center">'+badge(s.estado)+
+          '<button class="chip" style="color:#e05c5c" onclick="event.stopPropagation();Cot.borrarPre('+s.id+',\''+s.estado+'\')">🗑</button></div></div>'+
           '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between">'+
           '<span>'+s.fecha+' · '+s.usuario+(s.contacto?' · '+s.contacto:'')+'</span>'+
           '<span>'+s.n+' ítem'+(s.n===1?'':'s')+'</span></div></div>';
@@ -2531,7 +2597,8 @@ var Cot = (function(){
       h+='<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email al crear (con la tabla de precios)</label>'+
         '<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
         '<button class="cbz-btn-sec" onclick="Cot.guardar()">💾 Guardar borrador</button>'+
-        '<button class="cbz-btn" onclick="Cot.crear()">⚡ Crear cotización en inFlow</button></div>';
+        '<button class="cbz-btn" onclick="Cot.crear()">⚡ Crear cotización en inFlow</button>'+
+        '<button class="chip" style="color:#e05c5c" onclick="Cot.borrarPre('+c.id+',\''+c.estado+'\')">🗑 Borrar</button></div>';
     }
     if(creada){
       var esAprob=(c.estado==='APROBADA'), esOrden=(c.estado==='ORDEN');
@@ -2580,27 +2647,47 @@ var Cot = (function(){
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Consultando inFlow en vivo...</div>';
     api({action:'getInflowOrdenes',tipo:(cotTab==='io'?'orden':'quote')}).then(function(res){
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
-      ioLista=res.ordenes||[];renderInflowLista();
+      ioLista=res.ordenes||[];ioOpen={};renderInflowLista();
     }).catch(function(){el().innerHTML=tabsHtml()+'<div class="cbz-error">Sin conexión.</div>';});
   }
+  var ioOpen={};
   function renderInflowLista(){
     var tit=cotTab==='io'?'📦 Órdenes de venta en inFlow':'🧾 Cotizaciones en inFlow';
-    var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — en vivo, las últimas '+ioLista.length+'. Toca una para verla o editarla.</div>';
+    var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — en vivo, las últimas '+ioLista.length+'. Toca una para desplegarla.</div>';
     if(!ioLista.length)h+='<div class="cbz-card" style="text-align:center;padding:20px"><div class="cbz-muted">No hay documentos recientes de este tipo.</div></div>';
     h+=ioLista.map(function(o,ix){
-      return '<div class="cbz-card" style="cursor:pointer" onclick="Cot.abrirInflow('+ix+')">'+
-        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
-        '<div class="cbz-card-name">'+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
-        '<span class="cbz-card-name" style="color:#9fc3e8">'+fmt(o.total)+'</span></div>'+
-        '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between">'+
-        '<span>'+o.cliente+'</span><span>'+o.fecha+' · '+o.lineas.length+' línea'+(o.lineas.length===1?'':'s')+'</span></div></div>';
+      var sub=o.total, iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
+      var abierta=!!ioOpen[ix];
+      var c='<div class="cbz-card">'+
+        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
+        '<div class="cbz-card-name">'+(abierta?'▾ ':'▸ ')+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
+        '<span class="cbz-muted" style="font-size:11px">'+o.fecha+'</span></div>'+
+        '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
+        '<span>🏢 '+o.cliente+'</span><span>'+o.lineas.length+' línea'+(o.lineas.length===1?'':'s')+'</span></div>'+
+        '<div class="cbz-card-row" style="justify-content:flex-end;gap:14px;font-size:12px;margin-top:4px;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
+        '<span class="cbz-muted">Subtotal <b style="color:#dfe8f2">'+fmt(sub)+'</b></span>'+
+        '<span class="cbz-muted">IVA 15% <b style="color:#dfe8f2">'+fmt(iva)+'</b></span>'+
+        '<span style="color:#9fc3e8;font-weight:700">Total '+fmt(tot)+'</span></div>';
+      if(abierta){
+        c+=o.lineas.map(function(l){
+          var fin=Math.round((parseFloat(l.precio)||0)*(1-(parseFloat(l.descuento)||0)/100)*100)/100;
+          return '<div class="cbz-fact-row" style="align-items:center;gap:8px;margin-top:4px">'+
+            (l.img?'<img src="'+l.img+'" class="pimg" style="width:36px;height:36px;flex:none;cursor:zoom-in" loading="lazy" onclick="MCfoto(\''+l.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:36px;height:36px;flex:none">📦</div>')+
+            '<span class="cbz-fact-id" style="flex:1;min-width:0;font-size:12px">'+l.nombre+'<div class="pmeta">'+(l.sku||'')+(l.descuento?' · desc '+l.descuento+'%':'')+'</div></span>'+
+            '<span class="cbz-muted" style="font-size:11px;white-space:nowrap">'+l.cantidad+' × '+fmt(fin)+'</span>'+
+            '<b style="white-space:nowrap">'+fmt(fin*l.cantidad)+'</b></div>';
+        }).join('');
+        if(puedeEscribir())c+='<div class="cbz-card-row" style="gap:8px;margin-top:8px"><button class="cbz-btn-sec" onclick="Cot.abrirInflow('+ix+')">✏️ Editar '+(o.isQuote?'cotización':'orden')+'</button></div>';
+      }
+      return c+'</div>';
     }).join('');
     el().innerHTML=h;
   }
+  function ioToggle(ix){ioOpen[ix]=!ioOpen[ix];renderInflowLista();}
   function abrirInflow(ix){ioDet=JSON.parse(JSON.stringify(ioLista[ix]));renderInflowDet();}
   function renderInflowDet(){
     var o=ioDet;
-    var h=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.setTab(\''+cotTab+'\')">← Volver</button></div>';
+    var h=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:8px;align-items:center;gap:8px"><button class="chip" onclick="Cot.setTab(\''+cotTab+'\')">← Volver sin guardar</button><span class="cbz-muted" style="font-size:11px">✏️ Modo edición</span></div>';
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
       '<div class="cbz-card-name">'+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
       '<span class="cbz-muted" style="font-size:11px">'+o.fecha+'</span></div>'+
@@ -2728,6 +2815,15 @@ var Cot = (function(){
       abrir(det.cot.id);
     }).catch(function(){alert('Sin conexión. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
   }
+  function borrarPre(id,estado){
+    var msg='¿Borrar esta pre-cotización definitivamente?';
+    if(estado==='CREADA'||estado==='APROBADA')msg='⚠ Esta cotización YA está en inFlow y el cliente la ve en su módulo.\nBorrarla aquí NO la borra de inFlow, pero el cliente dejará de verla en la app.\n\n¿Borrar de todas formas?';
+    if(!confirm(msg))return;
+    api({action:'borrarPreCot',id:id}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      det=null;lista=null;cargar();
+    }).catch(function(){alert('Sin conexión.');});
+  }
   function editarCreada(){editandoCreada=true;renderDet();}
   function cancelarEdicion(){editandoCreada=false;abrir(det.cot.id);}
   function guardarEdicion(){
@@ -2756,7 +2852,7 @@ var Cot = (function(){
     }).catch(function(){alert('Sin conexión. Verifica en inFlow.');abrir(det.cot.id);});
   }
   function filtrar(e2){filtroEmp=e2;renderLista();}
-  function volver(){det=null;filtroEmp=filtroEmp;cargar();}
+  function volver(){det=null;cargar();}
   /* ---------- Planilla de cotización: réplica del formato inFlow ---------- */
   function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function fMes(f){ // 'yyyy-MM-dd...' -> 'Jul 30, 2026' (mismo formato que inFlow)
@@ -2789,8 +2885,8 @@ var Cot = (function(){
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
-          czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czDespieces:czDespieces,
-          abrirInflow:abrirInflow,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar};
+          czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,
+          abrirInflow:abrirInflow,ioToggle:ioToggle,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -3400,7 +3496,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v77'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v78'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
