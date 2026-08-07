@@ -174,7 +174,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v110</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v111</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2743,17 +2743,13 @@ var Cot = (function(){
     cargarProdsDatalist();
   }
   function cargarProdsDatalist(){
-    function pinta(){
+    // Fuente única: siempre el cargador COMPLETO (stock, categoría, código incluidos)
+    if(prodCat){
       var dl=document.getElementById('io-prods');
-      if(!dl||!prodCat)return;
-      dl.innerHTML=prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join('');
+      if(dl)dl.innerHTML=prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join('');
+      return;
     }
-    if(prodCat){pinta();return;}
-    api({action:'getInventario'}).then(function(res){
-      if(!res.ok)return;
-      prodCat=(res.items||[]).map(function(it){return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||''};});
-      pinta();
-    }).catch(function(){});
+    cargarProdsFull();
   }
   function ioSet(i,campo,v){
     if(campo==='cantidad'){var n=parseInt(v,10)||1;if(n<1)n=1;ioDet.lineas[i].cantidad=n;}
