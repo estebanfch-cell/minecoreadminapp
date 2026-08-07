@@ -174,7 +174,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v98</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v100</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -1141,6 +1141,14 @@ var Users = (function(){
 var Inv = (function(){
   var items=[], esAdmin=false, esCliente=false, puedeCot=false, cats=[], marcas=[];
   function rolCli(){try{return getProfile().rol==='cliente';}catch(e){return true;}}
+  function enModoCot(){return !!(MC_cotPara&&!esCliente);}
+  function bannerCotPara(){
+    return '<div class="cbz-card" style="border-color:#5cc8ff;margin-bottom:8px"><div class="cbz-card-row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
+      '<div class="cbz-card-name">🧾 Cotizando para: <span style="color:#9fc3e8">'+MC_cotPara+'</span> · <span id="cp-count">'+cartCount()+'</span> en el carrito</div>'+
+      '<div style="display:flex;gap:8px">'+
+      '<button class="cbz-btn" id="cp-fin" onclick="Inv.finalizarCotPara()" '+(cartCount()>0?'':'style="opacity:.4"')+'>✅ Finalizar y revisar precios</button>'+
+      '<button class="chip" onclick="cancelarCotPara()">✖</button></div></div></div>';
+  }
   var BASE_PUB='https://estebanfch-cell.github.io/minecoreadminapp/';
   function absUrl(p){p=String(p||'');if(/^https?:/i.test(p))return p;return (location.protocol==='file:'?BASE_PUB:'')+p;}
   function fmtK(n){n=parseFloat(n)||0;if(Math.abs(n)>=1000000)return '$'+(n/1000000).toFixed(2)+'M';if(Math.abs(n)>=100000)return '$'+(n/1000).toFixed(1)+'K';return (function(){var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');})();}
@@ -1209,17 +1217,10 @@ var Inv = (function(){
       '<button class="chip '+(vista==='man'?'on':'')+'" onclick="Inv.setVista(\'man\')">📘 Manuales</button>'+
       '</div>';
     if(vista==='reo'){el.innerHTML=h+'<div id="reo-body"></div>';renderReo();return;}
+    if(enModoCot())h=bannerCotPara()+h;
     if(vista==='desp'||vista==='man'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();return;}
     if(vista==='miscot'){el.innerHTML=misCotHtml();if(enviadas===null)cargarEnviadas();return;}
-    if(vista==='inv'&&MC_cotPara&&!esCliente){
-      h='<div class="cbz-card" style="border-color:#5cc8ff;margin-bottom:8px"><div class="cbz-card-row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
-        '<div class="cbz-card-name">🧾 Cotizando para: <span style="color:#9fc3e8">'+MC_cotPara+'</span> · '+cartCount()+' producto'+(cartCount()===1?'':'s')+'</div>'+
-        '<div style="display:flex;gap:8px">'+
-        (cartCount()>0?'<button class="cbz-btn" onclick="Inv.finalizarCotPara()">✅ Finalizar cotización</button>':'')+
-        '<button class="chip" onclick="cancelarCotPara()">✖ Cancelar</button></div></div>'+
-        '<div class="cbz-muted" style="font-size:11px">Busca productos y agrégalos con ➕ Cotizar. Al finalizar, cae a Pre-cotizaciones con el cliente ya vinculado.</div></div>'+h;
-    }
-    if(vista==='inv')h=avisoCotListas()+h;
+    if(vista==='inv'&&!enModoCot())h=avisoCotListas()+h;
     if(vista==='cart'){el.innerHTML=h+cartHtml();return;}
     h+='<div id="inv-kpis"></div>'+
       '<div class="cbz-card-row" style="margin-bottom:6px">'+
@@ -1250,23 +1251,27 @@ var Inv = (function(){
   }
   function brocaFiltersHtml(){
     if(!esContextoBroca()){fDesc='';fMm='';fLin='';return '';}
-    var h='<div class="cbz-card-row" style="margin-bottom:6px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px">Línea:</span>'+
-      '<button class="chip '+(fLin===''?'on':'')+'" onclick="Inv.setLin(\'\')">Todas</button>'+
-      LINEAS.map(function(l){return '<button class="chip '+(fLin===l?'on':'')+'" onclick="Inv.setLin(\''+l+'\')">'+l+'</button>';}).join('')+'</div>';
-    h+='<div class="cbz-card-row" style="margin-bottom:6px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px">Descarga:</span>'+
-      '<button class="chip '+(fDesc===''?'on':'')+'" onclick="Inv.setDesc(\'\')">Todas</button>'+
-      DESCARGAS.map(function(d){return '<button class="chip '+(fDesc===d?'on':'')+'" onclick="Inv.setDesc(\''+d+'\')">'+d+'</button>';}).join('')+'</div>';
-    h+='<div class="cbz-card-row" style="margin-bottom:8px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px">Milímetros:</span>'+
-      '<button class="chip '+(fMm===''?'on':'')+'" onclick="Inv.setMm(\'\')">Todos</button>'+
-      MMS_FIJOS.map(function(mm){return '<button class="chip '+(fMm===mm?'on':'')+'" onclick="Inv.setMm(\''+mm+'\')">'+mm+' mm</button>';}).join('')+'</div>';
-    return h;
+    function grupo(lbl,val,ops,fn,todos){
+      return '<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap">'+
+        '<span class="cbz-muted" style="font-size:10px">'+lbl+'</span>'+
+        '<button class="chip" style="padding:4px 9px;font-size:11px'+(val===''?';background:#2b4b6e':'')+'" onclick="Inv.'+fn+'(\'\')">'+todos+'</button>'+
+        ops.map(function(o){return '<button class="chip" style="padding:4px 9px;font-size:11px'+(val===o?';background:#2b4b6e':'')+'" onclick="Inv.'+fn+'(\''+o+'\')">'+o+'</button>';}).join('')+
+        '</span>';
+    }
+    return '<div class="cbz-card-row" style="margin-bottom:8px;gap:12px;flex-wrap:wrap;align-items:center;row-gap:6px">'+
+      grupo('Línea',fLin,LINEAS,'setLin','Todas')+
+      '<span style="opacity:.25">|</span>'+
+      grupo('Descarga',fDesc,DESCARGAS,'setDesc','Todas')+
+      '<span style="opacity:.25">|</span>'+
+      grupo('mm',fMm,MMS_FIJOS,'setMm','Todos')+
+      '</div>';
   }
 
   /** KPIs dinámicos: se recalculan sobre lo filtrado */
   function renderKpis(fil){
     var box=document.getElementById('inv-kpis');
     if(!box)return;
-    if(esCliente){box.innerHTML='';return;}
+    if(esCliente||enModoCot()){box.innerHTML='';return;}
     var k={skus:0,unidades:0,agotados:0,vCosto:0,vPrecio:0,mSum:0,mN:0};
     fil.forEach(function(it){
       k.skus++;k.unidades+=it.stock;
@@ -1320,7 +1325,11 @@ var Inv = (function(){
   function abrir(sku){abierto=(abierto===sku)?null:sku;renderList();}
 
   /* ---------- Carrito de cotización (rol cliente) ---------- */
-  function updateFab(){var f=document.getElementById('cart-fab');if(f)f.textContent='🛒 Carrito ('+cartCount()+')';}
+  function updateFab(){
+    var f=document.getElementById('cart-fab');if(f)f.textContent='🛒 Carrito ('+cartCount()+')';
+    var c=document.getElementById('cp-count');if(c)c.textContent=cartCount();
+    var b=document.getElementById('cp-fin');if(b)b.style.opacity=cartCount()>0?'1':'.4';
+  }
   function addCart(sku){
     var it=null;for(var i=0;i<items.length;i++){if(items[i].sku===sku){it=items[i];break;}}
     if(!it)return;
@@ -2204,23 +2213,138 @@ var Cot = (function(){
     var t=e==='ORDEN'?'📦 ORDEN':(e==='APROBADA'?'🟣 APROBADA':e);
     return '<span style="color:'+c+';font-weight:bold;font-size:11px">'+t+'</span>';
   }
-  var cotTab='pre', ioLista=null, ioDet=null, prodCat=null;
-  function init(){det=null;lista=null;ioLista=null;ioDet=null;cotTab='pre';cargar();}
+  var cotTab='cotz', ioLista=null, ioDet=null, prodCat=null;
+  var czCliente=null, czClientes=null, czQ='', czCart={};
+  function init(){det=null;lista=null;ioLista=null;ioDet=null;cotTab='cotz';renderCotizador();}
   function setTab(t){cotTab=t;det=null;ioDet=null;
+    if(t==='cotz'){renderCotizador();return;}
     if(t==='pre'){if(lista===null)cargar();else renderLista();}
     else{ioLista=null;cargarInflow();}
   }
   function tabsHtml(){
+    function b(t,txt){return '<button class="chip '+(cotTab===t?'on':'')+'" onclick="Cot.setTab(\''+t+'\')">'+txt+'</button>';}
     return '<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
-      '<button class="chip '+(cotTab==='pre'?'on':'')+'" onclick="Cot.setTab(\'pre\')">📥 Pre-cotizaciones</button>'+
-      '<button class="chip '+(cotTab==='iq'?'on':'')+'" onclick="Cot.setTab(\'iq\')">🧾 Cotizaciones inFlow</button>'+
-      '<button class="chip '+(cotTab==='io'?'on':'')+'" onclick="Cot.setTab(\'io\')">📦 Órdenes de venta</button></div>';
+      b('cotz','🧮 Cotizador')+b('pre','📥 Pre-cotizaciones')+b('iq','🧾 Cotizaciones inFlow')+b('io','📦 Órdenes de venta')+'</div>';
+  }
+  /* ---------- 🧮 EL COTIZADOR: todo en un solo carril ---------- */
+  function renderCotizador(){
+    var h=tabsHtml();
+    if(!czCliente){
+      h+='<div class="cbz-card" style="max-width:520px"><div class="cbz-card-name" style="margin-bottom:4px">🧮 Nueva cotización</div>'+
+        '<div class="cbz-muted" style="font-size:12px;margin-bottom:10px">Paso 1 · ¿Para qué cliente?</div>'+
+        '<input class="uinput" id="cz-cli" list="cz-clis" placeholder="Escribe el nombre del cliente de inFlow..." autocomplete="off">'+
+        '<datalist id="cz-clis"></datalist>'+
+        '<div class="cbz-card-row" style="margin-top:10px"><button class="cbz-btn" style="width:100%" onclick="Cot.czElegir()">Comenzar ➡</button></div></div>';
+      el().innerHTML=h;
+      czCargarClientes();
+      return;
+    }
+    var nCart=Object.keys(czCart).length;
+    h+='<div class="cbz-card" style="border-color:#5cc8ff"><div class="cbz-card-row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'+
+      '<div class="cbz-card-name">🧾 <span style="color:#9fc3e8">'+czCliente+'</span></div>'+
+      '<button class="chip" onclick="Cot.czCambiar()">↺ Cambiar cliente</button></div></div>';
+    h+='<input class="uinput" id="cz-q" placeholder="🔍 Busca el producto: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="margin-bottom:8px">';
+    h+='<div id="cz-res"></div>';
+    h+='<div id="cz-cart">'+czCartHtml()+'</div>';
+    el().innerHTML=h;
+    czRender();
+    if(!prodCat)cargarProdsFull();
+    var q=document.getElementById('cz-q');if(q&&czQ)q.focus();
+  }
+  function czCargarClientes(){
+    function pinta(){var dl=document.getElementById('cz-clis');if(dl&&czClientes)dl.innerHTML=czClientes.map(function(c){return '<option value="'+String(c).replace(/"/g,'&quot;')+'">';}).join('');}
+    if(czClientes){pinta();return;}
+    api({action:'getClientesInflowLista'}).then(function(res){czClientes=(res.ok?(res.clientes||[]):[]).map(function(c){return c.nombre;});pinta();}).catch(function(){});
+  }
+  function czElegir(){
+    var v=(document.getElementById('cz-cli')||{}).value||'';v=v.trim();
+    if(!v){alert('Escribe o elige el cliente.');return;}
+    czCliente=v;czQ='';renderCotizador();
+  }
+  function czCambiar(){if(Object.keys(czCart).length&&!confirm('¿Cambiar de cliente? El carrito actual se mantiene.'))return;czCliente=null;renderCotizador();}
+  function czBuscar(v){czQ=v;czRender();}
+  function cargarProdsFull(){
+    api({action:'getInventario'}).then(function(res){
+      if(!res.ok)return;
+      prodCat=(res.items||[]).map(function(it){return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||'',stock:it.stock||0,codigo:it.codigo||''};});
+      czRender();
+      var dl=document.getElementById('io-prods');
+      if(dl)dl.innerHTML=prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join('');
+    }).catch(function(){});
+  }
+  function czRender(){
+    var box=document.getElementById('cz-res');
+    if(!box)return;
+    if(!prodCat){box.innerHTML='<div class="cbz-loading">Cargando catálogo...</div>';return;}
+    var toks=czQ.toLowerCase().split(/\s+/).filter(String);
+    if(!toks.length){box.innerHTML='<div class="cbz-muted" style="font-size:12px;padding:8px 2px">Escribe arriba para buscar en los '+prodCat.length+' productos del catálogo.</div>';return;}
+    var res=[];
+    for(var i=0;i<prodCat.length&&res.length<25;i++){
+      var p=prodCat[i];
+      var H=(p.sku+' '+p.nombre+' '+p.codigo).toLowerCase();
+      var ok=true;
+      for(var t=0;t<toks.length;t++){if(H.indexOf(toks[t])<0){ok=false;break;}}
+      if(ok)res.push(p);
+    }
+    if(!res.length){box.innerHTML='<div class="cbz-muted" style="padding:8px 2px">Sin resultados para "'+czQ+'".</div>';return;}
+    box.innerHTML=res.map(function(p){
+      var en=czCart[p.sku];
+      return '<div class="cbz-card" style="padding:8px 10px"><div class="cbz-card-row" style="gap:8px;align-items:center">'+
+        (p.img?'<img src="'+p.img+'" class="pimg" style="width:38px;height:38px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:38px;height:38px;flex:none">📦</div>')+
+        '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;line-height:1.25">'+p.nombre+'</div>'+
+        '<div class="cbz-muted" style="font-size:10.5px">'+p.sku+(p.stock>0?' · <span style="color:#6fd68f">'+(p.stock%1?p.stock:Math.round(p.stock))+' und.</span>':' · <span style="color:#e05c5c">agotado</span>')+(p.precio?' · '+fmt(p.precio):'')+'</div></div>'+
+        (en?'<div style="display:flex;align-items:center;gap:6px;flex:none">'+
+          '<button class="chip" onclick="Cot.czMenos(\''+p.sku.replace(/'/g,'')+'\')">−</button>'+
+          '<b>'+en.cantidad+'</b>'+
+          '<button class="chip" onclick="Cot.czMas(\''+p.sku.replace(/'/g,'')+'\')">+</button></div>'
+        :'<button class="cbz-btn" style="padding:7px 12px;flex:none" onclick="Cot.czMas(\''+p.sku.replace(/'/g,'')+'\')">➕</button>')+
+        '</div></div>';
+    }).join('');
+  }
+  function czMas(sku){
+    var p=null;for(var i=0;i<prodCat.length;i++){if(prodCat[i].sku===sku){p=prodCat[i];break;}}
+    if(!p)return;
+    if(!czCart[sku])czCart[sku]={nombre:p.nombre,cantidad:0,img:p.img,productId:p.productId};
+    czCart[sku].cantidad++;
+    czRender();czCartPinta();
+  }
+  function czMenos(sku){
+    if(!czCart[sku])return;
+    czCart[sku].cantidad--;
+    if(czCart[sku].cantidad<=0)delete czCart[sku];
+    czRender();czCartPinta();
+  }
+  function czQuitar(sku){delete czCart[sku];czRender();czCartPinta();}
+  function czCartHtml(){
+    var ks=Object.keys(czCart);
+    if(!ks.length)return '';
+    var n=0;ks.forEach(function(k){n+=czCart[k].cantidad;});
+    return '<div class="cbz-card" style="border-color:#2e5c3e;margin-top:10px">'+
+      '<div class="cbz-card-name" style="margin-bottom:6px">🛒 Cotización en armado · '+ks.length+' producto'+(ks.length===1?'':'s')+' · '+n+' und.</div>'+
+      ks.map(function(k){
+        var it=czCart[k];
+        return '<div class="cbz-fact-row" style="align-items:center;gap:8px">'+
+          '<span class="cbz-fact-id" style="flex:1;min-width:0;font-size:12px">'+it.nombre+'<div class="pmeta">'+k+'</div></span>'+
+          '<button class="chip" onclick="Cot.czMenos(\''+k.replace(/'/g,'')+'\')">−</button><b>'+it.cantidad+'</b><button class="chip" onclick="Cot.czMas(\''+k.replace(/'/g,'')+'\')">+</button>'+
+          '<button class="chip" style="color:#e05c5c" onclick="Cot.czQuitar(\''+k.replace(/'/g,'')+'\')">🗑</button></div>';
+      }).join('')+
+      '<div class="cbz-card-row" style="margin-top:10px"><button class="cbz-btn" style="width:100%" onclick="Cot.czFinalizar()">➡ Revisar precios y descuentos</button></div>'+
+      '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">Siguiente paso: comparador de último precio por producto, descuento del cliente y envío a inFlow.</div></div>';
+  }
+  function czCartPinta(){var c=document.getElementById('cz-cart');if(c)c.innerHTML=czCartHtml();}
+  function czFinalizar(){
+    var items2=Object.keys(czCart).map(function(sku){return {sku:sku,nombre:czCart[sku].nombre,cantidad:czCart[sku].cantidad};});
+    if(!items2.length){alert('Agrega productos primero.');return;}
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Creando la cotización...</div>';
+    api({action:'crearSolicitudInterna',empresa:czCliente,items:items2}).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);renderCotizador();return;}
+      czCart={};czQ='';
+      cotTab='pre';lista=null;
+      if(res.fila)abrir(res.fila);else cargar();
+    }).catch(function(){alert('Sin conexión.');renderCotizador();});
   }
   function nuevaCotizacion(){
-    api({action:'getClientesInflowLista'}).then(function(res){
-      if(!res.ok){alert(res.error);return;}
-      var m=despPick(res.clientes||[]);
-    });
+    setTab('cotz');
   }
   function despPick(clientes){
     var mm=document.createElement('div');
@@ -2604,6 +2728,7 @@ var Cot = (function(){
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
+          czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,
           abrirInflow:abrirInflow,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar};
 })();
 
@@ -3257,6 +3382,9 @@ function doSyncNow(){
 }
 function openMod(m){
   document.getElementById('home').style.display='none';
+  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen'].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.style.display='none';
+  });
   document.getElementById('backBtn').style.display='block';
   if(m==='dash'){document.getElementById('dash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';Dash.init();}
   if(m==='cbz'){document.getElementById('cobranza-screen').style.display='block';document.getElementById('title').textContent='COBRANZA';Cobranza.init();}
