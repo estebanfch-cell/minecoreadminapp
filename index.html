@@ -174,7 +174,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v116</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v117</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -199,6 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <div id="minv-screen" style="display:none"></div>
   <div id="sols-screen" style="display:none"></div>
   <div id="kyc-screen" style="display:none"><div id="kyc-body"></div></div>
+<div id="mailcfg-screen" style="display:none"><div id="mailcfg-body"></div></div>
 <div id="consig-screen" style="display:none"></div>
   <div id="cot-screen" style="display:none"></div>
 </div>
@@ -3204,6 +3205,53 @@ var Vinc = (function(){
 })();
 
 /* ===================== CONSIGNACIÓN Y ALQUILER (portal cliente) ===================== */
+var MailCfg = (function(){
+  var cfg=null;
+  function el(){return document.getElementById('mailcfg-body');}
+  function init(){
+    el().innerHTML='<div class="cbz-loading">Cargando configuración...</div>';
+    api({action:'getMailConfig'}).then(function(res){
+      if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
+      cfg=res;render();
+    }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+  }
+  function render(){
+    var verificado=cfg.senderEmail&&cfg.aliases.indexOf(cfg.senderEmail)>=0;
+    el().innerHTML=
+      '<div class="cbz-card"><div class="cbz-card-name">📨 ¿Desde qué correo salen los envíos automáticos?</div>'+
+      '<div class="cbz-muted" style="font-size:12px;margin:6px 0 12px">Aplica a: recordatorios de cobranza, estados de cuenta, avisos de cotización al cliente y avisos del formulario de clientes.</div>'+
+      '<label class="ulabel">Remitente (from)</label>'+
+      '<input class="uinput" id="mc-sender" placeholder="ej: cobranzas@minecore.ec" value="'+(cfg.senderEmail||'').replace(/"/g,'&quot;')+'">'+
+      (cfg.senderEmail?('<div style="font-size:11.5px;margin:6px 0;color:'+(verificado?'#7fd18c':'#f0c040')+'">'+
+        (verificado?'✅ Verificado como alias — los correos salen desde este remitente.':'⚠ Aún NO verificado como alias "Enviar como" en el Gmail de '+cfg.cuentaScript+'. Hasta verificarlo, saldrán desde la cuenta principal.')+'</div>'):'')+
+      '<label class="ulabel" style="margin-top:10px">Copia oculta (BCC) — te llega copia invisible de todo</label>'+
+      '<input class="uinput" id="mc-bcc" placeholder="tu correo personal" value="'+(cfg.bccEmail||'').replace(/"/g,'&quot;')+'">'+
+      '<div class="cbz-card-row" style="gap:8px;margin-top:14px;flex-wrap:wrap">'+
+      '<button class="cbz-btn" onclick="MailCfg.guardar()">💾 Guardar configuración</button>'+
+      '<button class="cbz-btn-sec" onclick="MailCfg.probar()">📨 Enviar correo de prueba</button></div></div>'+
+      '<div class="cbz-card"><div class="cbz-card-name">🧭 Guía rápida</div>'+
+      '<div class="cbz-muted" style="font-size:12px;line-height:1.7;margin-top:6px">'+
+      '1. Crear el buzón <b>oscarvalle@minecore.ec</b> en el hosting de correo.<br>'+
+      '2. Crear el alias <b>cobranzas@minecore.ec → oscarvalle@</b> (las respuestas de clientes le llegan a Oscar).<br>'+
+      '3. En el Gmail de <b>'+cfg.cuentaScript+'</b>: ⚙ → Cuentas → "Enviar como" → agregar cobranzas@ → el código de verificación llega a la bandeja de Oscar → verificar.<br>'+
+      '4. Volver aquí: poner cobranzas@ como remitente, tu correo en BCC, Guardar y Enviar prueba.</div></div>';
+  }
+  function guardar(){
+    api({action:'setMailConfig',senderEmail:(document.getElementById('mc-sender')||{}).value||'',bccEmail:(document.getElementById('mc-bcc')||{}).value||''}).then(function(res){
+      if(!res.ok){alert(res.error);return;}
+      alert(res.alerta?('💾 Guardado.\n\n'+res.alerta):'💾 Configuración guardada. El motor de correos ya la usa desde ahora.');
+      init();
+    }).catch(function(){alert('Sin conexión.');});
+  }
+  function probar(){
+    api({action:'testMailConfig'}).then(function(res){
+      if(!res.ok){alert('No se pudo enviar: '+res.error);return;}
+      alert('📨 Correo de prueba enviado a '+res.enviado+'.\nRevisa DE QUÉ remitente llegó — esa es la verificación real.');
+    }).catch(function(){alert('Sin conexión.');});
+  }
+  return {init:init,guardar:guardar,probar:probar};
+})();
+
 var Kyc = (function(){
   var data=null, abierto={};
   function el(){return document.getElementById('kyc-body');}
@@ -3527,6 +3575,7 @@ function renderHome(){
   if(can('dashboard')) h+='<div class="mod" onclick="openMod(\'dash\')"><div class="ico">📊</div><h3>Dashboard</h3><p>Ventas por período, órdenes y top clientes</p></div>';
   if(can('cobranza')) h+='<div class="mod" onclick="openMod(\'cbz\')"><div class="ico">💰</div><h3>Cobranza</h3><p>CxC, recordatorios, emails y WhatsApp</p></div>';
   if(p.rol!=='cliente'&&can('cobranza')) h+='<div class="mod" onclick="openMod(\'kyc\')"><div class="ico">🗂</div><h3>Base de clientes</h3><p>Registros del formulario Conoce a tu Cliente</p></div>';
+  if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'mailcfg\')"><div class="ico">⚙️</div><h3>Correo del sistema</h3><p>Remitente y copia oculta de los correos automáticos</p></div>';
   if(p.rol!=='cliente'&&can('inventario')) h+='<div class="mod" onclick="openMod(\'inv\')"><div class="ico">📦</div><h3>Inventario</h3><p>Stock por producto, agotados y valorización</p></div>';
   if(p.rol!=='cliente'&&can('cotizaciones')) h+='<div class="mod" onclick="openMod(\'cot\')"><div class="ico">🧾</div><h3>Cotizaciones</h3><p>Solicitudes de clientes, precios y creación en inFlow</p></div>';
   if(p.rol==='cliente'&&p.vinculada===false) h+='<div class="mod" onclick="Vinc.run()" style="border-color:#f0c040"><div class="ico">🔎</div><h3>Confirma tu organización</h3><p>Toca aquí para encontrar tu empresa y vincular tu cuenta</p></div>';
@@ -3562,7 +3611,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v85'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v86'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -3605,7 +3654,7 @@ function doSyncNow(){
 }
 function openMod(m){
   document.getElementById('home').style.display='none';
-  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen'].forEach(function(id){
+  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e)e.style.display='none';
   });
   document.getElementById('backBtn').style.display='block';
@@ -3617,6 +3666,7 @@ function openMod(m){
   if(m==='minv'){document.getElementById('minv-screen').style.display='block';document.getElementById('title').textContent='MI EQUIPO';MInv.init();}
   if(m==='sols'){document.getElementById('sols-screen').style.display='block';document.getElementById('title').textContent='APROBACIONES';Sols.init();}
   if(m==='kyc'){document.getElementById('kyc-screen').style.display='block';document.getElementById('title').textContent='BASE DE CLIENTES';Kyc.init();}
+  if(m==='mailcfg'){document.getElementById('mailcfg-screen').style.display='block';document.getElementById('title').textContent='CORREO DEL SISTEMA';MailCfg.init();}
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
