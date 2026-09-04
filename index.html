@@ -194,7 +194,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v122</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v123</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3254,9 +3254,9 @@ var MailCfg = (function(){
       campo('mc-cob','💰 Cobranza',cfg.senderCobranza,'Recordatorios de pago y estados de cuenta a clientes')+
       campo('mc-cot','🧾 Cotizaciones',cfg.senderCotizaciones,'Avisos al cliente cuando su cotización está lista')+
       campo('mc-kyc','🗂 Formulario de clientes',cfg.senderKyc,'A dónde llega el aviso de cada registro nuevo')+
-      '<label class="ulabel" style="margin-top:14px">🕶 Copia oculta (BCC) — para ti</label>'+
-      '<div class="cbz-muted" style="font-size:11px;margin:0 0 4px">Te llega copia invisible de todo lo que el sistema envíe</div>'+
-      '<input class="uinput" id="mc-bcc" placeholder="tu correo personal" value="'+(cfg.bccEmail||'').replace(/"/g,'&quot;')+'">'+
+      '<label class="ulabel" style="margin-top:14px">🕶 Copia oculta (BCC) — invisible para el cliente</label>'+
+      '<div class="cbz-muted" style="font-size:11px;margin:0 0 4px">Uno o varios correos separados por coma — p. ej. tú y Oscar, para que ambos vean lo que salió</div>'+
+      '<input class="uinput" id="mc-bcc" placeholder="tucorreo@..., oscarvalle@minecore.ec" value="'+(cfg.bccEmail||'').replace(/"/g,'&quot;')+'">'+
       '<div class="cbz-card-row" style="gap:8px;margin-top:16px;flex-wrap:wrap">'+
       '<button class="cbz-btn" onclick="MailCfg.guardar()">💾 Guardar configuración</button>'+
       '<button class="cbz-btn-sec" onclick="MailCfg.probar()">📨 Enviar correo de prueba</button></div></div>'+
@@ -3653,7 +3653,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v87'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v88'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
