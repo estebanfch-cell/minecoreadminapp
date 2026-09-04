@@ -12,6 +12,26 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
 #shell{max-width:640px;margin:0 auto;padding:16px}
+/* ===== Modo escritorio ===== */
+@media(min-width:1024px){
+  #shell{max-width:1120px;padding:22px 28px}
+  .mods{grid-template-columns:repeat(3,1fr);gap:16px}
+  .mod{padding:22px 18px}
+  .mod h3{font-size:16px}
+  #notif-card{grid-column:1/-1}
+  .cbz-card{padding:16px 18px}
+  input.uinput,select.uinput{font-size:14px}
+  /* listas largas a dos columnas donde son tarjetas independientes */
+  #inv-list,#kyc-body,#consig-body .cbz-lista2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+  #inv-list>.cbz-card,#kyc-body>.cbz-card{margin:0}
+  /* el detalle/planilla y el cotizador respiran a ancho completo */
+  #cz-desp{max-width:100%}
+}
+@media(min-width:1500px){
+  #shell{max-width:1280px}
+  .mods{grid-template-columns:repeat(4,1fr)}
+  #notif-card{grid-column:1/-1}
+}
 .topbar{display:flex;align-items:center;gap:8px;padding:6px 0 14px;flex-wrap:nowrap}
 .topbar .dot{width:10px;height:10px;border-radius:50%;background:#2e9e5b;flex:none}
 .topbar h1{font-size:17px;letter-spacing:1px;flex:1}
@@ -174,7 +194,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v117</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v120</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3207,6 +3227,10 @@ var Vinc = (function(){
 /* ===================== CONSIGNACIÓN Y ALQUILER (portal cliente) ===================== */
 var MailCfg = (function(){
   var cfg=null;
+  function api(p){
+    p.user=getUserName();p.pin=getPin();
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)}).then(function(r){return r.json();});
+  }
   function el(){return document.getElementById('mailcfg-body');}
   function init(){
     el().innerHTML='<div class="cbz-loading">Cargando configuración...</div>';
@@ -3216,28 +3240,39 @@ var MailCfg = (function(){
     }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
   }
   function render(){
-    var verificado=cfg.senderEmail&&cfg.aliases.indexOf(cfg.senderEmail)>=0;
+    function campo(id,label,valor,desc){
+      var ver=valor&&cfg.aliases.indexOf(valor)>=0;
+      return '<label class="ulabel" style="margin-top:12px">'+label+'</label>'+
+        '<div class="cbz-muted" style="font-size:11px;margin:0 0 4px">'+desc+'</div>'+
+        '<input class="uinput" id="'+id+'" placeholder="ej: cobranzas@minecore.ec" value="'+(valor||'').replace(/"/g,'&quot;')+'">'+
+        (valor?('<div style="font-size:11px;margin-top:4px;color:'+(ver?'#7fd18c':'#f0c040')+'">'+
+          (ver?'✅ Verificado — sale desde este remitente':'⚠ Sin verificar como "Enviar como" — por ahora sale desde la cuenta principal')+'</div>'):'');
+    }
     el().innerHTML=
-      '<div class="cbz-card"><div class="cbz-card-name">📨 ¿Desde qué correo salen los envíos automáticos?</div>'+
-      '<div class="cbz-muted" style="font-size:12px;margin:6px 0 12px">Aplica a: recordatorios de cobranza, estados de cuenta, avisos de cotización al cliente y avisos del formulario de clientes.</div>'+
-      '<label class="ulabel">Remitente (from)</label>'+
-      '<input class="uinput" id="mc-sender" placeholder="ej: cobranzas@minecore.ec" value="'+(cfg.senderEmail||'').replace(/"/g,'&quot;')+'">'+
-      (cfg.senderEmail?('<div style="font-size:11.5px;margin:6px 0;color:'+(verificado?'#7fd18c':'#f0c040')+'">'+
-        (verificado?'✅ Verificado como alias — los correos salen desde este remitente.':'⚠ Aún NO verificado como alias "Enviar como" en el Gmail de '+cfg.cuentaScript+'. Hasta verificarlo, saldrán desde la cuenta principal.')+'</div>'):'')+
-      '<label class="ulabel" style="margin-top:10px">Copia oculta (BCC) — te llega copia invisible de todo</label>'+
+      '<div class="cbz-card"><div class="cbz-card-name">📨 Un remitente por automatización</div>'+
+      '<div class="cbz-muted" style="font-size:12px;margin:6px 0 4px">Puedes usar el mismo correo en todos, o uno distinto por área — así sabes de dónde sale cada cosa.</div>'+
+      campo('mc-cob','💰 Cobranza',cfg.senderCobranza,'Recordatorios de pago y estados de cuenta a clientes')+
+      campo('mc-cot','🧾 Cotizaciones',cfg.senderCotizaciones,'Avisos al cliente cuando su cotización está lista')+
+      campo('mc-kyc','🗂 Formulario de clientes',cfg.senderKyc,'A dónde llega el aviso de cada registro nuevo')+
+      '<label class="ulabel" style="margin-top:14px">🕶 Copia oculta (BCC) — para ti</label>'+
+      '<div class="cbz-muted" style="font-size:11px;margin:0 0 4px">Te llega copia invisible de todo lo que el sistema envíe</div>'+
       '<input class="uinput" id="mc-bcc" placeholder="tu correo personal" value="'+(cfg.bccEmail||'').replace(/"/g,'&quot;')+'">'+
-      '<div class="cbz-card-row" style="gap:8px;margin-top:14px;flex-wrap:wrap">'+
+      '<div class="cbz-card-row" style="gap:8px;margin-top:16px;flex-wrap:wrap">'+
       '<button class="cbz-btn" onclick="MailCfg.guardar()">💾 Guardar configuración</button>'+
       '<button class="cbz-btn-sec" onclick="MailCfg.probar()">📨 Enviar correo de prueba</button></div></div>'+
       '<div class="cbz-card"><div class="cbz-card-name">🧭 Guía rápida</div>'+
       '<div class="cbz-muted" style="font-size:12px;line-height:1.7;margin-top:6px">'+
       '1. Crear el buzón <b>oscarvalle@minecore.ec</b> en el hosting de correo.<br>'+
       '2. Crear el alias <b>cobranzas@minecore.ec → oscarvalle@</b> (las respuestas de clientes le llegan a Oscar).<br>'+
-      '3. En el Gmail de <b>'+cfg.cuentaScript+'</b>: ⚙ → Cuentas → "Enviar como" → agregar cobranzas@ → el código de verificación llega a la bandeja de Oscar → verificar.<br>'+
-      '4. Volver aquí: poner cobranzas@ como remitente, tu correo en BCC, Guardar y Enviar prueba.</div></div>';
+      '3. En el Gmail de <b>'+cfg.cuentaScript+'</b>: ⚙ → Cuentas → "Enviar como" → agregar cada remitente que uses → el código llega al buzón de destino → verificar.<br>'+
+      '4. Volver aquí: escribir los remitentes, tu BCC, Guardar (los semáforos deben ponerse ✅) y Enviar prueba.</div></div>';
   }
   function guardar(){
-    api({action:'setMailConfig',senderEmail:(document.getElementById('mc-sender')||{}).value||'',bccEmail:(document.getElementById('mc-bcc')||{}).value||''}).then(function(res){
+    api({action:'setMailConfig',
+      senderCobranza:(document.getElementById('mc-cob')||{}).value||'',
+      senderCotizaciones:(document.getElementById('mc-cot')||{}).value||'',
+      senderKyc:(document.getElementById('mc-kyc')||{}).value||'',
+      bccEmail:(document.getElementById('mc-bcc')||{}).value||''}).then(function(res){
       if(!res.ok){alert(res.error);return;}
       alert(res.alerta?('💾 Guardado.\n\n'+res.alerta):'💾 Configuración guardada. El motor de correos ya la usa desde ahora.');
       init();
@@ -3254,6 +3289,10 @@ var MailCfg = (function(){
 
 var Kyc = (function(){
   var data=null, abierto={};
+  function api(p){
+    p.user=getUserName();p.pin=getPin();
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)}).then(function(r){return r.json();});
+  }
   function el(){return document.getElementById('kyc-body');}
   function init(){
     data=null;abierto={};
@@ -3611,7 +3650,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v86'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v87'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
