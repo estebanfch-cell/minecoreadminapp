@@ -194,7 +194,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v123</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v124</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3253,7 +3253,9 @@ var MailCfg = (function(){
       '<div class="cbz-muted" style="font-size:12px;margin:6px 0 4px">Puedes usar el mismo correo en todos, o uno distinto por área — así sabes de dónde sale cada cosa.</div>'+
       campo('mc-cob','💰 Cobranza',cfg.senderCobranza,'Recordatorios de pago y estados de cuenta a clientes')+
       campo('mc-cot','🧾 Cotizaciones',cfg.senderCotizaciones,'Avisos al cliente cuando su cotización está lista')+
-      campo('mc-kyc','🗂 Formulario de clientes',cfg.senderKyc,'A dónde llega el aviso de cada registro nuevo')+
+      '<label class="ulabel" style="margin-top:12px">🗂 Formulario de clientes</label>'+
+      '<div class="cbz-muted" style="font-size:11px;margin:0 0 4px">A dónde llega el aviso de cada registro — uno o varios separados por coma</div>'+
+      '<input class="uinput" id="mc-kyc" placeholder="tucorreo@..., oscarvalle@minecore.ec" value="'+(cfg.senderKyc||'').replace(/"/g,'&quot;')+'">'+
       '<label class="ulabel" style="margin-top:14px">🕶 Copia oculta (BCC) — invisible para el cliente</label>'+
       '<div class="cbz-muted" style="font-size:11px;margin:0 0 4px">Uno o varios correos separados por coma — p. ej. tú y Oscar, para que ambos vean lo que salió</div>'+
       '<input class="uinput" id="mc-bcc" placeholder="tucorreo@..., oscarvalle@minecore.ec" value="'+(cfg.bccEmail||'').replace(/"/g,'&quot;')+'">'+
@@ -3653,7 +3655,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v88'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v89'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
