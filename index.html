@@ -199,7 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v133</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v135</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2754,12 +2754,12 @@ var Cot = (function(){
         (esOrden&&c.numOV?'<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-name">📦 Orden de Venta: '+c.numOV+'</div></div>':'')+
         '<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
         '<button class="cbz-btn" onclick="Cot.pdf()">🧾 Planilla (imprimir / PDF)</button>'+
-        (puedeEscribir()&&!esOrden?'<button class="cbz-btn-sec" onclick="Cot.editarCreada()">✏️ Editar precios</button>':'')+
+        (puedeEscribir()&&!esOrden?'<button class="cbz-btn-sec" onclick="Cot.editarCreada()">✏️ Editar cotización</button>':'')+
         (puedeEscribir()&&!esOrden?'<button class="cbz-btn" style="'+(esAprob?'':'opacity:.85')+'" onclick="Cot.convertirOV()">📦 Convertir en Orden de Venta</button>':'')+
         '</div>';
     }
     if(editandoCreada&&c.estado==='CREADA'){
-      h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la cotización '+c.inflowNum+': al guardar, se actualiza en inFlow y el cliente recibe el aviso de que fue modificada.</div>'+
+      h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la cotización '+c.inflowNum+': precios, cantidades, descuentos y también líneas (agregar, quitar, arrastrar). Al guardar, se actualiza en inFlow. Las entregas se guardan solas.</div>'+
         '<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email del cambio</label>'+
         '<div class="cbz-card-row" style="gap:8px;margin-top:8px">'+
         '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>'+
@@ -2853,12 +2853,16 @@ var Cot = (function(){
   }
   function tocado(){draftBackup();draftAutosave();}
   /* ---------- v130: agregar / quitar / reordenar líneas del borrador ---------- */
-  function esBorrador(){return !!det&&puedeEscribir()&&det.cot.estado!=='CREADA'&&det.cot.estado!=='APROBADA'&&det.cot.estado!=='ORDEN';}
+  function esBorrador(){if(!det||!puedeEscribir())return false;if(editandoCreada&&det.cot.estado==='CREADA')return true;return det.cot.estado!=='CREADA'&&det.cot.estado!=='APROBADA'&&det.cot.estado!=='ORDEN';}
   function itemsActuales(){return det.lineas.map(function(l){return {sku:l.sku,nombre:l.nombre,cantidad:parseInt(l.cantidad,10)||1};});}
   var itemsTimer=null;
   function persistItems(recargar){
     if(itemsTimer)clearTimeout(itemsTimer);
     if(autoTimer)clearTimeout(autoTimer);
+    if(editandoCreada&&det.cot.estado==='CREADA'){ // v135: en edición de una cotización YA en inFlow, todo se manda junto con "Guardar cambios"
+      draftBackup();ultimoGuardado='✏️ Cambios pendientes: toca 💾 Guardar cambios para enviarlos a inFlow';pintaEstado();
+      return Promise.resolve(true);
+    }
     var p=payloadPrecios();
     guardando=true;pintaEstado();
     draftBackup();
@@ -3011,13 +3015,54 @@ var Cot = (function(){
             '<span class="cbz-muted" style="font-size:11px;white-space:nowrap">'+l.cantidad+' × '+fmt(fin)+'</span>'+
             '<b style="white-space:nowrap">'+fmt(fin*l.cantidad)+'</b></div>';
         }).join('');
-        if(puedeEscribir())c+='<div class="cbz-card-row" style="gap:8px;margin-top:8px"><button class="cbz-btn-sec" onclick="Cot.abrirInflow('+ix+')">✏️ Editar '+(o.isQuote?'cotización':'orden')+'</button></div>';
+        c+='<div class="cbz-card-row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'+
+          (o.isQuote?'<button class="cbz-btn" onclick="Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>':'')+
+          (puedeEscribir()?'<button class="cbz-btn-sec" onclick="Cot.abrirInflow('+ix+')">✏️ Editar '+(o.isQuote?'cotización':'orden')+'</button>':'')+'</div>';
       }
       return c+'</div>';
     }).join('');
     el().innerHTML=h;
   }
   function ioToggle(ix){ioOpen[ix]=!ioOpen[ix];renderInflowLista();}
+  /* ---------- v134: planilla PDF desde el espejo de inFlow (con página 2 de entregas si existe la pre-cotización) ---------- */
+  function ioPdf(ix){
+    var o=ioLista[ix];if(!o)return;
+    var btns=document.querySelectorAll('#cot-screen .cbz-btn');for(var b=0;b<btns.length;b++)btns[b].disabled=true;
+    function vacio(){return {nombre:o.cliente,ruc:'',direccion:'',contacto:'',telefono:'',email:'',terminos:''};}
+    // 1) catálogo (código y categoría de cada línea)  2) datos del cliente  3) pre-cotización hermana (entregas + stock por bodega)
+    var pCat=prodCat?Promise.resolve():api({action:'getInventario'}).then(function(res){
+      if(!res.ok)return;var bDef=MCbodegaDefault(res.bodegas||[]);
+      prodCat=(res.items||[]).map(function(it){return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||'',stock:(bDef&&it.stockPor)?MCstockDe(it,bDef):(it.stock||0),stockTotal:it.stock||0,stockPor:it.stockPor||{},codigo:it.codigo||'',categoria:it.categoria||''};});
+    }).catch(function(){});
+    var pCli=o.customerId?api({action:'getClienteInflowData',customerId:o.customerId}).then(function(res){return (res.ok&&res.cliente)?res.cliente:vacio();}).catch(vacio):Promise.resolve(vacio());
+    var pPre=(lista?Promise.resolve(lista):api({action:'getCotAdmin'}).then(function(res){return res.ok?(res.solicitudes||[]):[];}).catch(function(){return [];}))
+      .then(function(ls){
+        var m=null;for(var i=0;i<ls.length;i++){if(ls[i].inflowNum&&ls[i].inflowNum===o.num){m=ls[i];break;}}
+        if(!m)return null;
+        return api({action:'getCotDetalle',id:m.id}).then(function(res){return (res.ok&&res.cot)?res:null;}).catch(function(){return null;});
+      });
+    Promise.all([pCat,pCli,pPre]).then(function(r){
+      var cli=r[1], pre=r[2];
+      var porSku={};if(prodCat)prodCat.forEach(function(p){porSku[p.sku]=p;});
+      var entBySku={};
+      if(pre){ // usa las mismas reglas de entrega que la pantalla de pre-cotización
+        var detPrev=det;det=pre;
+        try{pre.lineas.forEach(function(l){var e=entLinea(l);entBySku[l.sku]={cant:e.cant,ahora:e.ahora,plazo:e.plazo};});}catch(e){}
+        det=detPrev;
+      }
+      var sub=0;
+      var lineas=o.lineas.map(function(l){
+        var d=parseFloat(l.descuento)||0, pu=parseFloat(l.precio)||0;
+        var fin=Math.round(pu*(1-d/100)*100)/100;sub+=fin*(parseFloat(l.cantidad)||0);
+        var p=porSku[l.sku]||{};
+        var e=entBySku[l.sku];
+        if(e&&e.cant!==l.cantidad){e={cant:l.cantidad,ahora:Math.min(e.ahora,l.cantidad),plazo:e.plazo};} // si cambió la cantidad en inFlow
+        return {nombre:l.nombre,codigo:p.codigo||'',sku:l.sku,categoria:p.categoria||'',cantidad:l.cantidad,precioLista:pu,descuento:d,precioFinal:fin,img:l.img||p.img||'',ent:e||null};
+      });
+      MCPlanillaCot({num:o.num,fecha:o.fecha,cliente:cli,contacto:'',lineas:lineas,subtotal:Math.round(sub*100)/100});
+      if(!pre)setTimeout(function(){alert('Nota: esta cotización no tiene pre-cotización asociada en la app, así que la planilla sale sin la página 2 de tiempos de entrega.');},400);
+    }).catch(function(e){alert(MCerr(e));}).then(function(){renderInflowLista();});
+  }
   function abrirInflow(ix){ioDet=JSON.parse(JSON.stringify(ioLista[ix]));renderInflowDet();}
   function renderInflowDet(){
     var o=ioDet;
@@ -3158,14 +3203,14 @@ var Cot = (function(){
     }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function editarCreada(){editandoCreada=true;renderDet();}
-  function cancelarEdicion(){editandoCreada=false;abrir(det.cot.id);}
+  function cancelarEdicion(){editandoCreada=false;try{localStorage.removeItem(draftKey());}catch(e){}abrir(det.cot.id);}
   function guardarEdicion(){
     var lineas=det.lineas.filter(function(l){return l.productId;});
     if(!confirm('¿Guardar los cambios de '+det.cot.inflowNum+'?\nSe actualizará en inFlow.'))return;
     el().innerHTML='<div class="cbz-loading">Actualizando cotización...</div>';
     var avisar=!!(document.getElementById('cot-avisar')&&document.getElementById('cot-avisar').checked);
     api({action:'editarCotCreada',id:det.cot.id,avisar:avisar,
-         lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
+         lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,nombre:l.nombre,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
     }).then(function(res){
       editandoCreada=false;
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
@@ -3219,7 +3264,7 @@ var Cot = (function(){
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,
-          abrirInflow:abrirInflow,ioToggle:ioToggle,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
+          abrirInflow:abrirInflow,ioToggle:ioToggle,ioPdf:ioPdf,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -3942,7 +3987,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v94'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v95'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
