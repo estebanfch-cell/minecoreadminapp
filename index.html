@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v146</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v147</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3097,7 +3097,9 @@ var Cot = (function(){
   function cargarInflow(){
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Consultando inFlow en vivo...</div>';
     var tipo=(cotTab==='io'?'orden':'quote'), tabAl=cotTab;
-    var pPre=(lista!==null)?Promise.resolve():api({action:'getCotAdmin'}).then(function(r2){if(r2.ok)lista=r2.solicitudes||[];}).catch(function(){});
+    // v147: la lista de pre-cotizaciones se refresca SIEMPRE aquí: la copia en memoria puede ser vieja
+    // (p. ej. cargada antes de crear la cotización en inFlow → sin número → no se reconocía como "nacida en la app")
+    var pPre=api({action:'getCotAdmin'}).then(function(r2){if(r2.ok)lista=r2.solicitudes||[];}).catch(function(){});
     Promise.all([api({action:'getInflowOrdenes',tipo:tipo}),pPre]).then(function(rr){
       var res=rr[0];
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
@@ -3111,7 +3113,7 @@ var Cot = (function(){
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   var ioOpen={}, ioNota='';
-  function preIdDe(num){if(!lista||!num)return 0;for(var i=0;i<lista.length;i++){if(lista[i].inflowNum===num)return lista[i].id;}return 0;}
+  function preIdDe(num){num=String(num||'').trim().toUpperCase();if(!lista||!num)return 0;for(var i=0;i<lista.length;i++){if(String(lista[i].inflowNum||'').trim().toUpperCase()===num)return lista[i].id;}return 0;}
   function renderInflowLista(){
     var tit=cotTab==='io'?'📦 Órdenes de venta en inFlow':'🧾 Cotizaciones en inFlow';
     var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — las últimas '+ioLista.length+'. Toca una para desplegarla.'+(ioNota?' <span style="color:#f0c040">'+ioNota+'</span>':'')+'</div>';
@@ -3332,6 +3334,7 @@ var Cot = (function(){
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
       try{localStorage.removeItem(draftKey());}catch(e){}
+      lista=null;
       alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+(res.emailEnviado?'\n📧 Aviso con precios enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale al cliente por tu canal habitual)')+'\n\nYa puedes verla en inFlow o imprimir la planilla aquí.');
       abrir(det.cot.id);
     }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
