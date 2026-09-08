@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v147</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v148</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3128,6 +3128,7 @@ var Cot = (function(){
         (o.isQuote?'<button onclick="Cot.ioMenuCerrar();Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>':'')+
         (puedeEscribir()&&preIdH?'<button onclick="Cot.ioMenuCerrar();Cot.abrirDesde('+preIdH+',\''+cotTab+'\')">✏️ Editar cotización (precios, entregas, líneas)</button>':'')+
         (puedeEscribir()?'<button onclick="Cot.ioMenuCerrar();Cot.abrirInflow('+ix+')">'+(preIdH?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas)')+'</button>':'')+
+        (o.isQuote&&puedeEscribir()?'<button style="color:#6fd68f" onclick="Cot.ioMenuCerrar();Cot.ioConvertir('+ix+')">📦 Convertir en Orden de Venta</button>':'')+
         '<button onclick="Cot.ioMenuCerrar();Cot.ioToggle('+ix+')">'+(abierta?'▴ Contraer':'▾ Ver líneas')+'</button>'+
         '</div></div>';
       var c='<div class="cbz-card" style="position:relative">'+
@@ -3160,6 +3161,19 @@ var Cot = (function(){
     el().innerHTML=h;
   }
   function ioToggle(ix){ioOpen[ix]=!ioOpen[ix];renderInflowLista();}
+  /* v148: convertir en OV desde la lista de inFlow (con o sin pre-cotización hermana) */
+  function ioConvertir(ix){
+    var o=ioLista[ix];if(!o||!o.isQuote)return;
+    var preId=preIdDe(o.num);
+    if(!confirm('¿Convertir la cotización '+o.num+' ('+o.cliente+') en ORDEN DE VENTA en inFlow?\n'+o.lineas.length+' línea(s) · Subtotal '+fmt(o.total)))return;
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Convirtiendo '+o.num+' en Orden de Venta...</div>';
+    var p={action:'convertirCotOrden'};if(preId)p.id=preId;else p.salesOrderId=o.salesOrderId;
+    api(p).then(function(res){
+      if(!res.ok){alert('Error: '+res.error);renderInflowLista();return;}
+      alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despacharla.');
+      lista=null;ioLista=null;cargarInflow();
+    }).catch(function(e){alert(MCerr(e)+'\nVerifica en inFlow antes de reintentar.');renderInflowLista();});
+  }
   /* v142: menú ⋯ por documento (sin desplegar las líneas) */
   function ioMenuCerrar(){var ab=document.querySelectorAll('.io-menu-list.open');for(var i=0;i<ab.length;i++)ab[i].classList.remove('open');document.removeEventListener('click',ioMenuCerrar);}
   function ioMenu(ix,ev){
@@ -3412,7 +3426,7 @@ var Cot = (function(){
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,
-          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
+          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioConvertir:ioConvertir,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -4135,7 +4149,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v98'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v99'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
