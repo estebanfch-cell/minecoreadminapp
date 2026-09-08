@@ -199,7 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v138</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v139</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3019,18 +3019,25 @@ var Cot = (function(){
   /* ---------- Espejo vivo de inFlow (cotizaciones y órdenes) ---------- */
   function cargarInflow(){
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Consultando inFlow en vivo...</div>';
+    var tipo=(cotTab==='io'?'orden':'quote'), tabAl=cotTab;
     var pPre=(lista!==null)?Promise.resolve():api({action:'getCotAdmin'}).then(function(r2){if(r2.ok)lista=r2.solicitudes||[];}).catch(function(){});
-    Promise.all([api({action:'getInflowOrdenes',tipo:(cotTab==='io'?'orden':'quote')}),pPre]).then(function(rr){
+    Promise.all([api({action:'getInflowOrdenes',tipo:tipo}),pPre]).then(function(rr){
       var res=rr[0];
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
-      ioLista=res.ordenes||[];ioOpen={};renderInflowLista();
+      ioLista=res.ordenes||[];ioOpen={};ioNota=res.cached?'⚡ Lista de hace un momento ('+(res.generado||'')+') · actualizando con inFlow…':'';renderInflowLista();
+      if(res.cached){ // v139: pinta al instante lo cacheado y refresca en silencio
+        api({action:'getInflowOrdenes',tipo:tipo,fresh:true}).then(function(r3){
+          if(!r3.ok||cotTab!==tabAl||det||ioDet)return;
+          ioLista=r3.ordenes||[];ioNota='';renderInflowLista();
+        }).catch(function(){ioNota='';});
+      }
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
-  var ioOpen={};
+  var ioOpen={}, ioNota='';
   function preIdDe(num){if(!lista||!num)return 0;for(var i=0;i<lista.length;i++){if(lista[i].inflowNum===num)return lista[i].id;}return 0;}
   function renderInflowLista(){
     var tit=cotTab==='io'?'📦 Órdenes de venta en inFlow':'🧾 Cotizaciones en inFlow';
-    var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — en vivo, las últimas '+ioLista.length+'. Toca una para desplegarla.</div>';
+    var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — las últimas '+ioLista.length+'. Toca una para desplegarla.'+(ioNota?' <span style="color:#f0c040">'+ioNota+'</span>':'')+'</div>';
     if(!ioLista.length)h+='<div class="cbz-card" style="text-align:center;padding:20px"><div class="cbz-muted">No hay documentos recientes de este tipo.</div></div>';
     h+=ioLista.map(function(o,ix){
       var sub=o.total, iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
@@ -4030,7 +4037,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v95'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v96'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
