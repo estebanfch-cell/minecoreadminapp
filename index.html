@@ -167,6 +167,12 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .cot-linea.dragging{opacity:.45;outline:2px dashed #9fc3e8}
 .cot-linea.drop-before{box-shadow:0 -3px 0 0 #6fd68f}
 .cot-linea.drop-after{box-shadow:0 3px 0 0 #6fd68f}
+.io-menu{position:relative;flex:none}
+.io-menu-btn{padding:4px 10px;font-size:16px;line-height:1}
+.io-menu-list{display:none;position:absolute;right:0;top:110%;z-index:50;background:#141b24;border:1px solid #2b3a4c;border-radius:10px;min-width:250px;box-shadow:0 8px 24px rgba(0,0,0,.5);padding:6px;flex-direction:column;gap:2px}
+.io-menu-list.open{display:flex}
+.io-menu-list button{background:none;border:0;color:#dce6f0;text-align:left;padding:9px 10px;border-radius:7px;font-size:13px;cursor:pointer;white-space:nowrap}
+.io-menu-list button:hover{background:#1e2a38}
 </style>
 </head>
 <body>
@@ -199,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v139</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v142</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -267,11 +273,23 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(!m2||/Failed to 
 /* v132: reintentos. Google a veces contesta con una página HTML ("Drive: no se pudo abrir el archivo", HTTP 404/500)
    ANTES de ejecutar el script — en ese caso el script no corrió y reintentar es seguro para cualquier acción.
    Si falló la red (sin respuesta), solo se reintentan las lecturas (una escritura podría haberse ejecutado). */
-function MCpost(p){var body=JSON.stringify(p);var lectura=/^(get|list|mi)/.test(String(p.action||''));
-  function go(){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body}).then(MCjson);}
+/* v140: a veces Google convierte el POST en un GET (redirección) y contesta con la "tarjeta de presentación"
+   del API ({ok:true, service, version}) en vez de ejecutar la acción. Se detecta y se reintenta; para acciones
+   que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
+var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit)$/;
+function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
+function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi)/.test(accion);
+  function go(){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body}).then(MCjson).then(function(res){
+    if(MCesDoGet(res)){var e2=new Error('DOGET');e2.doget=true;throw e2;}
+    return res;});}
   function esPaginaGoogle(e){return !!(e&&e.message&&/^HTTP \d+/.test(e.message));}
   function intento(n){
     return go().catch(function(e){
+      if(e&&e.doget){
+        if(MC_NO_REPETIR.test(accion))throw new Error('Google devolvió una respuesta vacía para "'+accion+'". Verifica en la app/inFlow si la acción se aplicó antes de repetirla.');
+        if(n>=3)throw new Error('Google respondió sin ejecutar la acción "'+accion+'" (4 intentos). Reintenta en unos segundos.');
+        return new Promise(function(ok){setTimeout(ok,[700,1500,3000][n]||3000);}).then(function(){return intento(n+1);});
+      }
       var puede=esPaginaGoogle(e)||(lectura&&!esPaginaGoogle(e));
       if(n>=3||!puede)throw e;
       var espera=[900,1800,3200][n]||3200;
@@ -2338,7 +2356,9 @@ function MCPlanillaCot(cfg){
   var url=URL.createObjectURL(blob);
   var w=window.open(url,'_blank');
   if(!w){alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');return;}
-  setTimeout(function(){try{URL.revokeObjectURL(url);}catch(e){}},60000);
+  // v141: NO se revoca la URL del blob. Safari vuelve a cargar la página al imprimir / guardar como PDF;
+  // si la URL ya estaba revocada (antes: a los 60 s), el PDF salía EN BLANCO. Se libera solo al cerrar la app.
+  window.addEventListener('beforeunload',function(){try{URL.revokeObjectURL(url);}catch(e){}});
 }
 
 /* ===================== COTIZACIONES (módulo admin) ===================== */
@@ -3042,10 +3062,19 @@ var Cot = (function(){
     h+=ioLista.map(function(o,ix){
       var sub=o.total, iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
       var abierta=!!ioOpen[ix];
-      var c='<div class="cbz-card">'+
-        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
-        '<div class="cbz-card-name">'+(abierta?'▾ ':'▸ ')+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
-        '<span class="cbz-muted" style="font-size:11px">'+o.fecha+'</span></div>'+
+      var preIdH=o.isQuote?preIdDe(o.num):0;
+      var menu='<div class="io-menu" onclick="event.stopPropagation()">'+
+        '<button class="chip io-menu-btn" title="Acciones" onclick="Cot.ioMenu('+ix+',event)">⋯</button>'+
+        '<div class="io-menu-list" id="io-menu-'+ix+'">'+
+        (o.isQuote?'<button onclick="Cot.ioMenuCerrar();Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>':'')+
+        (puedeEscribir()&&preIdH?'<button onclick="Cot.ioMenuCerrar();Cot.abrirDesde('+preIdH+',\''+cotTab+'\')">✏️ Editar cotización (precios, entregas, líneas)</button>':'')+
+        (puedeEscribir()?'<button onclick="Cot.ioMenuCerrar();Cot.abrirInflow('+ix+')">'+(preIdH?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas)')+'</button>':'')+
+        '<button onclick="Cot.ioMenuCerrar();Cot.ioToggle('+ix+')">'+(abierta?'▴ Contraer':'▾ Ver líneas')+'</button>'+
+        '</div></div>';
+      var c='<div class="cbz-card" style="position:relative">'+
+        '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer;gap:8px" onclick="Cot.ioToggle('+ix+')">'+
+        '<div class="cbz-card-name" style="flex:1;min-width:0">'+(abierta?'▾ ':'▸ ')+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
+        '<span class="cbz-muted" style="font-size:11px">'+o.fecha+'</span>'+menu+'</div>'+
         '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
         '<span>🏢 '+o.cliente+'</span><span>'+o.lineas.length+' línea'+(o.lineas.length===1?'':'s')+'</span></div>'+
         '<div class="cbz-card-row" style="justify-content:flex-end;gap:14px;font-size:12px;margin-top:4px;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
@@ -3072,6 +3101,15 @@ var Cot = (function(){
     el().innerHTML=h;
   }
   function ioToggle(ix){ioOpen[ix]=!ioOpen[ix];renderInflowLista();}
+  /* v142: menú ⋯ por documento (sin desplegar las líneas) */
+  function ioMenuCerrar(){var ab=document.querySelectorAll('.io-menu-list.open');for(var i=0;i<ab.length;i++)ab[i].classList.remove('open');document.removeEventListener('click',ioMenuCerrar);}
+  function ioMenu(ix,ev){
+    if(ev)ev.stopPropagation();
+    var m=document.getElementById('io-menu-'+ix);if(!m)return;
+    var estaba=m.classList.contains('open');
+    ioMenuCerrar();
+    if(!estaba){m.classList.add('open');setTimeout(function(){document.addEventListener('click',ioMenuCerrar);},0);}
+  }
   /* ---------- v134: planilla PDF desde el espejo de inFlow (con página 2 de entregas si existe la pre-cotización) ---------- */
   function ioPdf(ix){
     var o=ioLista[ix];if(!o)return;
@@ -3314,7 +3352,7 @@ var Cot = (function(){
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,
-          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioPdf:ioPdf,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
+          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
