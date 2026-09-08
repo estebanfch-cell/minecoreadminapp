@@ -162,6 +162,11 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .uform{margin-top:10px;display:flex;flex-direction:column;gap:8px}
 .uinput{background:#0b1219;border:1px solid #2e4257;border-radius:8px;color:#dce6f0;padding:9px;font-size:13px;width:100%}
 
+.cot-grip{flex:none;width:26px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#7d8ba0;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:6px}
+.cot-grip:hover{background:#1e2733;color:#cfd8e3}
+.cot-linea.dragging{opacity:.45;outline:2px dashed #9fc3e8}
+.cot-linea.drop-before{box-shadow:0 -3px 0 0 #6fd68f}
+.cot-linea.drop-after{box-shadow:0 3px 0 0 #6fd68f}
 </style>
 </head>
 <body>
@@ -194,7 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v130</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v132</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -257,11 +262,23 @@ function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostn
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 /* v129: errores honestos — distingue "sin red" de "el servidor respondió algo que no es JSON" (páginas de error de Google, timeouts) */
-function MCjson(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){var s2=String(t||'').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);throw new Error('HTTP '+r.status+' — '+(s2||'respuesta vacía'));}});}
+function MCjson(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){var s2=String(t||'').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);if(/no se pudo abrir el archivo|Drive|Google Drive|tiempo máximo|exceeded maximum execution/i.test(s2))s2='Google no pudo atender la solicitud en este momento (error temporal de Apps Script/Drive)';throw new Error('HTTP '+r.status+' — '+(s2||'respuesta vacía'));}});}
 function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
+/* v132: reintentos. Google a veces contesta con una página HTML ("Drive: no se pudo abrir el archivo", HTTP 404/500)
+   ANTES de ejecutar el script — en ese caso el script no corrió y reintentar es seguro para cualquier acción.
+   Si falló la red (sin respuesta), solo se reintentan las lecturas (una escritura podría haberse ejecutado). */
 function MCpost(p){var body=JSON.stringify(p);var lectura=/^(get|list|mi)/.test(String(p.action||''));
   function go(){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body}).then(MCjson);}
-  return lectura?go().catch(function(){return new Promise(function(ok){setTimeout(ok,1500);}).then(go);}):go();}
+  function esPaginaGoogle(e){return !!(e&&e.message&&/^HTTP \d+/.test(e.message));}
+  function intento(n){
+    return go().catch(function(e){
+      var puede=esPaginaGoogle(e)||(lectura&&!esPaginaGoogle(e));
+      if(n>=3||!puede)throw e;
+      var espera=[900,1800,3200][n]||3200;
+      return new Promise(function(ok){setTimeout(ok,espera);}).then(function(){return intento(n+1);});
+    });
+  }
+  return intento(0);}
 function MCbodegaDefault(bs){bs=bs||[];for(var i=0;i<bs.length;i++)if(/principal/i.test(bs[i]))return bs[i];return bs[0]||'';}
 function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.stockTotal:it.stock)||0;var sp=it.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}return parseFloat(v)||0;}
 
@@ -2679,13 +2696,13 @@ var Cot = (function(){
                               (l.ultGlobal?' · Últ. global: '+fmt(l.ultGlobal.p)+' ('+l.ultGlobal.f+')':'');
       var alerta=(l.ultCliente&&l.lista<l.ultCliente.p)?'<span style="color:#f0c040"> ⚠ lista por debajo del último vendido</span>':'';
       var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en inFlow — esta línea no se puede cotizar</div>':'';
-      h+='<div class="cbz-card">'+
+      h+='<div class="cbz-card'+(esBorrador()?' cot-linea':'')+'" data-idx="'+i+'">'+
         '<div class="cbz-card-row" style="gap:8px;align-items:flex-start">'+
+        (esBorrador()?'<div class="cot-grip" title="Arrastra para reordenar" onpointerdown="Cot.dragStart(event,'+i+')">⠿</div>':'')+
         (l.img?'<img src="'+l.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'')+
         '<div class="cbz-card-name" style="font-size:13px;flex:1">'+l.nombre+'</div>'+
         (esBorrador()?'<div style="display:flex;gap:4px;align-items:center;flex:none" title="Posición en la cotización">'+
           '<input type="number" min="1" max="'+det.lineas.length+'" inputmode="numeric" class="uinput" style="width:46px;text-align:center;padding:4px;font-size:12px" value="'+(i+1)+'" onchange="Cot.moverA('+i+',this.value)">'+
-          '<button class="chip" style="padding:4px 8px" onclick="Cot.mover('+i+',-1)">▲</button><button class="chip" style="padding:4px 8px" onclick="Cot.mover('+i+',1)">▼</button>'+
           '<button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Cot.quitarLinea('+i+')">🗑</button></div>':'')+
         '</div>'+
         '<div class="cbz-muted" style="font-size:11px">SKU: '+l.sku+' · Stock: '+l.stock+'</div>'+sinPid+
@@ -2708,7 +2725,7 @@ var Cot = (function(){
         '<button class="cbz-btn" onclick="Cot.agregarLinea()">Agregar</button></div>'+
         '<datalist id="cot-prods">'+(prodCat?prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join(''):'')+'</datalist>'+
         (prodCat?'':'<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">Cargando catálogo...</div>')+
-        '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">La línea nueva entra al final; con el número de posición o ▲▼ la mueves a donde quieras. Los cambios de líneas se guardan solos.</div></div>';
+        '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">La línea nueva entra al final; arrástrala desde ⠿ (o escribe el número de posición) para ponerla donde quieras. Los cambios de líneas se guardan solos.</div></div>';
       if(!prodCat)cargarProdsFull();
     }
     var tot=0;det.lineas.forEach(function(l){tot+=finU(l)*(parseInt(l.cantidad,10)||0);});
@@ -2796,7 +2813,7 @@ var Cot = (function(){
   var ultimoGuardado='', guardando=false, autoTimer=null;
   function draftKey(){return 'mc_cotdraft_'+(det&&det.cot?det.cot.id:'0');}
   function draftBackup(){
-    try{var p=payloadPrecios();localStorage.setItem(draftKey(),JSON.stringify({precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos,entregas:entState(),ts:Date.now()}));}catch(e){}
+    try{var p=payloadPrecios();localStorage.setItem(draftKey(),JSON.stringify({precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos,entregas:entState(),orden:det.lineas.map(function(l){return l.sku;}),ts:Date.now()}));}catch(e){}
   }
   function draftRestore(){
     var bk=null;try{bk=JSON.parse(localStorage.getItem(draftKey())||'null');}catch(e){}
@@ -2808,6 +2825,7 @@ var Cot = (function(){
       if(bk.descuentos&&bk.descuentos[l.sku]!==undefined)l.descuento=bk.descuentos[l.sku];
     });
     if(bk.entregas)det.entregas=bk.entregas;
+    if(bk.orden&&bk.orden.length){var pos={};bk.orden.forEach(function(sk,ix){pos[sk]=ix;});det.lineas.sort(function(a,b){return (pos[a.sku]!==undefined?pos[a.sku]:999)-(pos[b.sku]!==undefined?pos[b.sku]:999);});}
     ultimoGuardado='↩ Restaurado de este dispositivo (sin guardar en el servidor todavía)';
     return true;
   }
@@ -2831,19 +2849,65 @@ var Cot = (function(){
   var itemsTimer=null;
   function persistItems(recargar){
     if(itemsTimer)clearTimeout(itemsTimer);
+    if(autoTimer)clearTimeout(autoTimer);
     var p=payloadPrecios();
     guardando=true;pintaEstado();
-    // 1) precios/cantidades actuales (para que la recarga no pierda lo editado) 2) lista de ítems
-    return api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos})
-      .then(function(){return api({action:'guardarItemsCot',id:det.cot.id,items:itemsActuales()});})
+    draftBackup();
+    // una sola llamada: ítems (orden) + precios/cantidades/descuentos actuales
+    return api({action:'guardarItemsCot',id:det.cot.id,items:itemsActuales(),precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos})
       .then(function(res){
         guardando=false;
-        if(!res.ok){ultimoGuardado='⚠ Líneas no guardadas: '+res.error;pintaEstado();alert('No se pudo guardar el cambio de líneas: '+res.error);return false;}
+        if(!res.ok){ultimoGuardado='⚠ Líneas no guardadas: '+res.error;pintaEstado();alert('No se pudo guardar el cambio de líneas: '+res.error+'\n\nEl orden que ves queda respaldado en este dispositivo; vuelve a intentar en unos segundos.');return false;}
         ultimoGuardado='💾 Guardado '+new Date().toTimeString().slice(0,5);try{localStorage.removeItem(draftKey());}catch(e){}
         pintaEstado();
         if(recargar)abrir(det.cot.id);
         return true;
-      }).catch(function(e){guardando=false;ultimoGuardado='⚠ '+MCerr(e);pintaEstado();alert(MCerr(e)+' — el cambio de líneas no se guardó. Reintenta.');return false;});
+      }).catch(function(e){guardando=false;ultimoGuardado='⚠ '+MCerr(e);pintaEstado();alert(MCerr(e)+'\n\nEl cambio de líneas NO se guardó en el servidor (se intentó 4 veces). El orden que ves queda respaldado en este dispositivo: espera unos segundos y mueve cualquier línea para reintentar.');return false;});
+  }
+  /* ---------- v131: arrastrar para reordenar (pointer events: mouse y táctil) ---------- */
+  var drag=null;
+  function dragStart(ev,i){
+    if(!esBorrador())return;
+    ev.preventDefault();
+    var card=ev.target.closest('.cot-linea');if(!card)return;
+    drag={from:i,card:card,target:null,pos:''};
+    card.classList.add('dragging');
+    try{ev.target.setPointerCapture(ev.pointerId);}catch(e){}
+    var mv=function(e){
+      if(!drag)return;
+      e.preventDefault();
+      var y=e.clientY;
+      if(y<70)window.scrollBy(0,-12);else if(y>window.innerHeight-70)window.scrollBy(0,12);
+      var cards=document.querySelectorAll('.cot-linea');var best=null,pos='';
+      for(var k=0;k<cards.length;k++){
+        var c=cards[k];if(c===drag.card)continue;
+        var r=c.getBoundingClientRect();
+        if(y>=r.top&&y<=r.bottom){best=c;pos=(y<r.top+r.height/2)?'before':'after';break;}
+      }
+      if(drag.target&&drag.target!==best){drag.target.classList.remove('drop-before','drop-after');}
+      if(best){best.classList.remove('drop-before','drop-after');best.classList.add(pos==='before'?'drop-before':'drop-after');}
+      drag.target=best;drag.pos=pos;
+    };
+    var up=function(e){
+      document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);
+      if(!drag)return;
+      var d=drag;drag=null;
+      d.card.classList.remove('dragging');
+      if(d.target){
+        d.target.classList.remove('drop-before','drop-after');
+        var to=parseInt(d.target.getAttribute('data-idx'),10);
+        var from=d.from;
+        var item=det.lineas.splice(from,1)[0];
+        if(from<to)to--;
+        if(d.pos==='after')to++;
+        if(to<0)to=0;if(to>det.lineas.length)to=det.lineas.length;
+        det.lineas.splice(to,0,item);
+        renderDet();
+        if(to!==from)persistItems(false);
+      }
+    };
+    document.addEventListener('pointermove',mv,{passive:false});
+    document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
   }
   function mover(i,d){var j=i+d;if(j<0||j>=det.lineas.length)return;var t=det.lineas[i];det.lineas[i]=det.lineas[j];det.lineas[j]=t;renderDet();persistItems(false);}
   function moverA(i,v){var j=(parseInt(v,10)||1)-1;if(j<0)j=0;if(j>=det.lineas.length)j=det.lineas.length-1;if(j===i){renderDet();return;}var t=det.lineas.splice(i,1)[0];det.lineas.splice(j,0,t);renderDet();persistItems(false);}
@@ -3140,7 +3204,7 @@ var Cot = (function(){
       subtotal:Math.round(sub*100)/100
     });
   }
-  return {init:init,setEntAhora:setEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,quitarLinea:quitarLinea,agregarLinea:agregarLinea,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
+  return {init:init,setEntAhora:setEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
@@ -3869,7 +3933,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v93'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v94'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
