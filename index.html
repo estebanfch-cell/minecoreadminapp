@@ -199,7 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v136</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v138</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2217,6 +2217,7 @@ function MCPlanillaCot(cfg){
       else if(ahora>0){stk='<span class="tag to">Parcial · '+ahora+' de '+cant+'</span>';ent='<span class="tag tg">'+ahora+' und. inmediata</span><br>'+tagPlazo(e.plazo).replace('">','">'+resto+' und. en ');}
       else{stk='<span class="tag tr">No</span>';ent=tagPlazo(e.plazo);}
       return '<tr'+(i%2?' class="alt"':'')+'><td class="num">'+(i+1)+'</td>'+
+        (hayFoto?'<td class="foto">'+(l.img?'<img src="'+l.img+'" onerror="this.style.display=\'none\'">':'')+'</td>':'')+
         '<td><div class="pnom" contenteditable="true">'+esc(l.nombre)+'</div>'+(l.codigo?'<div class="pcod" contenteditable="true">'+esc(l.codigo)+'</div>':'')+'<div class="pcod psku">'+esc(l.sku)+'</div></td>'+
         '<td class="qty"><span class="chipq">'+cant+'</span></td><td class="stk">'+stk+'</td><td class="ent" contenteditable="true">'+ent+'</td></tr>';
     }).join('');
@@ -2225,7 +2226,7 @@ function MCPlanillaCot(cfg){
       '<div class="der"><div class="titulo" style="font-size:13pt">COTIZACIÓN DE VENTAS</div><div class="meta"><div class="fila"><b>Numero de Orden</b><span>'+esc(cfg.num)+'</span></div><div class="fila"><b>Cliente</b><span>'+esc(cli.nombre)+'</span></div></div></div></div>'+
       '<div class="h2t">TIEMPOS DE ENTREGA</div>'+
       '<div class="h2s">Disponibilidad y plazo estimado de entrega por producto, contados desde la confirmación de la orden.</div>'+
-      '<table class="te"><thead><tr><td class="num"></td><td>Producto</td><td class="qty">Cantidad</td><td class="stk">En stock</td><td class="ent">Entrega</td></tr></thead><tbody>'+filas2+'</tbody></table>'+
+      '<table class="te"><thead><tr><td class="num"></td>'+(hayFoto?'<td class="foto"></td>':'')+'<td>Producto</td><td class="qty">Cantidad</td><td class="stk">En stock</td><td class="ent">Entrega</td></tr></thead><tbody>'+filas2+'</tbody></table>'+
       '<div class="leyenda"><span class="tag tg">Inmediata</span><span class="tag to">Hasta 15 días</span><span class="tag tr">Más de 15 días</span><span class="tag tn">Por confirmar</span></div>'+
       '<div class="nota2" contenteditable="true">- Los plazos son estimados en días calendario y están sujetos a disponibilidad del fabricante y tiempos de importación.<br>- La entrega parcial de los productos en stock puede realizarse de inmediato mientras se completa el saldo.</div>'+
       '</div>';
@@ -2261,7 +2262,7 @@ function MCPlanillaCot(cfg){
     '.h2t{font-size:15pt;color:#444824;letter-spacing:.5px;margin-top:6px}.h2s{font-size:9.6pt;color:#333;margin:4px 0 14px}'+
     '.te{width:100%;border-collapse:collapse;table-layout:fixed}.te thead td{border-bottom:1.5px solid #000;padding:5px 6px;font-size:9.3pt;font-weight:700}'+
     '.te tbody td{padding:8px 6px;vertical-align:middle;font-size:9.4pt;border-bottom:1px solid #e3e3e3}'+
-    '.te .num{width:18px}.te .qty{width:60px;text-align:center}.te .stk{width:118px;text-align:center}.te .ent{width:230px}'+
+    '.te .foto{width:46px}.te .foto img{width:40px;height:40px;object-fit:contain;background:#fff}.te .num{width:18px}.te .qty{width:60px;text-align:center}.te .stk{width:118px;text-align:center}.te .ent{width:230px}'+
     '.tag{display:inline-block;border-radius:5px;padding:3px 9px;font-weight:700;font-size:9pt;white-space:nowrap;margin:1px 0}'+
     '.tg{background:#e3f3e6;color:#1e6b2b;border:1px solid #9ccfa6}.to{background:#fff0e0;color:#b34700;border:1px solid #f2b27a}.tr{background:#fde8e8;color:#b71c1c;border:1px solid #f0a0a0}.tn{background:#eeeeee;color:#555;border:1px solid #ccc}'+
     '.leyenda{display:flex;gap:14px;margin-top:16px;font-size:8.8pt;align-items:center;flex-wrap:wrap}'+
@@ -2696,6 +2697,22 @@ var Cot = (function(){
       '<div class="cbz-muted" style="font-size:11px">'+c.fecha+' · Solicitó: '+c.usuario+(c.contacto?' · '+c.contacto:'')+'</div>'+
       (c.inflowNum?'<div style="color:#6fd68f;margin-top:4px">✔ Creada en inFlow: <b>'+c.inflowNum+'</b></div>':'')+
       vinculoHtml()+'</div>';
+    if(c.estado==='CREADA'||c.estado==='APROBADA'){
+      var esOrdenT=false, esAprobT=(c.estado==='APROBADA');
+      if(editandoCreada&&c.estado==='CREADA'){
+        h+='<div id="cot-savebar" style="position:sticky;top:0;z-index:40;background:#141b24;border:1px solid #f0c040;border-radius:10px;padding:8px 10px;margin:6px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+          '<span style="font-size:12px;color:#f0c040;font-weight:700">✏️ Editando '+c.inflowNum+'</span>'+
+          '<span class="cbz-muted" style="font-size:11px;flex:1">Los cambios se envían a inFlow al guardar.</span>'+
+          '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>'+
+          '<button class="chip" onclick="Cot.cancelarEdicion()">✖ Cancelar</button></div>';
+      } else {
+        h+='<div class="cbz-card-row" style="gap:8px;margin:6px 0 2px;flex-wrap:wrap">'+
+          '<button class="cbz-btn" onclick="Cot.pdf()">🧾 Planilla (imprimir / PDF)</button>'+
+          (puedeEscribir()?'<button class="cbz-btn-sec" onclick="Cot.editarCreada()">✏️ Editar cotización</button>':'')+
+          (puedeEscribir()?'<button class="cbz-btn" style="'+(esAprobT?'':'opacity:.85')+'" onclick="Cot.convertirOV()">📦 Convertir en Orden de Venta</button>':'')+
+          '</div>';
+      }
+    }
     h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Precio propuesto = el MAYOR entre lista y último vendido a este cliente. Descuento pre-cargado = el predeterminado del cliente'+(det.descCliente?' (<b style="color:#9fc3e8">'+det.descCliente+'%</b>)':' (0%)')+'. Tú tienes la última palabra en cada línea.</div>';
     try{h+=bodegaHtml();}catch(eB){h+='<div class="cbz-error">Bodega: '+eB.message+'</div>';}
     h+=estadoGuardadoHtml();
@@ -2705,12 +2722,12 @@ var Cot = (function(){
                               (l.ultGlobal?' · Últ. global: '+fmt(l.ultGlobal.p)+' ('+l.ultGlobal.f+')':'');
       var alerta=(l.ultCliente&&l.lista<l.ultCliente.p)?'<span style="color:#f0c040"> ⚠ lista por debajo del último vendido</span>':'';
       var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en inFlow — esta línea no se puede cotizar</div>':'';
-      h+='<div class="cbz-card'+(esBorrador()?' cot-linea':'')+'" data-idx="'+i+'">'+
+      h+='<div class="cbz-card'+(esLineaEditable()?' cot-linea':'')+'" data-idx="'+i+'">'+
         '<div class="cbz-card-row" style="gap:8px;align-items:flex-start">'+
-        (esBorrador()?'<div class="cot-grip" title="Arrastra para reordenar" onpointerdown="Cot.dragStart(event,'+i+')">⠿</div>':'')+
+        (esLineaEditable()?'<div class="cot-grip" title="Arrastra para reordenar" onpointerdown="Cot.dragStart(event,'+i+')">⠿</div>':'')+
         (l.img?'<img src="'+l.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'')+
         '<div class="cbz-card-name" style="font-size:13px;flex:1">'+l.nombre+'</div>'+
-        (esBorrador()?'<div style="display:flex;gap:4px;align-items:center;flex:none" title="Posición en la cotización">'+
+        (esLineaEditable()?'<div style="display:flex;gap:4px;align-items:center;flex:none" title="Posición en la cotización">'+
           '<input type="number" min="1" max="'+det.lineas.length+'" inputmode="numeric" class="uinput" style="width:46px;text-align:center;padding:4px;font-size:12px" value="'+(i+1)+'" onchange="Cot.moverA('+i+',this.value)">'+
           '<button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Cot.quitarLinea('+i+')">🗑</button></div>':'')+
         '</div>'+
@@ -2726,7 +2743,7 @@ var Cot = (function(){
         '<span style="margin-left:auto">Final: <b style="color:#9fc3e8">'+fmt(finU(l))+'</b> · = <b>'+fmt(finU(l)*l.cantidad)+'</b></span></div>'+
         (function(){try{return entHtml(l,i);}catch(eE){return '<div class="cbz-error">Entrega: '+eE.message+'</div>';}})()+'</div>';
     });
-    if(esBorrador()){
+    if(esLineaEditable()){
       h+='<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">➕ Agregar producto a esta cotización</div>'+
         '<div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
         '<input id="cot-add" class="uinput" list="cot-prods" placeholder="SKU o nombre..." style="flex:1;min-width:200px;padding:8px" onkeydown="if(event.key===\'Enter\'){Cot.agregarLinea();}">'+
@@ -2763,7 +2780,9 @@ var Cot = (function(){
         '<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email del cambio</label>'+
         '<div class="cbz-card-row" style="gap:8px;margin-top:8px">'+
         '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>'+
-        '<button class="chip" onclick="Cot.cancelarEdicion()">✖ Cancelar</button></div></div>';
+        '<button class="chip" onclick="Cot.cancelarEdicion()">✖ Cancelar</button></div></div>'+
+        '<div style="height:70px"></div>'+
+        '<button class="cbz-btn" style="position:fixed;bottom:18px;right:16px;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.45)" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>';
     }
     el().innerHTML=h;
   }
@@ -2777,14 +2796,23 @@ var Cot = (function(){
     for(var i=0;i<bs.length;i++)if(/principal/i.test(bs[i]))return bs[i];
     return bs[0]||'Bodega Principal';
   }
-  function dispLinea(l){var sp=l.stockPor||{};var b=bodegaSel();var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===b.toLowerCase()){v=sp[k];break;}}}return Math.max(0,Math.floor(parseFloat(v)||0));}
+  function sinDetalleBodega(l){var sp=l.stockPor;if(!sp)return true;for(var k in sp)return false;return true;}
+  function dispLinea(l){
+    var b=bodegaSel();
+    // Sin detalle por bodega (Stock_Ubicacion aún no lo trae): en la bodega por defecto usamos el stock total
+    if(sinDetalleBodega(l))return /principal/i.test(b)?Math.max(0,Math.floor(parseFloat(l.stock)||0)):0;
+    var sp=l.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===b.toLowerCase()){v=sp[k];break;}}}
+    return Math.max(0,Math.floor(parseFloat(v)||0));
+  }
   function entLinea(l){
     var e=entState();var sv=e.lineas[l.sku]||{};
     var cant=parseInt(l.cantidad,10)||0, disp=dispLinea(l);
-    var ahora=(sv.ahora!==undefined&&sv.ahora!==null&&sv.ahora!=='')?parseInt(sv.ahora,10)||0:Math.min(disp,cant);
+    // v137: el valor guardado solo manda si el usuario lo escribió a mano (manual); si no, se precarga con el stock disponible
+    var manual=!!sv.manual||(sv.ahora!==undefined&&sv.ahora!==null&&sv.ahora!==''&&parseInt(sv.ahora,10)>0);
+    var ahora=manual?parseInt(sv.ahora,10)||0:Math.min(disp,cant);
     if(ahora>cant)ahora=cant;if(ahora<0)ahora=0;
     var plazo=sv.plazo||PLAZOS[0];
-    return {cant:cant,disp:disp,ahora:ahora,resto:cant-ahora,plazo:plazo,manual:sv.ahora!==undefined};
+    return {cant:cant,disp:disp,ahora:ahora,resto:cant-ahora,plazo:plazo,manual:manual};
   }
   function entTextos(l){
     var e=entLinea(l);
@@ -2800,9 +2828,10 @@ var Cot = (function(){
     var warn=(e.ahora>e.disp)?' <span style="color:#e05c5c">⚠ supera el stock de '+b+'</span>':'';
     var sinPlazo=(e.resto>0&&e.plazo===PLAZOS[0]);
     return '<div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px dashed #2a3340">'+
-      '<span class="cbz-muted" style="font-size:11px">📦 '+b+': <b style="color:'+col+'">'+e.disp+'</b></span>'+
+      '<span class="cbz-muted" style="font-size:11px">📦 '+b+': <b style="color:'+col+'">'+e.disp+'</b>'+(sinDetalleBodega(l)?' <span title="Sin detalle por bodega: se usa el stock total">(total)</span>':'')+'</span>'+
       '<span class="cbz-muted" style="font-size:11px">Ahora:</span>'+
       '<input type="number" min="0" max="'+e.cant+'" inputmode="numeric" class="uinput" style="width:56px;text-align:center;padding:5px" value="'+e.ahora+'" onchange="Cot.setEntAhora('+i+',this.value)">'+
+      (e.manual&&esLineaEditable()?'<button class="chip" style="padding:3px 7px;font-size:10px" title="Volver a precargar con el stock" onclick="Cot.resetEntAhora('+i+')">↺</button>':'')+
       (e.resto>0?'<span class="cbz-muted" style="font-size:11px">Resto '+e.resto+' en:</span>'+
         '<select class="uinput" style="padding:5px;width:auto'+(sinPlazo?';border-color:#f0c040':'')+'" onchange="Cot.setEntPlazo('+i+',this.value)">'+
         PLAZOS.map(function(p){return '<option'+(p===e.plazo?' selected':'')+'>'+p+'</option>';}).join('')+'</select>':'')+
@@ -2854,6 +2883,9 @@ var Cot = (function(){
   function tocado(){draftBackup();draftAutosave();}
   /* ---------- v130: agregar / quitar / reordenar líneas del borrador ---------- */
   function esBorrador(){if(!det||!puedeEscribir())return false;if(editandoCreada&&det.cot.estado==='CREADA')return true;return det.cot.estado!=='CREADA'&&det.cot.estado!=='APROBADA'&&det.cot.estado!=='ORDEN';}
+  function esLineaEditable(){return esBorrador()||(!!det&&puedeEscribir()&&det.cot.estado==='CREADA');}
+  // v137: tocar líneas de una cotización ya creada activa el modo edición solo (luego 💾 Guardar cambios)
+  function activaEdicion(){if(det&&det.cot.estado==='CREADA'&&!editandoCreada){editandoCreada=true;return true;}return false;}
   function itemsActuales(){return det.lineas.map(function(l){return {sku:l.sku,nombre:l.nombre,cantidad:parseInt(l.cantidad,10)||1};});}
   var itemsTimer=null;
   function persistItems(recargar){
@@ -2880,7 +2912,8 @@ var Cot = (function(){
   /* ---------- v131: arrastrar para reordenar (pointer events: mouse y táctil) ---------- */
   var drag=null;
   function dragStart(ev,i){
-    if(!esBorrador())return;
+    if(!esLineaEditable())return;
+    activaEdicion();
     ev.preventDefault();
     var card=ev.target.closest('.cot-linea');if(!card)return;
     drag={from:i,card:card,target:null,pos:''};
@@ -2922,12 +2955,13 @@ var Cot = (function(){
     document.addEventListener('pointermove',mv,{passive:false});
     document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
   }
-  function mover(i,d){var j=i+d;if(j<0||j>=det.lineas.length)return;var t=det.lineas[i];det.lineas[i]=det.lineas[j];det.lineas[j]=t;renderDet();persistItems(false);}
-  function moverA(i,v){var j=(parseInt(v,10)||1)-1;if(j<0)j=0;if(j>=det.lineas.length)j=det.lineas.length-1;if(j===i){renderDet();return;}var t=det.lineas.splice(i,1)[0];det.lineas.splice(j,0,t);renderDet();persistItems(false);}
+  function mover(i,d){activaEdicion();var j=i+d;if(j<0||j>=det.lineas.length)return;var t=det.lineas[i];det.lineas[i]=det.lineas[j];det.lineas[j]=t;renderDet();persistItems(false);}
+  function moverA(i,v){activaEdicion();var j=(parseInt(v,10)||1)-1;if(j<0)j=0;if(j>=det.lineas.length)j=det.lineas.length-1;if(j===i){renderDet();return;}var t=det.lineas.splice(i,1)[0];det.lineas.splice(j,0,t);renderDet();persistItems(false);}
   function quitarLinea(i){
     var l=det.lineas[i];if(!l)return;
     if(det.lineas.length<=1){alert('La cotización debe tener al menos un producto.');return;}
-    if(!confirm('¿Quitar "'+l.nombre+'" de esta cotización?'))return;
+    if(!confirm('¿Quitar "'+l.nombre+'" de esta cotización?'+(det.cot.estado==='CREADA'?'\n(Se aplicará en inFlow al tocar 💾 Guardar cambios.)':'')))return;
+    activaEdicion();
     det.lineas.splice(i,1);var e=entState();delete e.lineas[l.sku];
     renderDet();persistItems(false);
   }
@@ -2941,6 +2975,7 @@ var Cot = (function(){
     if(!p){alert('Producto no encontrado: elige uno de la lista desplegable.');return;}
     for(var m=0;m<det.lineas.length;m++){if(det.lineas[m].sku===p.sku){alert('Ese producto ya está en la cotización (línea '+(m+1)+').');return;}}
     var q=parseInt((document.getElementById('cot-add-q')||{}).value,10)||1;if(q<1)q=1;
+    activaEdicion();
     det.lineas.push({sku:p.sku,productId:p.productId||'',nombre:p.nombre,codigo:p.codigo||'',categoria:p.categoria||'',img:p.img||'',
       cantidad:q,stock:p.stockTotal!==undefined?p.stockTotal:(p.stock||0),stockPor:p.stockPor||{},lista:p.precio||0,ultCliente:null,ultGlobal:null,sugerido:p.precio||0,precio:p.precio||0,descuento:det.descCliente||0});
     renderDet();
@@ -2948,9 +2983,10 @@ var Cot = (function(){
   }
   function estadoGuardadoHtml(){return '<div id="cot-estado-g" class="cbz-muted" style="font-size:11px;margin:2px 0 6px;min-height:14px">'+(guardando?'⏳ Guardando...':ultimoGuardado)+'</div>';}
   function pintaEstado(){var e=document.getElementById('cot-estado-g');if(e)e.textContent=guardando?'⏳ Guardando...':ultimoGuardado;}
-  function setEntAhora(i,v){var l=det.lineas[i];var n=parseInt(v,10);if(isNaN(n)||n<0)n=0;var cant=parseInt(l.cantidad,10)||0;if(n>cant)n=cant;var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].ahora=n;entGuardar();draftBackup();renderDet();}
+  function setEntAhora(i,v){var l=det.lineas[i];var n=parseInt(v,10);if(isNaN(n)||n<0)n=0;var cant=parseInt(l.cantidad,10)||0;if(n>cant)n=cant;var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].ahora=n;e.lineas[l.sku].manual=true;entGuardar();draftBackup();renderDet();}
+  function resetEntAhora(i){var l=det.lineas[i];var e=entState();if(e.lineas[l.sku]){delete e.lineas[l.sku].ahora;delete e.lineas[l.sku].manual;}entGuardar();draftBackup();renderDet();}
   function setEntPlazo(i,v){var l=det.lineas[i];var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].plazo=v;entGuardar();draftBackup();renderDet();}
-  function setBodega(v){var e=entState();e.bodega=v;for(var k in e.lineas)delete e.lineas[k].ahora;entGuardar();draftBackup();renderDet();}
+  function setBodega(v){var e=entState();e.bodega=v;for(var k in e.lineas){delete e.lineas[k].ahora;delete e.lineas[k].manual;}entGuardar();draftBackup();renderDet();}
   function bodegaHtml(){
     var bs=det.bodegas||[];var b=bodegaSel();
     return '<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
@@ -3265,7 +3301,7 @@ var Cot = (function(){
       subtotal:Math.round(sub*100)/100
     });
   }
-  return {init:init,setEntAhora:setEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
+  return {init:init,setEntAhora:setEntAhora,resetEntAhora:resetEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
