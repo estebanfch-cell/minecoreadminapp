@@ -194,7 +194,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v128</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v130</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -256,6 +256,14 @@ function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
+/* v129: errores honestos — distingue "sin red" de "el servidor respondió algo que no es JSON" (páginas de error de Google, timeouts) */
+function MCjson(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){var s2=String(t||'').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);throw new Error('HTTP '+r.status+' — '+(s2||'respuesta vacía'));}});}
+function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
+function MCpost(p){var body=JSON.stringify(p);var lectura=/^(get|list|mi)/.test(String(p.action||''));
+  function go(){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body}).then(MCjson);}
+  return lectura?go().catch(function(){return new Promise(function(ok){setTimeout(ok,1500);}).then(go);}):go();}
+function MCbodegaDefault(bs){bs=bs||[];for(var i=0;i<bs.length;i++)if(/principal/i.test(bs[i]))return bs[i];return bs[0]||'';}
+function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.stockTotal:it.stock)||0;var sp=it.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}return parseFloat(v)||0;}
 
 var Cobranza = (function () {
   function puedeInteractuar(){
@@ -918,8 +926,7 @@ var Users = (function(){
   var lista = [], mods = [], editing = null, invites = [], clientes = [];
   function api(p){
     p.user = getUserName(); p.pin = getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function init(){
     var el=document.getElementById('users-screen');
@@ -933,7 +940,7 @@ var Users = (function(){
       api({action:'getClientes'}).then(function(r3){
         if(r3.ok){clientes=r3.clientes;if(editing!==null)render();}
       }).catch(function(){});
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function render(){
     var el=document.getElementById('users-screen');
@@ -1186,8 +1193,7 @@ var Inv = (function(){
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function init(v){
     vista=v||'inv';
@@ -1197,6 +1203,7 @@ var Inv = (function(){
     api({action:'getInventario'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
+      bodegas=res.bodegas||[];if(!bodega)bodega=MCbodegaDefault(bodegas);aplicarBodega();
       var pmods=(getProfile().modulos||[]);
       puedeCot=esCliente||esAdmin||pmods.indexOf('cotizaciones')>=0||pmods.indexOf('cotizaciones+')>=0;
       cats=res.categorias||[];marcas=res.marcas||[];
@@ -1204,7 +1211,18 @@ var Inv = (function(){
         it._b=(it.nombre+' '+it.sku+' '+it.codigo+' '+it.categoria+' '+it.marca+' '+it.extra).toLowerCase();
       });
       render();
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
+  }
+  var bodegas=[], bodega='';
+  function aplicarBodega(){
+    items.forEach(function(it){if(it.stockTotal===undefined)it.stockTotal=it.stock||0;it.stock=(bodega&&bodega!=='*'&&bodegas.length)?MCstockDe(it,bodega):it.stockTotal;});
+  }
+  function setBodega(v){bodega=v||'*';aplicarBodega();render();}
+  function bodegaSelHtml(){
+    if(!bodegas.length||esCliente)return '';
+    return '<select class="uinput" style="max-width:220px;padding:8px" onchange="Inv.setBodega(this.value)">'+
+      bodegas.map(function(b){return '<option value="'+b.replace(/"/g,'&quot;')+'"'+(bodega===b?' selected':'')+'>📦 '+b+'</option>';}).join('')+
+      '<option value="*"'+(bodega==='*'?' selected':'')+'>Todas las bodegas (total)</option></select>';
   }
   function pasa(it){
     if(cat && it.categoria!==cat)return false;
@@ -1249,7 +1267,7 @@ var Inv = (function(){
       '<input class="cbz-search" placeholder="🔍 Nombre, SKU, código, serie, DL/WW, mm..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Inv.setQ(this.value)">'+
       '</div>'+
       '<div class="cbz-card-row" style="margin-bottom:10px">'+
-      sel('cat',cats,cat,'Inv.setCat','Todas las categorías')+
+      bodegaSelHtml()+sel('cat',cats,cat,'Inv.setCat','Todas las categorías')+
       sel('marca',(esCliente?marcas.filter(function(m){return /BOYLES|FORDIA/i.test(m);}):marcas),marca,'Inv.setMarca','Todas las marcas')+
       chip('todos','Todos')+chip('con','Con stock')+chip('agotados','Agotados')+
       '</div>'+'<div id="inv-broca">'+brocaFiltersHtml()+'</div>'+'<div id="inv-list"></div>'+
@@ -1522,7 +1540,7 @@ var Inv = (function(){
       if(!res.ok){alert(res.error);return;}
       alert('✔ ¡Aprobada! Minecore ya fue notificado y convertirá tu cotización en Orden de Venta.');
       enviadas=null;cargarEnviadas();
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function miscotToggle(ix){miscotOpen[ix]=!miscotOpen[ix];render();}
   function miscotPdf(ix){
@@ -2082,7 +2100,7 @@ var Inv = (function(){
       alert('✔ Pre-cotización creada. Abriéndola para revisar precios...');
       openMod('cot');
       setTimeout(function(){if(res.fila)Cot.abrir(res.fila);},600);
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function crearSolInterna(){
     var inp=document.getElementById('cart-cli');
@@ -2096,7 +2114,7 @@ var Inv = (function(){
       carrito={};cartSave();updateFab();
       alert('✔ Solicitud creada. Ábrela en el módulo 🧾 Cotizaciones del menú para revisar precios y crearla en inFlow.');
       render();
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function despCopiar(cod,btn){
     try{
@@ -2120,7 +2138,7 @@ var Inv = (function(){
   function setDesc(d){fDesc=d;render();}
   function setLin(l){fLin=l;render();}
   function setMm(m){fMm=m;render();}
-  return {init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setLin:setLin,setMm:setMm,
+  return {setBodega:setBodega,init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setLin:setLin,setMm:setMm,
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
           despVer:despVer,despCerrar:despCerrar,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
           despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,mountDesp:mountDesp,
@@ -2310,8 +2328,7 @@ var Cot = (function(){
   var lista=null, det=null;
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function puedeEscribir(){
@@ -2434,7 +2451,10 @@ var Cot = (function(){
   function cargarProdsFull(){
     api({action:'getInventario'}).then(function(res){
       if(!res.ok)return;
-      prodCat=(res.items||[]).map(function(it){return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||'',stock:it.stock||0,codigo:it.codigo||'',categoria:it.categoria||''};});
+      var bDef=MCbodegaDefault(res.bodegas||[]);
+      prodCat=(res.items||[]).map(function(it){return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||'',stock:(bDef&&it.stockPor)?MCstockDe(it,bDef):(it.stock||0),stockTotal:it.stock||0,stockPor:it.stockPor||{},codigo:it.codigo||'',categoria:it.categoria||''};});
+      var dl2=document.getElementById('cot-prods');
+      if(dl2)dl2.innerHTML=prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join('');
       czCats._c=null;
       var sel=document.getElementById('cz-cat');
       if(sel&&sel.options.length<=1){
@@ -2533,7 +2553,7 @@ var Cot = (function(){
       czCartSet({});czQ='';czCliente=null;window.MC_onCartChange=null;
       cotTab='pre';lista=null;
       if(res.fila)abrir(res.fila);else cargar();
-    }).catch(function(){alert('Sin conexión.');renderCotizador();});
+    }).catch(function(e){alert(MCerr(e)+'.');renderCotizador();});
   }
   function nuevaCotizacion(){
     setTab('cotz');
@@ -2565,7 +2585,7 @@ var Cot = (function(){
     api({action:'getCotAdmin'}).then(function(res){
       if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       lista=res.solicitudes||[];renderLista();
-    }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div><div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Cot.setTab(\'pre\')">↻ Reintentar</button></div>';});
   }
   var filtroEmp='';
   function pendCount(){return (lista||[]).filter(function(x){return x.estado==='NUEVA'||x.estado==='EN REVISION';}).length;}
@@ -2636,8 +2656,10 @@ var Cot = (function(){
     el().innerHTML='<div class="cbz-loading">Cargando detalle...</div>';
     api({action:'getCotDetalle',id:id}).then(function(res){
       if(!res.ok){alert(res.error);renderLista();return;}
-      det=res;renderDet();
-    }).catch(function(){alert('Sin conexión');renderLista();});
+      det=res;ultimoGuardado='';guardando=false;
+      if(draftRestore()){renderDet();draftAutosave();return;}
+      renderDet();
+    }).catch(function(e){alert(MCerr(e)+'');renderLista();});
   }
   var editandoCreada=false;
   function renderDet(){
@@ -2649,7 +2671,8 @@ var Cot = (function(){
       (c.inflowNum?'<div style="color:#6fd68f;margin-top:4px">✔ Creada en inFlow: <b>'+c.inflowNum+'</b></div>':'')+
       vinculoHtml()+'</div>';
     h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Precio propuesto = el MAYOR entre lista y último vendido a este cliente. Descuento pre-cargado = el predeterminado del cliente'+(det.descCliente?' (<b style="color:#9fc3e8">'+det.descCliente+'%</b>)':' (0%)')+'. Tú tienes la última palabra en cada línea.</div>';
-    h+=bodegaHtml();
+    try{h+=bodegaHtml();}catch(eB){h+='<div class="cbz-error">Bodega: '+eB.message+'</div>';}
+    h+=estadoGuardadoHtml();
     det.lineas.forEach(function(l,i){
       var refCli=l.ultCliente?('Últ. a este cliente: <b>'+fmt(l.ultCliente.p)+'</b> ('+l.ultCliente.f+')')
                              :'<span style="color:#f0c040">Nunca vendido a este cliente</span>'+
@@ -2659,7 +2682,12 @@ var Cot = (function(){
       h+='<div class="cbz-card">'+
         '<div class="cbz-card-row" style="gap:8px;align-items:flex-start">'+
         (l.img?'<img src="'+l.img+'" class="pimg" style="width:44px;height:44px;flex:none" loading="lazy" onerror="this.style.display=\'none\'">':'')+
-        '<div class="cbz-card-name" style="font-size:13px;flex:1">'+l.nombre+'</div></div>'+
+        '<div class="cbz-card-name" style="font-size:13px;flex:1">'+l.nombre+'</div>'+
+        (esBorrador()?'<div style="display:flex;gap:4px;align-items:center;flex:none" title="Posición en la cotización">'+
+          '<input type="number" min="1" max="'+det.lineas.length+'" inputmode="numeric" class="uinput" style="width:46px;text-align:center;padding:4px;font-size:12px" value="'+(i+1)+'" onchange="Cot.moverA('+i+',this.value)">'+
+          '<button class="chip" style="padding:4px 8px" onclick="Cot.mover('+i+',-1)">▲</button><button class="chip" style="padding:4px 8px" onclick="Cot.mover('+i+',1)">▼</button>'+
+          '<button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Cot.quitarLinea('+i+')">🗑</button></div>':'')+
+        '</div>'+
         '<div class="cbz-muted" style="font-size:11px">SKU: '+l.sku+' · Stock: '+l.stock+'</div>'+sinPid+
         '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Lista: <b>'+fmt(l.lista)+'</b>'+alerta+' · '+refCli+'</div>'+
         '<div class="cbz-card-row" style="gap:10px;align-items:center;flex-wrap:wrap">'+
@@ -2670,8 +2698,19 @@ var Cot = (function(){
         '<span class="cbz-muted" style="font-size:11px">Desc %:</span>'+
         '<input type="number" min="0" max="99" step="0.5" inputmode="decimal" class="uinput" style="width:64px;text-align:center;padding:6px" value="'+(parseFloat(l.descuento)||0)+'" '+(creada?'disabled':'onchange="Cot.setDesc('+i+',this.value)"')+'>'+
         '<span style="margin-left:auto">Final: <b style="color:#9fc3e8">'+fmt(finU(l))+'</b> · = <b>'+fmt(finU(l)*l.cantidad)+'</b></span></div>'+
-        entHtml(l,i)+'</div>';
+        (function(){try{return entHtml(l,i);}catch(eE){return '<div class="cbz-error">Entrega: '+eE.message+'</div>';}})()+'</div>';
     });
+    if(esBorrador()){
+      h+='<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">➕ Agregar producto a esta cotización</div>'+
+        '<div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
+        '<input id="cot-add" class="uinput" list="cot-prods" placeholder="SKU o nombre..." style="flex:1;min-width:200px;padding:8px" onkeydown="if(event.key===\'Enter\'){Cot.agregarLinea();}">'+
+        '<input id="cot-add-q" type="number" min="1" inputmode="numeric" class="uinput" style="width:64px;text-align:center;padding:8px" value="1" title="Cantidad">'+
+        '<button class="cbz-btn" onclick="Cot.agregarLinea()">Agregar</button></div>'+
+        '<datalist id="cot-prods">'+(prodCat?prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join(''):'')+'</datalist>'+
+        (prodCat?'':'<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">Cargando catálogo...</div>')+
+        '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">La línea nueva entra al final; con el número de posición o ▲▼ la mueves a donde quieras. Los cambios de líneas se guardan solos.</div></div>';
+      if(!prodCat)cargarProdsFull();
+    }
     var tot=0;det.lineas.forEach(function(l){tot+=finU(l)*(parseInt(l.cantidad,10)||0);});
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between"><span class="cbz-card-name">Subtotal (sin IVA)</span><span class="cbz-card-name">'+fmt(tot)+'</span></div>'+
       '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales los calcula inFlow según el esquema del cliente.</div></div>';
@@ -2753,9 +2792,88 @@ var Cot = (function(){
       }).catch(function(){});
     },700);
   }
-  function setEntAhora(i,v){var l=det.lineas[i];var n=parseInt(v,10);if(isNaN(n)||n<0)n=0;var cant=parseInt(l.cantidad,10)||0;if(n>cant)n=cant;var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].ahora=n;entGuardar();renderDet();}
-  function setEntPlazo(i,v){var l=det.lineas[i];var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].plazo=v;entGuardar();renderDet();}
-  function setBodega(v){var e=entState();e.bodega=v;for(var k in e.lineas)delete e.lineas[k].ahora;entGuardar();renderDet();}
+  /* ---------- v129: respaldo local + autoguardado del borrador (para no perder trabajo si falla la red) ---------- */
+  var ultimoGuardado='', guardando=false, autoTimer=null;
+  function draftKey(){return 'mc_cotdraft_'+(det&&det.cot?det.cot.id:'0');}
+  function draftBackup(){
+    try{var p=payloadPrecios();localStorage.setItem(draftKey(),JSON.stringify({precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos,entregas:entState(),ts:Date.now()}));}catch(e){}
+  }
+  function draftRestore(){
+    var bk=null;try{bk=JSON.parse(localStorage.getItem(draftKey())||'null');}catch(e){}
+    if(!bk||!bk.ts)return false;
+    if(det.cot.estado==='CREADA'||det.cot.estado==='APROBADA'||det.cot.estado==='ORDEN'){try{localStorage.removeItem(draftKey());}catch(e){}return false;}
+    det.lineas.forEach(function(l){
+      if(bk.precios&&bk.precios[l.sku]!==undefined)l.precio=bk.precios[l.sku];
+      if(bk.cantidades&&bk.cantidades[l.sku]!==undefined)l.cantidad=bk.cantidades[l.sku];
+      if(bk.descuentos&&bk.descuentos[l.sku]!==undefined)l.descuento=bk.descuentos[l.sku];
+    });
+    if(bk.entregas)det.entregas=bk.entregas;
+    ultimoGuardado='↩ Restaurado de este dispositivo (sin guardar en el servidor todavía)';
+    return true;
+  }
+  function draftAutosave(){
+    if(autoTimer)clearTimeout(autoTimer);
+    if(!det||det.cot.estado==='CREADA'||det.cot.estado==='APROBADA'||det.cot.estado==='ORDEN'||!puedeEscribir())return;
+    autoTimer=setTimeout(function(){
+      var p=payloadPrecios();guardando=true;pintaEstado();
+      api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos}).then(function(res){
+        guardando=false;
+        if(res.ok){ultimoGuardado='💾 Guardado '+new Date().toTimeString().slice(0,5);try{localStorage.removeItem(draftKey());}catch(e){}}
+        else ultimoGuardado='⚠ No se guardó: '+res.error+' (hay respaldo local)';
+        pintaEstado();
+      }).catch(function(e){guardando=false;ultimoGuardado='⚠ '+MCerr(e)+' — respaldo local activo';pintaEstado();});
+    },2500);
+  }
+  function tocado(){draftBackup();draftAutosave();}
+  /* ---------- v130: agregar / quitar / reordenar líneas del borrador ---------- */
+  function esBorrador(){return !!det&&puedeEscribir()&&det.cot.estado!=='CREADA'&&det.cot.estado!=='APROBADA'&&det.cot.estado!=='ORDEN';}
+  function itemsActuales(){return det.lineas.map(function(l){return {sku:l.sku,nombre:l.nombre,cantidad:parseInt(l.cantidad,10)||1};});}
+  var itemsTimer=null;
+  function persistItems(recargar){
+    if(itemsTimer)clearTimeout(itemsTimer);
+    var p=payloadPrecios();
+    guardando=true;pintaEstado();
+    // 1) precios/cantidades actuales (para que la recarga no pierda lo editado) 2) lista de ítems
+    return api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos})
+      .then(function(){return api({action:'guardarItemsCot',id:det.cot.id,items:itemsActuales()});})
+      .then(function(res){
+        guardando=false;
+        if(!res.ok){ultimoGuardado='⚠ Líneas no guardadas: '+res.error;pintaEstado();alert('No se pudo guardar el cambio de líneas: '+res.error);return false;}
+        ultimoGuardado='💾 Guardado '+new Date().toTimeString().slice(0,5);try{localStorage.removeItem(draftKey());}catch(e){}
+        pintaEstado();
+        if(recargar)abrir(det.cot.id);
+        return true;
+      }).catch(function(e){guardando=false;ultimoGuardado='⚠ '+MCerr(e);pintaEstado();alert(MCerr(e)+' — el cambio de líneas no se guardó. Reintenta.');return false;});
+  }
+  function mover(i,d){var j=i+d;if(j<0||j>=det.lineas.length)return;var t=det.lineas[i];det.lineas[i]=det.lineas[j];det.lineas[j]=t;renderDet();persistItems(false);}
+  function moverA(i,v){var j=(parseInt(v,10)||1)-1;if(j<0)j=0;if(j>=det.lineas.length)j=det.lineas.length-1;if(j===i){renderDet();return;}var t=det.lineas.splice(i,1)[0];det.lineas.splice(j,0,t);renderDet();persistItems(false);}
+  function quitarLinea(i){
+    var l=det.lineas[i];if(!l)return;
+    if(det.lineas.length<=1){alert('La cotización debe tener al menos un producto.');return;}
+    if(!confirm('¿Quitar "'+l.nombre+'" de esta cotización?'))return;
+    det.lineas.splice(i,1);var e=entState();delete e.lineas[l.sku];
+    renderDet();persistItems(false);
+  }
+  function agregarLinea(){
+    var inp=document.getElementById('cot-add');var v=(inp||{}).value||'';
+    var sku=v.split(' — ')[0].trim();
+    if(!sku){alert('Escribe o elige un producto de la lista.');return;}
+    if(!prodCat){alert('El catálogo aún está cargando, intenta en unos segundos.');return;}
+    var p=null;for(var i=0;i<prodCat.length;i++){if(prodCat[i].sku===sku){p=prodCat[i];break;}}
+    if(!p){for(var k=0;k<prodCat.length;k++){if(prodCat[k].sku.toLowerCase()===v.trim().toLowerCase()){p=prodCat[k];break;}}}
+    if(!p){alert('Producto no encontrado: elige uno de la lista desplegable.');return;}
+    for(var m=0;m<det.lineas.length;m++){if(det.lineas[m].sku===p.sku){alert('Ese producto ya está en la cotización (línea '+(m+1)+').');return;}}
+    var q=parseInt((document.getElementById('cot-add-q')||{}).value,10)||1;if(q<1)q=1;
+    det.lineas.push({sku:p.sku,productId:p.productId||'',nombre:p.nombre,codigo:p.codigo||'',categoria:p.categoria||'',img:p.img||'',
+      cantidad:q,stock:p.stockTotal!==undefined?p.stockTotal:(p.stock||0),stockPor:p.stockPor||{},lista:p.precio||0,ultCliente:null,ultGlobal:null,sugerido:p.precio||0,precio:p.precio||0,descuento:det.descCliente||0});
+    renderDet();
+    persistItems(true); // recarga para traer el comparativo de último precio de la línea nueva
+  }
+  function estadoGuardadoHtml(){return '<div id="cot-estado-g" class="cbz-muted" style="font-size:11px;margin:2px 0 6px;min-height:14px">'+(guardando?'⏳ Guardando...':ultimoGuardado)+'</div>';}
+  function pintaEstado(){var e=document.getElementById('cot-estado-g');if(e)e.textContent=guardando?'⏳ Guardando...':ultimoGuardado;}
+  function setEntAhora(i,v){var l=det.lineas[i];var n=parseInt(v,10);if(isNaN(n)||n<0)n=0;var cant=parseInt(l.cantidad,10)||0;if(n>cant)n=cant;var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].ahora=n;entGuardar();draftBackup();renderDet();}
+  function setEntPlazo(i,v){var l=det.lineas[i];var e=entState();e.lineas[l.sku]=e.lineas[l.sku]||{};e.lineas[l.sku].plazo=v;entGuardar();draftBackup();renderDet();}
+  function setBodega(v){var e=entState();e.bodega=v;for(var k in e.lineas)delete e.lineas[k].ahora;entGuardar();draftBackup();renderDet();}
   function bodegaHtml(){
     var bs=det.bodegas||[];var b=bodegaSel();
     return '<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
@@ -2763,7 +2881,7 @@ var Cot = (function(){
       (bs.length?'<select class="uinput" style="padding:6px;width:auto" onchange="Cot.setBodega(this.value)">'+bs.map(function(x){return '<option'+(x===b?' selected':'')+'>'+x+'</option>';}).join('')+'</select>':'<b>'+b+'</b>')+
       '<span class="cbz-muted" style="font-size:10.5px">Por defecto Bodega Principal. Cambia solo si esta cotización sale de consignación o alquiler. Lo que ves aquí (stock y entrega) sale en la planilla PDF, no en inFlow.</span></div></div>';
   }
-  function setDesc(i,v){var d=parseFloat(v)||0;if(d<0)d=0;if(d>=100)d=99;det.lineas[i].descuento=d;renderDet();}
+  function setDesc(i,v){var d=parseFloat(v)||0;if(d<0)d=0;if(d>=100)d=99;det.lineas[i].descuento=d;tocado();renderDet();}
   var camposOpen=false;
   var CAMPOS_INFLOW=[['poNumber','ORDEN DE COMPRA #'],['custom1','FACTURA'],['custom2','ANTICIPO'],
     ['custom3','ORDEN CONSIGNADA A'],['custom6','ENTREGA'],['custom8','PACKING TYPE'],
@@ -2791,7 +2909,7 @@ var Cot = (function(){
     api({action:'getInflowOrdenes',tipo:(cotTab==='io'?'orden':'quote')}).then(function(res){
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
       ioLista=res.ordenes||[];ioOpen={};renderInflowLista();
-    }).catch(function(){el().innerHTML=tabsHtml()+'<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   var ioOpen={};
   function renderInflowLista(){
@@ -2902,7 +3020,7 @@ var Cot = (function(){
       if(!res.ok){alert('Error: '+res.error);renderInflowDet();return;}
       alert('✔ Guardado en inFlow.'+(res.aviso?'\n⚠ '+res.aviso:''));
       cargarInflow();
-    }).catch(function(){alert('Sin conexión. Verifica en inFlow.');renderInflowDet();});
+    }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow.');renderInflowDet();});
   }
   function vinculoHtml(){
     if(det.vinculo)return '<div class="cbz-muted" style="font-size:11px;margin-top:4px">🔗 Cliente inFlow: <b style="color:#9fc3e8">'+det.vinculo.nombre+'</b></div>';
@@ -2921,8 +3039,8 @@ var Cot = (function(){
       det.vinculo={customerId:cd.customerId,nombre:cd.nombre};renderDet();
     });
   }
-  function setPrecio(i,v){det.lineas[i].precio=parseFloat(v)||0;renderDet();}
-  function setCant(i,v){var n=parseInt(v,10)||1;if(n<1)n=1;det.lineas[i].cantidad=n;var e=entState();var sv=e.lineas[det.lineas[i].sku];if(sv&&sv.ahora!==undefined&&sv.ahora>n){sv.ahora=n;entGuardar();}renderDet();}
+  function setPrecio(i,v){det.lineas[i].precio=parseFloat(v)||0;tocado();renderDet();}
+  function setCant(i,v){var n=parseInt(v,10)||1;if(n<1)n=1;det.lineas[i].cantidad=n;var e=entState();var sv=e.lineas[det.lineas[i].sku];if(sv&&sv.ahora!==undefined&&sv.ahora>n){sv.ahora=n;entGuardar();}tocado();renderDet();}
   function payloadPrecios(){
     var pr={},ca={},ds={};
     det.lineas.forEach(function(l){pr[l.sku]=parseFloat(l.precio)||0;ca[l.sku]=parseInt(l.cantidad,10)||1;ds[l.sku]=parseFloat(l.descuento)||0;});
@@ -2933,9 +3051,10 @@ var Cot = (function(){
     var btns=document.querySelectorAll('#cot-body .cbz-btn, #cot-body .cbz-btn-sec');
     api({action:'guardarCotizacion',id:det.cot.id,precios:p.precios,cantidades:p.cantidades,descuentos:p.descuentos}).then(function(res){
       if(!res.ok){alert('No se pudo guardar: '+res.error);return;}
-      alert('💾 Borrador guardado.\nPrecios, cantidades y descuentos quedaron registrados — puedes retomarla cuando quieras desde Pre-cotizaciones.');
-      volver();
-    }).catch(function(){alert('Sin conexión: el borrador NO se guardó.');});
+      ultimoGuardado='💾 Guardado '+new Date().toTimeString().slice(0,5);try{localStorage.removeItem(draftKey());}catch(e){}
+      pintaEstado();
+      alert('💾 Borrador guardado en el servidor.\nPuedes seguir editando o retomarla luego desde Pre-cotizaciones.');
+    }).catch(function(e){alert(MCerr(e)+': el borrador NO se guardó.');});
   }
   function crear(){
     if(!det.vinculo){alert('Primero vincula la empresa con su cliente de inFlow (botones amarillos arriba).');return;}
@@ -2951,9 +3070,10 @@ var Cot = (function(){
          lineas:lineas.map(function(l){return {sku:l.sku,productId:l.productId,cantidad:l.cantidad,precio:l.precio,descuento:parseFloat(l.descuento)||0};})
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
+      try{localStorage.removeItem(draftKey());}catch(e){}
       alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+(res.emailEnviado?'\n📧 Aviso con precios enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale al cliente por tu canal habitual)')+'\n\nYa puedes verla en inFlow o imprimir la planilla aquí.');
       abrir(det.cot.id);
-    }).catch(function(){alert('Sin conexión. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
+    }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
   }
   function borrarPre(id,estado){
     var msg='¿Borrar esta pre-cotización definitivamente?';
@@ -2962,7 +3082,7 @@ var Cot = (function(){
     api({action:'borrarPreCot',id:id}).then(function(res){
       if(!res.ok){alert(res.error);return;}
       det=null;lista=null;cargar();
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function editarCreada(){editandoCreada=true;renderDet();}
   function cancelarEdicion(){editandoCreada=false;abrir(det.cot.id);}
@@ -2989,7 +3109,7 @@ var Cot = (function(){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
       alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despachar.');
       abrir(det.cot.id);
-    }).catch(function(){alert('Sin conexión. Verifica en inFlow.');abrir(det.cot.id);});
+    }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow.');abrir(det.cot.id);});
   }
   function filtrar(e2){filtroEmp=e2;renderLista();}
   function volver(){det=null;cargar();}
@@ -3020,7 +3140,7 @@ var Cot = (function(){
       subtotal:Math.round(sub*100)/100
     });
   }
-  return {init:init,setEntAhora:setEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
+  return {init:init,setEntAhora:setEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,quitarLinea:quitarLinea,agregarLinea:agregarLinea,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
@@ -3034,8 +3154,7 @@ var Edc = (function(){
   var data=null, vistaE='cartera', detalle=null, q='', ordenDesc=true;
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function fmtQty(v){var n=parseFloat(v)||0;return n%1===0?String(Math.round(n)):n.toFixed(2);}
@@ -3058,7 +3177,7 @@ var Edc = (function(){
     api({action:'getEstadoCuenta'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       data=res;vistaE='cartera';detalle=null;q='';render();
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function render(){
     var el=document.getElementById('edc-screen');
@@ -3189,8 +3308,7 @@ var MInv = (function(){
   var equipo=[], pm=[];
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   var NOMBRES={inventario:'Inventario',estadocuenta:'Estado de cuenta',consignacion:'Consignación y alquiler'};
   function propios(){
@@ -3216,7 +3334,7 @@ var MInv = (function(){
         '<div id="mi-result" style="margin-top:10px"></div></div>'+
         '<div id="mi-equipo"></div>';
       renderEquipo();
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
 
   function renderEquipo(){
@@ -3265,7 +3383,7 @@ var MInv = (function(){
     api({action:'teamDelete',nombre:u.nombre}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
       init();
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function crear(){
     var sel=pm.filter(function(m){var c=document.getElementById('mi-mod-'+m);return c&&c.checked;}).join(',');
@@ -3276,7 +3394,7 @@ var MInv = (function(){
       var link=location.origin+location.pathname+'?invite='+res.token;
       box.innerHTML='<div class="cbz-muted" style="word-break:break-all;background:#0e1622;border-radius:8px;padding:10px">'+link+'</div>'+
         '<button class="cbz-btn-sec" style="margin-top:8px" onclick="MInv.copiar(this)" data-link="'+link+'">📋 Copiar link</button>';
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function copiar(btn){
     var link=btn.getAttribute('data-link');
@@ -3291,8 +3409,7 @@ var MInv = (function(){
 var Vinc = (function(){
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function marcarVinculada(emp){
     try{
@@ -3317,8 +3434,8 @@ var Vinc = (function(){
         if(!r2.ok){alert(r2.error||'No se pudo confirmar.');return;}
         alert('✅ '+r2.mensaje);
         marcarVinculada(r2.empresa);
-      }).catch(function(){alert('Sin conexión.');});
-    }).catch(function(){alert('Sin conexión.');});
+      }).catch(function(e){alert(MCerr(e)+'.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   return {run:run};
 })();
@@ -3328,7 +3445,7 @@ var MailCfg = (function(){
   var cfg=null;
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)}).then(function(r){return r.json();});
+    return MCpost(p);
   }
   function el(){return document.getElementById('mailcfg-body');}
   function init(){
@@ -3336,7 +3453,7 @@ var MailCfg = (function(){
     api({action:'getMailConfig'}).then(function(res){
       if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       cfg=res;render();
-    }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el().innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function render(){
     function campo(id,label,valor,desc){
@@ -3395,7 +3512,7 @@ var Kyc = (function(){
   var data=null, abierto={};
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)}).then(function(r){return r.json();});
+    return MCpost(p);
   }
   function el(){return document.getElementById('kyc-body');}
   function init(){
@@ -3404,7 +3521,7 @@ var Kyc = (function(){
     api({action:'getKycClientes'}).then(function(res){
       if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       data=res;render();
-    }).catch(function(){el().innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el().innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function idx(nombre){return data.headers.indexOf(nombre);}
   function render(){
@@ -3449,19 +3566,18 @@ var Consig = (function(){
       if(!res.ok){alert(res.error);return;}
       alert('✔ Solicitud enviada. Minecore la revisará y te aparecerá el estado aquí mismo.');
       init();
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function resolverExt(key,aprobar){
     if(!confirm((aprobar?'¿APROBAR':'¿RECHAZAR')+' la extensión de este lote?'))return;
     api({action:'resolverExtension',key:key,aprobar:aprobar}).then(function(res){
       if(!res.ok){alert(res.error);return;}
       init();
-    }).catch(function(){alert('Sin conexión.');});
+    }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function fmtQty(v){var n=parseFloat(v)||0;return n%1===0?String(Math.round(n)):n.toFixed(2);}
   function durTxt(d){
@@ -3493,7 +3609,7 @@ var Consig = (function(){
       if(data.admin){vistaC='consig';}
       else{vistaC=data.consignacion.length||!data.alquiler.length?'consig':'alq';}
       render();
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function itemCard(it,key,amb){
     var open=!!abiertos[key];
@@ -3636,8 +3752,7 @@ var Sols = (function(){
   var pend=[], clientes=[];
   function api(p){
     p.user=getUserName();p.pin=getPin();
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p)})
-      .then(function(r){return r.json();});
+    return MCpost(p);
   }
   function norm(s){return String(s).toUpperCase().replace(/[ÁÉÍÓÚ]/g,function(c){return {'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U'}[c];}).replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
   function init(){
@@ -3648,7 +3763,7 @@ var Sols = (function(){
       pend=res.usuarios.filter(function(u){return u.rol==='cliente'&&!u.aprobado&&(u.solicitud||u.master);});
       api({action:'getClientes'}).then(function(r2){clientes=r2.ok?r2.clientes:[];render();})
         .catch(function(){clientes=[];render();});
-    }).catch(function(){el.innerHTML='<div class="cbz-error">Sin conexión.</div>';});
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function sugerencias(txt){
     if(!txt||txt.length<3||!clientes.length)return [];
@@ -3754,7 +3869,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v91'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v93'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
