@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v144</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v146</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -269,7 +269,7 @@ function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostn
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 /* v129: errores honestos — distingue "sin red" de "el servidor respondió algo que no es JSON" (páginas de error de Google, timeouts) */
 function MCjson(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){var s2=String(t||'').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);if(/no se pudo abrir el archivo|Drive|Google Drive|tiempo máximo|exceeded maximum execution/i.test(s2))s2='Google no pudo atender la solicitud en este momento (error temporal de Apps Script/Drive)';throw new Error('HTTP '+r.status+' — '+(s2||'respuesta vacía'));}});}
-function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
+function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')return 'El servidor tardó más de 75 s en responder (probablemente inFlow está lento o caído). Intenta de nuevo en un momento.';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
 /* v132: reintentos. Google a veces contesta con una página HTML ("Drive: no se pudo abrir el archivo", HTTP 404/500)
    ANTES de ejecutar el script — en ese caso el script no corrió y reintentar es seguro para cualquier acción.
    Si falló la red (sin respuesta), solo se reintentan las lecturas (una escritura podría haberse ejecutado). */
@@ -279,7 +279,12 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(!m2||/Failed to 
 var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit)$/;
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
 function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi)/.test(accion);
-  function go(){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body}).then(MCjson).then(function(res){
+  function go(){
+    var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},75000):null; // v145: tope de 75 s por llamada
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body,signal:ctl?ctl.signal:undefined})
+      .then(function(r){if(timer)clearTimeout(timer);return r;},function(e){if(timer)clearTimeout(timer);if(e&&e.name==='AbortError')throw new Error('TIMEOUT');throw e;})
+      .then(MCjson).then(function(res){
     if(MCesDoGet(res)){var e2=new Error('DOGET');e2.doget=true;throw e2;}
     return res;});}
   function esPaginaGoogle(e){return !!(e&&e.message&&/^HTTP \d+/.test(e.message));}
@@ -2400,6 +2405,30 @@ var Cot = (function(){
   }
   var cotTab='cotz', ioLista=null, ioDet=null, prodCat=null;
   var czCliente=null, czClientes=null, czQ='', czCat='', czLin='', czDesc='', czMm='', czModo='buscar';
+  var czDestino='cart'; // 'cart' = carrito del Cotizador · 'det' = agregar líneas al detalle de una cotización
+  function czRe(){if(czDestino==='det')renderDet();else renderCotizador();}
+  /* v146: el mismo buscador (categorías, filtros de brocas, fotos, stock) sirve para el carrito y para el detalle */
+  function czFiltrosHtml(){
+    var f='<input class="uinput" id="cz-q" placeholder="🔍 Busca el producto: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="margin-bottom:8px;width:100%">';
+    f+='<div class="cbz-card-row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'+
+      '<select class="uinput" id="cz-cat" style="max-width:240px;padding:9px" onchange="Cot.czSetCat(this.value)">'+
+      '<option value="">📂 Todas las categorías</option>'+
+      (czCats()||[]).map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'"'+(czCat===c?' selected':'')+'>'+c+'</option>';}).join('')+
+      '</select></div>';
+    if(czEsBroca()){
+      var gp=function(lbl,val,ops,fn){
+        return '<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap">'+
+          '<span class="cbz-muted" style="font-size:10px">'+lbl+'</span>'+
+          '<button class="chip" style="padding:4px 9px;font-size:11px'+(val===''?';background:#2b4b6e':'')+'" onclick="Cot.'+fn+'(\'\')">Todo</button>'+
+          ops.map(function(o){return '<button class="chip" style="padding:4px 9px;font-size:11px'+(val===o?';background:#2b4b6e':'')+'" onclick="Cot.'+fn+'(\''+o+'\')">'+o+'</button>';}).join('')+'</span>';
+      };
+      f+='<div class="cbz-card-row" style="gap:12px;margin-bottom:8px;flex-wrap:wrap;align-items:center;row-gap:6px">'+
+        gp('Línea',czLin,CZ_LINEAS,'czSetLin')+'<span style="opacity:.25">|</span>'+
+        gp('Descarga',czDesc,CZ_DESCARGAS,'czSetDesc')+'<span style="opacity:.25">|</span>'+
+        gp('mm',czMm,CZ_MMS,'czSetMm')+'</div>';
+    }
+    return f+'<div id="cz-res"></div>';
+  }
   var CZ_LINEAS=['HQ','NQ','PQ','BQ','IEW'], CZ_DESCARGAS=['DL','DF','DWW'], CZ_MMS=['13','16','20'];
   function czKey(){try{return 'mc_carrito_'+(getUserName()||'').toLowerCase();}catch(e){return 'mc_carrito_x';}}
   function czCartGet(){try{return JSON.parse(localStorage.getItem(czKey())||'{}');}catch(e){return {};}}
@@ -2417,6 +2446,7 @@ var Cot = (function(){
   }
   /* ---------- 🧮 EL COTIZADOR: todo en un solo carril ---------- */
   function renderCotizador(){
+    czDestino='cart';
     var h=tabsHtml();
     if(!czCliente){
       h+='<div class="cbz-card" style="max-width:520px"><div class="cbz-card-name" style="margin-bottom:4px">🧮 Nueva cotización</div>'+
@@ -2488,10 +2518,10 @@ var Cot = (function(){
     if(!czCats._c){var st={};prodCat.forEach(function(p){if(p.categoria)st[p.categoria]=1;});czCats._c=Object.keys(st).sort();}
     return czCats._c;
   }
-  function czSetCat(v){czCat=v;if(!czEsBroca()){czLin='';czDesc='';czMm='';}renderCotizador();}
-  function czSetLin(v){czLin=v;renderCotizador();}
-  function czSetDesc(v){czDesc=v;renderCotizador();}
-  function czSetMm(v){czMm=v;renderCotizador();}
+  function czSetCat(v){czCat=v;if(!czEsBroca()){czLin='';czDesc='';czMm='';}czRe();}
+  function czSetLin(v){czLin=v;czRe();}
+  function czSetDesc(v){czDesc=v;czRe();}
+  function czSetMm(v){czMm=v;czRe();}
   function czEsBroca(){
     return (czCat&&czCat.toUpperCase().indexOf('BROCA')>=0)||(czQ&&czQ.toUpperCase().indexOf('BROCA')>=0);
   }
@@ -2542,6 +2572,20 @@ var Cot = (function(){
       if(ok)res.push(p);
     }
     if(!res.length){box.innerHTML='<div class="cbz-muted" style="padding:8px 2px">Sin resultados para "'+czQ+'".</div>';return;}
+    if(czDestino==='det'){
+      var enDet={};if(det&&det.lineas)det.lineas.forEach(function(l,ix){enDet[l.sku]=ix+1;});
+      box.innerHTML=res.map(function(p){
+        var n=enDet[p.sku];
+        return '<div class="cbz-card" style="padding:8px 10px"><div class="cbz-card-row" style="gap:8px;align-items:center">'+
+          (p.img?'<img src="'+p.img+'" class="pimg" style="width:38px;height:38px;flex:none;cursor:zoom-in" loading="lazy" onclick="MCfoto(\''+p.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:38px;height:38px;flex:none">📦</div>')+
+          '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;line-height:1.25">'+p.nombre+'</div>'+
+          '<div class="cbz-muted" style="font-size:10.5px">'+p.sku+(p.stock>0?' · <span style="color:#6fd68f">'+(p.stock%1?p.stock:Math.round(p.stock))+' und.</span>':' · <span style="color:#e05c5c">agotado</span>')+(p.precio?' · '+fmt(p.precio):'')+'</div></div>'+
+          (n?'<span class="cbz-muted" style="font-size:11px;flex:none">✔ línea '+n+'</span>'
+            :'<button class="cbz-btn" style="padding:7px 12px;flex:none" onclick="Cot.agregarSku(\''+p.sku.replace(/'/g,'')+'\')">➕</button>')+
+          '</div></div>';
+      }).join('');
+      return;
+    }
     box.innerHTML=res.map(function(p){
       var en=czCartGet()[p.sku];
       return '<div class="cbz-card" style="padding:8px 10px"><div class="cbz-card-row" style="gap:8px;align-items:center">'+
@@ -2783,14 +2827,10 @@ var Cot = (function(){
         (function(){try{return entHtml(l,i);}catch(eE){return '<div class="cbz-error">Entrega: '+eE.message+'</div>';}})()+'</div>';
     });
     if(esLineaEditable()){
-      h+='<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">➕ Agregar producto a esta cotización</div>'+
-        '<div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
-        '<input id="cot-add" class="uinput" list="cot-prods" placeholder="SKU o nombre..." style="flex:1;min-width:200px;padding:8px" onkeydown="if(event.key===\'Enter\'){Cot.agregarLinea();}">'+
-        '<input id="cot-add-q" type="number" min="1" inputmode="numeric" class="uinput" style="width:64px;text-align:center;padding:8px" value="1" title="Cantidad">'+
-        '<button class="cbz-btn" onclick="Cot.agregarLinea()">Agregar</button></div>'+
-        '<datalist id="cot-prods">'+(prodCat?prodCat.map(function(p){return '<option value="'+String(p.sku+' — '+p.nombre).slice(0,90).replace(/"/g,'&quot;')+'">';}).join(''):'')+'</datalist>'+
-        (prodCat?'':'<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">Cargando catálogo...</div>')+
-        '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">La línea nueva entra al final; arrástrala desde ⠿ (o escribe el número de posición) para ponerla donde quieras. Los cambios de líneas se guardan solos.</div></div>';
+      czDestino='det';
+      h+='<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-name" style="font-size:13px;margin-bottom:8px">➕ Agregar producto a esta cotización</div>'+
+        czFiltrosHtml()+
+        '<div class="cbz-muted" style="font-size:10.5px;margin-top:6px">La línea nueva entra al final con cantidad 1: ajusta la cantidad y arrástrala desde ⠿ (o escribe el número de posición) para ponerla donde quieras.</div></div>';
       if(!prodCat)cargarProdsFull();
     }
     var tot=0;det.lineas.forEach(function(l){tot+=finU(l)*(parseInt(l.cantidad,10)||0);});
@@ -2824,6 +2864,7 @@ var Cot = (function(){
         '<button class="cbz-btn" style="position:fixed;bottom:18px;right:16px;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.45)" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>';
     }
     el().innerHTML=h;
+    if(esLineaEditable()){czRender();var qEl=document.getElementById('cz-q');if(qEl&&czQ&&document.activeElement!==qEl){try{qEl.focus();qEl.setSelectionRange(qEl.value.length,qEl.value.length);}catch(e){}}}
   }
   function finU(l){var d=parseFloat(l.descuento)||0;return Math.round((parseFloat(l.precio)||0)*(1-d/100)*100)/100;}
   /* ---------- v126: stock por bodega + entrega por línea (sale en la planilla PDF, NO viaja a inFlow) ---------- */
@@ -3004,16 +3045,13 @@ var Cot = (function(){
     det.lineas.splice(i,1);var e=entState();delete e.lineas[l.sku];
     renderDet();persistItems(false);
   }
-  function agregarLinea(){
-    var inp=document.getElementById('cot-add');var v=(inp||{}).value||'';
-    var sku=v.split(' — ')[0].trim();
-    if(!sku){alert('Escribe o elige un producto de la lista.');return;}
+  function agregarLinea(){agregarSku('');}
+  function agregarSku(sku){
     if(!prodCat){alert('El catálogo aún está cargando, intenta en unos segundos.');return;}
     var p=null;for(var i=0;i<prodCat.length;i++){if(prodCat[i].sku===sku){p=prodCat[i];break;}}
-    if(!p){for(var k=0;k<prodCat.length;k++){if(prodCat[k].sku.toLowerCase()===v.trim().toLowerCase()){p=prodCat[k];break;}}}
-    if(!p){alert('Producto no encontrado: elige uno de la lista desplegable.');return;}
+    if(!p){alert('Producto no encontrado en el catálogo.');return;}
     for(var m=0;m<det.lineas.length;m++){if(det.lineas[m].sku===p.sku){alert('Ese producto ya está en la cotización (línea '+(m+1)+').');return;}}
-    var q=parseInt((document.getElementById('cot-add-q')||{}).value,10)||1;if(q<1)q=1;
+    var q=1;
     activaEdicion();
     det.lineas.push({sku:p.sku,productId:p.productId||'',nombre:p.nombre,codigo:p.codigo||'',categoria:p.categoria||'',img:p.img||'',
       cantidad:q,stock:p.stockTotal!==undefined?p.stockTotal:(p.stock||0),stockPor:p.stockPor||{},lista:p.precio||0,ultCliente:null,ultGlobal:null,sugerido:p.precio||0,precio:p.precio||0,descuento:det.descCliente||0});
@@ -3365,7 +3403,7 @@ var Cot = (function(){
       subtotal:Math.round(sub*100)/100
     });
   }
-  return {init:init,setEntAhora:setEntAhora,resetEntAhora:resetEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
+  return {init:init,setEntAhora:setEntAhora,resetEntAhora:resetEntAhora,setEntPlazo:setEntPlazo,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,agregarSku:agregarSku,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
@@ -4094,7 +4132,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v96'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v98'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
