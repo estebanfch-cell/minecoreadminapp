@@ -199,7 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v135</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v136</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2690,7 +2690,7 @@ var Cot = (function(){
   function renderDet(){
     if(!det||!det.cot){el().innerHTML='<div class="cbz-error">Detalle no disponible.</div><div class="cbz-card-row" style="margin-top:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';return;}
     var c=det.cot, creada=(c.estado==='CREADA')&&!editandoCreada;
-    var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';
+    var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">'+((origenTab==='iq'||origenTab==='io')?'← Cotizaciones inFlow':'← Solicitudes')+'</button></div>';
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
       '<div class="cbz-card-name">🏢 '+c.empresa+'</div>'+badge(c.estado)+'</div>'+
       '<div class="cbz-muted" style="font-size:11px">'+c.fecha+' · Solicitó: '+c.usuario+(c.contacto?' · '+c.contacto:'')+'</div>'+
@@ -2983,12 +2983,15 @@ var Cot = (function(){
   /* ---------- Espejo vivo de inFlow (cotizaciones y órdenes) ---------- */
   function cargarInflow(){
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Consultando inFlow en vivo...</div>';
-    api({action:'getInflowOrdenes',tipo:(cotTab==='io'?'orden':'quote')}).then(function(res){
+    var pPre=(lista!==null)?Promise.resolve():api({action:'getCotAdmin'}).then(function(r2){if(r2.ok)lista=r2.solicitudes||[];}).catch(function(){});
+    Promise.all([api({action:'getInflowOrdenes',tipo:(cotTab==='io'?'orden':'quote')}),pPre]).then(function(rr){
+      var res=rr[0];
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
       ioLista=res.ordenes||[];ioOpen={};renderInflowLista();
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   var ioOpen={};
+  function preIdDe(num){if(!lista||!num)return 0;for(var i=0;i<lista.length;i++){if(lista[i].inflowNum===num)return lista[i].id;}return 0;}
   function renderInflowLista(){
     var tit=cotTab==='io'?'📦 Órdenes de venta en inFlow':'🧾 Cotizaciones en inFlow';
     var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — en vivo, las últimas '+ioLista.length+'. Toca una para desplegarla.</div>';
@@ -3015,9 +3018,11 @@ var Cot = (function(){
             '<span class="cbz-muted" style="font-size:11px;white-space:nowrap">'+l.cantidad+' × '+fmt(fin)+'</span>'+
             '<b style="white-space:nowrap">'+fmt(fin*l.cantidad)+'</b></div>';
         }).join('');
+        var preId=o.isQuote?preIdDe(o.num):0;
         c+='<div class="cbz-card-row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'+
           (o.isQuote?'<button class="cbz-btn" onclick="Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>':'')+
-          (puedeEscribir()?'<button class="cbz-btn-sec" onclick="Cot.abrirInflow('+ix+')">✏️ Editar '+(o.isQuote?'cotización':'orden')+'</button>':'')+'</div>';
+          (puedeEscribir()&&preId?'<button class="cbz-btn-sec" onclick="Cot.abrirDesde('+preId+',\''+cotTab+'\')">✏️ Editar cotización (precios, entregas, líneas)</button>':'')+
+          (puedeEscribir()?'<button class="chip" onclick="Cot.abrirInflow('+ix+')">'+(preId?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas: no nació en la app)')+'</button>':'')+'</div>';
       }
       return c+'</div>';
     }).join('');
@@ -3230,7 +3235,9 @@ var Cot = (function(){
     }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow.');abrir(det.cot.id);});
   }
   function filtrar(e2){filtroEmp=e2;renderLista();}
-  function volver(){det=null;cargar();}
+  var origenTab='pre';
+  function abrirDesde(id,tab){origenTab=tab||'pre';abrir(id);}
+  function volver(){det=null;if(origenTab==='iq'||origenTab==='io'){cotTab=origenTab;origenTab='pre';ioLista=null;cargarInflow();return;}cargar();}
   /* ---------- Planilla de cotización: réplica del formato inFlow ---------- */
   function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function fMes(f){ // 'yyyy-MM-dd...' -> 'Jul 30, 2026' (mismo formato que inFlow)
@@ -3264,7 +3271,7 @@ var Cot = (function(){
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,
-          abrirInflow:abrirInflow,ioToggle:ioToggle,ioPdf:ioPdf,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
+          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioPdf:ioPdf,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
