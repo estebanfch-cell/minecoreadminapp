@@ -199,7 +199,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v132</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v133</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2673,13 +2673,22 @@ var Cot = (function(){
     el().innerHTML='<div class="cbz-loading">Cargando detalle...</div>';
     api({action:'getCotDetalle',id:id}).then(function(res){
       if(!res.ok){alert(res.error);renderLista();return;}
+      if(!res.cot||!res.lineas){ // v133: diagnóstico — respuesta ok pero sin detalle
+        var raw='';try{raw=JSON.stringify(res).slice(0,600);}catch(e2){}
+        el().innerHTML='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>'+
+          '<div class="cbz-error">El servidor respondió sin el detalle de la cotización (id '+id+'). Manda este texto a soporte:</div>'+
+          '<div class="cbz-card" style="font-family:monospace;font-size:11px;word-break:break-all;user-select:text;-webkit-user-select:text">action=getCotDetalle · motor '+(window._motorVer||'?')+' · '+raw.replace(/</g,'&lt;')+'</div>'+
+          '<div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Cot.abrir('+id+')">↻ Reintentar</button></div>';
+        return;
+      }
       det=res;ultimoGuardado='';guardando=false;
-      if(draftRestore()){renderDet();draftAutosave();return;}
+      try{if(draftRestore()){renderDet();draftAutosave();return;}}catch(eR){console.warn('draftRestore',eR);try{localStorage.removeItem(draftKey());}catch(e3){}}
       renderDet();
     }).catch(function(e){alert(MCerr(e)+'');renderLista();});
   }
   var editandoCreada=false;
   function renderDet(){
+    if(!det||!det.cot){el().innerHTML='<div class="cbz-error">Detalle no disponible.</div><div class="cbz-card-row" style="margin-top:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';return;}
     var c=det.cot, creada=(c.estado==='CREADA')&&!editandoCreada;
     var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
@@ -3933,7 +3942,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v94'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v94'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
