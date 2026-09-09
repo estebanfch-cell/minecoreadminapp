@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v148</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v149</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -278,7 +278,7 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
 var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit)$/;
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
-function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi)/.test(accion);
+function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi|ping|syncNow)/.test(accion);
   function go(){
     var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
     var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},75000):null; // v145: tope de 75 s por llamada
@@ -913,9 +913,7 @@ var Dash = (function(){
     openId = (openId===id)?null:id;
     render();
     if(openId){
-      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({action:'getOrderDetail',orderId:id,user:getUserName(),pin:getPin()})})
-      .then(function(r){return r.json();}).then(function(res){
+      MCpost({action:'getOrderDetail',orderId:id,user:getUserName(),pin:getPin()}).then(function(res){
         var det=document.getElementById('det-'+id);
         if(!det)return;
         if(!res.ok){det.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
@@ -944,9 +942,7 @@ var Dash = (function(){
     }
   }
   function dlPdf(id){
-    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'getOrderPdf',orderId:id,user:getUserName(),pin:getPin()})})
-    .then(function(r){return r.json();}).then(function(res){
+    MCpost({action:'getOrderPdf',orderId:id,user:getUserName(),pin:getPin()}).then(function(res){
       if(!res.ok){alert('Error: '+(res.error||'no se pudo generar el PDF'));return;}
       var bin=atob(res.b64), arr=new Uint8Array(bin.length);
       for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
@@ -4131,9 +4127,7 @@ function renderHome(){
   if(p.rol==='admin') h+='<div id="api-ver" class="cbz-muted" style="grid-column:1/-1;font-size:10px;text-align:right;opacity:.5"></div>';
   h='<div id="notif-centro"></div>'+h;
   document.getElementById('home').innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
-  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action:'getNotificaciones',user:getUserName(),pin:getPin()})})
-  .then(function(r){return r.json();}).then(function(nres){
+  MCpost({action:'getNotificaciones',user:getUserName(),pin:getPin()}).then(function(nres){
     var nc=document.getElementById('notif-centro');
     if(!nc||!nres.ok||!(nres.items||[]).length)return;
     var tot=nres.items.reduce(function(a,x){return a+(x.n||1);},0);
@@ -4153,9 +4147,7 @@ function renderHome(){
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
-    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'misCotizaciones',user:getUserName(),pin:getPin()})})
-    .then(function(r){return r.json();}).then(function(res){
+    MCpost({action:'misCotizaciones',user:getUserName(),pin:getPin()}).then(function(res){
       if(!res.ok)return;
       var sols=res.solicitudes||[];
       var listas=sols.filter(function(x){return x.estado==='CREADA';}).length;
@@ -4175,9 +4167,7 @@ function doSyncNow(){
   if(b.disabled)return;
   if(!confirm('¿Sincronizar ahora con inFlow? Puede tardar 2-4 minutos.'))return;
   b.disabled=true; b.innerHTML='⏳<span class="lbl">Sincronizando...</span>';
-  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action:'syncNow',user:getUserName(),pin:getPin()})})
-  .then(function(r){return r.json();}).then(function(res){
+  MCpost({action:'syncNow',user:getUserName(),pin:getPin()}).then(function(res){
     b.disabled=false; b.innerHTML='⟳<span class="lbl">Sync</span>';
     if(!res.ok){alert('Error en sync: '+(res.error||'desconocido'));return;}
     alert('Sync completo a las '+res.hora+' ('+res.segundos+'s)\nOVs: '+res.ovs+' · OCs: '+res.ocs);
@@ -4263,9 +4253,7 @@ function doLogin(){
   window._loginBusy=true;
   err.style.color='#5a6a7a';
   err.textContent='Verificando...';
-  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action:'ping',user:usr,pin:pin})})
-  .then(function(r){return r.json();}).then(function(res){
+  MCpost({action:'ping',user:usr,pin:pin}).then(function(res){
     window._loginBusy=false;
     err.style.color='';
     if(!res.ok){err.textContent=res.error||'Usuario o PIN incorrectos';return;}
@@ -4292,7 +4280,7 @@ function doLogin(){
     }
   }).catch(function(e){
     window._loginBusy=false;err.style.color='';
-    err.textContent=(e&&e.message?'Error ('+(e.name||'')+'): '+e.message:'Sin conexión con el servidor.');
+    err.textContent=MCerr(e);
   });
   }catch(e){
     window._loginBusy=false;
@@ -4336,18 +4324,14 @@ function doBioLogin(){
       document.getElementById('shell').style.display='block';
       renderHome();
       // Revalidación en segundo plano (por si el PIN cambió o el usuario fue desactivado)
-      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({action:'ping',user:u,pin:pin})})
-      .then(function(r){return r.json();}).then(function(res){
+      MCpost({action:'ping',user:u,pin:pin}).then(function(res){
         if(!res.ok){clearCreds();alert('Tu sesión ya no es válida. Ingresa de nuevo.');location.reload();}
         else{try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||u,rol:res.rol||'usuario',modulos:res.modulos||[],empresa:res.empresa||'',master:!!res.master,aprobado:!!res.aprobado,vinculada:res.vinculada!==false}));}catch(e){}}
       }).catch(function(){});
     } else {
       // sin perfil guardado: valida contra el servidor con aviso visible
       err.textContent='Conectando...';
-      fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({action:'ping',user:u,pin:pin})})
-      .then(function(r){return r.json();}).then(function(res){
+      MCpost({action:'ping',user:u,pin:pin}).then(function(res){
         err.textContent='';
         if(res.ok){entrar(res,u,pin,true);}
         else{err.style.color='';err.textContent='Sesión inválida: entra con tu PIN.';}
@@ -4385,9 +4369,7 @@ function doRedeem(){
 
   function go(){
     if(btn){btn.disabled=true;btn.textContent='Creando...';}
-    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'redeemInvite',token:token,nombre:nombre,userPin:pin,empresa:empresa,nombreCompleto:nombreCompleto,telefono:telefono,email:email})})
-    .then(function(r){return r.json();})
+    MCpost({action:'redeemInvite',token:token,nombre:nombre,userPin:pin,empresa:empresa,nombreCompleto:nombreCompleto,telefono:telefono,email:email})
     .then(function(res){
       if(btn){btn.disabled=false;btn.textContent='Crear mi usuario';}
       if(!res.ok){err.textContent=res.error||'No se pudo crear el usuario.';return;}
@@ -4411,9 +4393,7 @@ function doRedeem(){
 
   // Best match: si hay UNA coincidencia clara, se usa sola; si hay empate, se pregunta
   if(btn){btn.disabled=true;btn.textContent='Verificando...';}
-  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({action:'matchEmpresa',token:token,empresa:empresa})})
-  .then(function(r){return r.json();})
+  MCpost({action:'matchEmpresa',token:token,empresa:empresa})
   .then(function(res){
     if(btn){btn.disabled=false;btn.textContent='Crear mi usuario';}
     var cand=(res&&res.ok&&res.candidatos)||[];
