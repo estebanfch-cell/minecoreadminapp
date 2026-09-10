@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v149</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v151</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2792,14 +2792,19 @@ var Cot = (function(){
           '</div>';
       }
     }
-    h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Precio propuesto = el MAYOR entre lista y último vendido a este cliente. Descuento pre-cargado = el predeterminado del cliente'+(det.descCliente?' (<b style="color:#9fc3e8">'+det.descCliente+'%</b>)':' (0%)')+'. Tú tienes la última palabra en cada línea.</div>';
+    h+='<div class="cbz-muted" style="font-size:11px;margin:8px 0">Precio propuesto = el MAYOR entre lista y la referencia del cliente (último <b>cotizado</b>; si no hay, último <b>vendido</b>). Descuento pre-cargado = el predeterminado del cliente'+(det.descCliente?' (<b style="color:#9fc3e8">'+det.descCliente+'%</b>)':' (0%)')+'. Tú tienes la última palabra en cada línea.</div>';
     try{h+=bodegaHtml();}catch(eB){h+='<div class="cbz-error">Bodega: '+eB.message+'</div>';}
     h+=estadoGuardadoHtml();
     det.lineas.forEach(function(l,i){
-      var refCli=l.ultCliente?('Últ. a este cliente: <b>'+fmt(l.ultCliente.p)+'</b> ('+l.ultCliente.f+')')
-                             :'<span style="color:#f0c040">Nunca vendido a este cliente</span>'+
-                              (l.ultGlobal?' · Últ. global: '+fmt(l.ultGlobal.p)+' ('+l.ultGlobal.f+')':'');
-      var alerta=(l.ultCliente&&l.lista<l.ultCliente.p)?'<span style="color:#f0c040"> ⚠ lista por debajo del último vendido</span>':'';
+      var usa=l.refTipo||(l.ultCliente?'vendido':'lista');
+      var tag=function(t){return '<span style="background:#2b4b6e;color:#dfe8f2;border-radius:4px;padding:0 5px;font-size:10px;margin-left:3px">se usa</span>';};
+      var vend=l.ultCliente?('Últ. <b>vendido</b>: <b>'+fmt(l.ultCliente.p)+'</b> ('+l.ultCliente.f+')'+(usa==='vendido'?tag():''))
+                           :'<span style="color:#f0c040">Nunca vendido a este cliente</span>'+(l.ultGlobal?' · global: '+fmt(l.ultGlobal.p)+' ('+l.ultGlobal.f+')':'');
+      var coti=l.ultCotCliente?('Últ. <b>cotizado</b>: <b>'+fmt(l.ultCotCliente.p)+'</b> ('+l.ultCotCliente.f+(l.ultCotCliente.n?' · '+l.ultCotCliente.n:'')+')'+(usa==='cotizado'?tag():''))
+                              :'<span style="color:#7d8ba0">Sin cotización previa a este cliente</span>'+(l.ultCotGlobal?' · global: '+fmt(l.ultCotGlobal.p)+' ('+l.ultCotGlobal.f+')':'');
+      var refCli=coti+' · '+vend;
+      var refP=l.ultCotCliente?l.ultCotCliente.p:(l.ultCliente?l.ultCliente.p:0);
+      var alerta=(refP&&l.lista<refP)?'<span style="color:#f0c040"> ⚠ lista por debajo del último '+(l.ultCotCliente?'cotizado':'vendido')+'</span>':'';
       var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en inFlow — esta línea no se puede cotizar</div>':'';
       h+='<div class="cbz-card'+(esLineaEditable()?' cot-linea':'')+'" data-idx="'+i+'">'+
         '<div class="cbz-card-row" style="gap:8px;align-items:flex-start">'+
@@ -4143,7 +4148,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v99'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v101'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
