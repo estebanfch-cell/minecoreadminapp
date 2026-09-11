@@ -173,6 +173,14 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .io-menu-list.open{display:flex}
 .io-menu-list button{background:none;border:0;color:#dce6f0;text-align:left;padding:9px 10px;border-radius:7px;font-size:13px;cursor:pointer;white-space:nowrap}
 .io-menu-list button:hover{background:#1e2a38}
+
+/* Caja Chica embed */
+#caja-screen{display:none;flex-direction:column;margin:0 -16px -16px;height:calc(100dvh - 78px);min-height:420px}
+#caja-screen.on{display:flex}
+#caja-head{padding:0 16px 8px}
+#caja-head .caja-note{font-size:11px;opacity:.55;line-height:1.35;margin-top:2px}
+#caja-frame{flex:1;width:100%;border:0;background:#0b1219;min-height:0}
+@media(min-width:1024px){#caja-screen{margin:0 -28px -22px;height:calc(100dvh - 90px)}}
 </style>
 </head>
 <body>
@@ -205,7 +213,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v156</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v158</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -235,6 +243,17 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <div id="cot-screen" style="display:none"></div>
   <div id="prov-screen" style="display:none"></div>
   <div id="transf-screen" style="display:none"></div>
+  <div id="caja-screen">
+    <div id="caja-head">
+      <div class="caja-note">Misma app y fotos que minecore (Drive)</div>
+    </div>
+    <iframe id="caja-frame"
+      title="Caja Chica"
+      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;mod=caja&amp;v=157"
+      allow="camera; microphone; geolocation"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
+      referrerpolicy="no-referrer-when-downgrade"></iframe>
+  </div>
 </div>
 
 <script>
@@ -278,7 +297,7 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
 /* v140: a veces Google convierte el POST en un GET (redirección) y contesta con la "tarjeta de presentación"
    del API ({ok:true, service, version}) en vez de ejecutar la acción. Se detecta y se reintenta; para acciones
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
-var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow|saveVendor|saveStockTransfer)$/;
+var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow|saveVendor|saveStockTransfer|savePurchaseOrder|cancelPurchaseOrder|approvePurchaseOrder)$/;
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
 function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi|ping|syncNow)/.test(accion);
   function go(){
@@ -4097,37 +4116,54 @@ var Sols = (function(){
 })();
 
 
-/* ===================== PROVEEDORES (espejo inFlow) ===================== */
+/* ===================== PROVEEDORES + ÓRDENES DE COMPRA (espejo inFlow) ===================== */
 var Prov = (function(){
+  var tab='vendors'; // vendors | ocs
   var lista=[], q='', vista='list', cur=null, saving=false;
+  var ocLista=[], ocQ='', ocVista='list', ocCur=null, ocSaving=false;
+  var vendorsCache=[], invCache=null, locs=[];
   function api(p){p.user=getUserName();p.pin=getPin();return MCpost(p);}
   function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function el(){return document.getElementById('prov-screen');}
-  function init(){vista='list';cur=null;q='';cargar();}
-  function cargar(){
-    el().innerHTML='<div class="cbz-loading">Cargando proveedores...</div>';
+  function money(n){var x=parseFloat(n);if(isNaN(x))return esc(n||'—');return x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function tabsHtml(){
+    return '<div class="cbz-card-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px">'+
+      '<button class="chip" style="'+(tab==='vendors'?'background:#1e4976;color:#fff':'')+'" onclick="Prov.setTab(\'vendors\')">🏭 Proveedores</button>'+
+      '<button class="chip" style="'+(tab==='ocs'?'background:#1e4976;color:#fff':'')+'" onclick="Prov.setTab(\'ocs\')">🛒 Órdenes de compra</button></div>';
+  }
+  function setTab(t){
+    tab=t||'vendors';
+    if(tab==='vendors'){vista='list';cur=null;cargarVendors();}
+    else {ocVista='list';ocCur=null;cargarOCs();}
+  }
+  function init(){tab='vendors';vista='list';cur=null;q='';ocVista='list';ocCur=null;ocQ='';cargarVendors();}
+
+  /* ---------- Proveedores (existente) ---------- */
+  function cargarVendors(){
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Cargando proveedores...</div>';
     api({action:'listVendors',q:q||undefined}).then(function(res){
-      if(!res.ok){el().innerHTML='<div class="cbz-error">'+esc(res.error)+'</div>';return;}
+      if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+esc(res.error)+'</div>';return;}
       lista=res.vendors||[];
-      if(vista==='list') renderList(); else renderForm();
-    }).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
+      vendorsCache=lista.slice();
+      if(vista==='list') renderVendorList(); else renderVendorForm();
+    }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
   }
   function setQ(v){q=v||'';}
-  function buscar(){vista='list';cargar();}
+  function buscar(){vista='list';cargarVendors();}
   function nuevo(){
     cur={vendorId:'',name:'',contactName:'',email:'',phone:'',website:'',isActive:true,remarks:'',discount:'',leadTimeDays:'',defaultPaymentMethod:''};
-    vista='form';renderForm();
+    vista='form';renderVendorForm();
   }
   function abrir(id){
-    el().innerHTML='<div class="cbz-loading">Cargando...</div>';
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Cargando...</div>';
     api({action:'getVendor',vendorId:id}).then(function(res){
-      if(!res.ok){alert(res.error||'Error');vista='list';renderList();return;}
-      cur=res.vendor;vista='form';renderForm();
+      if(!res.ok){alert(res.error||'Error');vista='list';renderVendorList();return;}
+      cur=res.vendor;vista='form';renderVendorForm();
     }).catch(function(e){alert(MCerr(e));});
   }
-  function volver(){vista='list';renderList();}
-  function renderList(){
-    var h='<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
+  function volver(){vista='list';renderVendorList();}
+  function renderVendorList(){
+    var h=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
       '<input class="uinput" id="prov-q" placeholder="Buscar proveedor..." value="'+esc(q)+'" style="flex:1;min-width:160px" onkeydown="if(event.key===\'Enter\')Prov.buscar()">'+
       '<button class="chip" onclick="Prov.setQ(document.getElementById(\'prov-q\').value);Prov.buscar()">🔎 Buscar</button>'+
       '<button class="cbz-btn" onclick="Prov.nuevo()">＋ Nuevo</button>'+
@@ -4146,9 +4182,9 @@ var Prov = (function(){
     }
     el().innerHTML=h;
   }
-  function renderForm(){
+  function renderVendorForm(){
     var v=cur||{};
-    var h='<div class="cbz-card-row" style="margin-bottom:8px">'+
+    var h=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:8px">'+
       '<button class="chip" onclick="Prov.volver()">← Lista</button>'+
       '<span class="cbz-muted">'+(v.vendorId?'Editar':'Nuevo proveedor')+'</span></div>'+
       '<div class="cbz-card"><div class="uform">'+
@@ -4192,14 +4228,264 @@ var Prov = (function(){
       saving=false;
       if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}alert(res.error||'Error');return;}
       alert(res.created?'Proveedor creado en inFlow.':'Proveedor actualizado.');
-      vista='list';q='';cargar();
+      vista='list';q='';cargarVendors();
     }).catch(function(e){
       saving=false;
       if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}
       alert(MCerr(e));
     });
   }
-  return {init:init,cargar:cargar,buscar:buscar,setQ:setQ,nuevo:nuevo,abrir:abrir,volver:volver,guardar:guardar};
+  function cargar(){if(tab==='ocs')cargarOCs();else cargarVendors();}
+
+  /* ---------- Órdenes de compra ---------- */
+  function ensureVendors(cb){
+    if(vendorsCache.length){cb();return;}
+    api({action:'listVendors'}).then(function(res){
+      vendorsCache=res.ok?(res.vendors||[]):[];
+      cb();
+    }).catch(function(){vendorsCache=[];cb();});
+  }
+  function ensureLocs(cb){
+    if(locs.length){cb();return;}
+    api({action:'listLocations'}).then(function(res){
+      locs=res.ok?(res.locations||[]).filter(function(l){return l.isActive!==false;}):[];
+      cb();
+    }).catch(function(){locs=[];cb();});
+  }
+  function loadInvSuggest(cb){
+    if(invCache){cb();return;}
+    api({action:'getInventario'}).then(function(res){
+      invCache=res.ok?(res.items||[]):[];
+      cb();
+    }).catch(function(){invCache=[];cb();});
+  }
+  function setOcQ(v){ocQ=v||'';}
+  function buscarOC(){ocVista='list';cargarOCs();}
+  function cargarOCs(){
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Cargando órdenes de compra...</div>';
+    api({action:'listPurchaseOrders',q:ocQ||undefined}).then(function(res){
+      if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+esc(res.error)+'</div>';return;}
+      ocLista=res.purchaseOrders||[];
+      if(ocVista==='list') renderOcList(); else renderOcForm();
+    }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
+  }
+  function statusTags(po){
+    var tags=[];
+    if(po.isCancelled) tags.push('<span class="tagx tn">Cancelada</span>');
+    else if(po.isCompleted) tags.push('<span class="tagx tf">Completada</span>');
+    if(po.isQuote) tags.push('<span class="tagx">Cotización</span>');
+    if(po.inventoryStatus) tags.push('<span class="tagx">Inv: '+esc(po.inventoryStatus)+'</span>');
+    if(po.paymentStatus) tags.push('<span class="tagx">Pago: '+esc(po.paymentStatus)+'</span>');
+    return tags.join(' ');
+  }
+  function renderOcList(){
+    var h=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
+      '<input class="uinput" id="oc-q" placeholder="Buscar OC / proveedor..." value="'+esc(ocQ)+'" style="flex:1;min-width:160px" onkeydown="if(event.key===\'Enter\')Prov.buscarOC()">'+
+      '<button class="chip" onclick="Prov.setOcQ(document.getElementById(\'oc-q\').value);Prov.buscarOC()">🔎 Buscar</button>'+
+      '<button class="cbz-btn" onclick="Prov.nuevaOC()">＋ Nueva OC</button>'+
+      '<button class="chip" onclick="Prov.cargarOCs()">⟳</button></div>';
+    if(!ocLista.length){
+      h+='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🛒</div>'+
+        '<div class="cbz-card-name" style="margin:8px 0">Sin órdenes de compra</div>'+
+        '<div class="cbz-muted">Crea la primera o ajusta la búsqueda.</div></div>';
+    } else {
+      h+=ocLista.map(function(po){
+        return '<div class="cbz-card" style="cursor:pointer" onclick="Prov.abrirOC(\''+esc(po.purchaseOrderId)+'\')">'+
+          '<div class="cbz-card-top"><div class="cbz-card-name">'+(esc(po.orderNumber)||'(sin número)')+'</div>'+
+          statusTags(po)+'</div>'+
+          '<div class="pmeta">'+(esc(po.orderDate)||'—')+' · '+esc(po.vendorName||'?')+
+          ' · Total '+money(po.total)+' · Saldo '+money(po.balance)+
+          ' · '+(po.linesCount||0)+' líneas</div></div>';
+      }).join('');
+    }
+    el().innerHTML=h;
+  }
+  function vendorOpts(sel){
+    return '<option value="">— Proveedor * —</option>'+vendorsCache.map(function(v){
+      return '<option value="'+esc(v.vendorId)+'"'+(sel===v.vendorId?' selected':'')+'>'+esc(v.name)+'</option>';
+    }).join('');
+  }
+  function locOpts(sel){
+    return '<option value="">— Bodega (opc.) —</option>'+locs.map(function(l){
+      return '<option value="'+esc(l.locationId)+'"'+(sel===l.locationId?' selected':'')+'>'+esc(l.name)+'</option>';
+    }).join('');
+  }
+  function nuevaOC(){
+    ensureVendors(function(){
+      ensureLocs(function(){
+        ocCur={purchaseOrderId:'',vendorId:'',orderDate:new Date().toISOString().slice(0,10),
+          requestShipDate:'',orderRemarks:'',locationId:'',paymentTermsId:'',isQuote:false,
+          lines:[{productId:'',quantity:1,unitPrice:'',description:''}]};
+        ocVista='form';renderOcForm();
+      });
+    });
+  }
+  function abrirOC(id){
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Cargando OC...</div>';
+    ensureVendors(function(){
+      ensureLocs(function(){
+        api({action:'getPurchaseOrder',purchaseOrderId:id}).then(function(res){
+          if(!res.ok){alert(res.error||'Error');ocVista='list';renderOcList();return;}
+          ocCur=res.purchaseOrder;
+          if(!ocCur.lines||!ocCur.lines.length)ocCur.lines=[{productId:'',quantity:1,unitPrice:'',description:''}];
+          ocVista='form';renderOcForm();
+        }).catch(function(e){alert(MCerr(e));});
+      });
+    });
+  }
+  function volverOC(){ocVista='list';renderOcList();}
+  function ocLineRow(ln,i){
+    return '<div class="cbz-card" style="padding:10px" id="ol-'+i+'">'+
+      '<div class="cbz-card-row" style="flex-wrap:wrap">'+
+      '<input class="uinput" id="ol-pid-'+i+'" placeholder="productId (UUID) o SKU" value="'+esc(ln.productId)+'" style="flex:2;min-width:160px" list="ol-prod-dl">'+
+      '<input class="uinput" id="ol-qty-'+i+'" type="number" min="0.0001" step="any" placeholder="Cant." value="'+esc(ln.quantity)+'" style="max-width:90px">'+
+      '<input class="uinput" id="ol-price-'+i+'" type="number" min="0" step="any" placeholder="P. unit." value="'+esc(ln.unitPrice)+'" style="max-width:110px">'+
+      '<button class="chip" onclick="Prov.rmOcLine('+i+')" title="Quitar">✖</button></div>'+
+      '<input class="uinput" id="ol-desc-'+i+'" placeholder="Descripción (opc.)" value="'+esc(ln.description||'')+'" style="margin-top:6px">'+
+      '</div>';
+  }
+  function renderOcForm(){
+    loadInvSuggest(function(){
+      var po=ocCur||{};
+      var dl='<datalist id="ol-prod-dl">'+(invCache||[]).slice(0,800).map(function(it){
+        var pid=it.productId||it.id||'';
+        if(!pid)return '';
+        return '<option value="'+esc(pid)+'">'+esc((it.sku||'')+' — '+(it.nombre||it.name||''))+'</option>';
+      }).join('')+'</datalist>';
+      var h=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:8px;flex-wrap:wrap">'+
+        '<button class="chip" onclick="Prov.volverOC()">← Lista OCs</button>'+
+        '<span class="cbz-muted">'+(po.purchaseOrderId?(esc(po.orderNumber)||'Editar OC'):'Nueva orden de compra')+'</span>'+
+        (po.purchaseOrderId?statusTags(po):'')+'</div>'+
+        '<div class="cbz-card"><div class="uform">'+
+        '<select class="uinput" id="oc-vendor">'+vendorOpts(po.vendorId)+'</select>'+
+        '<div class="cbz-card-row" style="flex-wrap:wrap">'+
+        '<input class="uinput" id="oc-date" type="date" value="'+esc(po.orderDate||'')+'" style="max-width:160px">'+
+        '<input class="uinput" id="oc-ship" type="date" value="'+esc(po.requestShipDate||'')+'" style="max-width:160px" title="Fecha envío solicitada">'+
+        '<select class="uinput" id="oc-loc" style="flex:1;min-width:140px">'+locOpts(po.locationId)+'</select></div>'+
+        '<textarea class="uinput" id="oc-rem" placeholder="Observaciones / orderRemarks" rows="2">'+esc(po.orderRemarks||'')+'</textarea>'+
+        '<label class="cbz-esc"><input type="checkbox" id="oc-quote" '+(po.isQuote?'checked':'')+'> Es cotización (isQuote)</label>'+
+        (po.total||po.balance?'<div class="pmeta" style="margin:6px 0">Total '+money(po.total)+' · Saldo '+money(po.balance)+(po.paymentTermsName?' · '+esc(po.paymentTermsName):'')+'</div>':'')+
+        '<div class="cbz-card-name" style="margin:10px 0 6px">Líneas</div>'+
+        '<div id="oc-lines">'+(po.lines||[]).map(ocLineRow).join('')+'</div>'+
+        '<div class="cbz-card-row" style="margin-top:8px;flex-wrap:wrap">'+
+        '<button class="chip" onclick="Prov.addOcLine()">＋ Línea</button>'+
+        '<button class="cbz-btn" id="oc-save" onclick="Prov.guardarOC()">Guardar en inFlow</button>'+
+        (po.purchaseOrderId&&!po.isCancelled?'<button class="chip" id="oc-approve" onclick="Prov.aprobarOC()">✅ Aprobar</button>':'')+
+        (po.purchaseOrderId&&!po.isCancelled?'<button class="chip" id="oc-cancel" onclick="Prov.cancelarOC()">✖ Cancelar</button>':'')+
+        '</div>'+dl+
+        '<div class="cbz-muted" style="font-size:11px;margin-top:8px">MVP: productId libre (UUID). Datalist sugiere SKU→id si hay inventario. Totales los calcula inFlow.</div>'+
+        '</div></div>';
+      el().innerHTML=h;
+    });
+  }
+  function collectOcLines(){
+    var out=[], i=0;
+    while(document.getElementById('ol-pid-'+i)){
+      var pid=(document.getElementById('ol-pid-'+i).value||'').trim();
+      var qty=parseFloat(document.getElementById('ol-qty-'+i).value);
+      var price=(document.getElementById('ol-price-'+i).value||'').trim();
+      var desc=(document.getElementById('ol-desc-'+i).value||'').trim();
+      var prev=(ocCur.lines&&ocCur.lines[i])||{};
+      if(pid && invCache){
+        var hit=null;
+        for(var j=0;j<invCache.length;j++){
+          var it=invCache[j];
+          var id=String(it.productId||it.id||'');
+          if(id===pid || String(it.sku||'')===pid){hit=id||pid;break;}
+        }
+        if(hit)pid=hit;
+      }
+      out.push({
+        purchaseOrderLineId:prev.purchaseOrderLineId||'',
+        productId:pid,
+        quantity:qty,
+        unitPrice:price,
+        description:desc
+      });
+      i++;
+    }
+    return out;
+  }
+  function snapOcHeader(){
+    ocCur.vendorId=document.getElementById('oc-vendor').value;
+    ocCur.orderDate=document.getElementById('oc-date').value;
+    ocCur.requestShipDate=document.getElementById('oc-ship').value;
+    ocCur.locationId=document.getElementById('oc-loc').value;
+    ocCur.orderRemarks=document.getElementById('oc-rem').value;
+    ocCur.isQuote=document.getElementById('oc-quote').checked;
+  }
+  function addOcLine(){
+    ocCur.lines=collectOcLines();
+    ocCur.lines.push({productId:'',quantity:1,unitPrice:'',description:''});
+    snapOcHeader();
+    renderOcForm();
+  }
+  function rmOcLine(i){
+    ocCur.lines=collectOcLines();
+    ocCur.lines.splice(i,1);
+    if(!ocCur.lines.length)ocCur.lines=[{productId:'',quantity:1,unitPrice:'',description:''}];
+    snapOcHeader();
+    renderOcForm();
+  }
+  function guardarOC(){
+    if(ocSaving)return;
+    var vendorId=document.getElementById('oc-vendor').value;
+    if(!vendorId){alert('Elige un proveedor');return;}
+    var lines=collectOcLines().filter(function(l){return l.productId&&l.quantity>0;});
+    if(!lines.length){alert('Agrega al menos una línea con productId y cantidad');return;}
+    var payload={
+      action:'savePurchaseOrder',
+      purchaseOrderId:ocCur&&ocCur.purchaseOrderId||'',
+      vendorId:vendorId,
+      orderDate:document.getElementById('oc-date').value||undefined,
+      requestShipDate:document.getElementById('oc-ship').value||'',
+      locationId:document.getElementById('oc-loc').value||'',
+      orderRemarks:document.getElementById('oc-rem').value||'',
+      isQuote:!!document.getElementById('oc-quote').checked,
+      lines:lines
+    };
+    ocSaving=true;
+    var btn=document.getElementById('oc-save');
+    if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+    api(payload).then(function(res){
+      ocSaving=false;
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}alert(res.error||'Error');return;}
+      alert(res.created?'OC creada en inFlow.':'OC actualizada.');
+      ocVista='list';ocQ='';cargarOCs();
+    }).catch(function(e){
+      ocSaving=false;
+      if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}
+      alert(MCerr(e));
+    });
+  }
+  function cancelarOC(){
+    if(!ocCur||!ocCur.purchaseOrderId)return;
+    if(!confirm('¿Cancelar esta OC en inFlow (quick-cancel)?'))return;
+    var btn=document.getElementById('oc-cancel');
+    if(btn){btn.disabled=true;btn.textContent='Cancelando...';}
+    api({action:'cancelPurchaseOrder',purchaseOrderId:ocCur.purchaseOrderId}).then(function(res){
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='✖ Cancelar';}alert(res.error||'Error');return;}
+      alert('OC cancelada.');
+      ocVista='list';cargarOCs();
+    }).catch(function(e){if(btn){btn.disabled=false;btn.textContent='✖ Cancelar';}alert(MCerr(e));});
+  }
+  function aprobarOC(){
+    if(!ocCur||!ocCur.purchaseOrderId)return;
+    if(!confirm('¿Aprobar esta OC en inFlow (quick-approve)?'))return;
+    var btn=document.getElementById('oc-approve');
+    if(btn){btn.disabled=true;btn.textContent='Aprobando...';}
+    api({action:'approvePurchaseOrder',purchaseOrderId:ocCur.purchaseOrderId}).then(function(res){
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='✅ Aprobar';}alert(res.error||'Error');return;}
+      alert('OC aprobada.');
+      abrirOC(ocCur.purchaseOrderId);
+    }).catch(function(e){if(btn){btn.disabled=false;btn.textContent='✅ Aprobar';}alert(MCerr(e));});
+  }
+
+  return {
+    init:init,cargar:cargar,buscar:buscar,setQ:setQ,nuevo:nuevo,abrir:abrir,volver:volver,guardar:guardar,
+    setTab:setTab,cargarOCs:cargarOCs,buscarOC:buscarOC,setOcQ:setOcQ,nuevaOC:nuevaOC,abrirOC:abrirOC,
+    volverOC:volverOC,addOcLine:addOcLine,rmOcLine:rmOcLine,guardarOC:guardarOC,cancelarOC:cancelarOC,aprobarOC:aprobarOC
+  };
 })();
 
 /* ===================== STOCK TRANSFERS (espejo inFlow) ===================== */
@@ -4449,8 +4735,9 @@ function renderHome(){
     });
   }
   if(p.rol==='cliente'&&p.master) h+='<div class="mod" onclick="openMod(\'minv\')"><div class="ico">👥</div><h3>Mi equipo</h3><p>Invita usuarios de tu organización</p></div>';
-  if(can('proveedores')) h+='<div class="mod" onclick="openMod(\'prov\')"><div class="ico">🏭</div><h3>Proveedores</h3><p>Lista, alta y edición espejo de inFlow</p></div>';
+  if(can('proveedores')) h+='<div class="mod" onclick="openMod(\'prov\')"><div class="ico">🏭</div><h3>Proveedores</h3><p>Proveedores y órdenes de compra (espejo inFlow)</p></div>';
   if(can('transfers')) h+='<div class="mod" onclick="openMod(\'transf\')"><div class="ico">🔁</div><h3>Stock Transfers</h3><p>Traspasos entre bodegas (espejo inFlow)</p></div>';
+  if(can('caja')) h+='<div class="mod" onclick="openMod(\'caja\')"><div class="ico">💵</div><h3>Caja Chica</h3><p>Misma app y fotos que minecore (Drive)</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>De todos los clientes, con días por acta</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'sols\')"><div class="ico">🔔</div><h3>Aprobaciones</h3><p>Solicitudes de acceso de clientes</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
@@ -4473,7 +4760,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v105'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v107'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -4512,8 +4799,8 @@ function doSyncNow(){
 }
 function openMod(m){
   document.getElementById('home').style.display='none';
-  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen'].forEach(function(id){
-    var e=document.getElementById(id);if(e)e.style.display='none';
+  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'].forEach(function(id){
+    var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('backBtn').style.display='block';
   if(m==='dash'){document.getElementById('dash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';Dash.init();}
@@ -4529,11 +4816,18 @@ function openMod(m){
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
   if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
   if(m==='transf'){document.getElementById('transf-screen').style.display='block';document.getElementById('title').textContent='STOCK TRANSFERS';Transf.init();}
+  if(m==='caja'){
+    var cs=document.getElementById('caja-screen');
+    cs.style.display='flex';cs.classList.add('on');
+    document.getElementById('title').textContent='CAJA CHICA';
+    var fr=document.getElementById('caja-frame');
+    if(fr&&!fr.getAttribute('data-loaded')){fr.setAttribute('data-loaded','1');}
+  }
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
 }
 function goHome(){
-  ['dash-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen'].forEach(function(id){
-    var e=document.getElementById(id);if(e)e.style.display='none';
+  ['dash-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'].forEach(function(id){
+    var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('home').style.display='grid';
   document.getElementById('backBtn').style.display='none';
