@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v155</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v156</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -233,6 +233,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 <div id="mailcfg-screen" style="display:none"><div id="mailcfg-body"></div></div>
 <div id="consig-screen" style="display:none"></div>
   <div id="cot-screen" style="display:none"></div>
+  <div id="prov-screen" style="display:none"></div>
+  <div id="transf-screen" style="display:none"></div>
 </div>
 
 <script>
@@ -276,7 +278,7 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
 /* v140: a veces Google convierte el POST en un GET (redirección) y contesta con la "tarjeta de presentación"
    del API ({ok:true, service, version}) en vez de ejecutar la acción. Se detecta y se reintenta; para acciones
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
-var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow)$/;
+var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow|saveVendor|saveStockTransfer)$/;
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
 function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi|ping|syncNow)/.test(accion);
   function go(){
@@ -837,7 +839,7 @@ var Dash = (function(){
       if(!res.agg){body.innerHTML='<div class="cbz-error">El AdminAPI desplegado es una versión antigua (sin agg). Pega AdminAPI_v3 y crea Nueva versión de la implementación.</div>';return;}
       agg=res.agg; top=res.topClientes||[]; orders=res.orders||[];
       try { render(); } catch(e){ body.innerHTML='<div class="cbz-error">Error pintando: '+e+'</div>'; }
-    }).catch(function(e){body.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
+    }).catch(function(e){body.innerHTML='<div class="cbz-error">Fallo de red: '+MCerr(e)+'</div>';});
   }
   function render(){
     var body=document.getElementById('dash-body');
@@ -4094,6 +4096,328 @@ var Sols = (function(){
   return {init:init,aprobar:aprobar};
 })();
 
+
+/* ===================== PROVEEDORES (espejo inFlow) ===================== */
+var Prov = (function(){
+  var lista=[], q='', vista='list', cur=null, saving=false;
+  function api(p){p.user=getUserName();p.pin=getPin();return MCpost(p);}
+  function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function el(){return document.getElementById('prov-screen');}
+  function init(){vista='list';cur=null;q='';cargar();}
+  function cargar(){
+    el().innerHTML='<div class="cbz-loading">Cargando proveedores...</div>';
+    api({action:'listVendors',q:q||undefined}).then(function(res){
+      if(!res.ok){el().innerHTML='<div class="cbz-error">'+esc(res.error)+'</div>';return;}
+      lista=res.vendors||[];
+      if(vista==='list') renderList(); else renderForm();
+    }).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
+  }
+  function setQ(v){q=v||'';}
+  function buscar(){vista='list';cargar();}
+  function nuevo(){
+    cur={vendorId:'',name:'',contactName:'',email:'',phone:'',website:'',isActive:true,remarks:'',discount:'',leadTimeDays:'',defaultPaymentMethod:''};
+    vista='form';renderForm();
+  }
+  function abrir(id){
+    el().innerHTML='<div class="cbz-loading">Cargando...</div>';
+    api({action:'getVendor',vendorId:id}).then(function(res){
+      if(!res.ok){alert(res.error||'Error');vista='list';renderList();return;}
+      cur=res.vendor;vista='form';renderForm();
+    }).catch(function(e){alert(MCerr(e));});
+  }
+  function volver(){vista='list';renderList();}
+  function renderList(){
+    var h='<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
+      '<input class="uinput" id="prov-q" placeholder="Buscar proveedor..." value="'+esc(q)+'" style="flex:1;min-width:160px" onkeydown="if(event.key===\'Enter\')Prov.buscar()">'+
+      '<button class="chip" onclick="Prov.setQ(document.getElementById(\'prov-q\').value);Prov.buscar()">🔎 Buscar</button>'+
+      '<button class="cbz-btn" onclick="Prov.nuevo()">＋ Nuevo</button>'+
+      '<button class="chip" onclick="Prov.cargar()">⟳</button></div>';
+    if(!lista.length){
+      h+='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🏭</div>'+
+        '<div class="cbz-card-name" style="margin:8px 0">Sin proveedores</div>'+
+        '<div class="cbz-muted">Crea el primero o ajusta la búsqueda.</div></div>';
+    } else {
+      h+=lista.map(function(v){
+        return '<div class="cbz-card" style="cursor:pointer" onclick="Prov.abrir(\''+esc(v.vendorId)+'\')">'+
+          '<div class="cbz-card-top"><div class="cbz-card-name">'+esc(v.name)+'</div>'+
+          (v.isActive?'<span class="tagx tf">Activo</span>':'<span class="tagx tn">Inactivo</span>')+'</div>'+
+          '<div class="pmeta">'+(esc(v.contactName)||'—')+(v.email?' · '+esc(v.email):'')+(v.phone?' · '+esc(v.phone):'')+'</div></div>';
+      }).join('');
+    }
+    el().innerHTML=h;
+  }
+  function renderForm(){
+    var v=cur||{};
+    var h='<div class="cbz-card-row" style="margin-bottom:8px">'+
+      '<button class="chip" onclick="Prov.volver()">← Lista</button>'+
+      '<span class="cbz-muted">'+(v.vendorId?'Editar':'Nuevo proveedor')+'</span></div>'+
+      '<div class="cbz-card"><div class="uform">'+
+      '<input class="uinput" id="pv-name" placeholder="Nombre *" value="'+esc(v.name)+'">'+
+      '<input class="uinput" id="pv-contact" placeholder="Contacto" value="'+esc(v.contactName)+'">'+
+      '<input class="uinput" id="pv-email" placeholder="Email" value="'+esc(v.email)+'">'+
+      '<input class="uinput" id="pv-phone" placeholder="Teléfono" value="'+esc(v.phone)+'">'+
+      '<input class="uinput" id="pv-web" placeholder="Website" value="'+esc(v.website)+'">'+
+      '<div class="cbz-card-row">'+
+      '<input class="uinput" id="pv-disc" placeholder="Descuento %" value="'+esc(v.discount)+'" style="max-width:120px">'+
+      '<input class="uinput" id="pv-lead" placeholder="Lead time (días)" value="'+(v.leadTimeDays!=null?esc(v.leadTimeDays):'')+'" style="max-width:140px" inputmode="numeric">'+
+      '<input class="uinput" id="pv-pay" placeholder="Método de pago" value="'+esc(v.defaultPaymentMethod)+'"></div>'+
+      '<textarea class="uinput" id="pv-rem" placeholder="Observaciones" rows="3">'+esc(v.remarks)+'</textarea>'+
+      '<label class="cbz-esc"><input type="checkbox" id="pv-act" '+(v.isActive!==false?'checked':'')+'> Activo</label>'+
+      '<div class="cbz-card-row"><button class="cbz-btn" id="pv-save" onclick="Prov.guardar()">Guardar en inFlow</button></div>'+
+      '</div></div>';
+    el().innerHTML=h;
+  }
+  function guardar(){
+    if(saving)return;
+    var name=(document.getElementById('pv-name').value||'').trim();
+    if(!name){alert('El nombre es obligatorio');return;}
+    var payload={
+      action:'saveVendor',
+      vendorId:cur&&cur.vendorId||'',
+      name:name,
+      contactName:(document.getElementById('pv-contact').value||'').trim(),
+      email:(document.getElementById('pv-email').value||'').trim(),
+      phone:(document.getElementById('pv-phone').value||'').trim(),
+      website:(document.getElementById('pv-web').value||'').trim(),
+      discount:(document.getElementById('pv-disc').value||'').trim(),
+      leadTimeDays:(document.getElementById('pv-lead').value||'').trim(),
+      defaultPaymentMethod:(document.getElementById('pv-pay').value||'').trim(),
+      remarks:(document.getElementById('pv-rem').value||'').trim(),
+      isActive:!!document.getElementById('pv-act').checked
+    };
+    saving=true;
+    var btn=document.getElementById('pv-save');
+    if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+    api(payload).then(function(res){
+      saving=false;
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}alert(res.error||'Error');return;}
+      alert(res.created?'Proveedor creado en inFlow.':'Proveedor actualizado.');
+      vista='list';q='';cargar();
+    }).catch(function(e){
+      saving=false;
+      if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}
+      alert(MCerr(e));
+    });
+  }
+  return {init:init,cargar:cargar,buscar:buscar,setQ:setQ,nuevo:nuevo,abrir:abrir,volver:volver,guardar:guardar};
+})();
+
+/* ===================== STOCK TRANSFERS (espejo inFlow) ===================== */
+var Transf = (function(){
+  var lista=[], locs=[], vista='list', cur=null, saving=false, invCache=null;
+  function api(p){p.user=getUserName();p.pin=getPin();return MCpost(p);}
+  function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function el(){return document.getElementById('transf-screen');}
+  function init(){vista='list';cur=null;cargar();}
+  function ensureLocs(cb){
+    if(locs.length){cb();return;}
+    api({action:'listLocations'}).then(function(res){
+      locs=res.ok?(res.locations||[]).filter(function(l){return l.isActive!==false;}):[];
+      cb();
+    }).catch(function(){locs=[];cb();});
+  }
+  function cargar(){
+    el().innerHTML='<div class="cbz-loading">Cargando transfers...</div>';
+    ensureLocs(function(){
+      api({action:'listStockTransfers'}).then(function(res){
+        if(!res.ok){el().innerHTML='<div class="cbz-error">'+esc(res.error)+'</div>';return;}
+        lista=res.transfers||[];
+        if(vista==='list') renderList(); else renderForm();
+      }).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
+    });
+  }
+  function locOpts(sel){
+    return '<option value="">— Bodega —</option>'+locs.map(function(l){
+      return '<option value="'+esc(l.locationId)+'"'+(sel===l.locationId?' selected':'')+'>'+esc(l.name)+'</option>';
+    }).join('');
+  }
+  function nuevo(){
+    ensureLocs(function(){
+      cur={stockTransferId:'',fromLocationId:'',toLocationId:'',transferDate:new Date().toISOString().slice(0,10),
+        status:'Open',remarks:'',isCancelled:false,lines:[{productId:'',quantity:1,fromSublocation:'',toSublocation:''}],cliente:''};
+      vista='form';renderForm();
+    });
+  }
+  function abrir(id){
+    el().innerHTML='<div class="cbz-loading">Cargando...</div>';
+    ensureLocs(function(){
+      api({action:'getStockTransfer',stockTransferId:id}).then(function(res){
+        if(!res.ok){alert(res.error||'Error');vista='list';renderList();return;}
+        cur=res.transfer;
+        if(!cur.lines||!cur.lines.length)cur.lines=[{productId:'',quantity:1}];
+        var cf=cur.customFields||{};
+        cur.cliente=cf.custom1||'';
+        vista='form';renderForm();
+      }).catch(function(e){alert(MCerr(e));});
+    });
+  }
+  function volver(){vista='list';renderList();}
+  function renderList(){
+    var h='<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
+      '<button class="cbz-btn" onclick="Transf.nuevo()">＋ Nuevo transfer</button>'+
+      '<button class="chip" onclick="Transf.cargar()">⟳</button>'+
+      '<span class="cbz-muted">'+(lista.length||0)+' recientes</span></div>';
+    if(!lista.length){
+      h+='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">🔁</div>'+
+        '<div class="cbz-card-name" style="margin:8px 0">Sin transfers</div></div>';
+    } else {
+      h+=lista.map(function(t){
+        return '<div class="cbz-card" style="cursor:pointer" onclick="Transf.abrir(\''+esc(t.stockTransferId)+'\')">'+
+          '<div class="cbz-card-top"><div class="cbz-card-name">'+(esc(t.transferNumber)||'(sin número)')+'</div>'+
+          '<span class="tagx">'+(t.isCancelled?'Cancelado':esc(t.status||'—'))+'</span></div>'+
+          '<div class="pmeta">'+(esc(t.transferDate)||'—')+' · '+esc(t.fromLocationName||'?')+' → '+esc(t.toLocationName||'?')+
+          ' · '+(t.linesCount||0)+' líneas · qty '+(t.qtyTotal||0)+'</div>'+
+          (t.remarks?'<div class="cbz-muted" style="font-size:11px;margin-top:4px">'+esc(t.remarks).slice(0,120)+'</div>':'')+
+          '</div>';
+      }).join('');
+    }
+    el().innerHTML=h;
+  }
+  function lineRow(ln,i){
+    return '<div class="cbz-card" style="padding:10px" id="tl-'+i+'">'+
+      '<div class="cbz-card-row" style="flex-wrap:wrap">'+
+      '<input class="uinput" id="tl-pid-'+i+'" placeholder="productId (UUID) o SKU" value="'+esc(ln.productId)+'" style="flex:2;min-width:160px" list="tl-prod-dl">'+
+      '<input class="uinput" id="tl-qty-'+i+'" type="number" min="0.0001" step="any" placeholder="Cant." value="'+esc(ln.quantity)+'" style="max-width:100px">'+
+      '<button class="chip" onclick="Transf.rmLine('+i+')" title="Quitar">✖</button></div>'+
+      '<div class="cbz-card-row" style="margin-top:6px">'+
+      '<input class="uinput" id="tl-fs-'+i+'" placeholder="Subloc origen" value="'+esc(ln.fromSublocation||'')+'" style="max-width:160px">'+
+      '<input class="uinput" id="tl-ts-'+i+'" placeholder="Subloc destino" value="'+esc(ln.toSublocation||'')+'" style="max-width:160px">'+
+      '</div></div>';
+  }
+  function loadInvSuggest(cb){
+    if(invCache){cb();return;}
+    api({action:'getInventario'}).then(function(res){
+      invCache=res.ok?(res.items||[]):[];
+      cb();
+    }).catch(function(){invCache=[];cb();});
+  }
+  function renderForm(){
+    loadInvSuggest(function(){
+      var t=cur||{};
+      var dl='<datalist id="tl-prod-dl">'+(invCache||[]).slice(0,800).map(function(it){
+        var pid=it.productId||it.id||'';
+        if(!pid)return '';
+        return '<option value="'+esc(pid)+'">'+esc((it.sku||'')+' — '+(it.nombre||it.name||''))+'</option>';
+      }).join('')+'</datalist>';
+      var h='<div class="cbz-card-row" style="margin-bottom:8px">'+
+        '<button class="chip" onclick="Transf.volver()">← Lista</button>'+
+        '<span class="cbz-muted">'+(t.stockTransferId?(esc(t.transferNumber)||'Editar'):'Nuevo transfer')+'</span></div>'+
+        '<div class="cbz-card"><div class="uform">'+
+        '<div class="cbz-card-row" style="flex-wrap:wrap">'+
+        '<select class="uinput" id="tf-from" style="flex:1;min-width:140px">'+locOpts(t.fromLocationId)+'</select>'+
+        '<span style="align-self:center">→</span>'+
+        '<select class="uinput" id="tf-to" style="flex:1;min-width:140px">'+locOpts(t.toLocationId)+'</select></div>'+
+        '<div class="cbz-card-row" style="flex-wrap:wrap">'+
+        '<input class="uinput" id="tf-date" type="date" value="'+esc(t.transferDate||'')+'" style="max-width:160px">'+
+        '<select class="uinput" id="tf-status" style="max-width:160px">'+
+        ['Open','InTransit','Completed'].map(function(s){return '<option'+(t.status===s?' selected':'')+'>'+s+'</option>';}).join('')+
+        '</select>'+
+        '<input class="uinput" id="tf-cli" placeholder="Cliente (custom)" value="'+esc(t.cliente||'')+'" style="flex:1;min-width:120px"></div>'+
+        '<textarea class="uinput" id="tf-rem" placeholder="Observaciones" rows="2">'+esc(t.remarks||'')+'</textarea>'+
+        '<label class="cbz-esc"><input type="checkbox" id="tf-cancel" '+(t.isCancelled?'checked':'')+'> Cancelado</label>'+
+        '<div class="cbz-card-name" style="margin:10px 0 6px">Líneas</div>'+
+        '<div id="tf-lines">'+(t.lines||[]).map(lineRow).join('')+'</div>'+
+        '<div class="cbz-card-row" style="margin-top:8px">'+
+        '<button class="chip" onclick="Transf.addLine()">＋ Línea</button>'+
+        '<button class="cbz-btn" id="tf-save" onclick="Transf.guardar()">Guardar en inFlow</button></div>'+
+        dl+
+        '<div class="cbz-muted" style="font-size:11px;margin-top:8px">MVP: productId libre (UUID). Si cargó inventario, el datalist sugiere SKU→id.</div>'+
+        '</div></div>';
+      el().innerHTML=h;
+    });
+  }
+  function collectLines(){
+    var out=[], i=0;
+    while(document.getElementById('tl-pid-'+i)){
+      var pid=(document.getElementById('tl-pid-'+i).value||'').trim();
+      var qty=parseFloat(document.getElementById('tl-qty-'+i).value);
+      var fs=(document.getElementById('tl-fs-'+i).value||'').trim();
+      var ts=(document.getElementById('tl-ts-'+i).value||'').trim();
+      var prev=(cur.lines&&cur.lines[i])||{};
+      // si escribieron SKU, resolver a productId desde cache
+      if(pid && invCache){
+        var hit=null;
+        for(var j=0;j<invCache.length;j++){
+          var it=invCache[j];
+          var id=String(it.productId||it.id||'');
+          if(id===pid || String(it.sku||'')===pid){hit=id||pid;break;}
+        }
+        if(hit)pid=hit;
+      }
+      out.push({
+        stockTransferLineId:prev.stockTransferLineId||'',
+        productId:pid,
+        quantity:qty,
+        fromSublocation:fs,
+        toSublocation:ts
+      });
+      i++;
+    }
+    return out;
+  }
+  function addLine(){
+    cur.lines=collectLines();
+    cur.lines.push({productId:'',quantity:1,fromSublocation:'',toSublocation:''});
+    // preserve header fields
+    cur.fromLocationId=document.getElementById('tf-from').value;
+    cur.toLocationId=document.getElementById('tf-to').value;
+    cur.transferDate=document.getElementById('tf-date').value;
+    cur.status=document.getElementById('tf-status').value;
+    cur.remarks=document.getElementById('tf-rem').value;
+    cur.cliente=document.getElementById('tf-cli').value;
+    cur.isCancelled=document.getElementById('tf-cancel').checked;
+    renderForm();
+  }
+  function rmLine(i){
+    cur.lines=collectLines();
+    cur.lines.splice(i,1);
+    if(!cur.lines.length)cur.lines=[{productId:'',quantity:1}];
+    cur.fromLocationId=document.getElementById('tf-from').value;
+    cur.toLocationId=document.getElementById('tf-to').value;
+    cur.transferDate=document.getElementById('tf-date').value;
+    cur.status=document.getElementById('tf-status').value;
+    cur.remarks=document.getElementById('tf-rem').value;
+    cur.cliente=document.getElementById('tf-cli').value;
+    cur.isCancelled=document.getElementById('tf-cancel').checked;
+    renderForm();
+  }
+  function guardar(){
+    if(saving)return;
+    var fromId=document.getElementById('tf-from').value;
+    var toId=document.getElementById('tf-to').value;
+    if(!fromId||!toId){alert('Elige bodega origen y destino');return;}
+    if(fromId===toId){alert('Origen y destino deben ser distintos');return;}
+    var lines=collectLines().filter(function(l){return l.productId&&l.quantity>0;});
+    if(!lines.length){alert('Agrega al menos una línea con productId y cantidad');return;}
+    var payload={
+      action:'saveStockTransfer',
+      stockTransferId:cur&&cur.stockTransferId||'',
+      fromLocationId:fromId,
+      toLocationId:toId,
+      transferDate:document.getElementById('tf-date').value||undefined,
+      status:document.getElementById('tf-status').value,
+      remarks:document.getElementById('tf-rem').value||'',
+      isCancelled:!!document.getElementById('tf-cancel').checked,
+      cliente:(document.getElementById('tf-cli').value||'').trim(),
+      lines:lines
+    };
+    saving=true;
+    var btn=document.getElementById('tf-save');
+    if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+    api(payload).then(function(res){
+      saving=false;
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}alert(res.error||'Error');return;}
+      alert(res.created?'Transfer creado en inFlow.':'Transfer actualizado.');
+      vista='list';cargar();
+    }).catch(function(e){
+      saving=false;
+      if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}
+      alert(MCerr(e));
+    });
+  }
+  return {init:init,cargar:cargar,nuevo:nuevo,abrir:abrir,volver:volver,addLine:addLine,rmLine:rmLine,guardar:guardar};
+})();
+
 /* ===================== NAVEGACIÓN ===================== */
 function getProfile(){
   try{return JSON.parse(localStorage.getItem('mc_profile')||'{}');}catch(e){return {};}
@@ -4125,7 +4449,8 @@ function renderHome(){
     });
   }
   if(p.rol==='cliente'&&p.master) h+='<div class="mod" onclick="openMod(\'minv\')"><div class="ico">👥</div><h3>Mi equipo</h3><p>Invita usuarios de tu organización</p></div>';
-  if(can('proveedores')) h+='<div class="mod soon"><div class="ico">🏭</div><h3>Proveedores</h3><p>CxP, por recibir y por pagar</p><span class="tag">Próximamente</span></div>';
+  if(can('proveedores')) h+='<div class="mod" onclick="openMod(\'prov\')"><div class="ico">🏭</div><h3>Proveedores</h3><p>Lista, alta y edición espejo de inFlow</p></div>';
+  if(can('transfers')) h+='<div class="mod" onclick="openMod(\'transf\')"><div class="ico">🔁</div><h3>Stock Transfers</h3><p>Traspasos entre bodegas (espejo inFlow)</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>De todos los clientes, con días por acta</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'sols\')"><div class="ico">🔔</div><h3>Aprobaciones</h3><p>Solicitudes de acceso de clientes</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
@@ -4148,7 +4473,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v104'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v105'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -4187,7 +4512,7 @@ function doSyncNow(){
 }
 function openMod(m){
   document.getElementById('home').style.display='none';
-  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen'].forEach(function(id){
+  ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e)e.style.display='none';
   });
   document.getElementById('backBtn').style.display='block';
@@ -4202,18 +4527,14 @@ function openMod(m){
   if(m==='mailcfg'){document.getElementById('mailcfg-screen').style.display='block';document.getElementById('title').textContent='CORREO DEL SISTEMA';MailCfg.init();}
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
+  if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
+  if(m==='transf'){document.getElementById('transf-screen').style.display='block';document.getElementById('title').textContent='STOCK TRANSFERS';Transf.init();}
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
 }
 function goHome(){
-  document.getElementById('dash-screen').style.display='none';
-  document.getElementById('cobranza-screen').style.display='none';
-  document.getElementById('inv-screen').style.display='none';
-  document.getElementById('users-screen').style.display='none';
-  document.getElementById('edc-screen').style.display='none';
-  document.getElementById('minv-screen').style.display='none';
-  document.getElementById('sols-screen').style.display='none';
-  document.getElementById('consig-screen').style.display='none';
-  document.getElementById('cot-screen').style.display='none';
+  ['dash-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen'].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.style.display='none';
+  });
   document.getElementById('home').style.display='grid';
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='';
