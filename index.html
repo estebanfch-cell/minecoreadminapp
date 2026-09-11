@@ -213,7 +213,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v158</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v159</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -249,7 +249,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
     </div>
     <iframe id="caja-frame"
       title="Caja Chica"
-      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;mod=caja&amp;v=157"
+      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;mod=caja&amp;v=17"
       allow="camera; microphone; geolocation"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
       referrerpolicy="no-referrer-when-downgrade"></iframe>
@@ -274,6 +274,62 @@ window.addEventListener&&window.addEventListener('unhandledrejection',function(e
 function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);localStorage.setItem('mc_pin',p);}catch(e){}}
 function getUserName(){try{return localStorage.getItem('mc_user_name')||'';}catch(e){return '';}}
 function getPin(){try{return localStorage.getItem('mc_pin')||window._pinSesion||'';}catch(e){return window._pinSesion||'';}}
+
+function mapCajaUsuario(adminName){
+  var n=String(adminName||'').trim().toLowerCase();
+  if(!n) return '';
+  if(/^(efch|esteban\b|esteban ferlito)/.test(n)) return 'EFCH';
+  if(/^(mpl|martin\b|martín\b|martin pinto|martín pinto)/.test(n)) return 'MPL';
+  if(/^(opm|oswaldo\b)/.test(n)) return 'OPM';
+  if(/^(ag|angel\b|ángel\b)/.test(n)) return 'AG';
+  // if already a short code
+  var up=String(adminName||'').trim().toUpperCase();
+  if(/^(EFCH|MPL|OPM|AG)$/.test(up)) return up;
+  return up; // best-effort
+}
+function cajaNombreFromCode(code){
+  return ({EFCH:'Esteban Ferlito',MPL:'Martín Pinto',OPM:'Oswaldo Peña',AG:'Ángel Guachamin'})[code]||code;
+}
+function writeCajaEmbedSso(){
+  try{
+    var adminUser=getUserName();
+    var perfil={}; try{perfil=JSON.parse(localStorage.getItem('mc_profile')||'{}');}catch(e){}
+    var code=mapCajaUsuario(adminUser)||mapCajaUsuario(perfil.nombre)||'EFCH';
+    var rolAdmin=String(perfil.rol||'').toLowerCase();
+    var rol=(rolAdmin==='admin')?'admin':'chofer';
+    // known caja admins
+    if(code==='EFCH'||code==='MPL') rol='admin';
+    var sso={
+      ok:true,
+      usuario:code,
+      nombre:cajaNombreFromCode(code),
+      rol:rol,
+      pin:getPin()||'',
+      ts:Date.now()
+    };
+    localStorage.setItem('mc_embed_sso', JSON.stringify(sso));
+    return sso;
+  }catch(e){ return null; }
+}
+function refreshCajaFrame(){
+  var fr=document.getElementById('caja-frame');
+  if(!fr) return;
+  writeCajaEmbedSso();
+  var base='https://estebanfch-cell.github.io/minecore/?embed=1&mod=caja&v=17&t='+Date.now();
+  fr.src=base;
+  fr.setAttribute('data-loaded','1');
+  // also postMessage after load (belt+suspenders)
+  fr.onload=function(){
+    try{
+      var raw=localStorage.getItem('mc_embed_sso');
+      // re-write because minecore may consume one-shot; keep posting payload
+      var sso=writeCajaEmbedSso();
+      if(sso && fr.contentWindow){
+        fr.contentWindow.postMessage({type:'mc-admin-sso', usuario:sso.usuario, nombre:sso.nombre, rol:sso.rol, pin:sso.pin||''}, 'https://estebanfch-cell.github.io');
+      }
+    }catch(e){}
+  };
+}
 function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');}catch(e){}}
 function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
 function b64uToBuf(s){
@@ -4820,8 +4876,7 @@ function openMod(m){
     var cs=document.getElementById('caja-screen');
     cs.style.display='flex';cs.classList.add('on');
     document.getElementById('title').textContent='CAJA CHICA';
-    var fr=document.getElementById('caja-frame');
-    if(fr&&!fr.getAttribute('data-loaded')){fr.setAttribute('data-loaded','1');}
+    refreshCajaFrame();
   }
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
 }
