@@ -205,7 +205,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v154</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v155</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -276,7 +276,7 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
 /* v140: a veces Google convierte el POST en un GET (redirección) y contesta con la "tarjeta de presentación"
    del API ({ok:true, service, version}) en vez de ejecutar la acción. Se detecta y se reintenta; para acciones
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
-var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit)$/;
+var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow)$/;
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
 function MCpost(p){var body=JSON.stringify(p);var accion=String(p.action||'');var lectura=/^(get|list|mi|ping|syncNow)/.test(accion);
   function go(){
@@ -328,11 +328,7 @@ var Cobranza = (function () {
 
   function api(payload) {
     payload.user = getUserName(); payload.pin = getPin();
-    return fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
-      body: JSON.stringify(payload)
-    }).then(function (r) { return r.json(); });
+    return MCpost(payload);
   }
 
   function init() {
@@ -835,17 +831,13 @@ var Dash = (function(){
     var body=document.getElementById('dash-body');
     body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
     openId=null;
-    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'getDashboard',fromDate:from,toDate:to,user:getUserName(),pin:getPin()})})
-    .then(function(r){return r.text();}).then(function(txt){
-      var res;
-      try { res = JSON.parse(txt); }
-      catch(e){ body.innerHTML='<div class="cbz-error">El servidor no respondió JSON (¿autorización o versión vieja?). Respuesta: '+txt.slice(0,120)+'</div>'; return; }
+    MCpost({action:'getDashboard',fromDate:from,toDate:to,user:getUserName(),pin:getPin()})
+    .then(function(res){
       if(!res.ok){body.innerHTML='<div class="cbz-error">Error del servidor: '+(res.error||'desconocido')+'</div>';return;}
       if(!res.agg){body.innerHTML='<div class="cbz-error">El AdminAPI desplegado es una versión antigua (sin agg). Pega AdminAPI_v3 y crea Nueva versión de la implementación.</div>';return;}
       agg=res.agg; top=res.topClientes||[]; orders=res.orders||[];
       try { render(); } catch(e){ body.innerHTML='<div class="cbz-error">Error pintando: '+e+'</div>'; }
-    }).catch(function(e){body.innerHTML='<div class="cbz-error">Fallo de red: '+e+'</div>';});
+    }).catch(function(e){body.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
   function render(){
     var body=document.getElementById('dash-body');
@@ -1180,7 +1172,7 @@ var Users = (function(){
     }
     api({action:'createInvite',rol:rol,modulos:modsSel,empresa:(rol==='cliente'&&document.getElementById('i-emp')?document.getElementById('i-emp').value.trim():'')}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
-      var link=location.origin+location.pathname+'?invite='+res.token;      var link=location.origin+location.pathname+'?invite='+res.token;
+      var link=location.origin+location.pathname+'?invite='+res.token;
       var box=document.getElementById('i-result');
       box.innerHTML='<div class="cbz-muted" style="margin:8px 0 4px">Link listo ('+res.rol+' · '+(res.modulos||'sin módulos')+') — envíalo por WhatsApp o correo. La persona crea su propio nombre y PIN:</div>'+
         '<input class="uinput" id="i-link" readonly value="'+link+'">'+
@@ -4156,7 +4148,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v103'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v104'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
