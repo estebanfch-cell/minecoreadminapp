@@ -213,7 +213,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v159</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v160</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -245,11 +245,11 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <div id="transf-screen" style="display:none"></div>
   <div id="caja-screen">
     <div id="caja-head">
-      <div class="caja-note">Misma app y fotos que minecore (Drive)</div>
+      <div class="caja-note">App completa minecore (Rutas + Caja) · mismos datos y fotos</div>
     </div>
     <iframe id="caja-frame"
-      title="Caja Chica"
-      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;mod=caja&amp;v=17"
+      title="Rutas y Caja Chica"
+      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=18"
       allow="camera; microphone; geolocation"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
       referrerpolicy="no-referrer-when-downgrade"></iframe>
@@ -315,7 +315,7 @@ function refreshCajaFrame(){
   var fr=document.getElementById('caja-frame');
   if(!fr) return;
   writeCajaEmbedSso();
-  var base='https://estebanfch-cell.github.io/minecore/?embed=1&mod=caja&v=17&t='+Date.now();
+  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=18&t='+Date.now();
   fr.src=base;
   fr.setAttribute('data-loaded','1');
   // also postMessage after load (belt+suspenders)
@@ -4793,7 +4793,7 @@ function renderHome(){
   if(p.rol==='cliente'&&p.master) h+='<div class="mod" onclick="openMod(\'minv\')"><div class="ico">👥</div><h3>Mi equipo</h3><p>Invita usuarios de tu organización</p></div>';
   if(can('proveedores')) h+='<div class="mod" onclick="openMod(\'prov\')"><div class="ico">🏭</div><h3>Proveedores</h3><p>Proveedores y órdenes de compra (espejo inFlow)</p></div>';
   if(can('transfers')) h+='<div class="mod" onclick="openMod(\'transf\')"><div class="ico">🔁</div><h3>Stock Transfers</h3><p>Traspasos entre bodegas (espejo inFlow)</p></div>';
-  if(can('caja')) h+='<div class="mod" onclick="openMod(\'caja\')"><div class="ico">💵</div><h3>Caja Chica</h3><p>Misma app y fotos que minecore (Drive)</p></div>';
+  if(can('caja')) h+='<div class="mod" onclick="openMod(\'caja\')"><div class="ico">💵</div><h3>Rutas y Caja Chica</h3><p>Misma app minecore: rutas, caja, fotos (Drive)</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>De todos los clientes, con días por acta</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'sols\')"><div class="ico">🔔</div><h3>Aprobaciones</h3><p>Solicitudes de acceso de clientes</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
@@ -4816,7 +4816,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v107'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v108'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -4875,7 +4875,7 @@ function openMod(m){
   if(m==='caja'){
     var cs=document.getElementById('caja-screen');
     cs.style.display='flex';cs.classList.add('on');
-    document.getElementById('title').textContent='CAJA CHICA';
+    document.getElementById('title').textContent='RUTAS Y CAJA CHICA';
     refreshCajaFrame();
   }
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
