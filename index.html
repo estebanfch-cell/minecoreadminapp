@@ -191,7 +191,10 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <input id="inv-nombre" placeholder="Nombre de usuario (corto, para entrar)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-mail" type="email" placeholder="Correo electrónico" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-tel" type="tel" placeholder="Teléfono" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <input id="inv-cedula" inputmode="numeric" maxlength="13" placeholder="Cédula (6-13 dígitos)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <div id="inv-emp-locked" style="display:none;width:100%;background:#eef3f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:14px;padding:12px;margin-bottom:10px;text-align:center;font-weight:600"></div>
   <input id="inv-emp" placeholder="Empresa u organización" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
+  <div id="inv-peek-info" style="color:#5a6a7a;font-size:11px;margin-bottom:8px;min-height:14px"></div>
   <input id="inv-pin" type="text" class="pinmask" autocomplete="one-time-code" name="inv_pin_nosave" inputmode="numeric" maxlength="8" placeholder="Elige tu PIN (4-8 dígitos)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-pin2" type="text" class="pinmask" autocomplete="one-time-code" name="inv_pin2_nosave" inputmode="numeric" maxlength="8" placeholder="Repite tu PIN" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;text-align:center">
   <button onclick="doRedeem()" style="width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Crear mi usuario</button>
@@ -213,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v162</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v163</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -1061,7 +1064,9 @@ var Users = (function(){
         (u.master?' <span class="tagx" style="background:#3a2c1c;color:#f0c040">MÁSTER</span>':'')+
         (u.rol==='cliente'&&!u.aprobado?(u.solicitud?' <span class="tagx tn">🔔 SOLICITÓ ACCESO '+u.solicitud+'</span>':' <span class="tagx tn">POR APROBAR</span>'):'')+
         (u.activo?'':' <span class="tagx tn">INACTIVO</span>')+'</div>'+
-        '<button class="cbz-btn-sec" onclick="Users.edit('+i+')">'+(isEd?'Cerrar':'Editar')+'</button></div>'+
+        '<div style="display:flex;gap:6px">'+
+        '<button class="cbz-btn-sec" onclick="Users.preview(\''+String(u.nombre).replace(/'/g,"\\'")+'\')" title="Ver como este usuario">👁 Preview</button>'+
+        '<button class="cbz-btn-sec" onclick="Users.edit('+i+')">'+(isEd?'Cerrar':'Editar')+'</button></div></div>'+
         '<div class="cbz-card-row cbz-muted">Módulos: '+(u.modulos||'ninguno')+'</div>';
       if(isEd) card+=formHtml(u,false);
       return card+'</div>';
@@ -1219,8 +1224,12 @@ var Users = (function(){
       '</select>'+
       '<div id="i-grid-int"><div class="cbz-card-row" style="flex-wrap:wrap">'+gridInt+'</div></div>'+
       '<div id="i-cli-wrap" style="display:none">'+
+        '<div class="cbz-muted" style="font-size:11px;margin:4px 0 8px">Portal cliente: <b>sin precios/costos/márgenes</b> en inventario. Solo módulos whitelist. La organización es <b>obligatoria</b> (se fija en el token).</div>'+
         '<div class="cbz-card-row" style="flex-wrap:wrap">'+gridCli+'</div>'+
-        '<input class="uinput" id="i-emp" placeholder="Empresa del cliente (opcional: si la fijas aquí, entra ya aprobado)">'+
+        '<label class="cbz-muted" style="font-size:11px;display:block;margin-top:8px">Organización (Clientes_Inflow) *</label>'+
+        '<input class="uinput" id="i-emp" list="i-emp-dl" placeholder="Escribe para buscar… (requerido)" autocomplete="off">'+
+        '<datalist id="i-emp-dl"></datalist>'+
+        '<div id="i-emp-hint" class="cbz-muted" style="font-size:11px;margin-top:4px">Cargando clientes…</div>'+
       '</div>'+
       '<div class="cbz-card-row">'+
       '<button class="cbz-btn" onclick="Users.crearInvite()">Crear link de invitación</button>'+
@@ -1232,6 +1241,22 @@ var Users = (function(){
     var esCli=document.getElementById('i-rol').value==='cliente';
     document.getElementById('i-grid-int').style.display=esCli?'none':'block';
     document.getElementById('i-cli-wrap').style.display=esCli?'block':'none';
+    if(esCli) loadInviteClientes();
+  }
+  var inflowCliCache=null;
+  function loadInviteClientes(){
+    var hint=document.getElementById('i-emp-hint');
+    var dl=document.getElementById('i-emp-dl');
+    if(!dl)return;
+    function fill(arr){
+      dl.innerHTML=arr.map(function(n){return '<option value="'+String(n).replace(/"/g,'&quot;')+'">';}).join('');
+      if(hint)hint.textContent=arr.length+' organizaciones en Clientes_Inflow (elige nombre exacto)';
+    }
+    if(inflowCliCache){fill(inflowCliCache);return;}
+    api({action:'getClientesInflowLista'}).then(function(res){
+      inflowCliCache=(res.ok?(res.clientes||[]):[]).map(function(c){return c.nombre||c;}).filter(String);
+      fill(inflowCliCache);
+    }).catch(function(){if(hint)hint.textContent='No se pudo cargar la lista; escribe el nombre exacto.';});
   }
 
   function crearInvite(){
@@ -1241,6 +1266,9 @@ var Users = (function(){
       modsSel=CMODS_REG.map(function(cm){return cm[0];}).filter(function(m){
         var c=document.getElementById('i-cmod-'+m);return c&&c.checked;
       }).join(',');
+      var emp=(document.getElementById('i-emp')?document.getElementById('i-emp').value.trim():'');
+      if(!emp){alert('Elige la organización del cliente (obligatorio).');return;}
+      if(!modsSel){alert('Elige al menos un módulo del portal.');return;}
     } else {
       modsSel=mods.map(function(m){
         var act=document.getElementById('i-act-'+m).checked;
@@ -1268,7 +1296,10 @@ var Users = (function(){
   function cancelInvite(){editing=null;render();}
   var invListOpen=false;
   function togInvList(){invListOpen=!invListOpen;render();}
-  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList};
+  function preview(nombre){
+    PreviewAs.open(nombre);
+  }
+  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList,preview:preview,loadInviteClientes:loadInviteClientes};
 })();
 
 
@@ -1305,6 +1336,13 @@ var Inv = (function(){
     vista=v||'inv';
     cartLoad();
     var el=document.getElementById('inv-screen');
+    if(vista==='miscot'){
+      el.innerHTML='<div class="cbz-loading">Cargando cotizaciones...</div>';
+      try{var pr=getProfile();esCliente=pr.rol==='cliente';esAdmin=pr.rol==='admin';}catch(e){}
+      el.innerHTML=misCotHtml();
+      enviadas=null;cargarEnviadas();
+      return;
+    }
     el.innerHTML='<div class="cbz-loading">Cargando inventario...</div>';
     api({action:'getInventario'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
@@ -3669,7 +3707,7 @@ var MInv = (function(){
     p.user=getUserName();p.pin=getPin();
     return MCpost(p);
   }
-  var NOMBRES={inventario:'Inventario',estadocuenta:'Estado de cuenta',consignacion:'Consignación y alquiler'};
+  var NOMBRES={inventario:'Inventario',cotizaciones:'Cotizaciones',estadocuenta:'Estado de cuenta',consignacion:'Consignación y alquiler'};
   function propios(){
     var p=getProfile();
     var seen={};
@@ -4761,6 +4799,69 @@ var Transf = (function(){
   return {init:init,cargar:cargar,nuevo:nuevo,abrir:abrir,volver:volver,addLine:addLine,rmLine:rmLine,guardar:guardar};
 })();
 
+/* ===================== PREVIEW AS USER (admin) ===================== */
+var PreviewAs = (function(){
+  var open_=false;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function open(nombre){
+    var ov=document.getElementById('preview-overlay');
+    if(!ov){
+      ov=document.createElement('div');
+      ov.id='preview-overlay';
+      ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(8,12,18,.92);overflow:auto;padding:12px;';
+      document.body.appendChild(ov);
+    }
+    ov.style.display='block';
+    ov.innerHTML='<div class="cbz-loading" style="color:#fff;padding:40px;text-align:center">Cargando preview de '+esc(nombre)+'…</div>';
+    MCpost({action:'previewUserView',targetUser:nombre,user:getUserName(),pin:getPin()}).then(function(res){
+      if(!res.ok){ov.innerHTML='<div class="cbz-error" style="margin:40px auto;max-width:420px">'+(res.error||'Error')+'<br><button class="cbz-btn" onclick="PreviewAs.close()">Cerrar</button></div>';return;}
+      render(res);
+    }).catch(function(e){
+      ov.innerHTML='<div class="cbz-error" style="margin:40px auto;max-width:420px">'+MCerr(e)+'<br><button class="cbz-btn" onclick="PreviewAs.close()">Cerrar</button></div>';
+    });
+  }
+  function close(){
+    var ov=document.getElementById('preview-overlay');
+    if(ov)ov.style.display='none';
+    open_=false;
+  }
+  function labelMod(m){
+    var map={inventario:'📦 Inventario',cotizaciones:'🧾 Cotizaciones',estadocuenta:'💳 Estado de cuenta',consignacion:'🚚 Consignación',equipo:'👥 Mi equipo',dashboard:'📊 Dashboard',cobranza:'💰 Cobranza',proveedores:'🏭 Proveedores',transfers:'🔁 Transfers',caja:'💵 Caja'};
+    return map[m]||m;
+  }
+  function render(res){
+    var ov=document.getElementById('preview-overlay');
+    if(!ov)return;
+    open_=true;
+    var p=res.profile||{};
+    var inv=res.inventarioSample||{};
+    var tiles=(res.homeModules||[]).map(function(m){
+      return '<div class="mod" style="cursor:default;pointer-events:none"><div class="ico">'+(labelMod(m).split(' ')[0]||'•')+'</div><h3 style="font-size:14px">'+esc(labelMod(m).replace(/^\\S+\\s/,''))+'</h3><p style="font-size:11px">'+esc(m)+'</p></div>';
+    }).join('')||'<div class="cbz-muted">Sin módulos</div>';
+    var items=inv.items||[];
+    var leak=items.some(function(it){return it.precio!==undefined||it.costo!==undefined||it.margen!==undefined;});
+    var cards=items.slice(0,8).map(function(it){
+      var priceBits='';
+      if(it.precio!==undefined)priceBits+=' <span style="color:#e05c5c">PRECIO '+esc(it.precio)+'</span>';
+      if(it.costo!==undefined)priceBits+=' <span style="color:#e05c5c">COSTO</span>';
+      return '<div class="cbz-card" style="padding:8px 10px;margin:6px 0"><div class="cbz-card-name" style="font-size:13px">'+esc(it.nombre||it.sku)+'</div>'+
+        '<div class="cbz-muted" style="font-size:11px">SKU '+esc(it.sku)+' · stock '+(it.stock!==undefined?it.stock:'—')+priceBits+'</div></div>';
+    }).join('')||'<div class="cbz-muted">Sin muestra de inventario (sin módulo o vacío)</div>';
+    ov.innerHTML=
+      '<div style="position:sticky;top:0;z-index:2;background:#5a4a12;color:#fff;padding:10px 14px;border-radius:10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+      '<div><b>⚠ PREVIEW — no es tu sesión real</b><div style="font-size:12px;opacity:.9">Vista de <b>'+esc(p.nombre)+'</b> · rol '+esc(p.rol)+(p.empresa?' · '+esc(p.empresa):'')+(p.aprobado?' · aprobado':' · por aprobar')+'</div></div>'+
+      '<button class="cbz-btn" style="background:#fff;color:#0b1219" onclick="PreviewAs.close()">Salir del preview</button></div>'+
+      '<div style="max-width:720px;margin:0 auto">'+
+      '<div class="cbz-card"><div class="cbz-card-name">Home (módulos que vería)</div>'+
+      '<div class="mods" style="margin-top:8px">'+tiles+'</div></div>'+
+      '<div class="cbz-card" style="margin-top:12px"><div class="cbz-card-name">Inventario muestra'+(inv.esCliente?' (sanitizado · sin precios)':'')+(inv.truncated?' · '+items.length+' de '+(inv.totalItems||'?')+'':'')+'</div>'+
+      (leak?'<div class="cbz-error">⚠ Leak detectado: hay precio/costo/margen en la muestra</div>':'')+
+      (inv.ok===false?'<div class="cbz-error">'+(inv.error||'Error inventario')+'</div>':'')+
+      cards+'</div></div>';
+  }
+  return {open:open,close:close};
+})();
+
 /* ===================== NAVEGACIÓN ===================== */
 function getProfile(){
   try{return JSON.parse(localStorage.getItem('mc_profile')||'{}');}catch(e){return {};}
@@ -4768,7 +4869,7 @@ function getProfile(){
 // REGISTRO CENTRAL de módulos disponibles para clientes: agregar aquí un módulo
 // lo hace aparecer AUTOMÁTICAMENTE en: home del cliente, form de Usuarios e Invitaciones.
 var CMODS_REG=[
-  ['inventario','📦','Inventario','Catálogo, stock y carrito de cotización','inv'],
+  ['inventario','📦','Inventario','Catálogo y stock (sin precios) · carrito de solicitud','inv'],
   ['cotizaciones','🧾','Cotizaciones','Tus solicitudes y cotizaciones con precios','miscot'],
   ['estadocuenta','💳','Estado de cuenta','Tu cartera, facturas e historial de órdenes','edc'],
   ['consignacion','🚚','Consignación y alquiler','Qué tienes, desde qué acta y cuántos días','consig']
@@ -4817,7 +4918,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v109'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v110'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -5030,6 +5131,7 @@ function doRedeem(){
   var nombreCompleto=document.getElementById('inv-full').value.trim();
   var email=document.getElementById('inv-mail').value.trim();
   var telefono=document.getElementById('inv-tel').value.trim();
+  var cedula=(document.getElementById('inv-cedula')?document.getElementById('inv-cedula').value:'').replace(/[^0-9]/g,'');
   var empresa=document.getElementById('inv-emp').value.trim();
   var pin=document.getElementById('inv-pin').value.replace(/[^0-9]/g,'');
   var pin2=document.getElementById('inv-pin2').value.replace(/[^0-9]/g,'');
@@ -5037,15 +5139,17 @@ function doRedeem(){
   if(!nombre){err.textContent='Elige un nombre de usuario corto.';return;}
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)){err.textContent='Escribe un correo válido.';return;}
   if(telefono.replace(/[^0-9]/g,'').length<7){err.textContent='Escribe un teléfono válido.';return;}
+  if(cedula.length<6||cedula.length>13){err.textContent='Escribe tu cédula (6 a 13 dígitos).';return;}
   if(pin.length<4||pin.length>8){err.textContent='El PIN debe tener de 4 a 8 dígitos.';return;}
   if(pin!==pin2){err.textContent='Los PIN no coinciden.';return;}
   var token=decodeURIComponent((location.search.match(/[?&]invite=([^&]+)/)||[])[1]||'');
   if(!token){err.textContent='Link de invitación inválido.';return;}
   var btn=window.event&&window.event.target;
+  if(window._inviteLockedEmp){empresa=window._inviteLockedEmp;}
 
   function go(){
     if(btn){btn.disabled=true;btn.textContent='Creando...';}
-    MCpost({action:'redeemInvite',token:token,nombre:nombre,userPin:pin,empresa:empresa,nombreCompleto:nombreCompleto,telefono:telefono,email:email})
+    MCpost({action:'redeemInvite',token:token,nombre:nombre,userPin:pin,empresa:empresa,empresaConfirm:empresa,nombreCompleto:nombreCompleto,telefono:telefono,email:email,cedula:cedula})
     .then(function(res){
       if(btn){btn.disabled=false;btn.textContent='Crear mi usuario';}
       if(!res.ok){err.textContent=res.error||'No se pudo crear el usuario.';return;}
@@ -5102,6 +5206,28 @@ if(/[?&]invite=/.test(location.search)){
   document.body.style.background='#fff';
   document.getElementById('login').style.display='none';
   document.getElementById('invite').style.display='block';
+  (function(){
+    var token=decodeURIComponent((location.search.match(/[?&]invite=([^&]+)/)||[])[1]||'');
+    if(!token)return;
+    var info=document.getElementById('inv-peek-info');
+    MCpost({action:'invitePeek',token:token}).then(function(res){
+      if(!res||!res.ok){
+        if(info)info.textContent=(res&&res.error)||'Invitación no válida';
+        return;
+      }
+      window._inviteLockedEmp=res.locked?res.empresa:'';
+      if(info)info.textContent='Invitación '+(res.rol||'')+(res.modulos?' · módulos: '+res.modulos:'');
+      var emp=document.getElementById('inv-emp');
+      var lock=document.getElementById('inv-emp-locked');
+      if(res.locked&&res.empresa){
+        if(emp){emp.value=res.empresa;emp.style.display='none';}
+        if(lock){lock.style.display='block';lock.textContent='Organización: '+res.empresa+' (fija)';}
+      } else {
+        if(emp)emp.style.display='block';
+        if(lock)lock.style.display='none';
+      }
+    }).catch(function(){});
+  })();
 } else { prepararLogin(); }
 </script>
 </body>
