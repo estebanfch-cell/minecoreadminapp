@@ -213,7 +213,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v160</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v161</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -250,9 +250,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
     <iframe id="caja-frame"
       title="Rutas y Caja Chica"
       src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=18"
-      allow="camera; microphone; geolocation"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
-      referrerpolicy="no-referrer-when-downgrade"></iframe>
+      allow="camera; microphone; geolocation; fullscreen"
+      referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
 </div>
 
