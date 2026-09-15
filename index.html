@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v163</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v164</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -1032,7 +1032,23 @@ var Dash = (function(){
 
 /* ===================== USUARIOS (solo admin) ===================== */
 var Users = (function(){
-  var lista = [], mods = [], editing = null, invites = [], clientes = [];
+  var lista = [], mods = [], modLabels = {}, editing = null, invites = [], clientes = [];
+  var MOD_LABELS_FALLBACK={
+    dashboard:'Dashboard',cobranza:'Cobranza',inventario:'Inventario',cotizaciones:'Cotizaciones',
+    proveedores:'Proveedores',transfers:'Stock Transfers',caja:'Rutas y Caja Chica',
+    estadocuenta:'Estado de cuenta',consignacion:'Consignación y alquiler'
+  };
+  function labelOf(m){return (modLabels&&modLabels[m])||MOD_LABELS_FALLBACK[m]||m;}
+  function formatModsList(modStr){
+    if(!modStr)return 'ninguno';
+    return String(modStr).split(',').map(function(x){
+      x=String(x||'').trim();if(!x)return '';
+      var plus=x.slice(-1)==='+';
+      var id=plus?x.slice(0,-1):x;
+      var lab=labelOf(id);
+      return plus?(lab+' (interactuar)'):lab;
+    }).filter(String).join(', ')||'ninguno';
+  }
   function api(p){
     p.user = getUserName(); p.pin = getPin();
     return MCpost(p);
@@ -1042,7 +1058,7 @@ var Users = (function(){
     el.innerHTML='<div class="cbz-loading">Cargando usuarios...</div>';
     api({action:'listUsers'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      lista=res.usuarios; mods=res.modulosDisponibles; editing=null; render();
+      lista=res.usuarios; mods=res.modulosDisponibles||[]; modLabels=res.modulosLabels||{}; editing=null; render();
       api({action:'listInvites'}).then(function(r2){
         if(r2.ok){invites=r2.invitaciones;render();}
       }).catch(function(){});
@@ -1067,7 +1083,7 @@ var Users = (function(){
         '<div style="display:flex;gap:6px">'+
         '<button class="cbz-btn-sec" onclick="Users.preview(\''+String(u.nombre).replace(/'/g,"\\'")+'\')" title="Ver como este usuario">👁 Preview</button>'+
         '<button class="cbz-btn-sec" onclick="Users.edit('+i+')">'+(isEd?'Cerrar':'Editar')+'</button></div></div>'+
-        '<div class="cbz-card-row cbz-muted">Módulos: '+(u.modulos||'ninguno')+'</div>';
+        '<div class="cbz-card-row cbz-muted">Módulos: '+formatModsList(u.modulos)+'</div>';
       if(isEd) card+=formHtml(u,false);
       return card+'</div>';
     }
@@ -1107,15 +1123,15 @@ var Users = (function(){
   function formHtml(u,isNew){
     var toks=(u.modulos||'').split(',').map(function(x){return x.trim();});
     var esCli=u.rol==='cliente';
-    // grid interno: todos los modulos con Ver/Interactuar
+    // grid interno: todos los modulos (ALL_MODULES) con label + Ver/Interactuar
     var gridInt=mods.map(function(m){
       var ver=toks.indexOf(m)>=0||toks.indexOf(m+'+')>=0;
       var act=toks.indexOf(m+'+')>=0;
-      return '<div class="cbz-card-row" style="gap:14px"><b style="min-width:100px;font-size:12px">'+m+'</b>'+
+      return '<div class="cbz-card-row" style="gap:14px"><b style="min-width:160px;font-size:12px">'+labelOf(m)+'</b>'+
         '<label class="cbz-esc"><input type="checkbox" id="f-mod-'+m+'" '+(ver?'checked':'')+'> Ver</label>'+
         '<label class="cbz-esc"><input type="checkbox" id="f-act-'+m+'" '+(act?'checked':'')+'> Interactuar</label></div>';
     }).join('')+
-    '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Ver = solo consulta · Interactuar = además puede ejecutar (cobranza: enviar correos/actas · inventario: motor de reorden).</div>';
+    '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Ver = consultar · Interactuar = crear/editar (en Rutas y Caja Chica: rutas, gastos, fotos, etc.).</div>';
     // grid cliente: solo modulos del portal, siempre en Ver
     var CMODS=CMODS_REG.map(function(cm){return [cm[0],cm[1]+' '+cm[2]];});
     var gridCli=CMODS.map(function(cm){
@@ -1207,10 +1223,11 @@ var Users = (function(){
   function invitar(){ editing='invite'; render(); }
   function inviteFormHtml(){
     var gridInt=mods.map(function(m){
-      return '<div class="cbz-card-row" style="gap:14px"><b style="min-width:100px;font-size:12px">'+m+'</b>'+
+      return '<div class="cbz-card-row" style="gap:14px"><b style="min-width:160px;font-size:12px">'+labelOf(m)+'</b>'+
         '<label class="cbz-esc"><input type="checkbox" id="i-mod-'+m+'"> Ver</label>'+
         '<label class="cbz-esc"><input type="checkbox" id="i-act-'+m+'"> Interactuar</label></div>';
-    }).join('');
+    }).join('')+
+    '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Ver = consultar · Interactuar = crear/editar (en Rutas y Caja Chica: rutas, gastos, fotos, etc.).</div>';
     var CMODS=CMODS_REG.map(function(cm){return [cm[0],cm[1]+' '+cm[2]];});
     var gridCli=CMODS.map(function(cm){
       return '<label class="cbz-esc" style="margin-right:14px"><input type="checkbox" id="i-cmod-'+cm[0]+'" checked> '+cm[1]+'</label>';
@@ -4826,7 +4843,7 @@ var PreviewAs = (function(){
     open_=false;
   }
   function labelMod(m){
-    var map={inventario:'📦 Inventario',cotizaciones:'🧾 Cotizaciones',estadocuenta:'💳 Estado de cuenta',consignacion:'🚚 Consignación',equipo:'👥 Mi equipo',dashboard:'📊 Dashboard',cobranza:'💰 Cobranza',proveedores:'🏭 Proveedores',transfers:'🔁 Transfers',caja:'💵 Caja'};
+    var map={inventario:'📦 Inventario',cotizaciones:'🧾 Cotizaciones',estadocuenta:'💳 Estado de cuenta',consignacion:'🚚 Consignación y alquiler',equipo:'👥 Mi equipo',dashboard:'📊 Dashboard',cobranza:'💰 Cobranza',proveedores:'🏭 Proveedores',transfers:'🔁 Stock Transfers',caja:'💵 Rutas y Caja Chica'};
     return map[m]||m;
   }
   function render(res){
@@ -4918,7 +4935,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v110'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v111'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
