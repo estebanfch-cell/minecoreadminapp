@@ -213,7 +213,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v161</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v162</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -249,7 +249,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
     </div>
     <iframe id="caja-frame"
       title="Rutas y Caja Chica"
-      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=18"
+      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=20"
       allow="camera; microphone; geolocation; fullscreen"
       referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
@@ -307,6 +307,8 @@ function writeCajaEmbedSso(){
       ts:Date.now()
     };
     localStorage.setItem('mc_embed_sso', JSON.stringify(sso));
+    // Bridge (mcBridge) needs PIN in localStorage for AdminAPI auth from the iframe
+    try{ if(sso.pin) localStorage.setItem('mc_pin', sso.pin); }catch(e){}
     return sso;
   }catch(e){ return null; }
 }
@@ -314,7 +316,7 @@ function refreshCajaFrame(){
   var fr=document.getElementById('caja-frame');
   if(!fr) return;
   writeCajaEmbedSso();
-  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=18&t='+Date.now();
+  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=20&t='+Date.now();
   fr.src=base;
   fr.setAttribute('data-loaded','1');
   // also postMessage after load (belt+suspenders)
@@ -4815,7 +4817,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v108'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v109'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
