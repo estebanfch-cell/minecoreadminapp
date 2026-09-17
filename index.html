@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v172</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v173</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2981,7 +2981,8 @@ var Cot = (function(){
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div><div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Cot.setTab(\'pre\')">↻ Reintentar</button></div>';});
   }
   var filtroEmp='';
-  function pendCount(){return (lista||[]).filter(function(x){return x.estado==='NUEVA'||x.estado==='EN REVISION';}).length;}
+  function esPendPre(x){return (x.estado==='NUEVA'||x.estado==='EN REVISION')&&!String(x.inflowNum||'').trim();}
+  function pendCount(){return (lista||[]).filter(esPendPre).length;}
   function coladaOVGlobal(){
     var pd=(lista||[]).filter(function(x){return x.estado==='APROBADA';});
     if(!pd.length)return '';
@@ -2999,7 +3000,7 @@ var Cot = (function(){
       return;
     }
     // Pre-cotizaciones = SOLO lo pendiente de trabajar. Lo ya enviado vive en Cotizaciones inFlow.
-    var pend=lista.filter(function(x){return x.estado==='NUEVA'||x.estado==='EN REVISION';});
+    var pend=lista.filter(esPendPre);
     var porDespachar=lista.filter(function(x){return x.estado==='APROBADA';});
     var coladaOV=porDespachar.length?('<div class="cbz-card" style="border-color:#c58cff"><div class="cbz-card-name">🟣 Aprobadas por el cliente — por convertir en OV ('+porDespachar.length+')</div>'+
       porDespachar.map(function(x){return '<div class="cbz-fact-row" style="align-items:center;justify-content:space-between;cursor:pointer" onclick="Cot.abrir('+x.id+')">'+
@@ -3690,6 +3691,9 @@ var Cot = (function(){
     var msg='¿Crear la cotización en inFlow para '+det.vinculo.nombre+' con '+lineas.length+' línea'+(lineas.length===1?'':'s')+'?'+
       (omitidas?'\n(Se omitirán '+omitidas+' línea(s) sin producto de inFlow.)':'');
     if(!confirm(msg))return;
+    // v173: cancel pending autosave so it cannot demote CREADA→EN REVISION after create
+    if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
+    try{localStorage.removeItem(draftKey());}catch(e){}
     el().innerHTML='<div class="cbz-loading">Creando cotización en inFlow...</div>';
     var avisar=!!(document.getElementById('cot-avisar')&&document.getElementById('cot-avisar').checked);
     api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},avisar:avisar,
@@ -3697,9 +3701,9 @@ var Cot = (function(){
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
       try{localStorage.removeItem(draftKey());}catch(e){}
-      lista=null;
-      alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+(res.emailEnviado?'\n📧 Aviso con precios enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale al cliente por tu canal habitual)')+'\n\nYa puedes verla en inFlow o imprimir la planilla aquí.');
-      abrir(det.cot.id);
+      lista=null;det=null;cotTab='iq';origenTab='pre';
+      alert('✔ Cotización creada en inFlow: '+res.orderNumber+'\nCliente: '+res.cliente+(res.emailEnviado?'\n📧 Aviso con precios enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale al cliente por tu canal habitual)')+'\n\nYa puedes verla en Cotizaciones inFlow o imprimir la planilla desde ahí.');
+      cargarInflow();
     }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow si se creó antes de reintentar.');abrir(det.cot.id);});
   }
   function borrarPre(id,estado){
@@ -5189,7 +5193,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v117'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v118'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
