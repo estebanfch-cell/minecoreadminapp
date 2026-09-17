@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v170</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v171</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2673,7 +2673,7 @@ var Cot = (function(){
     var t=e==='ORDEN'?'📦 ORDEN':(e==='APROBADA'?'🟣 APROBADA':e);
     return '<span style="color:'+c+';font-weight:bold;font-size:11px">'+t+'</span>';
   }
-  var cotTab='cotz', ioLista=null, ioDet=null, prodCat=null;
+  var cotTab='cotz', ioLista=null, ioDet=null, prodCat=null, ioLimit=15;
   var czCliente=null, czClientes=null, czQ='', czCat='', czLin='', czDesc='', czMm='', czModo='buscar';
   var czDestino='cart'; // 'cart' = carrito del Cotizador · 'det' = agregar líneas al detalle de una cotización
   function czRe(){if(czDestino==='det')renderDet();else renderCotizador();}
@@ -2703,11 +2703,11 @@ var Cot = (function(){
   function czKey(){try{return 'mc_carrito_'+(getUserName()||'').toLowerCase();}catch(e){return 'mc_carrito_x';}}
   function czCartGet(){try{return JSON.parse(localStorage.getItem(czKey())||'{}');}catch(e){return {};}}
   function czCartSet(c){try{localStorage.setItem(czKey(),JSON.stringify(c));}catch(e){}}
-  function init(){det=null;lista=null;ioLista=null;ioDet=null;cotTab='cotz';czCliente=null;czModo='buscar';window.MC_onCartChange=null;renderCotizador();}
+  function init(){det=null;lista=null;ioLista=null;ioDet=null;ioLimit=15;cotTab='cotz';czCliente=null;czModo='buscar';window.MC_onCartChange=null;renderCotizador();}
   function setTab(t){cotTab=t;det=null;ioDet=null;if(t!=='cotz')window.MC_onCartChange=null;
     if(t==='cotz'){renderCotizador();return;}
     if(t==='pre'){if(lista===null)cargar();else renderLista();}
-    else{ioLista=null;cargarInflow();}
+    else{ioLista=null;ioLimit=15;cargarInflow();}
   }
   function tabsHtml(){
     function b(t,txt){return '<button class="chip '+(cotTab===t?'on':'')+'" onclick="Cot.setTab(\''+t+'\')">'+txt+'</button>';}
@@ -3373,23 +3373,31 @@ var Cot = (function(){
   function togCampos(){camposOpen=!camposOpen;renderDet();}
   function setCampo(k,v){if(!det.campos)det.campos={};det.campos[k]=v;}
   /* ---------- Espejo vivo de inFlow (cotizaciones y órdenes) ---------- */
-  function cargarInflow(){
+  function cargarInflow(opts){
+    opts=opts||{};
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Consultando inFlow en vivo...</div>';
     var tipo=(cotTab==='io'?'orden':'quote'), tabAl=cotTab;
+    var lim=ioLimit||15;
     // v147: la lista de pre-cotizaciones se refresca SIEMPRE aquí: la copia en memoria puede ser vieja
     // (p. ej. cargada antes de crear la cotización en inFlow → sin número → no se reconocía como "nacida en la app")
     var pPre=api({action:'getCotAdmin'}).then(function(r2){if(r2.ok)lista=r2.solicitudes||[];}).catch(function(){});
-    Promise.all([api({action:'getInflowOrdenes',tipo:tipo}),pPre]).then(function(rr){
+    var req={action:'getInflowOrdenes',tipo:tipo,count:lim};if(opts.fresh)req.fresh=true;
+    Promise.all([api(req),pPre]).then(function(rr){
       var res=rr[0];
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
       ioLista=res.ordenes||[];ioOpen={};ioNota=res.cached?'⚡ Lista de hace un momento ('+(res.generado||'')+') · actualizando con inFlow…':'';renderInflowLista();
-      if(res.cached){ // v139: pinta al instante lo cacheado y refresca en silencio
-        api({action:'getInflowOrdenes',tipo:tipo,fresh:true}).then(function(r3){
+      if(res.cached&&!opts.fresh){ // v139: pinta al instante lo cacheado y refresca en silencio
+        api({action:'getInflowOrdenes',tipo:tipo,count:lim,fresh:true}).then(function(r3){
           if(!r3.ok||cotTab!==tabAl||det||ioDet)return;
           ioLista=r3.ordenes||[];ioNota='';renderInflowLista();
         }).catch(function(){ioNota='';});
       }
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div>';});
+  }
+  /* v171: «Cargar 15 más» — sube ioLimit y pide fresh al API (sigue include lines) */
+  function ioCargarMas(){
+    ioLimit=(ioLimit||15)+15;
+    cargarInflow({fresh:true});
   }
   var ioOpen={}, ioNota='';
   function preIdDe(num){num=String(num||'').trim().toUpperCase();if(!lista||!num)return 0;for(var i=0;i<lista.length;i++){if(String(lista[i].inflowNum||'').trim().toUpperCase()===num||String(lista[i].numOV||'').trim().toUpperCase()===num)return lista[i].id;}return 0;}
@@ -3446,6 +3454,10 @@ var Cot = (function(){
       }
       return c+'</div>';
     }).join('');
+    // v171: si llegamos al tope pedido, ofrecer «Cargar 15 más»
+    if(ioLista.length>=(ioLimit||15)){
+      h+='<div class="cbz-card-row" style="justify-content:center;margin-top:10px"><button class="cbz-btn-sec" onclick="Cot.ioCargarMas()">Cargar 15 más</button></div>';
+    }
     el().innerHTML=h;
   }
   function ioToggle(ix){ioOpen[ix]=!ioOpen[ix];renderInflowLista();}
@@ -3741,7 +3753,7 @@ var Cot = (function(){
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,
-          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioConvertir:ioConvertir,ioFulfill:ioFulfill,ioPickList:ioPickList,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
+          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioConvertir:ioConvertir,ioFulfill:ioFulfill,ioPickList:ioPickList,ioCargarMas:ioCargarMas,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -5155,7 +5167,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v116'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v117'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
