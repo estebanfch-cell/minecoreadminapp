@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v175</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v176</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -252,7 +252,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
     </div>
     <iframe id="caja-frame"
       title="Rutas y Caja Chica"
-      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=21"
+      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=22"
       allow="camera; microphone; geolocation; fullscreen"
       referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
@@ -284,23 +284,26 @@ function mapCajaUsuario(adminName){
   if(/^(mpl|martin\b|martín\b|martin pinto|martín pinto)/.test(n)) return 'MPL';
   if(/^(opm|oswaldo\b)/.test(n)) return 'OPM';
   if(/^(ag|angel\b|ángel\b)/.test(n)) return 'AG';
+  if(/^(secre\b|secre conta|secreconta)/.test(n)) return 'SECRE';
   // if already a short code
   var up=String(adminName||'').trim().toUpperCase();
-  if(/^(EFCH|MPL|OPM|AG)$/.test(up)) return up;
+  if(/^(EFCH|MPL|OPM|AG|SECRE)$/.test(up)) return up;
   return up; // best-effort
 }
 function cajaNombreFromCode(code){
-  return ({EFCH:'Esteban Ferlito',MPL:'Martín Pinto',OPM:'Oswaldo Peña',AG:'Ángel Guachamin'})[code]||code;
+  return ({EFCH:'Esteban Ferlito',MPL:'Martín Pinto',OPM:'Oswaldo Peña',AG:'Ángel Guachamin',SECRE:'SECRE Conta'})[code]||code;
 }
 function writeCajaEmbedSso(){
   try{
     var adminUser=getUserName();
     var perfil={}; try{perfil=JSON.parse(localStorage.getItem('mc_profile')||'{}');}catch(e){}
-    var code=mapCajaUsuario(adminUser)||mapCajaUsuario(perfil.nombre)||'EFCH';
-    var rolAdmin=String(perfil.rol||'').toLowerCase();
+    var gp={}; try{gp=getProfile()||{};}catch(e){}
+    var code=mapCajaUsuario(adminUser)||mapCajaUsuario(perfil.nombre)||mapCajaUsuario(gp.nombre)||'EFCH';
+    var rolAdmin=String(perfil.rol||gp.rol||'').toLowerCase();
     var rol=(rolAdmin==='admin')?'admin':'chofer';
-    // known caja admins
-    if(code==='EFCH'||code==='MPL') rol='admin';
+    // known caja admins + SECRE Conta; force admin when profile says admin
+    if(code==='EFCH'||code==='MPL'||code==='SECRE') rol='admin';
+    if(rolAdmin==='admin') rol='admin';
     var sso={
       ok:true,
       usuario:code,
@@ -319,18 +322,25 @@ function refreshCajaFrame(){
   var fr=document.getElementById('caja-frame');
   if(!fr) return;
   writeCajaEmbedSso();
-  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=21&t='+Date.now();
+  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=22&t='+Date.now();
   fr.src=base;
   fr.setAttribute('data-loaded','1');
-  // also postMessage after load (belt+suspenders)
+  // also postMessage after load (belt+suspenders); multi-shot to reduce login flap
   fr.onload=function(){
     try{
-      var raw=localStorage.getItem('mc_embed_sso');
       // re-write because minecore may consume one-shot; keep posting payload
       var sso=writeCajaEmbedSso();
-      if(sso && fr.contentWindow){
-        fr.contentWindow.postMessage({type:'mc-admin-sso', usuario:sso.usuario, nombre:sso.nombre, rol:sso.rol, pin:sso.pin||''}, 'https://estebanfch-cell.github.io');
+      function postSso(){
+        try{
+          var s=writeCajaEmbedSso()||sso;
+          if(s && fr.contentWindow){
+            fr.contentWindow.postMessage({type:'mc-admin-sso', usuario:s.usuario, nombre:s.nombre, rol:s.rol, pin:s.pin||''}, 'https://estebanfch-cell.github.io');
+          }
+        }catch(e){}
       }
+      postSso();
+      setTimeout(postSso, 300);
+      setTimeout(postSso, 800);
     }catch(e){}
   };
 }
