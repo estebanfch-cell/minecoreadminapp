@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v168</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v170</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -390,20 +390,25 @@ function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.sto
 function mcSanitizeFilename(name){
   name=String(name==null?'':name).trim();
   if(!name)return 'documento.pdf';
-  name=name.replace(/[\/\\?%*:|"<>]/g,'_').replace(/\s+/g,'_');
+  /* v170: solo ilegales \ / : * ? " < > | — conservar espacios y acentos ES (ÁÉÍÓÚÑ) */
+  name=name.replace(/[\\\/:\*\?"<>\|]/g,' ').replace(/[\u0000-\u001f]/g,'').replace(/ +/g,' ').trim();
   if(!/\.[A-Za-z0-9]{2,5}$/.test(name))name+='.pdf';
   return name;
 }
-function mcPdfFilename(apiFilename, hint){
-  var src=String(apiFilename||'')+' '+String(hint||'');
-  var m=src.match(/(MCOR-S[QO]-[\w-]+)/i);
-  if(m){
-    var base=m[1];
-    if(/^MCOR-SQ-/i.test(base))base='MCOR-SQ-'+base.slice(8);
-    else if(/^MCOR-SO-/i.test(base))base='MCOR-SO-'+base.slice(8);
-    return base.replace(/\.pdf$/i,'')+'.pdf';
-  }
+/* Preferir siempre res.filename del API (v116). Fallback Spanish si hace falta. tipoHint: 'PICK LIST' etc. */
+function mcPdfFilename(apiFilename, hint, tipoHint){
   if(apiFilename)return mcSanitizeFilename(apiFilename);
+  var src=String(hint||'');
+  var m=src.match(/(MCOR-S[QO]-[\w-]+)/i);
+  var num=m?m[1]:'';
+  if(num){
+    if(/^MCOR-SQ-/i.test(num))return mcSanitizeFilename('COTIZACIÓN '+num+'.pdf');
+    if(/^MCOR-SO-/i.test(num)){
+      var th=String(tipoHint||'').toUpperCase();
+      if(th.indexOf('PICK')>=0)return mcSanitizeFilename('PICK LIST '+num+'.pdf');
+      return mcSanitizeFilename('ORDEN DE VENTA '+num+'.pdf');
+    }
+  }
   if(hint)return mcSanitizeFilename(String(hint).replace(/\.pdf$/i,'')+'.pdf');
   return 'documento.pdf';
 }
@@ -1158,7 +1163,7 @@ var Dash = (function(){
       window._dashBusy=false;
       if(det) det.querySelectorAll('button').forEach(function(b){b.disabled=false;b.style.opacity='';});
       if(!res.ok){alert(res.error||'Pick list no disponible');return;}
-      return mcDownloadBlob(res.b64, res.filename||('PICKLIST_'+(hint||id)+'.pdf'));
+      return mcDownloadBlob(res.b64, mcPdfFilename(res.filename, hint, 'PICK LIST'));
     }).catch(function(){
       window._dashBusy=false;
       if(det) det.querySelectorAll('button').forEach(function(b){b.disabled=false;b.style.opacity='';});
@@ -2514,7 +2519,9 @@ function MCPlanillaCot(cfg){
       '<div class="nota2" contenteditable="true">- Los plazos son estimados en días calendario y están sujetos a disponibilidad del fabricante y tiempos de importación.<br>- La entrega parcial de los productos en stock puede realizarse de inmediato mientras se completa el saldo.</div>'+
       '</div>';
   }
-  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(cfg.num)+'</title>'+
+  var _plTipo=/ORDEN/i.test(String(cfg.titulo||''))?'ORDEN DE VENTA':'COTIZACIÓN';
+  var _plTitle=(cfg.num?(_plTipo+' '+cfg.num):(cfg.titulo||'Planilla'));
+  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(_plTitle)+'</title>'+
     '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>'+
     '<style>'+
@@ -3394,6 +3401,10 @@ var Cot = (function(){
       var sub=o.total, iva=Math.round(sub*0.15*100)/100, tot=Math.round((sub+iva)*100)/100;
       var abierta=!!ioOpen[ix];
       var preIdH=preIdDe(o.num);
+      var invSt=String(o.inventoryStatus||'');
+      var isFulfilled=invSt==='Fulfilled';
+      var invColor=isFulfilled?'#6fd68f':(invSt==='Started'?'#f0c040':'#8fa3b8');
+      var invBadge=!o.isQuote?('<span class="tagx" style="border-color:'+invColor+';color:'+invColor+';font-size:10px;margin-left:6px">Inv: '+(invSt||'Unfulfilled')+'</span>'):'';
       var menu='<div class="io-menu" onclick="event.stopPropagation()">'+
         '<button class="chip io-menu-btn" title="Acciones" onclick="Cot.ioMenu('+ix+',event)">⋯</button>'+
         '<div class="io-menu-list" id="io-menu-'+ix+'">'+
@@ -3401,11 +3412,13 @@ var Cot = (function(){
         (puedeEscribir()&&preIdH?'<button onclick="Cot.ioMenuCerrar();Cot.abrirDesde('+preIdH+',\''+cotTab+'\')">✏️ Editar '+(o.isQuote?'cotización':'orden')+' (precios, entregas, líneas)</button>':'')+
         (puedeEscribir()?'<button onclick="Cot.ioMenuCerrar();Cot.abrirInflow('+ix+')">'+(preIdH?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas)')+'</button>':'')+
         (o.isQuote&&puedeEscribir()?'<button style="color:#6fd68f" onclick="Cot.ioMenuCerrar();Cot.ioConvertir('+ix+')">📦 Convertir en Orden de Venta</button>':'')+
+        (!o.isQuote&&puedeEscribir()?(isFulfilled?'<button onclick="Cot.ioMenuCerrar();Cot.ioFulfill('+ix+',false)">Desmarcar fulfilled</button>':'<button onclick="Cot.ioMenuCerrar();Cot.ioFulfill('+ix+',true)">Marcar fulfilled</button>'):'')+
+        (!o.isQuote?'<button onclick="Cot.ioMenuCerrar();Cot.ioPickList('+ix+')">⬇ Pick list</button>':'')+
         '<button onclick="Cot.ioMenuCerrar();Cot.ioToggle('+ix+')">'+(abierta?'▴ Contraer':'▾ Ver líneas')+'</button>'+
         '</div></div>';
       var c='<div class="cbz-card" style="position:relative">'+
         '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer;gap:8px" onclick="Cot.ioToggle('+ix+')">'+
-        '<div class="cbz-card-name" style="flex:1;min-width:0">'+(abierta?'▾ ':'▸ ')+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
+        '<div class="cbz-card-name" style="flex:1;min-width:0">'+(abierta?'▾ ':'▸ ')+(o.isQuote?'🧾 ':'📦 ')+o.num+invBadge+'</div>'+
         '<span class="cbz-muted" style="font-size:11px">'+o.fecha+'</span>'+menu+'</div>'+
         '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between;cursor:pointer" onclick="Cot.ioToggle('+ix+')">'+
         '<span>🏢 '+o.cliente+'</span><span>'+o.lineas.length+' línea'+(o.lineas.length===1?'':'s')+'</span></div>'+
@@ -3426,13 +3439,42 @@ var Cot = (function(){
         c+='<div class="cbz-card-row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'+
           '<button class="cbz-btn" onclick="Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>'+
           (puedeEscribir()&&preId?'<button class="cbz-btn-sec" onclick="Cot.abrirDesde('+preId+',\''+cotTab+'\')">✏️ Editar '+(o.isQuote?'cotización':'orden')+' (precios, entregas, líneas)</button>':'')+
-          (puedeEscribir()?'<button class="chip" onclick="Cot.abrirInflow('+ix+')">'+(preId?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas: no nació en la app)')+'</button>':'')+'</div>';
+          (puedeEscribir()?'<button class="chip" onclick="Cot.abrirInflow('+ix+')">'+(preId?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas: no nació en la app)')+'</button>':'')+
+          (!o.isQuote&&puedeEscribir()?(isFulfilled?'<button class="cbz-btn-sec" onclick="Cot.ioFulfill('+ix+',false)">Desmarcar fulfilled</button>':'<button class="cbz-btn" onclick="Cot.ioFulfill('+ix+',true)">Marcar fulfilled</button>'):'')+
+          (!o.isQuote?'<button class="cbz-btn-sec" onclick="Cot.ioPickList('+ix+')">⬇ Pick list</button>':'')+
+          '</div>';
       }
       return c+'</div>';
     }).join('');
     el().innerHTML=h;
   }
   function ioToggle(ix){ioOpen[ix]=!ioOpen[ix];renderInflowLista();}
+  function ioFulfill(ix, fulfilled){
+    var o=ioLista[ix];if(!o||o.isQuote)return;
+    if(!puedeEscribir()){alert('Sin permiso de escritura en Cotizaciones');return;}
+    if(window._ioBusy)return;
+    var msg=fulfilled
+      ?'Esto descuenta stock en inFlow. ¿Continuar?'
+      :'¿Desmarcar fulfilled en inFlow?';
+    if(!confirm(msg))return;
+    window._ioBusy=true;
+    api({action:'setOrderFulfillment',orderId:o.salesOrderId,fulfilled:!!fulfilled}).then(function(res){
+      window._ioBusy=false;
+      if(!res.ok){alert('Error: '+(res.error||'no se pudo actualizar'));return;}
+      o.inventoryStatus=String(res.inventoryStatus||(fulfilled?'Fulfilled':'Unfulfilled'));
+      renderInflowLista();
+    }).catch(function(e){window._ioBusy=false;alert(MCerr(e));});
+  }
+  function ioPickList(ix){
+    var o=ioLista[ix];if(!o||o.isQuote)return;
+    if(window._ioBusy)return;
+    window._ioBusy=true;
+    api({action:'getPickListPdf',orderId:o.salesOrderId}).then(function(res){
+      window._ioBusy=false;
+      if(!res.ok){alert(res.error||'Pick list no disponible');return;}
+      return mcDownloadBlob(res.b64, mcPdfFilename(res.filename, o.num||o.salesOrderId, 'PICK LIST'));
+    }).catch(function(e){window._ioBusy=false;alert(MCerr(e));});
+  }
   /* v148: convertir en OV desde la lista de inFlow (con o sin pre-cotización hermana) */
   function ioConvertir(ix){
     var o=ioLista[ix];if(!o||!o.isQuote)return;
@@ -3699,7 +3741,7 @@ var Cot = (function(){
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
           setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,
-          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioConvertir:ioConvertir,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
+          abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioConvertir:ioConvertir,ioFulfill:ioFulfill,ioPickList:ioPickList,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioGuardar:ioGuardar,borrarPre:borrarPre};
 })();
 
 /* ===================== ESTADO DE CUENTA (portal cliente) ===================== */
@@ -4111,8 +4153,10 @@ var Kyc = (function(){
 })();
 
 var Consig = (function(){
-  var data=null, vistaC='consig', cliSel=0, abiertos={};
+  var data=null, vistaC='consig', cliSel=0, abiertos={}, cliQ='';
   var esClienteC=false;
+  function escH(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function normQ(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
   function pedirExt(key,item,acta){
     if(!confirm('¿Solicitar a Minecore la extensión de plazo (30 → 60 días) para:\n'+item+' · '+acta+'?'))return;
     api({action:'solicitarExtension',key:key,item:item,acta:acta}).then(function(res){
@@ -4141,24 +4185,49 @@ var Consig = (function(){
     if(dd||!p.length)p.push(dd+' día'+(dd===1?'':'s'));
     return p.join(', ');
   }
+  /** Semáforo: rojo=por facturar, tomate=atención, verde=al día */
+  function nivelDe(d,l1,l2){
+    if(d>l2)return 'red';
+    if(d>l1)return 'tom';
+    return 'ok';
+  }
+  function tagSem(txt,nivel){
+    var st=nivel==='red'?'background:#3a1c1c;color:#e05c5c'
+      :(nivel==='tom'?'background:#3a2518;color:#ff6347'
+      :'background:#123a28;color:#3ecf8e');
+    return '<span class="tagx" style="'+st+'">'+txt+'</span>';
+  }
+  function colorNivel(n){
+    return n==='red'?'#e05c5c':(n==='tom'?'#ff6347':'#3ecf8e');
+  }
   function semaforo(d,l1,l2,amb){
-    if(amb==='alq')return '<span class="tagx" style="background:#1c3a4a;color:#5cc8ff">⏱ '+durTxt(d)+' en alquiler</span>';
-    if(d>l2)return '<span class="tagx tn">'+d+' días — A FACTURAR</span>';
-    if(d>l1)return '<span class="tagx" style="background:#3a3a1c;color:#f0c040">'+d+' días — requiere autorización</span>';
-    return '<span class="tagx tf">'+d+' días</span>';
+    var n=nivelDe(d,l1,l2);
+    if(amb==='alq'){
+      if(n==='red')return tagSem('⏱ '+durTxt(d)+' — A facturar',n);
+      if(n==='tom')return tagSem('⏱ '+durTxt(d)+' — Atención',n);
+      return tagSem('⏱ '+durTxt(d)+' — Al día',n);
+    }
+    if(n==='red')return tagSem(d+' días — A FACTURAR',n);
+    if(n==='tom')return tagSem(d+' días — Atención',n);
+    return tagSem(d+' días — Al día',n);
   }
   function alertaDe(it,l1,l2,amb){
-    if(amb==='alq')return '<span class="tagx" style="background:#1c3a4a;color:#5cc8ff">⏱ '+durTxt(it.diasMax)+'</span>';
-    if(it.diasMax>l2)return '<span class="tagx tn">🔴 A facturar</span>';
-    if(it.diasMax>l1)return '<span class="tagx" style="background:#3a3a1c;color:#f0c040">🟡 Atención</span>';
-    return '<span class="tagx tf">🟢 Al día</span>';
+    var n=nivelDe(it.diasMax,l1,l2);
+    if(amb==='alq'){
+      if(n==='red')return tagSem('🔴 '+durTxt(it.diasMax),n);
+      if(n==='tom')return tagSem('🟠 '+durTxt(it.diasMax),n);
+      return tagSem('🟢 '+durTxt(it.diasMax),n);
+    }
+    if(n==='red')return tagSem('🔴 A facturar',n);
+    if(n==='tom')return tagSem('🟠 Atención',n);
+    return tagSem('🟢 Al día',n);
   }
   function init(){
     var el=document.getElementById('consig-screen');
     el.innerHTML='<div class="cbz-loading">Cargando tu consignación...</div>';
     api({action:'getConsignacion'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      data=res;cliSel=0;abiertos={};esClienteC=!res.admin;
+      data=res;cliSel=0;abiertos={};cliQ='';esClienteC=!res.admin;
       if(data.admin){vistaC='consig';}
       else{vistaC=data.consignacion.length||!data.alquiler.length?'consig':'alq';}
       render();
@@ -4176,7 +4245,7 @@ var Consig = (function(){
       c+='<div class="odetail">'+it.lotes.map(function(l){
         var extra='';
         if(l.ext==='APROBADA'&&l.dias<=data.limiteExtendido){
-          extra='<span style="color:#6fd68f;font-size:11px;font-weight:bold;white-space:nowrap">✅ AL DÍA · extensión</span>';
+          extra='<span style="color:#3ecf8e;font-size:11px;font-weight:bold;white-space:nowrap">✅ AL DÍA · extensión</span>';
         } else if(l.ext==='SOLICITADA'){
           extra=esClienteC?'<span style="color:#5cc8ff;font-size:11px;white-space:nowrap">⏳ Extensión solicitada</span>'
             :'<span style="color:#5cc8ff;font-size:11px;white-space:nowrap">⏳ Solicitada</span> '+
@@ -4205,13 +4274,15 @@ var Consig = (function(){
     var cats=Object.keys(porCat).sort().map(function(c){
       return '<span class="chip" style="cursor:default">'+c+': <b>'+fmtQty(porCat[c])+'</b></span>';
     }).join('');
+    var nMax=nivelDe(maxD,data.limiteDias,data.limiteExtendido);
     return '<div class="cbz-kpis" style="margin-bottom:8px">'+
       '<div class="cbz-kpi"><span class="cbz-kpi-num">'+items.length+'</span><span class="cbz-kpi-lbl">'+(amb==='alq'?'Equipos':'Productos')+'</span></div>'+
       '<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmtQty(unidades)+'</span><span class="cbz-kpi-lbl">Unidades</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#ff6347">'+alerta+'</span><span class="cbz-kpi-lbl">🟠 Atención</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#e05c5c">'+facturar+'</span><span class="cbz-kpi-lbl">🔴 A facturar</span></div>'+
       (amb==='alq'
-        ?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#5cc8ff;font-size:15px">'+(items.length?durTxt(maxD):'—')+'</span><span class="cbz-kpi-lbl">⏱ Más antiguo en alquiler</span></div>'
-        :'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#f0c040">'+alerta+'</span><span class="cbz-kpi-lbl">🟡 Requieren autorización</span></div>'+
-         '<div class="cbz-kpi"><span class="cbz-kpi-num cbz-red">'+facturar+'</span><span class="cbz-kpi-lbl">🔴 A facturar</span></div>')+
+        ?'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:'+colorNivel(nMax)+';font-size:13px">'+(items.length?durTxt(maxD):'—')+'</span><span class="cbz-kpi-lbl">⏱ Más antiguo</span></div>'
+        :'<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#3ecf8e">'+(items.length-alerta-facturar)+'</span><span class="cbz-kpi-lbl">🟢 Al día</span></div>')+
       '</div>'+
       (cats?'<div class="cbz-card-row" style="flex-wrap:wrap;margin-bottom:10px">'+cats+'</div>':'');
   }
@@ -4222,10 +4293,40 @@ var Consig = (function(){
     (cli.alquiler||[]).forEach(function(p){p.items.forEach(function(it){out.push(it);});});
     return out;
   }
+  function cliOptionsHtml(){
+    var qn=normQ(cliQ);
+    var html=data.clientes.map(function(c,i){
+      if(qn && normQ(c.cliente).indexOf(qn)<0) return '';
+      return '<option value="'+i+'"'+(i===cliSel?' selected':'')+'>'+escH(c.cliente)+'</option>';
+    }).join('');
+    if(html.indexOf('value="'+cliSel+'"')<0 && data.clientes[cliSel]){
+      html='<option value="'+cliSel+'" selected>'+escH(data.clientes[cliSel].cliente)+'</option>'+html;
+    }
+    return html || ('<option value="'+cliSel+'">'+(data.clientes[cliSel]?escH(data.clientes[cliSel].cliente):'—')+'</option>');
+  }
+  /** Buscador + <select> compacto (1 fila). filterCli actualiza solo el select para no perder foco en iPhone. */
+  function clientPickerHtml(){
+    if(!data.admin) return '<div class="cbz-muted" style="margin-bottom:6px">'+escH(data.empresa)+'</div>';
+    return '<div class="cbz-card-row" style="gap:6px;align-items:center;margin-bottom:8px;flex-wrap:nowrap">'+
+      '<input class="cbz-search" id="consig-cli-q" type="search" inputmode="search" enterkeyhint="search" '+
+      'placeholder="🔍 Buscar cliente…" value="'+escH(cliQ)+'" '+
+      'oninput="Consig.filterCli(this.value)" style="flex:1;min-width:0;margin:0">'+
+      '<select id="consig-cli-sel" onchange="Consig.setCli(+this.value)" '+
+      'aria-label="Cliente seleccionado" '+
+      'style="flex:1.15;min-width:0;max-width:58%;background:#0f1720;border:1px solid #223142;border-radius:20px;color:#dce6f0;font-size:13px;padding:9px 10px;-webkit-appearance:menulist;appearance:menulist">'+
+      cliOptionsHtml()+
+      '</select></div>';
+  }
+  function filterCli(q){
+    cliQ=q;
+    var sel=document.getElementById('consig-cli-sel');
+    if(!sel||!data||!data.admin){render();return;}
+    sel.innerHTML=cliOptionsHtml();
+  }
   function render(){
     var extBanner='';
     if(data&&data.admin&&(data.extensiones||[]).length){
-      extBanner='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-card-name">🔔 Extensiones solicitadas ('+data.extensiones.length+')</div>'+
+      extBanner='<div class="cbz-card" style="border-color:#ff6347"><div class="cbz-card-name">🔔 Extensiones solicitadas ('+data.extensiones.length+')</div>'+
         data.extensiones.map(function(x){
           return '<div class="cbz-fact-row" style="align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">'+
             '<span class="cbz-fact-id" style="flex:1;min-width:0">'+x.empresa+' · '+x.item+'<div class="pmeta">'+x.acta+' · pidió '+x.por+' · '+x.fecha+'</div></span>'+
@@ -4242,16 +4343,8 @@ var Consig = (function(){
     }
     if(data.admin&&cliSel>=data.clientes.length)cliSel=0;
     var cli=data.admin?data.clientes[cliSel]:data;
-    var h='';
-    if(data.admin){
-      h+='<div class="cbz-card-row" style="flex-wrap:wrap;margin-bottom:8px">'+
-        data.clientes.map(function(c,i){
-          return '<button class="chip '+(i===cliSel?'on':'')+'" onclick="Consig.setCli('+i+')">'+c.cliente+'</button>';
-        }).join('')+'</div>';
-    } else {
-      h+='<div class="cbz-muted" style="margin-bottom:6px">'+data.empresa+'</div>';
-    }
-    h+=(vistaC==='consig'?'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">Plazo: '+data.limiteDias+' días · con autorización aprobada: '+data.limiteExtendido+' · pasado el plazo, se factura.</div>':'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">El alquiler se factura mensualmente — aquí ves cuánto tiempo lleva cada equipo.</div>')+
+    var h=clientPickerHtml();
+    h+=(vistaC==='consig'?'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">Plazo: '+data.limiteDias+' días · con autorización aprobada: '+data.limiteExtendido+' · pasado el plazo, se factura.</div>':'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">El alquiler se factura mensualmente — aquí ves cuánto tiempo lleva cada equipo (mismo semáforo: verde / tomate / rojo).</div>')+
       kpisHtml(itemsActuales(),vistaC)+
       '<div class="cbz-card-row" style="margin-bottom:10px">'+
       '<button class="chip '+(vistaC==='consig'?'on':'')+'" onclick="Consig.setV(\'consig\')">📦 Consignación ('+cli.consignacion.length+')</button>'+
@@ -4273,18 +4366,19 @@ var Consig = (function(){
     if(!data){alert('Aún no hay datos de consignación');return;}
     var cli=data.admin?data.clientes[cliSel]:data;
     var nombreCli=data.admin?cli.cliente:data.empresa;
-    var btnLabel='⬇ Descargar reporte';
     api({action:'getConsignacionPdf',cliente:nombreCli,vista:'ambos'}).then(function(res){
       if(!res.ok){alert(res.error||'No se pudo generar el PDF');return;}
-      var hoyS=new Date().toISOString().slice(0,10);
-      var fn=res.filename||('Consignacion_'+String(nombreCli||'Cliente').replace(/[^A-Za-z0-9]+/g,'_')+'_'+hoyS+'.pdf');
+      var hoyS=(function(){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guayaquil'}).format(new Date());}catch(e){return new Date().toISOString().slice(0,10);}})();
+      var safeCli=String(nombreCli||'Cliente').replace(/[\\\/:\*\?"<>\|]/g,' ').replace(/ +/g,' ').trim()||'Cliente';
+      var fn=mcPdfFilename(res.filename, 'CONSIGNACIÓN Y ALQUILER - '+safeCli+' '+hoyS+'.pdf');
       return mcDownloadBlob(res.b64, fn);
     }).catch(function(e){alert(MCerr(e)+'.');});
   }
   function toggle(k){abiertos[k]=!abiertos[k];render();}
   function setCli(i){cliSel=i;abiertos={};render();}
   function setV(v){vistaC=v;abiertos={};render();}
-  return {init:init,setV:setV,setCli:setCli,toggle:toggle,descargar:descargar,pedirExt:pedirExt,resolverExt:resolverExt};
+  return {init:init,setV:setV,setCli:setCli,filterCli:filterCli,toggle:toggle,descargar:descargar,pedirExt:pedirExt,resolverExt:resolverExt};
+
 })();
 
 /* ===================== APROBACIONES (admin) ===================== */
@@ -5061,7 +5155,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v114'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v116'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
