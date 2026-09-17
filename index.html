@@ -1232,6 +1232,7 @@ var Users = (function(){
         '<div class="cbz-card-top"><div class="cbz-card-name">'+u.nombre+
         (u.rol==='admin'?' <span class="tagx tf">ADMIN</span>':'')+
         (u.master?' <span class="tagx" style="background:#3a2c1c;color:#f0c040">MÁSTER</span>':'')+
+        (u.hasPin||u.pin?' <span class="tagx" style="background:#1c2e3a;color:#9ec9ff;cursor:pointer" title="Clic para copiar PIN" onclick="Users.copyPin('+i+')">PIN '+String(u.pin||'····')+'</span>':' <span class="tagx tn">SIN PIN</span>')+
         (u.rol==='cliente'&&!u.aprobado?(u.solicitud?' <span class="tagx tn">🔔 SOLICITÓ ACCESO '+u.solicitud+'</span>':' <span class="tagx tn">POR APROBAR</span>'):'')+
         (u.activo?'':' <span class="tagx tn">INACTIVO</span>')+'</div>'+
         '<div style="display:flex;gap:6px">'+
@@ -1295,7 +1296,9 @@ var Users = (function(){
     '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Los clientes solo consultan; consignación y alquiler salen automáticos al aprobar la organización.</div>';
     return '<div class="uform">'+
       '<input class="uinput" id="f-nombre" placeholder="Nombre/iniciales" value="'+u.nombre+'" '+(isNew?'':'readonly')+'>'+
-      '<input class="uinput" id="f-pin" placeholder="PIN (4-8 dígitos)" value="'+u.pin+'" inputmode="numeric" maxlength="8">'+
+      '<div style="display:flex;gap:8px;align-items:center"><input class="uinput pinmask" id="f-pin" placeholder="'+(isNew?'PIN (4-8 dígitos)':'PIN (vacío = no cambiar)')+'" value="'+String(u.pin||'').replace(/"/g,'&quot;')+'" inputmode="numeric" maxlength="8" style="flex:1">'+
+      '<button type="button" class="cbz-btn-sec" style="white-space:nowrap;padding:8px 10px" onclick="Users.togglePinVis()">👁 Ver</button></div>'+
+      (!isNew?'<div class="cbz-muted" style="font-size:11px;margin:-4px 0 8px">Como admin puedes ver y copiar el PIN para reenviárselo al cliente si lo pierde.</div>':'')+
       '<select class="uinput" id="f-rol" onchange="Users.rolChanged()">'+
       '<option value="usuario"'+(u.rol!=='admin'&&!esCli?' selected':'')+'>👷 Usuario Minecore</option>'+
       '<option value="admin"'+(u.rol==='admin'?' selected':'')+'>👷 Administrador Minecore</option>'+
@@ -1470,7 +1473,24 @@ var Users = (function(){
   function preview(nombre){
     PreviewAs.open(nombre);
   }
-  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList,preview:preview,loadInviteClientes:loadInviteClientes};
+  
+  function togglePinVis(){
+    var el=document.getElementById('f-pin');
+    if(!el)return;
+    if(el.classList.contains('pinmask')){el.classList.remove('pinmask');}
+    else{el.classList.add('pinmask');}
+  }
+  function copyPin(i){
+    var u=lista[i];
+    if(!u||!u.pin){alert('No hay PIN guardado para este usuario');return;}
+    var txt=String(u.pin);
+    function ok(){alert('PIN de '+u.nombre+': '+txt+'\n(copiado al portapapeles)');}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(ok).catch(function(){prompt('PIN de '+u.nombre, txt);});
+    } else {prompt('PIN de '+u.nombre+' (copia manualmente)', txt);}
+  }
+
+  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList,preview:preview,loadInviteClientes:loadInviteClientes,togglePinVis:togglePinVis,copyPin:copyPin};
 })();
 
 
@@ -5206,7 +5226,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v121'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v122'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
