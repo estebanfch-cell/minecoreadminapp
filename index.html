@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v177</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v178</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -5206,7 +5206,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v120'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v121'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
