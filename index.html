@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v171</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v172</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -2637,7 +2637,7 @@ function MCPlanillaCot(cfg){
   var bar=document.createElement('div');
   bar.style.cssText='display:flex;gap:8px;align-items:center;padding:8px 12px;background:#141b24;border-bottom:1px solid #223142;flex-wrap:wrap';
   bar.innerHTML='<span style="font-weight:700;color:#dce6f0;font-size:13px;flex:1;min-width:120px">🧾 '+esc(cfg.num||'Planilla')+'</span>'+
-    '<button class="cbz-btn" id="mc-pl-print">🖨 Imprimir / Guardar como PDF</button>'+
+    '<button class="cbz-btn" id="mc-pl-print" title="En iPhone el PDF toma el nombre de la cotización/orden">🖨 Imprimir / Guardar como PDF</button>'+
     '<button class="chip" id="mc-pl-tab" title="Abrir en una pestaña aparte (por ejemplo para compartir en iPhone)">↗ Abrir en pestaña</button>'+
     '<button class="chip" id="mc-pl-close">✖ Cerrar</button>';
   var fr=document.createElement('iframe');
@@ -2648,10 +2648,32 @@ function MCPlanillaCot(cfg){
   document.body.style.overflow='hidden';
   function cerrar(){try{ov.remove();}catch(e){}document.body.style.overflow='';}
   bar.querySelector('#mc-pl-close').onclick=cerrar;
-  bar.querySelector('#mc-pl-print').onclick=function(){try{fr.contentWindow.focus();fr.contentWindow.print();}catch(e){alert('No se pudo abrir el diálogo de impresión: '+e.message);}};
+  bar.querySelector('#mc-pl-print').onclick=function(){
+    var prevTitle=document.title;
+    var restored=false;
+    function restoreTitle(){
+      if(restored)return;restored=true;
+      try{document.title=prevTitle;}catch(e){}
+      try{window.removeEventListener('afterprint',restoreTitle);}catch(e){}
+    }
+    try{
+      document.title=_plTitle;
+      try{if(fr.contentDocument)fr.contentDocument.title=_plTitle;}catch(e){}
+      window.addEventListener('afterprint',restoreTitle);
+      setTimeout(restoreTitle,2500);
+      fr.contentWindow.focus();
+      fr.contentWindow.print();
+    }catch(e){
+      restoreTitle();
+      alert('No se pudo abrir el diálogo de impresión: '+e.message);
+    }
+  };
   bar.querySelector('#mc-pl-tab').onclick=function(){
+    var prevTitle=document.title;
+    try{document.title=_plTitle;}catch(e){}
     var blob=new Blob([html],{type:'text/html'});var url=URL.createObjectURL(blob);
     var w=window.open(url,'_blank');if(!w)alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');
+    setTimeout(function(){try{document.title=prevTitle;}catch(e){}},1500);
   };
 }
 
