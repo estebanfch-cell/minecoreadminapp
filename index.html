@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v174</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v175</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -252,7 +252,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
     </div>
     <iframe id="caja-frame"
       title="Rutas y Caja Chica"
-      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=20"
+      src="https://estebanfch-cell.github.io/minecore/?embed=1&amp;v=21"
       allow="camera; microphone; geolocation; fullscreen"
       referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
@@ -319,7 +319,7 @@ function refreshCajaFrame(){
   var fr=document.getElementById('caja-frame');
   if(!fr) return;
   writeCajaEmbedSso();
-  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=20&t='+Date.now();
+  var base='https://estebanfch-cell.github.io/minecore/?embed=1&v=21&t='+Date.now();
   fr.src=base;
   fr.setAttribute('data-loaded','1');
   // also postMessage after load (belt+suspenders)
