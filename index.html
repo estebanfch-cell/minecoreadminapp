@@ -216,7 +216,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v173</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v174</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -3401,12 +3401,11 @@ var Cot = (function(){
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Consultando inFlow en vivo...</div>';
     var tipo=(cotTab==='io'?'orden':'quote'), tabAl=cotTab;
     var lim=ioLimit||15;
-    // v147: la lista de pre-cotizaciones se refresca SIEMPRE aquí: la copia en memoria puede ser vieja
-    // (p. ej. cargada antes de crear la cotización en inFlow → sin número → no se reconocía como "nacida en la app")
-    var pPre=api({action:'getCotAdmin'}).then(function(r2){if(r2.ok)lista=r2.solicitudes||[];}).catch(function(){});
+    // v174: NO bloquear la lista inFlow con getCotAdmin (evita Promise.all + locks Sheet).
+    // getInflowOrdenes primero y render; getCotAdmin en background para refrescar lista/preIdDe.
+    // getCotAdmin sigue en Pre tab cargar().
     var req={action:'getInflowOrdenes',tipo:tipo,count:lim};if(opts.fresh)req.fresh=true;
-    Promise.all([api(req),pPre]).then(function(rr){
-      var res=rr[0];
+    api(req).then(function(res){
       if(!res.ok){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+res.error+'</div>';return;}
       ioLista=res.ordenes||[];ioOpen={};ioNota=res.cached?'⚡ Lista de hace un momento ('+(res.generado||'')+') · actualizando con inFlow…':'';renderInflowLista();
       if(res.cached&&!opts.fresh){ // v139: pinta al instante lo cacheado y refresca en silencio
@@ -3416,6 +3415,9 @@ var Cot = (function(){
         }).catch(function(){ioNota='';});
       }
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div>';});
+    api({action:'getCotAdmin'}).then(function(r2){
+      if(r2.ok){lista=r2.solicitudes||[];if(cotTab===tabAl&&!det&&!ioDet&&ioLista)renderInflowLista();}
+    }).catch(function(){});
   }
   /* v171: «Cargar 15 más» — sube ioLimit y pide fresh al API (sigue include lines) */
   function ioCargarMas(){
@@ -4406,6 +4408,7 @@ var Consig = (function(){
     var nombreCli=data.admin?cli.cliente:data.empresa;
     api({action:'getConsignacionPdf',cliente:nombreCli,vista:'ambos'}).then(function(res){
       if(!res.ok){alert(res.error||'No se pudo generar el PDF');return;}
+      if(!res.b64){alert('El servidor no devolvió el PDF (sin datos). Reintenta o avisa a soporte.');return;}
       var hoyS=(function(){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guayaquil'}).format(new Date());}catch(e){return new Date().toISOString().slice(0,10);}})();
       var safeCli=String(nombreCli||'Cliente').replace(/[\\\/:\*\?"<>\|]/g,' ').replace(/ +/g,' ').trim()||'Cliente';
       var fn=mcPdfFilename(res.filename, 'CONSIGNACIÓN Y ALQUILER - '+safeCli+' '+hoyS+'.pdf');
@@ -5193,7 +5196,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v118'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v119'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
