@@ -299,7 +299,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v191</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v192</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -447,7 +447,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='191';
+var MC_BUILD='192';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -2718,10 +2718,10 @@ function MCPlanillaCot(cfg){
     '.pnom{font-weight:700;font-size:9.3pt;line-height:1.25;word-wrap:break-word}.pcod{font-size:8.8pt}.psku{font-style:italic}'+
     '.cat{width:82px;font-size:8.4pt;line-height:1.2;word-break:keep-all;overflow-wrap:normal;hyphens:none}.qty{width:48px;text-align:center}'+
     '.chipq{background:#e4e4e4;border-radius:4px;padding:2px 10px;display:inline-block}'+
-    '.mon{width:72px;text-align:right;white-space:nowrap}thead td.mon{white-space:normal;font-size:8.2pt;line-height:1.1}
-    .mon.desc{width:36px;padding-left:2px;padding-right:2px;font-size:8.5pt}
-    thead td.mon.desc{font-size:7.8pt}
-    .tachado{text-decoration:line-through;opacity:.55;font-weight:400}'+
+    '.mon{width:72px;text-align:right;white-space:nowrap}thead td.mon{white-space:normal;font-size:8.2pt;line-height:1.1}'+
+    '.mon.desc{width:36px;padding-left:2px;padding-right:2px;font-size:8.5pt}'+
+    'thead td.mon.desc{font-size:7.8pt}'+
+    '.tachado{text-decoration:line-through;opacity:.55;font-weight:400}'+
     '.hoja2{page-break-before:always;margin-top:18px}'+
     '.h2t{font-size:15pt;color:#444824;letter-spacing:.5px;margin-top:6px}.h2s{font-size:9.6pt;color:#333;margin:4px 0 14px}'+
     '.te{width:100%;border-collapse:collapse;table-layout:fixed}.te thead td{border-bottom:1.5px solid #000;padding:5px 4px;font-size:8.8pt;font-weight:700;white-space:normal}'+
