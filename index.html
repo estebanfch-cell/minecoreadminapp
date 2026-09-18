@@ -89,6 +89,29 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .mini{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px}
 .mini .lbl{font-size:10px;opacity:.6;text-transform:uppercase}
 .mini .num{font-size:20px;font-weight:700;margin-top:2px}
+
+/* Landing ejecutivo v182 */
+#landing-screen{display:none;margin-bottom:14px}
+#landing-screen.on{display:block}
+.land-sec{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px}
+.land-kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.land-kpi{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:10px 12px}
+.land-kpi .lbl{font-size:10px;opacity:.6;text-transform:uppercase}
+.land-kpi .num{font-size:18px;font-weight:800;margin-top:2px;line-height:1.15}
+.land-kpi .sub{font-size:10px;opacity:.7;margin-top:3px}
+.land-delta{font-size:11px;margin-top:2px}
+.land-delta.up{color:#6fd68f}.land-delta.down{color:#e07a7a}.land-delta.flat{color:#8fa3b8}
+.land-card{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px;margin-bottom:10px}
+.land-card h4{margin:0 0 6px;font-size:13px}
+.land-toprow{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-top:1px solid #1a2530}
+.land-toprow:first-of-type{border-top:none}
+.land-mods-label{font-size:12px;font-weight:700;letter-spacing:.5px;margin:16px 0 8px;color:#c3ccd6;display:flex;align-items:center;gap:8px}
+.land-mods-label::after{content:'';flex:1;height:1px;background:#223142}
+.dash-hub{padding:4px 0 12px}
+.dash-hub .cbz-btn{margin-top:8px}
+.liq-cta .liq-primary{opacity:.55;cursor:not-allowed}
+.liq-cta .liq-note{font-size:11px;opacity:.65;margin-top:8px;line-height:1.35}
+
 .toprow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #1a2735}
 .toprow:last-child{border-bottom:none}
 .topn{background:#1e4976;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
@@ -235,7 +258,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v181</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v182</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -251,6 +274,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <h1 id="title" style="font-size:17px;letter-spacing:1px;margin:0 0 12px"></h1>
 
   <div id="notif-bar"></div>
+  <div id="landing-screen"></div>
+  <div id="home-mods-label" class="land-mods-label" style="display:none">Módulos</div>
   <div id="home-edit-bar">
     <button type="button" id="editVistaBtn" onclick="mcToggleHomeEdit()">✏️ Editar vista</button>
     <button type="button" id="resetVistaBtn" onclick="mcResetHomeOrder()">Restablecer</button>
@@ -381,7 +406,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='181';
+var MC_BUILD='182';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -1018,7 +1043,17 @@ var Dash = (function(){
   }
   function init(){
     var el=document.getElementById('dash-screen');
-    el.innerHTML='<div class="fbar">'+
+    el.innerHTML='<div class="dash-hub land-card">'+
+      '<h4 style="margin:0 0 6px">📊 Dashboard</h4>'+
+      '<div class="cbz-muted" style="font-size:12px;line-height:1.4">Resumen ejecutivo vive en el <b>Landing</b> al abrir la app. Aquí el historial completo por rango de fechas (órdenes, facturado, cotizaciones).</div>'+
+      '<button class="cbz-btn" onclick="Dash.openHistorial()">▶ Historial</button>'+
+      '</div><div id="dash-hist" style="display:none"></div>';
+  }
+  function openHistorial(){
+    var wrap=document.getElementById('dash-hist');
+    if(!wrap)return;
+    wrap.style.display='block';
+    wrap.innerHTML='<div class="fbar">'+
       '<div class="chips">'+
       chip('hoy','Hoy')+chip('semana','Semana')+chip('mes','Mes')+chip('trimestre','Trimestre')+chip('ano','Año')+
       '</div>'+
@@ -1231,7 +1266,7 @@ var Dash = (function(){
       alert('Fallo de red generando pick list');
     });
   }
-  return {init:init,preset:preset,applyCustom:applyCustom,setFilter:setFilter,toggleOrder:toggleOrder,dlPdf:dlPdf,setFulfill:setFulfill,dlPickList:dlPickList};
+  return {init:init,openHistorial:openHistorial,preset:preset,applyCustom:applyCustom,setFilter:setFilter,toggleOrder:toggleOrder,dlPdf:dlPdf,setFulfill:setFulfill,dlPickList:dlPickList};
 })();
 
 
@@ -5300,13 +5335,139 @@ function mcSaveOrderFromDom(){
   document.addEventListener('pointerup',endDrag);
   document.addEventListener('pointercancel',endDrag);
 })();
+
+/* ===================== LANDING HOME v182 ===================== */
+var Landing = (function(){
+  var tab='hoy', custWin='l12m', data=null;
+  function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  function pct(f){if(f===null||f===undefined||isNaN(f))return 'n/d';return (Math.round(f*1000)/10).toFixed(1)+'%';}
+  function pp(n){if(n===null||n===undefined||isNaN(n))return 'n/d';var s=n>0?'+':'';return s+(Math.round(n*10)/10).toFixed(1)+' pp';}
+  function deltaCls(n){if(n===null||n===undefined||n===0)return 'flat';return n>0?'up':'down';}
+  function deltaPctTxt(f){if(f===null||f===undefined)return 'n/d';var s=f>0?'+':'';return s+pct(f);}
+  function kpi(lbl,num,sub){return '<div class="land-kpi"><div class="lbl">'+lbl+'</div><div class="num">'+num+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';}
+  function metricsBlock(m,title){
+    if(!m)return '';
+    return '<div class="land-sec">'+title+'</div><div class="land-kpis">'+
+      kpi('Subtotal',fmt(m.subTotal),'Ticket '+fmt(m.aov))+
+      kpi('IVA',fmt(m.iva),m.orders+' órdenes')+
+      kpi('Total',fmt(m.total),m.customers+' clientes')+
+      kpi('Margen',fmt(m.margin),pct(m.marginPct)+' · est.')+
+      '</div>';
+  }
+  function compareBlock(block,label){
+    if(!block||!block.current)return '';
+    var d=block;
+    var h=metricsBlock(d.current,label+' (actual)');
+    h+='<div class="land-card"><div style="font-size:11px;opacity:.65;margin-bottom:4px">vs período anterior</div>';
+    h+='<div class="land-delta '+deltaCls(d.deltaSubTotal)+'">Δ Subtotal '+fmt(d.deltaSubTotal)+' ('+deltaPctTxt(d.deltaSubTotalPct)+')</div>';
+    h+='<div class="land-delta '+deltaCls(d.deltaMarginPp)+'">Δ Margen '+pp(d.deltaMarginPp)+'</div>';
+    h+='<div class="land-delta '+deltaCls(d.deltaOrders)+'">Δ Órdenes '+(d.deltaOrders>0?'+':'')+d.deltaOrders+'</div>';
+    h+='</div>';
+    return h;
+  }
+  function render(){
+    var el=document.getElementById('landing-screen');
+    if(!el)return;
+    if(!data){el.innerHTML='<div class="cbz-loading">Cargando landing...</div>';return;}
+    var h='<div class="chips">'+
+      '<button class="chip '+(tab==='hoy'?'on':'')+'" onclick="Landing.setTab(\'hoy\')">Hoy</button>'+
+      '<button class="chip '+(tab==='mes'?'on':'')+'" onclick="Landing.setTab(\'mes\')">Mes</button>'+
+      '<button class="chip '+(tab==='comp'?'on':'')+'" onclick="Landing.setTab(\'comp\')">Comparativos</button>'+
+      '<button class="chip '+(tab==='l12m'?'on':'')+'" onclick="Landing.setTab(\'l12m\')">L12M</button>'+
+      '</div>';
+    if(tab==='hoy') h+=metricsBlock(data.today,'Hoy · ventas fulfilled');
+    else if(tab==='mes'){
+      h+=metricsBlock(data.mtd,'Mes (MTD) · ventas fulfilled');
+      if(data.mom) h+=compareBlock(data.mom,'MoM');
+    } else if(tab==='comp'){
+      h+=compareBlock(data.mom,'MoM (MTD vs mismo DOM mes ant.)');
+      h+=compareBlock(data.yoyYtd,'YoY YTD');
+      h+=compareBlock(data.l12m,'L12M');
+    } else if(tab==='l12m'){
+      h+=compareBlock(data.l12m,'L12M rolling');
+    }
+    // Top5
+    var tc=data.topCustomers||{};
+    h+='<div class="land-card"><h4>Top clientes</h4>';
+    h+='<div class="chips" style="margin-bottom:8px">';
+    ['today','mtd','ytd','l12m'].forEach(function(w){
+      var lab={today:'Hoy',mtd:'MTD',ytd:'YTD',l12m:'L12M'}[w];
+      h+='<button class="chip '+(custWin===w?'on':'')+'" onclick="Landing.setCustWin(\''+w+'\')">'+lab+'</button>';
+    });
+    h+='</div>';
+    var items=tc.items||[];
+    if(!items.length) h+='<div class="cbz-muted" style="font-size:12px">Sin ventas fulfilled en la ventana.</div>';
+    items.forEach(function(c,i){
+      h+='<div class="land-toprow"><span><b>'+(i+1)+'.</b> '+esc(c.name)+'</span><span>'+fmt(c.subTotal)+' · '+pct(c.marginPct)+'</span></div>';
+    });
+    if(tc.concentrationTop5!==undefined){
+      h+='<div class="cbz-muted" style="font-size:10px;margin-top:6px">Concentración top5 '+pct(tc.concentrationTop5)+' · top10 '+pct(tc.concentrationTop10)+'</div>';
+    }
+    h+='</div>';
+    // AR90
+    var ar=data.ar90||{};
+    h+='<div class="land-card"><h4>A/R 90+</h4>';
+    h+='<div style="font-size:16px;font-weight:800">Ops excl. Rumi: '+fmt(ar.opsExclRumi)+'</div>';
+    h+='<div class="cbz-muted" style="font-size:11px;margin-top:4px">Rumi legal: '+fmt(ar.rumiLegal)+(ar.note?' · '+esc(ar.note):'')+'</div>';
+    h+='</div>';
+    // Liquidación piloto
+    h+='<div class="land-card liq-cta"><h4>Productos de liquidación</h4>';
+    h+='<div class="cbz-muted" style="font-size:12px;margin-bottom:8px">Oferta personalizada de stock con descuento — link o PDF.</div>';
+    h+='<button class="cbz-btn liq-primary" disabled title="Piloto — no live">Próximamente</button>';
+    h+='<div class="liq-note">Piloto Marketing (HP/Kluane). PDF checklist = respaldo. No afirmamos que liq.minecore.ec esté en vivo.</div>';
+    h+='</div>';
+    if(data.meta&&data.meta.asOf){
+      h+='<div class="cbz-muted" style="font-size:10px;text-align:right;opacity:.45;margin-top:4px">asOf '+esc(data.meta.asOf)+'</div>';
+    }
+    el.innerHTML=h;
+  }
+  function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function setTab(t){tab=t;render();}
+  function setCustWin(w){custWin=w;load();}
+  function show(){
+    var el=document.getElementById('landing-screen');
+    if(!el)return;
+    el.classList.add('on');
+    el.style.display='block';
+    var lab=document.getElementById('home-mods-label');
+    if(lab)lab.style.display='flex';
+    load();
+  }
+  function hide(){
+    var el=document.getElementById('landing-screen');
+    if(el){el.classList.remove('on');el.style.display='none';}
+    var lab=document.getElementById('home-mods-label');
+    if(lab)lab.style.display='none';
+  }
+  function load(){
+    var el=document.getElementById('landing-screen');
+    if(!el)return;
+    var p=getProfile();
+    var can=function(m){var ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;};
+    if(!can('dashboard')){
+      el.innerHTML='<div class="land-card liq-cta"><h4>Productos de liquidación</h4>'+
+        '<div class="cbz-muted" style="font-size:12px;margin-bottom:8px">Oferta personalizada de stock con descuento — link o PDF.</div>'+
+        '<button class="cbz-btn liq-primary" disabled>Próximamente</button>'+
+        '<div class="liq-note">Piloto Marketing. No afirmamos que liq.minecore.ec esté en vivo.</div></div>';
+      return;
+    }
+    el.innerHTML='<div class="cbz-loading">Cargando KPIs...</div>';
+    MCpost({action:'getLandingHome',customersWindow:custWin,user:getUserName(),pin:getPin()})
+    .then(function(res){
+      if(!res.ok){el.innerHTML='<div class="cbz-error">Landing: '+(res.error||'error')+'</div>';return;}
+      data=res; render();
+    }).catch(function(e){el.innerHTML='<div class="cbz-error">Fallo de red: '+MCerr(e)+'</div>';});
+  }
+  return {show:show,hide:hide,load:load,setTab:setTab,setCustWin:setCustWin,render:render};
+})();
+
 function renderHome(){
   var p=getProfile();
   try{document.getElementById('whoami').textContent=getUserName()||'';}catch(e){}
   var can=function(m){var ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;};
   var tiles=[];
   function add(id,ico,title,desc,extra){tiles.push({id:id,ico:ico,title:title,desc:desc,extra:extra||{}});}
-  if(can('dashboard')) add('dash','📊','Dashboard','Ventas por período, órdenes y top clientes');
+  if(can('dashboard')) add('dash','📊','Dashboard','Landing KPIs + Historial por rango de fechas');
   if(can('cobranza')) add('cbz','💰','Cobranza','CxC, recordatorios, emails y WhatsApp');
   if(p.rol!=='cliente'&&can('cobranza')) add('kyc','🗂','Base de clientes','Registros del formulario Conoce a tu Cliente');
   if(p.rol==='admin') add('mailcfg','⚙️','Correo del sistema','Remitente y copia oculta de los correos automáticos');
@@ -5379,7 +5540,7 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v122'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
+      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v123'?' ✓':' <span style="color:#f0c040">⚠ pega la versión nueva y haz Nueva implementación</span>');
     }).catch(function(){});
   }
   if(p.rol==='cliente'){
@@ -5409,6 +5570,8 @@ function doSyncNow(){
     alert('Sync completo a las '+res.hora+' ('+res.segundos+'s)\nOVs: '+res.ovs+' · OCs: '+res.ocs);
     // refresca la pantalla activa
     var d=document.getElementById('dash-screen'), c=document.getElementById('cobranza-screen');
+    var land=document.getElementById('landing-screen');
+    if(land&&land.style.display==='block'){try{Landing.load();}catch(e){}}
     if(d.style.display==='block') Dash.init();
     else if(c.style.display==='block') Cobranza.init();
   }).catch(function(){
@@ -5421,6 +5584,7 @@ function openMod(m){
   document.getElementById('home').style.display='none';
   var _eb=document.getElementById('home-edit-bar');if(_eb)_eb.style.display='none';
   var _nb=document.getElementById('notif-bar');if(_nb)_nb.style.display='none';
+  try{Landing.hide();}catch(e){}
   ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
@@ -5457,6 +5621,7 @@ function goHome(){
   if(_nb&&_nb.getAttribute('data-has')==='1'){_nb.style.display='block';_nb.className='on';}
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='';
+  try{Landing.show();}catch(e){}
 }
 
 /* ===================== LOGIN ===================== */
@@ -5488,6 +5653,7 @@ function entrar(res,usr,pin,recordarPin){
   document.getElementById('shell').style.display='block';
   try{ if(window._mcNeedRebookmark) mcShowUpdateBanner(); }catch(e){}
   renderHome();
+  try{Landing.show();}catch(e){}
   }catch(e){alert('Error al iniciar la app: '+(e&&e.message?e.message:e));}
 }
 function doLogin(){
