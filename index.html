@@ -129,6 +129,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .mc-ai-spin{width:42px;height:42px;border-radius:50%;border:3px solid #223142;border-top-color:#5cc8ff;border-right-color:#8fd3ff;animation:mcAiSpin .85s linear infinite;margin:0 auto 16px}
 .mc-ai-pulse{width:10px;height:10px;border-radius:50%;background:#5cc8ff;margin:0 auto 14px;animation:mcAiPulse 1.2s ease-in-out infinite}
 .mc-ai-msg{font-size:13px;line-height:1.45;color:#c3ccd6;max-width:320px}
+.mc-ai-sub{font-size:12px;line-height:1.4;color:#8a97a8;max-width:320px;margin-top:10px}
+.mc-ai-tip{font-size:11px;line-height:1.35;color:#6d7a8a;max-width:320px;margin-top:14px;min-height:2.8em;opacity:.9}
 @keyframes mcAiSpin{to{transform:rotate(360deg)}}
 @keyframes mcAiPulse{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.55);opacity:1}}
 #dash-kpi{margin-bottom:12px}
@@ -280,7 +282,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v185</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v186</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -428,7 +430,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='185';
+var MC_BUILD='186';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -5461,13 +5463,19 @@ var Landing = (function(){
   return {show:show,hide:hide,load:load,setTab:setTab,setCustWin:setCustWin,render:render,mount:mount};
 })();
 
-/* ===================== LIQUIDACIÓN MÓDULO (v185) ===================== */
+/* ===================== LIQUIDACIÓN MÓDULO (v186) ===================== */
 var LIQ_PILOTO_FALLBACK = [
   {name:'HP DRILLING SERVICES S.A.S', token:'be50a70229d2031019a1d0ab'},
   {name:'KLUANE DRILLING ECUADOR S.A', token:'6b6cdc40b8e6c0198b7c15c9'}
 ];
 var LiqMod = (function(){
   var clientes=[], q='', selected=null, phase='list', lastUrl='', busy=false;
+  var tipTimer=null, wait90Timer=null, tipIdx=0;
+  var TIPS=[
+    'Analiza compras recientes para priorizar lo que más usa el cliente.',
+    'Revisa cotizaciones previas e intereses marcados.',
+    'Detecta stock parado que puede interesar a este cliente.'
+  ];
   function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function urlFor(tok){return 'https://liq.minecore.ec/?t='+encodeURIComponent(tok);}
   function norm(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
@@ -5482,6 +5490,25 @@ var LiqMod = (function(){
     return '';
   }
   function el(){return document.getElementById('liq-screen');}
+  function clearAiTimers(){
+    if(tipTimer){clearInterval(tipTimer);tipTimer=null;}
+    if(wait90Timer){clearTimeout(wait90Timer);wait90Timer=null;}
+  }
+  function startAiExtras(){
+    clearAiTimers();
+    tipIdx=0;
+    tipTimer=setInterval(function(){
+      if(phase!=='loading'){clearAiTimers();return;}
+      tipIdx=(tipIdx+1)%TIPS.length;
+      var tipEl=document.getElementById('liq-ai-tip');
+      if(tipEl) tipEl.textContent=TIPS[tipIdx];
+    },20000);
+    wait90Timer=setTimeout(function(){
+      if(phase!=='loading')return;
+      var sub=document.getElementById('liq-ai-sub');
+      if(sub) sub.innerHTML='Sigue trabajando… a veces tarda cerca de <strong>2–3 minutos</strong>.';
+    },90000);
+  }
   function filtered(){
     var qq=norm(q);
     if(!qq) return clientes.slice();
@@ -5490,11 +5517,14 @@ var LiqMod = (function(){
   function paint(){
     var node=el(); if(!node)return;
     if(phase==='loading'){
+      var name=selected||'este cliente';
       node.innerHTML='<div class="liq-mod"><div class="mc-ai-wrap">'+
         '<div class="mc-ai-logo">MINECORE AI</div>'+
         '<div class="mc-ai-spin" aria-hidden="true"></div>'+
         '<div class="mc-ai-pulse" aria-hidden="true"></div>'+
-        '<div class="mc-ai-msg">Minecore AI está armando la liquidación personalizada según historial de compras e intereses…</div>'+
+        '<div class="mc-ai-msg" id="liq-ai-msg">Minecore AI está analizando historial de compras e intereses de '+esc(name)+'…</div>'+
+        '<div class="mc-ai-sub" id="liq-ai-sub">Esto puede tomar <strong>2–3 minutos</strong>. Podés dejar esta pantalla abierta.</div>'+
+        '<div class="mc-ai-tip" id="liq-ai-tip">'+esc(TIPS[0])+'</div>'+
         '</div></div>';
       return;
     }
@@ -5571,7 +5601,7 @@ var LiqMod = (function(){
     });
   }
   function onSearch(v){q=v||'';paint();}
-  function backToList(){phase='list';selected=null;lastUrl='';busy=false;paint();}
+  function backToList(){clearAiTimers();phase='list';selected=null;lastUrl='';busy=false;paint();}
   function waitMin(ms){return new Promise(function(res){setTimeout(res,ms);});}
   function pickB64(b64){try{pick(decodeURIComponent(escape(atob(b64))));}catch(e){}}
   function pick(name){
@@ -5579,19 +5609,35 @@ var LiqMod = (function(){
     name=String(name||'').trim();
     if(!name)return;
     busy=true; selected=name; phase='loading'; lastUrl=''; paint();
+    startAiExtras();
     var t0=Date.now();
-    var minMs=2000+Math.floor(Math.random()*2000);
+    var minMs=1500;
     function finishOk(token,url){
+      clearAiTimers();
       lastUrl=url||urlFor(token);
       phase='ready'; busy=false; paint();
     }
     function finishErr(msg){
+      clearAiTimers();
       lastUrl=msg||'No se pudo preparar el link para este cliente.';
       phase='error'; busy=false; paint();
     }
     function afterMin(fn){
       var left=Math.max(0, minMs-(Date.now()-t0));
       return waitMin(left).then(fn);
+    }
+    function mapErr(res,isTimeout){
+      if(isTimeout) return 'La preparación está tardando más de lo esperado (cerca de 2–3 minutos). Podés volver e intentar de nuevo en un momento.';
+      var err=(res&&res.error)?String(res.error):'';
+      if(!err && res && res.message) err=String(res.message);
+      if(!err) err='No se pudo preparar el link para este cliente.';
+      if(/timeout|timed?\s*out|exceeded|deadline/i.test(err))
+        return 'Se agotó el tiempo de espera. Minecore AI a veces tarda cerca de 2–3 minutos; volvé a intentar.';
+      if(/v124|action|permit|ADMIN|permission/i.test(err))
+        return 'El servidor aún no tiene esta función. Pedí actualizar el Motor API (v124).';
+      if(/network|fetch|Failed to fetch|conexión|connect/i.test(err))
+        return 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
+      return err;
     }
     MCpost({action:'liqPrepareCliente',cliente:name,user:getUserName(),pin:getPin()})
     .then(function(res){
@@ -5600,14 +5646,13 @@ var LiqMod = (function(){
       }
       var tok=pilotoToken(name);
       if(tok) return afterMin(function(){finishOk(tok,urlFor(tok));});
-      var err=(res&&res.error)?String(res.error):'No se pudo preparar el link para este cliente.';
-      if(/v124|action|permit|ADMIN|permission/i.test(err)) err='El servidor aún no tiene esta función. Pide actualizar el Motor API.';
-      return afterMin(function(){finishErr(err);});
+      return afterMin(function(){finishErr(mapErr(res,false));});
     })
-    .catch(function(){
+    .catch(function(e){
       var tok=pilotoToken(name);
       if(tok) return afterMin(function(){finishOk(tok,urlFor(tok));});
-      return afterMin(function(){finishErr('No se pudo conectar. Revisa tu conexión e intenta de nuevo.');});
+      var msg=mapErr({error:(e&&e.message)?e.message:String(e||'')}, /timeout|timed?\s*out/i.test(String(e&&e.message||e||'')));
+      return afterMin(function(){finishErr(msg);});
     });
   }
   function copy(){
@@ -5626,9 +5671,10 @@ var LiqMod = (function(){
     if(!lastUrl){alert('No hay link todavía.');return;}
     window.open(lastUrl,'_blank','noopener');
   }
-  function init(){busy=false;phase='list';selected=null;lastUrl='';q='';loadClientes();}
+  function init(){clearAiTimers();busy=false;phase='list';selected=null;lastUrl='';q='';loadClientes();}
   return {init:init,onSearch:onSearch,pick:pick,pickB64:pickB64,copy:copy,open:open,backToList:backToList};
 })();
+
 
 
 function renderHome(){
