@@ -299,7 +299,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v189</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v190</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -447,7 +447,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='189';
+var MC_BUILD='190';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -5503,13 +5503,14 @@ var Landing = (function(){
   return {show:show,hide:hide,load:load,setTab:setTab,setCustWin:setCustWin,render:render,mount:mount};
 })();
 
-/* ===================== LIQUIDACIÓN MÓDULO (v186) ===================== */
+/* ===================== LIQUIDACIÓN MÓDULO (v190) ===================== */
+/* Fix: carga clientes (loading flag + Inflow primero) + buscador sin perder foco */
 var LIQ_PILOTO_FALLBACK = [
   {name:'HP DRILLING SERVICES S.A.S', token:'be50a70229d2031019a1d0ab'},
   {name:'KLUANE DRILLING ECUADOR S.A', token:'6b6cdc40b8e6c0198b7c15c9'}
 ];
 var LiqMod = (function(){
-  var clientes=[], q='', selected=null, phase='list', lastUrl='', busy=false;
+  var clientes=[], q='', selected=null, phase='list', lastUrl='', busy=false, loading=false, loadErr='';
   var tipTimer=null, wait90Timer=null, tipIdx=0;
   var TIPS=[
     'Analiza compras recientes para priorizar lo que más usa el cliente.',
@@ -5535,8 +5536,7 @@ var LiqMod = (function(){
     if(wait90Timer){clearTimeout(wait90Timer);wait90Timer=null;}
   }
   function startAiExtras(){
-    clearAiTimers();
-    tipIdx=0;
+    clearAiTimers(); tipIdx=0;
     tipTimer=setInterval(function(){
       if(phase!=='loading'){clearAiTimers();return;}
       tipIdx=(tipIdx+1)%TIPS.length;
@@ -5553,6 +5553,50 @@ var LiqMod = (function(){
     var qq=norm(q);
     if(!qq) return clientes.slice();
     return clientes.filter(function(n){return norm(n).indexOf(qq)>=0;});
+  }
+  function nameOf(x){
+    if(typeof x==='string') return x;
+    if(!x||typeof x!=='object') return '';
+    return x.nombre||x.name||x.cliente||x.CustomerName||'';
+  }
+  function applyNames(arr){
+    var set={}, out=[];
+    (arr||[]).forEach(function(x){
+      var n=String(nameOf(x)||'').trim();
+      if(!n)return;
+      var k=norm(n);
+      if(set[k])return;
+      set[k]=1; out.push(n);
+    });
+    out.sort(function(a,b){return a.localeCompare(b,'es',{sensitivity:'base'});});
+    clientes=out;
+  }
+  function paintListBody(){
+    var box=document.getElementById('liq-list-body');
+    if(!box) return false;
+    var h='';
+    if(loading){
+      h='<div class="cbz-loading">Cargando clientes…</div>';
+    } else if(!clientes.length){
+      h='<div class="cbz-muted" style="padding:12px 0">'+(esc(loadErr)||'No se pudieron cargar los clientes.')+
+        ' <a href="#" onclick="LiqMod.reload();return false" style="color:#5cc8ff">Reintentar</a></div>';
+    } else {
+      var rows=filtered();
+      if(!rows.length){
+        h='<div class="cbz-muted" style="padding:12px 0">Sin coincidencias.</div>';
+      } else {
+        h='<div class="liq-client-list">';
+        rows.forEach(function(name){
+          var b64=btoa(unescape(encodeURIComponent(name)));
+          h+='<div class="liq-client-row" tabindex="0" role="button" data-b64="'+b64+'" onclick="LiqMod.pickB64(this.getAttribute(\'data-b64\'))" onkeydown="if(event.key===\'Enter\')LiqMod.pickB64(this.getAttribute(\'data-b64\'))">'+
+            '<span>'+esc(name)+'</span><span class="chev">›</span></div>';
+        });
+        h+='</div>';
+        h+='<div class="liq-note">'+rows.length+' de '+clientes.length+' clientes</div>';
+      }
+    }
+    box.innerHTML=h;
+    return true;
   }
   function paint(){
     var node=el(); if(!node)return;
@@ -5589,57 +5633,55 @@ var LiqMod = (function(){
         '<button type="button" class="cbz-btn" onclick="LiqMod.backToList()">Volver</button></div>';
       return;
     }
-    var rows=filtered();
-    var h='<div class="liq-mod">';
-    h+='<div class="cbz-muted" style="font-size:12px;line-height:1.4;margin-bottom:4px">Elige un cliente para generar su link de liquidación personalizado.</div>';
-    h+='<input class="liq-search" id="liq-search" type="search" placeholder="Buscar cliente…" value="'+esc(q)+'" oninput="LiqMod.onSearch(this.value)" autocomplete="off">';
-    if(!clientes.length){
-      h+='<div class="cbz-loading">Cargando clientes…</div>';
-    } else if(!rows.length){
-      h+='<div class="cbz-muted" style="padding:12px 0">Sin coincidencias.</div>';
-    } else {
-      h+='<div class="liq-client-list">';
-      rows.forEach(function(name){
-        var b64=btoa(unescape(encodeURIComponent(name)));
-        h+='<div class="liq-client-row" tabindex="0" role="button" data-b64="'+b64+'" onclick="LiqMod.pickB64(this.getAttribute(\'data-b64\'))" onkeydown="if(event.key===\'Enter\')LiqMod.pickB64(this.getAttribute(\'data-b64\'))">'+
-          '<span>'+esc(name)+'</span><span class="chev">›</span></div>';
+    /* list phase: shell fijo para no destruir el input al filtrar */
+    node.innerHTML='<div class="liq-mod">'+
+      '<div class="cbz-muted" style="font-size:12px;line-height:1.4;margin-bottom:4px">Elige un cliente para generar su link de liquidación personalizado.</div>'+
+      '<input class="liq-search" id="liq-search" type="search" placeholder="Buscar cliente…" value="'+esc(q)+'" autocomplete="off">'+
+      '<div id="liq-list-body"></div>'+
+      '</div>';
+    var inp=document.getElementById('liq-search');
+    if(inp){
+      inp.addEventListener('input', function(){
+        q=inp.value||'';
+        paintListBody();
       });
-      h+='</div>';
-      h+='<div class="liq-note">'+rows.length+' de '+clientes.length+' clientes</div>';
     }
-    h+='</div>';
-    node.innerHTML=h;
+    paintListBody();
   }
   function loadClientes(){
-    clientes=[]; q=''; phase='list'; selected=null; lastUrl=''; paint();
-    function applyNames(arr){
-      var set={}, out=[];
-      (arr||[]).forEach(function(x){
-        var n=typeof x==='string'?x:(x&&x.nombre?x.nombre:'');
-        n=String(n||'').trim();
-        if(!n)return;
-        var k=norm(n);
-        if(set[k])return;
-        set[k]=1; out.push(n);
-      });
-      out.sort(function(a,b){return a.localeCompare(b,'es',{sensitivity:'base'});});
-      clientes=out; paint();
+    loading=true; loadErr=''; clientes=[]; phase='list'; selected=null; lastUrl=''; paint();
+    var finished=false;
+    function finish(arr, err){
+      if(finished)return;
+      finished=true;
+      loading=false;
+      loadErr=err||'';
+      applyNames(arr||[]);
+      if(!clientes.length && !loadErr) loadErr='La lista vino vacía.';
+      /* Solo repinta el cuerpo si el shell sigue en list; si no, paint completo */
+      if(phase==='list' && document.getElementById('liq-list-body')) paintListBody();
+      else if(phase==='list') paint();
     }
-    MCpost({action:'getClientes',user:getUserName(),pin:getPin()})
+    var to=setTimeout(function(){
+      if(!finished) finish(LIQ_PILOTO_FALLBACK.map(function(p){return p.name;}), 'Tardó demasiado; mostrando piloto. Reintentá para la lista completa.');
+    }, 25000);
+    /* Inflow primero (lista completa, igual que Cotizaciones) */
+    MCpost({action:'getClientesInflowLista',user:getUserName(),pin:getPin()})
     .then(function(r){
-      if(r&&r.ok&&(r.clientes||[]).length){applyNames(r.clientes);return null;}
-      return MCpost({action:'getClientesInflowLista',user:getUserName(),pin:getPin()});
+      if(r&&r.ok&&(r.clientes||[]).length){ clearTimeout(to); finish(r.clientes); return null; }
+      return MCpost({action:'getClientes',user:getUserName(),pin:getPin()}).then(function(r2){
+        clearTimeout(to);
+        if(r2&&r2.ok&&(r2.clientes||[]).length){ finish(r2.clientes); return; }
+        var err=(r&&r.error)||(r2&&r2.error)||'';
+        finish(LIQ_PILOTO_FALLBACK.map(function(p){return p.name;}), err||'Usando lista piloto.');
+      });
     })
-    .then(function(r2){
-      if(r2==null)return;
-      if(r2&&r2.ok) applyNames(r2.clientes||[]);
-      else if(!clientes.length) applyNames(LIQ_PILOTO_FALLBACK.map(function(p){return p.name;}));
-    })
-    .catch(function(){
-      if(!clientes.length) applyNames(LIQ_PILOTO_FALLBACK.map(function(p){return p.name;}));
+    .catch(function(e){
+      clearTimeout(to);
+      finish(LIQ_PILOTO_FALLBACK.map(function(p){return p.name;}), (e&&e.message)||'Error de red');
     });
   }
-  function onSearch(v){q=v||'';paint();}
+  function onSearch(v){ /* legacy no-op; input listener handles it */ q=v||''; paintListBody(); }
   function backToList(){clearAiTimers();phase='list';selected=null;lastUrl='';busy=false;paint();}
   function waitMin(ms){return new Promise(function(res){setTimeout(res,ms);});}
   function pickB64(b64){try{pick(decodeURIComponent(escape(atob(b64))));}catch(e){}}
@@ -5666,7 +5708,7 @@ var LiqMod = (function(){
       return waitMin(left).then(fn);
     }
     function mapErr(res,isTimeout){
-      if(isTimeout) return 'La preparación está tardando más de lo esperado (cerca de 2–3 minutos). Podés volver e intentar de nuevo en un momento.';
+      if(isTimeout) return 'La preparación está tardando más de lo esperado (cerca de 2–3 minutos). Podés volver e intentar de nuevo.';
       var err=(res&&res.error)?String(res.error):'';
       if(!err && res && res.message) err=String(res.message);
       if(!err) err='No se pudo preparar el link para este cliente.';
@@ -5710,9 +5752,11 @@ var LiqMod = (function(){
     if(!lastUrl){alert('No hay link todavía.');return;}
     window.open(lastUrl,'_blank','noopener');
   }
+  function reload(){loadClientes();}
   function init(){clearAiTimers();busy=false;phase='list';selected=null;lastUrl='';q='';loadClientes();}
-  return {init:init,onSearch:onSearch,pick:pick,pickB64:pickB64,copy:copy,open:open,backToList:backToList};
+  return {init:init,onSearch:onSearch,pick:pick,pickB64:pickB64,copy:copy,open:open,backToList:backToList,reload:reload};
 })();
+
 
 
 
