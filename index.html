@@ -258,7 +258,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v182</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v183</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -406,7 +406,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='182';
+var MC_BUILD='183';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -1043,11 +1043,10 @@ var Dash = (function(){
   }
   function init(){
     var el=document.getElementById('dash-screen');
-    el.innerHTML='<div class="dash-hub land-card">'+
-      '<h4 style="margin:0 0 6px">📊 Dashboard</h4>'+
-      '<div class="cbz-muted" style="font-size:12px;line-height:1.4">Resumen ejecutivo vive en el <b>Landing</b> al abrir la app. Aquí el historial completo por rango de fechas (órdenes, facturado, cotizaciones).</div>'+
-      '<button class="cbz-btn" onclick="Dash.openHistorial()">▶ Historial</button>'+
-      '</div><div id="dash-hist" style="display:none"></div>';
+    el.innerHTML='<div class="dash-hub land-card" style="margin-bottom:10px">'+
+      '<div class="cbz-muted" style="font-size:11px;line-height:1.35">Resumen ejecutivo (KPIs) está en el <b>Landing</b> al abrir la app. Abajo: historial por fechas.</div>'+
+      '</div><div id="dash-hist"></div>';
+    openHistorial();
   }
   function openHistorial(){
     var wrap=document.getElementById('dash-hist');
