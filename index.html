@@ -126,13 +126,30 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .liq-note{font-size:11px;opacity:.65;margin-top:10px;line-height:1.35}
 .mc-ai-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px 18px;min-height:220px}
 .mc-ai-logo{font-size:13px;font-weight:800;letter-spacing:1.2px;color:#5cc8ff;margin-bottom:14px}
-.mc-ai-spin{width:42px;height:42px;border-radius:50%;border:3px solid #223142;border-top-color:#5cc8ff;border-right-color:#8fd3ff;animation:mcAiSpin .85s linear infinite;margin:0 auto 16px}
-.mc-ai-pulse{width:10px;height:10px;border-radius:50%;background:#5cc8ff;margin:0 auto 14px;animation:mcAiPulse 1.2s ease-in-out infinite}
+.mc-ai-drill{width:120px;height:140px;margin:0 auto 12px;display:block}
+.mc-ai-drill svg{display:block;width:120px;height:140px}
+.mc-ai-drill-assemb{transform-box:fill-box;transform-origin:center;animation:mcAiDrill 0.85s ease-in-out infinite}
+.mc-ai-bit{transform-box:fill-box;transform-origin:center;animation:mcAiBitSpin 0.12s linear infinite}
+.mc-ai-rock{opacity:0;transform-box:fill-box;transform-origin:center}
+.mc-ai-rock1{animation:mcAiRockFly 0.55s ease-out infinite}
+.mc-ai-rock2{animation:mcAiRockFly 0.5s ease-out .07s infinite}
+.mc-ai-rock3{animation:mcAiRockFly 0.6s ease-out .14s infinite}
+.mc-ai-rock4{animation:mcAiRockFly 0.48s ease-out .21s infinite}
+.mc-ai-rock5{animation:mcAiRockFly 0.58s ease-out .28s infinite}
+.mc-ai-rock6{animation:mcAiRockFly 0.52s ease-out .35s infinite}
+.mc-ai-rock7{animation:mcAiRockFly 0.62s ease-out .1s infinite}
+.mc-ai-rock8{animation:mcAiRockFly 0.45s ease-out .18s infinite}
+.mc-ai-spark{opacity:0}
+.mc-ai-spark1{animation:mcAiSpark 0.38s ease-out infinite}
+.mc-ai-spark2{animation:mcAiSpark 0.42s ease-out .12s infinite}
+.mc-ai-spark3{animation:mcAiSpark 0.36s ease-out .22s infinite}
 .mc-ai-msg{font-size:13px;line-height:1.45;color:#c3ccd6;max-width:320px}
 .mc-ai-sub{font-size:12px;line-height:1.4;color:#8a97a8;max-width:320px;margin-top:10px}
 .mc-ai-tip{font-size:11px;line-height:1.35;color:#6d7a8a;max-width:320px;margin-top:14px;min-height:2.8em;opacity:.9}
-@keyframes mcAiSpin{to{transform:rotate(360deg)}}
-@keyframes mcAiPulse{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.55);opacity:1}}
+@keyframes mcAiBitSpin{to{transform:rotate(360deg)}}
+@keyframes mcAiDrill{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+@keyframes mcAiRockFly{0%{transform:translate(0,0) rotate(0deg);opacity:0}12%{opacity:1}100%{transform:translate(var(--dx,0),var(--dy,-40px)) rotate(var(--rot,140deg));opacity:0}}
+@keyframes mcAiSpark{0%{transform:scale(1);opacity:0}18%{opacity:1}100%{transform:scale(.25) translate(var(--sx,0),var(--sy,-10px));opacity:0}}
 #dash-kpi{margin-bottom:12px}
 .dash-hist-label{font-size:12px;font-weight:700;letter-spacing:.5px;margin:14px 0 8px;color:#c3ccd6}
 
@@ -282,7 +299,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v186</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v188</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -430,7 +447,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='186';
+var MC_BUILD='188';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -5520,8 +5537,7 @@ var LiqMod = (function(){
       var name=selected||'este cliente';
       node.innerHTML='<div class="liq-mod"><div class="mc-ai-wrap">'+
         '<div class="mc-ai-logo">MINECORE AI</div>'+
-        '<div class="mc-ai-spin" aria-hidden="true"></div>'+
-        '<div class="mc-ai-pulse" aria-hidden="true"></div>'+
+        '<div class="mc-ai-drill" aria-hidden="true"><svg viewBox="0 0 120 140" width="120" height="140" role="img"><defs><linearGradient id="mcRod" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2a3544"/><stop offset="45%" stop-color="#4a5d72"/><stop offset="100%" stop-color="#1e2936"/></linearGradient><linearGradient id="mcBitBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3a4a5c"/><stop offset="100%" stop-color="#1a2430"/></linearGradient><radialGradient id="mcDia" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#8fd3ff"/><stop offset="55%" stop-color="#5cc8ff"/><stop offset="100%" stop-color="#2a8fb8"/></radialGradient></defs><rect x="8" y="116" width="104" height="20" rx="3" fill="#0b1219" stroke="#223142" stroke-width="1"/><path d="M10 122 L22 117 L36 125 L50 116 L64 124 L78 117 L92 123 L108 118 L110 134 L10 134 Z" fill="#1a2735"/><path d="M18 128 L30 122 L42 130 L54 121 L68 129 L82 123 L96 128" fill="none" stroke="#243447" stroke-width="1.2"/><g class="mc-ai-debris"><polygon class="mc-ai-rock mc-ai-rock1" style="--dx:-30px;--dy:-38px;--rot:-150deg" points="56,113 60,111 59,116" fill="#8b7355"/><polygon class="mc-ai-rock mc-ai-rock2" style="--dx:34px;--dy:-28px;--rot:170deg" points="62,114 66,112 65,117" fill="#6e6660"/><polygon class="mc-ai-rock mc-ai-rock3" style="--dx:-18px;--dy:-48px;--rot:-90deg" points="58,112 61,110 62,114 59,115" fill="#9a8570"/><polygon class="mc-ai-rock mc-ai-rock4" style="--dx:22px;--dy:-44px;--rot:110deg" points="60,113 63,111 64,115 61,116" fill="#5a5550"/><polygon class="mc-ai-rock mc-ai-rock5" style="--dx:-38px;--dy:-18px;--rot:-200deg" points="54,114 57,112 58,116" fill="#7a6a58"/><polygon class="mc-ai-rock mc-ai-rock6" style="--dx:40px;--dy:-22px;--rot:210deg" points="64,113 67,111 68,115 65,116" fill="#8a8078"/><polygon class="mc-ai-rock mc-ai-rock7" style="--dx:-8px;--dy:-52px;--rot:-40deg" points="57,111 60,109 61,113" fill="#6b6055"/><polygon class="mc-ai-rock mc-ai-rock8" style="--dx:12px;--dy:-50px;--rot:55deg" points="61,112 64,110 63,115" fill="#958575"/><circle class="mc-ai-spark mc-ai-spark1" style="--sx:-8px;--sy:-12px" cx="58" cy="114" r="1.3" fill="#ffd080"/><circle class="mc-ai-spark mc-ai-spark2" style="--sx:10px;--sy:-14px" cx="62" cy="113" r="1.1" fill="#ffe8a0"/><circle class="mc-ai-spark mc-ai-spark3" style="--sx:0px;--sy:-16px" cx="60" cy="112" r="1.0" fill="#fff0c0"/></g><g class="mc-ai-drill-assemb"><rect x="55" y="6" width="10" height="12" rx="1.5" fill="url(#mcRod)" stroke="#5cc8ff" stroke-width=".6" opacity=".9"/><rect x="56.5" y="16" width="7" height="58" rx="1.5" fill="url(#mcRod)" stroke="#3a4a5c" stroke-width=".5"/><line x1="60" y1="22" x2="60" y2="70" stroke="#5cc8ff" stroke-width=".4" opacity=".35"/><rect x="52" y="72" width="16" height="6" rx="1" fill="#2a3544" stroke="#5cc8ff" stroke-width=".7"/><g class="mc-ai-bit"><rect x="54" y="76" width="12" height="8" rx="1" fill="#2a3544"/><polygon points="60,84 46,98 48,108 60,114 72,108 74,98" fill="url(#mcBitBody)" stroke="#4a5d72" stroke-width=".8"/><polygon points="60,84 46,98 60,102" fill="#3a4a5c" opacity=".9"/><polygon points="60,84 74,98 60,102" fill="#1e2936" opacity=".85"/><polygon points="46,98 48,108 60,102" fill="#2a3544"/><polygon points="74,98 72,108 60,102" fill="#243447"/><circle cx="48" cy="100" r="2.4" fill="url(#mcDia)"/><circle cx="72" cy="100" r="2.4" fill="url(#mcDia)"/><circle cx="52" cy="109" r="2.1" fill="url(#mcDia)"/><circle cx="68" cy="109" r="2.1" fill="url(#mcDia)"/><circle cx="60" cy="112" r="2.6" fill="url(#mcDia)"/><circle cx="60" cy="96" r="1.8" fill="#8fd3ff" opacity=".9"/><path d="M56 90 L54 104" stroke="#5cc8ff" stroke-width=".7" opacity=".45"/><path d="M64 90 L66 104" stroke="#5cc8ff" stroke-width=".7" opacity=".45"/></g></g></svg></div>'+
         '<div class="mc-ai-msg" id="liq-ai-msg">Minecore AI está analizando historial de compras e intereses de '+esc(name)+'…</div>'+
         '<div class="mc-ai-sub" id="liq-ai-sub">Esto puede tomar <strong>2–3 minutos</strong>. Podés dejar esta pantalla abierta.</div>'+
         '<div class="mc-ai-tip" id="liq-ai-tip">'+esc(TIPS[0])+'</div>'+
