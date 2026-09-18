@@ -18,7 +18,6 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   .mods{grid-template-columns:repeat(3,1fr);gap:16px}
   .mod{padding:22px 18px}
   .mod h3{font-size:16px}
-  #notif-card{grid-column:1/-1}
   .cbz-card{padding:16px 18px}
   input.uinput,select.uinput{font-size:14px}
   /* listas largas a dos columnas donde son tarjetas independientes */
@@ -30,7 +29,6 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 @media(min-width:1500px){
   #shell{max-width:1280px}
   .mods{grid-template-columns:repeat(4,1fr)}
-  #notif-card{grid-column:1/-1}
 }
 .topbar{display:flex;align-items:center;gap:8px;padding:6px 0 14px;flex-wrap:nowrap}
 .topbar .dot{width:10px;height:10px;border-radius:50%;background:#2e9e5b;flex:none}
@@ -49,13 +47,25 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 #login button{width:100%;margin-top:12px;background:#1e4976;border:none;color:#fff;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
 #login .err{color:#ff6b6b;font-size:12px;margin-top:10px;min-height:16px}
 .mods{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.mod{background:#0f1720;border:1px solid #223142;border-radius:14px;padding:18px 14px;cursor:pointer;text-align:left}
+.mod{background:#0f1720;border:1px solid #223142;border-radius:14px;padding:18px 14px;cursor:pointer;text-align:left;aspect-ratio:1/1;display:flex;flex-direction:column;justify-content:flex-start;min-height:0;overflow:hidden}
 .mod:active{background:#131f2c}
 .mod .ico{font-size:26px}
 .mod h3{font-size:14px;margin:8px 0 3px}
 .mod p{font-size:11px;opacity:.6;line-height:1.35}
 .mod.soon{opacity:.45;cursor:default}
 .mod .tag{display:inline-block;margin-top:6px;font-size:10px;background:#1c2a3a;border-radius:10px;padding:2px 8px}
+#notif-bar{display:none;background:#0f1720;border:1px solid #f0c040;border-radius:14px;padding:14px 16px;margin:0 0 12px;width:100%;box-sizing:border-box}
+#notif-bar.on{display:block}
+#notif-bar h3{font-size:14px;margin:0 0 6px}
+#mc-update-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:#3a2a0a;border-bottom:2px solid #f0c040;padding:14px 16px;margin:0;color:#ffe9a8;box-sizing:border-box;max-width:100%}
+#mc-update-banner.on{display:block}
+#mc-update-banner .mc-upd-inner{max-width:640px;margin:0 auto}
+@media(min-width:1024px){#mc-update-banner .mc-upd-inner{max-width:1120px}}
+@media(min-width:1500px){#mc-update-banner .mc-upd-inner{max-width:1280px}}
+#mc-update-banner .mc-upd-title{font-weight:800;font-size:14px;margin-bottom:6px;color:#fff}
+#mc-update-banner .mc-upd-body{font-size:13px;line-height:1.45;margin-bottom:10px;opacity:.95}
+#mc-update-banner a.mc-upd-btn{display:inline-block;background:#f0c040;color:#0b1219;font-weight:800;font-size:13px;padding:10px 14px;border-radius:10px;text-decoration:none}
+#mc-update-banner .mc-upd-hint{font-size:11px;opacity:.75;margin-top:8px}
 
 .fbar{margin-bottom:12px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
@@ -184,6 +194,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 </style>
 </head>
 <body>
+<div id="mc-update-banner" role="alert" aria-live="polite"></div>
+
 <div id="invite" style="display:none;max-width:360px;margin:0 auto;text-align:center;padding:14vh 24px 40px;background:#fff;min-height:100vh;box-sizing:border-box">
   <img id="invLogo" src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore" style="width:230px;max-width:80%;display:block;margin:0 auto 6px;">
   <p style="color:#5a6a7a;font-size:12px;margin-bottom:20px">Crea tu usuario del portal Minecore</p>
@@ -216,7 +228,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v178</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v180</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -231,6 +243,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   </div>
   <h1 id="title" style="font-size:17px;letter-spacing:1px;margin:0 0 12px"></h1>
 
+  <div id="notif-bar"></div>
   <div id="home" class="mods"></div>
 
   <div id="dash-screen" style="display:none"></div>
@@ -356,6 +369,33 @@ function b64uToBuf(s){
 }
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
+
+var MC_BUILD='180';
+var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
+function mcShowUpdateBanner(){
+  var el=document.getElementById('mc-update-banner');
+  if(!el)return;
+  var url=MC_PAGES_URL+'?v='+MC_BUILD;
+  el.innerHTML='<div class="mc-upd-inner"><div class="mc-upd-title">⚠ Versión nueva disponible (index v'+MC_BUILD+')</div>'+
+    '<div class="mc-upd-body">Esta instalación/bookmark puede estar desactualizada. <b>Borra el icono de inicio o favorito anterior</b> y vuelve a guardar esta página con el enlace actualizado.</div>'+
+    '<a class="mc-upd-btn" href="'+url+'" onclick="try{localStorage.setItem(\'mc_build\',MC_BUILD)}catch(e){}">Abrir versión actualizada</a>'+
+    '<div class="mc-upd-hint">Después de abrir el enlace nuevo, vuelve a agregar Minecore a inicio / favoritos.</div></div>';
+  el.className='on';
+  el.style.display='block';
+}
+(function mcBuildCheck(){
+  try{
+    var q=location.search||'';
+    var forceV=(q.match(/[?&]v=([^&]*)/)||[])[1];
+    if(forceV!==undefined&&forceV!==null&&String(forceV)!==''){
+      localStorage.setItem('mc_build',MC_BUILD);
+      return;
+    }
+    var prev=localStorage.getItem('mc_build');
+    if(!prev){localStorage.setItem('mc_build',MC_BUILD);return;}
+    if(prev!==MC_BUILD){window._mcNeedRebookmark=true;}
+  }catch(e){}
+})();
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 /* v129: errores honestos — distingue "sin red" de "el servidor respondió algo que no es JSON" (páginas de error de Google, timeouts) */
@@ -1232,7 +1272,6 @@ var Users = (function(){
         '<div class="cbz-card-top"><div class="cbz-card-name">'+u.nombre+
         (u.rol==='admin'?' <span class="tagx tf">ADMIN</span>':'')+
         (u.master?' <span class="tagx" style="background:#3a2c1c;color:#f0c040">MÁSTER</span>':'')+
-        (u.hasPin||u.pin?' <span class="tagx" style="background:#1c2e3a;color:#9ec9ff;cursor:pointer" title="Clic para copiar PIN" onclick="Users.copyPin('+i+')">PIN '+String(u.pin||'····')+'</span>':' <span class="tagx tn">SIN PIN</span>')+
         (u.rol==='cliente'&&!u.aprobado?(u.solicitud?' <span class="tagx tn">🔔 SOLICITÓ ACCESO '+u.solicitud+'</span>':' <span class="tagx tn">POR APROBAR</span>'):'')+
         (u.activo?'':' <span class="tagx tn">INACTIVO</span>')+'</div>'+
         '<div style="display:flex;gap:6px">'+
@@ -1296,9 +1335,7 @@ var Users = (function(){
     '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Los clientes solo consultan; consignación y alquiler salen automáticos al aprobar la organización.</div>';
     return '<div class="uform">'+
       '<input class="uinput" id="f-nombre" placeholder="Nombre/iniciales" value="'+u.nombre+'" '+(isNew?'':'readonly')+'>'+
-      '<div style="display:flex;gap:8px;align-items:center"><input class="uinput pinmask" id="f-pin" placeholder="'+(isNew?'PIN (4-8 dígitos)':'PIN (vacío = no cambiar)')+'" value="'+String(u.pin||'').replace(/"/g,'&quot;')+'" inputmode="numeric" maxlength="8" style="flex:1">'+
-      '<button type="button" class="cbz-btn-sec" style="white-space:nowrap;padding:8px 10px" onclick="Users.togglePinVis()">👁 Ver</button></div>'+
-      (!isNew?'<div class="cbz-muted" style="font-size:11px;margin:-4px 0 8px">Como admin puedes ver y copiar el PIN para reenviárselo al cliente si lo pierde.</div>':'')+
+      '<input class="uinput" id="f-pin" placeholder="PIN (4-8 dígitos)" value="'+u.pin+'" inputmode="numeric" maxlength="8">'+
       '<select class="uinput" id="f-rol" onchange="Users.rolChanged()">'+
       '<option value="usuario"'+(u.rol!=='admin'&&!esCli?' selected':'')+'>👷 Usuario Minecore</option>'+
       '<option value="admin"'+(u.rol==='admin'?' selected':'')+'>👷 Administrador Minecore</option>'+
@@ -1473,24 +1510,7 @@ var Users = (function(){
   function preview(nombre){
     PreviewAs.open(nombre);
   }
-  
-  function togglePinVis(){
-    var el=document.getElementById('f-pin');
-    if(!el)return;
-    if(el.classList.contains('pinmask')){el.classList.remove('pinmask');}
-    else{el.classList.add('pinmask');}
-  }
-  function copyPin(i){
-    var u=lista[i];
-    if(!u||!u.pin){alert('No hay PIN guardado para este usuario');return;}
-    var txt=String(u.pin);
-    function ok(){alert('PIN de '+u.nombre+': '+txt+'\n(copiado al portapapeles)');}
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(ok).catch(function(){prompt('PIN de '+u.nombre, txt);});
-    } else {prompt('PIN de '+u.nombre+' (copia manualmente)', txt);}
-  }
-
-  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList,preview:preview,loadInviteClientes:loadInviteClientes,togglePinVis:togglePinVis,copyPin:copyPin};
+  return {init:init,nuevo:nuevo,edit:edit,save:save,borrar:borrar,invitar:invitar,crearInvite:crearInvite,copyLink:copyLink,cancelInvite:cancelInvite,matchEmp:matchEmp,rolChanged:rolChanged,invRolChanged:invRolChanged,togInvList:togInvList,preview:preview,loadInviteClientes:loadInviteClientes};
 })();
 
 
@@ -5207,20 +5227,24 @@ function renderHome(){
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'consig\')"><div class="ico">🚚</div><h3>Consignación y alquiler</h3><p>De todos los clientes, con días por acta</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'sols\')"><div class="ico">🔔</div><h3>Aprobaciones</h3><p>Solicitudes de acceso de clientes</p></div>';
   if(p.rol==='admin') h+='<div class="mod" onclick="openMod(\'users\')"><div class="ico">👥</div><h3>Usuarios</h3><p>Cuentas, PINs y permisos</p></div>';
-  if(p.rol==='admin') h+='<div id="api-ver" class="cbz-muted" style="grid-column:1/-1;font-size:10px;text-align:right;opacity:.5"></div>';
-  h='<div id="notif-centro"></div>'+h;
+  if(p.rol==='admin') h+='<div id="api-ver" class="cbz-muted" style="grid-column:1/-1;font-size:10px;text-align:right;opacity:.5;aspect-ratio:auto;min-height:0;padding:4px 2px;border:none;background:transparent;cursor:default"></div>';
   document.getElementById('home').innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
+  var nb=document.getElementById('notif-bar');
+  if(nb){nb.className='';nb.style.display='none';nb.innerHTML='';nb.removeAttribute('data-has');}
   MCpost({action:'getNotificaciones',user:getUserName(),pin:getPin()}).then(function(nres){
-    var nc=document.getElementById('notif-centro');
-    if(!nc||!nres.ok||!(nres.items||[]).length)return;
+    var bar=document.getElementById('notif-bar');
+    if(!bar)return;
+    if(!nres.ok||!(nres.items||[]).length){bar.className='';bar.style.display='none';bar.innerHTML='';bar.removeAttribute('data-has');return;}
     var tot=nres.items.reduce(function(a,x){return a+(x.n||1);},0);
-    nc.innerHTML='<div class="mod" style="grid-column:1/-1;border-color:#f0c040;cursor:default">'+
-      '<h3 style="margin:0 0 6px">🔔 Tienes '+tot+' notificación'+(tot===1?'':'es')+'</h3>'+
+    bar.innerHTML='<h3>🔔 Tienes '+tot+' notificación'+(tot===1?'':'es')+'</h3>'+
       nres.items.map(function(x){
         var ico=x.tipo==='cotAprobada'?'🟢':(x.tipo==='aFacturar'?'🔴':(x.tipo==='ext'?'⏳':(x.tipo==='user'?'👥':'🟡')));
         return '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #223142;cursor:pointer" onclick="openMod(\''+x.destino+'\')">'+
           '<span style="font-size:13px">'+ico+' '+x.texto+'</span><span class="cbz-muted">Abrir ›</span></div>';
-      }).join('')+'</div>';
+      }).join('');
+    bar.setAttribute('data-has','1');
+    bar.className='on';
+    bar.style.display='block';
   }).catch(function(){});
   document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
   if(p.rol==='admin'){
@@ -5265,6 +5289,7 @@ function doSyncNow(){
 }
 function openMod(m){
   document.getElementById('home').style.display='none';
+  var _nb=document.getElementById('notif-bar');if(_nb)_nb.style.display='none';
   ['dash-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
@@ -5295,6 +5320,8 @@ function goHome(){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('home').style.display='grid';
+  var _nb=document.getElementById('notif-bar');
+  if(_nb&&_nb.getAttribute('data-has')==='1'){_nb.style.display='block';_nb.className='on';}
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='';
 }
@@ -5326,6 +5353,7 @@ function entrar(res,usr,pin,recordarPin){
   window._pinSesion=pin;
   document.getElementById('login').style.display='none';
   document.getElementById('shell').style.display='block';
+  try{ if(window._mcNeedRebookmark) mcShowUpdateBanner(); }catch(e){}
   renderHome();
   }catch(e){alert('Error al iniciar la app: '+(e&&e.message?e.message:e));}
 }
@@ -5537,6 +5565,7 @@ if(/[?&]invite=/.test(location.search)){
     }).catch(function(){});
   })();
 } else { prepararLogin(); }
+try{ if(window._mcNeedRebookmark) mcShowUpdateBanner(); }catch(e){}
 </script>
 </body>
 </html>
