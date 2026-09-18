@@ -109,8 +109,18 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
 .land-mods-label::after{content:'';flex:1;height:1px;background:#223142}
 .dash-hub{padding:4px 0 12px}
 .dash-hub .cbz-btn{margin-top:8px}
-.liq-cta .liq-primary{opacity:.55;cursor:not-allowed}
+.liq-cta .liq-primary{opacity:1;cursor:pointer}
+.liq-cta .liq-primary[disabled]{opacity:.55;cursor:not-allowed}
 .liq-cta .liq-note{font-size:11px;opacity:.65;margin-top:8px;line-height:1.35}
+#liq-home-card{display:none;margin:0 0 12px}
+#liq-home-card.on{display:block}
+.liq-linkbox{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.liq-linkbox input.liq-url{width:100%;background:#0b1219;border:1px solid #26405c;border-radius:8px;color:#e8eef5;font-size:12px;padding:8px 10px}
+.liq-btns{display:flex;gap:8px;flex-wrap:wrap}
+.liq-btns .cbz-btn{margin:0}
+.liq-select{width:100%;background:#0b1219;border:1px solid #26405c;border-radius:8px;color:#e8eef5;font-size:13px;padding:9px 10px;margin-top:6px}
+#dash-kpi{margin-bottom:12px}
+.dash-hist-label{font-size:12px;font-weight:700;letter-spacing:.5px;margin:14px 0 8px;color:#c3ccd6}
 
 .toprow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #1a2735}
 .toprow:last-child{border-bottom:none}
@@ -258,7 +268,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v183</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v184</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -274,8 +284,8 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <h1 id="title" style="font-size:17px;letter-spacing:1px;margin:0 0 12px"></h1>
 
   <div id="notif-bar"></div>
-  <div id="landing-screen"></div>
-  <div id="home-mods-label" class="land-mods-label" style="display:none">Módulos</div>
+  <div id="liq-home-card" class="land-card liq-cta"></div>
+  <div id="landing-screen" style="display:none" aria-hidden="true"></div>
   <div id="home-edit-bar">
     <button type="button" id="editVistaBtn" onclick="mcToggleHomeEdit()">✏️ Editar vista</button>
     <button type="button" id="resetVistaBtn" onclick="mcResetHomeOrder()">Restablecer</button>
@@ -406,7 +416,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='183';
+var MC_BUILD='184';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -1043,9 +1053,9 @@ var Dash = (function(){
   }
   function init(){
     var el=document.getElementById('dash-screen');
-    el.innerHTML='<div class="dash-hub land-card" style="margin-bottom:10px">'+
-      '<div class="cbz-muted" style="font-size:11px;line-height:1.35">Resumen ejecutivo (KPIs) está en el <b>Landing</b> al abrir la app. Abajo: historial por fechas.</div>'+
-      '</div><div id="dash-hist"></div>';
+    el.innerHTML='<div id="dash-kpi"><div class="cbz-loading">Cargando KPIs...</div></div>'+
+      '<div class="dash-hist-label">Historial</div><div id="dash-hist"></div>';
+    try{Landing.mount(document.getElementById('dash-kpi'));Landing.load();}catch(e){}
     openHistorial();
   }
   function openHistorial(){
@@ -5335,9 +5345,9 @@ function mcSaveOrderFromDom(){
   document.addEventListener('pointercancel',endDrag);
 })();
 
-/* ===================== LANDING HOME v182 ===================== */
+/* ===================== LANDING KPIs (inside Dashboard) v184 ===================== */
 var Landing = (function(){
-  var tab='hoy', custWin='l12m', data=null;
+  var tab='hoy', custWin='l12m', data=null, mountEl=null;
   function fmt(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function pct(f){if(f===null||f===undefined||isNaN(f))return 'n/d';return (Math.round(f*1000)/10).toFixed(1)+'%';}
   function pp(n){if(n===null||n===undefined||isNaN(n))return 'n/d';var s=n>0?'+':'';return s+(Math.round(n*10)/10).toFixed(1)+' pp';}
@@ -5364,10 +5374,11 @@ var Landing = (function(){
     h+='</div>';
     return h;
   }
+  function el(){return mountEl||document.getElementById('dash-kpi')||document.getElementById('landing-screen');}
   function render(){
-    var el=document.getElementById('landing-screen');
-    if(!el)return;
-    if(!data){el.innerHTML='<div class="cbz-loading">Cargando landing...</div>';return;}
+    var node=el();
+    if(!node)return;
+    if(!data){node.innerHTML='<div class="cbz-loading">Cargando KPIs...</div>';return;}
     var h='<div class="chips">'+
       '<button class="chip '+(tab==='hoy'?'on':'')+'" onclick="Landing.setTab(\'hoy\')">Hoy</button>'+
       '<button class="chip '+(tab==='mes'?'on':'')+'" onclick="Landing.setTab(\'mes\')">Mes</button>'+
@@ -5385,7 +5396,6 @@ var Landing = (function(){
     } else if(tab==='l12m'){
       h+=compareBlock(data.l12m,'L12M rolling');
     }
-    // Top5
     var tc=data.topCustomers||{};
     h+='<div class="land-card"><h4>Top clientes</h4>';
     h+='<div class="chips" style="margin-bottom:8px">';
@@ -5403,62 +5413,111 @@ var Landing = (function(){
       h+='<div class="cbz-muted" style="font-size:10px;margin-top:6px">Concentración top5 '+pct(tc.concentrationTop5)+' · top10 '+pct(tc.concentrationTop10)+'</div>';
     }
     h+='</div>';
-    // AR90
     var ar=data.ar90||{};
-    h+='<div class="land-card"><h4>A/R 90+</h4>';
+    h+='<div class="land-card"><h4>Cuentas por cobrar vencidas +90 días</h4>';
+    h+='<div class="cbz-muted" style="font-size:11px;margin-bottom:6px;line-height:1.35">plata que clientes nos deben hace más de 90 días (sin incluir Rumi legal)</div>';
     h+='<div style="font-size:16px;font-weight:800">Ops excl. Rumi: '+fmt(ar.opsExclRumi)+'</div>';
     h+='<div class="cbz-muted" style="font-size:11px;margin-top:4px">Rumi legal: '+fmt(ar.rumiLegal)+(ar.note?' · '+esc(ar.note):'')+'</div>';
-    h+='</div>';
-    // Liquidación piloto
-    h+='<div class="land-card liq-cta"><h4>Productos de liquidación</h4>';
-    h+='<div class="cbz-muted" style="font-size:12px;margin-bottom:8px">Oferta personalizada de stock con descuento — link o PDF.</div>';
-    h+='<button class="cbz-btn liq-primary" disabled title="Piloto — no live">Próximamente</button>';
-    h+='<div class="liq-note">Piloto Marketing (HP/Kluane). PDF checklist = respaldo. No afirmamos que liq.minecore.ec esté en vivo.</div>';
     h+='</div>';
     if(data.meta&&data.meta.asOf){
       h+='<div class="cbz-muted" style="font-size:10px;text-align:right;opacity:.45;margin-top:4px">asOf '+esc(data.meta.asOf)+'</div>';
     }
-    el.innerHTML=h;
+    node.innerHTML=h;
   }
   function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function setTab(t){tab=t;render();}
   function setCustWin(w){custWin=w;load();}
-  function show(){
-    var el=document.getElementById('landing-screen');
-    if(!el)return;
-    el.classList.add('on');
-    el.style.display='block';
-    var lab=document.getElementById('home-mods-label');
-    if(lab)lab.style.display='flex';
-    load();
-  }
-  function hide(){
-    var el=document.getElementById('landing-screen');
-    if(el){el.classList.remove('on');el.style.display='none';}
-    var lab=document.getElementById('home-mods-label');
-    if(lab)lab.style.display='none';
-  }
+  function mount(node){mountEl=node||null;}
+  function show(){/* v184: KPIs live inside Dashboard only */}
+  function hide(){/* no-op */}
   function load(){
-    var el=document.getElementById('landing-screen');
-    if(!el)return;
+    var node=el();
+    if(!node)return;
     var p=getProfile();
     var can=function(m){var ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;};
     if(!can('dashboard')){
-      el.innerHTML='<div class="land-card liq-cta"><h4>Productos de liquidación</h4>'+
-        '<div class="cbz-muted" style="font-size:12px;margin-bottom:8px">Oferta personalizada de stock con descuento — link o PDF.</div>'+
-        '<button class="cbz-btn liq-primary" disabled>Próximamente</button>'+
-        '<div class="liq-note">Piloto Marketing. No afirmamos que liq.minecore.ec esté en vivo.</div></div>';
+      node.innerHTML='<div class="cbz-muted" style="font-size:12px">Sin permiso de Dashboard para KPIs.</div>';
       return;
     }
-    el.innerHTML='<div class="cbz-loading">Cargando KPIs...</div>';
+    node.innerHTML='<div class="cbz-loading">Cargando KPIs...</div>';
     MCpost({action:'getLandingHome',customersWindow:custWin,user:getUserName(),pin:getPin()})
     .then(function(res){
-      if(!res.ok){el.innerHTML='<div class="cbz-error">Landing: '+(res.error||'error')+'</div>';return;}
+      if(!res.ok){node.innerHTML='<div class="cbz-error">KPIs: '+(res.error||'error')+'</div>';return;}
       data=res; render();
-    }).catch(function(e){el.innerHTML='<div class="cbz-error">Fallo de red: '+MCerr(e)+'</div>';});
+    }).catch(function(e){node.innerHTML='<div class="cbz-error">Fallo de red: '+MCerr(e)+'</div>';});
   }
-  return {show:show,hide:hide,load:load,setTab:setTab,setCustWin:setCustWin,render:render};
+  return {show:show,hide:hide,load:load,setTab:setTab,setCustWin:setCustWin,render:render,mount:mount};
 })();
+
+/* ===================== LIQUIDACIÓN HOME (piloto) ===================== */
+var LIQ_PILOTO_CLIENTES = [
+  {name:'HP DRILLING SERVICES S.A.S', token:'be50a70229d2031019a1d0ab'},
+  {name:'KLUANE DRILLING ECUADOR S.A', token:'6b6cdc40b8e6c0198b7c15c9'}
+];
+var LiqHome = (function(){
+  var selected='';
+  function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function urlFor(tok){return 'https://liq.minecore.ec/?t='+encodeURIComponent(tok);}
+  function find(tok){
+    for(var i=0;i<LIQ_PILOTO_CLIENTES.length;i++) if(LIQ_PILOTO_CLIENTES[i].token===tok) return LIQ_PILOTO_CLIENTES[i];
+    return null;
+  }
+  function render(){
+    var card=document.getElementById('liq-home-card');
+    if(!card)return;
+    var p=getProfile();
+    // show for internal users (not clientes portal)
+    if(p.rol==='cliente'){card.classList.remove('on');card.style.display='none';card.innerHTML='';return;}
+    card.classList.add('on');card.style.display='block';
+    var h='<h4>Productos de liquidación</h4>';
+    h+='<div class="cbz-muted" style="font-size:12px;margin-bottom:4px;line-height:1.35">Oferta personalizada de stock con descuento — link al cliente.</div>';
+    h+='<label class="cbz-muted" style="font-size:11px">Cliente piloto</label>';
+    h+='<select class="liq-select" id="liq-client-sel" onchange="LiqHome.onPick(this.value)">';
+    h+='<option value="">— Elegir cliente —</option>';
+    LIQ_PILOTO_CLIENTES.forEach(function(c){
+      h+='<option value="'+esc(c.token)+'"'+(selected===c.token?' selected':'')+'>'+esc(c.name)+'</option>';
+    });
+    h+='</select>';
+    h+='<div id="liq-client-panel"></div>';
+    h+='<div class="liq-note">El cliente marca interés y cantidades; te llega como pre-cotización.</div>';
+    h+='<div class="liq-note" style="opacity:.55">Reglas Marketing (el servidor aplica): stock completo −5% · categoría completa −15% · no se muestra costo. Exclusiones: RUMI / bandejas / etc.</div>';
+    card.innerHTML=h;
+    paintPanel();
+  }
+  function paintPanel(){
+    var panel=document.getElementById('liq-client-panel');
+    if(!panel)return;
+    var c=find(selected);
+    if(!c){panel.innerHTML='';return;}
+    var u=urlFor(c.token);
+    panel.innerHTML='<div class="liq-linkbox">'+
+      '<input class="liq-url" id="liq-url-input" readonly value="'+esc(u)+'">'+
+      '<div class="liq-btns">'+
+      '<button type="button" class="cbz-btn liq-primary" onclick="LiqHome.copy()">Copiar link de liquidación</button>'+
+      '<button type="button" class="cbz-btn" onclick="LiqHome.open()">Abrir</button>'+
+      '</div></div>';
+  }
+  function onPick(tok){selected=tok||'';paintPanel();}
+  function copy(){
+    var c=find(selected); if(!c){alert('Elige un cliente primero.');return;}
+    var u=urlFor(c.token);
+    function ok(){try{var b=document.querySelector('#liq-home-card .liq-primary');if(b){var t=b.textContent;b.textContent='✓ Copiado';setTimeout(function(){b.textContent=t;},1200);}}catch(e){}}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(u).then(ok).catch(function(){fallback(u);ok();});
+    } else {fallback(u);ok();}
+  }
+  function fallback(u){
+    var inp=document.getElementById('liq-url-input');
+    if(inp){inp.focus();inp.select();try{document.execCommand('copy');}catch(e){}}
+    else{prompt('Copia el link:',u);}
+  }
+  function open(){
+    var c=find(selected); if(!c){alert('Elige un cliente primero.');return;}
+    window.open(urlFor(c.token),'_blank','noopener');
+  }
+  return {render:render,onPick:onPick,copy:copy,open:open};
+})();
+
 
 function renderHome(){
   var p=getProfile();
@@ -5466,7 +5525,7 @@ function renderHome(){
   var can=function(m){var ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;};
   var tiles=[];
   function add(id,ico,title,desc,extra){tiles.push({id:id,ico:ico,title:title,desc:desc,extra:extra||{}});}
-  if(can('dashboard')) add('dash','📊','Dashboard','Landing KPIs + Historial por rango de fechas');
+  if(can('dashboard')) add('dash','📊','Dashboard','KPIs ejecutivos + Historial por rango de fechas');
   if(can('cobranza')) add('cbz','💰','Cobranza','CxC, recordatorios, emails y WhatsApp');
   if(p.rol!=='cliente'&&can('cobranza')) add('kyc','🗂','Base de clientes','Registros del formulario Conoce a tu Cliente');
   if(p.rol==='admin') add('mailcfg','⚙️','Correo del sistema','Remitente y copia oculta de los correos automáticos');
@@ -5535,6 +5594,7 @@ function renderHome(){
     bar.className='on';
     bar.style.display='block';
   }).catch(function(){});
+  try{LiqHome.render();}catch(e){}
   document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
@@ -5569,10 +5629,8 @@ function doSyncNow(){
     alert('Sync completo a las '+res.hora+' ('+res.segundos+'s)\nOVs: '+res.ovs+' · OCs: '+res.ocs);
     // refresca la pantalla activa
     var d=document.getElementById('dash-screen'), c=document.getElementById('cobranza-screen');
-    var land=document.getElementById('landing-screen');
-    if(land&&land.style.display==='block'){try{Landing.load();}catch(e){}}
-    if(d.style.display==='block') Dash.init();
-    else if(c.style.display==='block') Cobranza.init();
+    if(d&&d.style.display==='block'){try{Landing.load();}catch(e){}}
+    else if(c&&c.style.display==='block') Cobranza.init();
   }).catch(function(){
     b.disabled=false; b.innerHTML='⟳<span class="lbl">Sync</span>';
     alert('El sync puede seguir corriendo en el servidor (tiempo de espera excedido). Revisa en 2-3 minutos con ⟳ Actualizar.');
@@ -5620,7 +5678,7 @@ function goHome(){
   if(_nb&&_nb.getAttribute('data-has')==='1'){_nb.style.display='block';_nb.className='on';}
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='';
-  try{Landing.show();}catch(e){}
+  try{LiqHome.render();}catch(e){}
 }
 
 /* ===================== LOGIN ===================== */
@@ -5652,7 +5710,6 @@ function entrar(res,usr,pin,recordarPin){
   document.getElementById('shell').style.display='block';
   try{ if(window._mcNeedRebookmark) mcShowUpdateBanner(); }catch(e){}
   renderHome();
-  try{Landing.show();}catch(e){}
   }catch(e){alert('Error al iniciar la app: '+(e&&e.message?e.message:e));}
 }
 function doLogin(){
