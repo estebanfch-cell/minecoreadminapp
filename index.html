@@ -299,7 +299,7 @@ html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v188</div>
+  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v189</div>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -447,7 +447,7 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='188';
+var MC_BUILD='189';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
@@ -1876,11 +1876,23 @@ var Inv = (function(){
     }).join('');
     h+='<div class="uform" style="margin-top:12px">';
     if(esCliente){
-      h+='<input class="uinput" id="cart-emp" placeholder="Empresa" value="'+emp.replace(/"/g,'&quot;')+'">'+
-      '<input class="uinput" id="cart-con" placeholder="Nombre y contacto (email o teléfono)" value="'+con.replace(/"/g,'&quot;')+'">'+
-      '<textarea class="uinput" id="cart-com" rows="3" placeholder="Comentario (opcional)"></textarea>'+
-      '<div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Inv.enviarCarrito()">📨 Solicitar cotización</button></div>'+
-      '<div class="cbz-muted">Minecore te enviará la cotización al contacto indicado.</div>';
+      var prEmp='';try{var _prCart=getProfile();prEmp=String((_prCart&&_prCart.empresa)||'').trim();}catch(e){}
+      if(prEmp){
+        var prEmpSafe=prEmp.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+        h+='<div class="cbz-card" style="padding:10px 12px;margin-bottom:8px;border-color:#2e5c3e;background:rgba(46,158,91,.08)" id="cart-emp-locked">'+
+          '<div class="cbz-muted" style="font-size:11px;margin-bottom:2px">Organización</div>'+
+          '<div class="cbz-card-name" style="font-size:14px">'+prEmpSafe+'</div>'+
+          '<div class="cbz-muted" style="font-size:10px;margin-top:4px">Tu cotización se envía solo a nombre de tu organización.</div></div>'+
+        '<input class="uinput" id="cart-con" placeholder="Nombre y contacto (email o teléfono)" value="'+con.replace(/"/g,'&quot;')+'">'+
+        '<textarea class="uinput" id="cart-com" rows="3" placeholder="Comentario (opcional)"></textarea>'+
+        '<div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Inv.enviarCarrito()">📨 Solicitar cotización</button></div>'+
+        '<div class="cbz-muted">Minecore te enviará la cotización al contacto indicado.</div>';
+      } else {
+        h+='<div class="cbz-card" style="padding:12px;border-color:#f0c040;background:rgba(240,192,64,.08)">'+
+          '<div class="cbz-card-name" style="font-size:14px;margin-bottom:6px">Organización pendiente</div>'+
+          '<div class="cbz-muted" style="font-size:12px;margin-bottom:10px">No puedes solicitar cotización hasta confirmar tu organización. Contacta a Minecore o confirma tu empresa (no se muestra la lista de clientes).</div>'+
+          '<button class="cbz-btn" onclick="Vinc.run()">🔎 Confirmar mi organización</button></div>';
+      }
     } else {
       h+='<div class="cbz-muted" style="margin-bottom:6px">🧾 Crear solicitud de cotización directa para un cliente:</div>'+
       '<input class="uinput" id="cart-cli" list="cart-clis" placeholder="Escribe el nombre del cliente de inFlow...">'+
@@ -2005,14 +2017,24 @@ var Inv = (function(){
   }
   function enviarCarrito(){
     var keys=Object.keys(carrito);if(!keys.length)return;
-    var emp=document.getElementById('cart-emp').value.trim();
-    var con=document.getElementById('cart-con').value.trim();
+    var pr={};try{pr=getProfile()||{};}catch(e){}
+    var emp='';
+    if(String(pr.rol||'')==='cliente'){
+      emp=String(pr.empresa||'').trim();
+      if(!emp){alert('Confirma tu organización antes de solicitar cotización (o contacta a Minecore).');return;}
+    } else {
+      var empEl=document.getElementById('cart-emp');
+      emp=empEl?empEl.value.trim():'';
+    }
+    var conEl=document.getElementById('cart-con');
+    var con=conEl?conEl.value.trim():'';
     if(!emp||!con){alert('Indica la empresa y un contacto para poder enviarte la cotización.');return;}
     var uk=(getUserName()||'').toLowerCase();
     try{localStorage.setItem('mc_empresa_'+uk,emp);localStorage.setItem('mc_contacto_'+uk,con);}catch(e){}
     var its=keys.map(function(sku){return {sku:sku,nombre:carrito[sku].nombre,cantidad:carrito[sku].cantidad};});
     var btn=window.event&&window.event.target;if(btn)btn.disabled=true;
-    api({action:'enviarCarrito',items:its,empresa:emp,contacto:con,comentario:document.getElementById('cart-com').value})
+    var comEl=document.getElementById('cart-com');
+    api({action:'enviarCarrito',items:its,empresa:emp,contacto:con,comentario:comEl?comEl.value:''})
     .then(function(res){
       if(btn)btn.disabled=false;
       if(!res.ok){alert('Error: '+res.error);return;}
@@ -2522,6 +2544,7 @@ var Inv = (function(){
   }
   var clisInflow=null;
   function cargarClisCarrito(){
+    if(esCliente||rolCli())return;
     var dl=document.getElementById('cart-clis');
     if(!dl)return;
     if(clisInflow){dl.innerHTML=clisInflow.map(function(c){return '<option value="'+c.replace(/"/g,'&quot;')+'">';}).join('');return;}
