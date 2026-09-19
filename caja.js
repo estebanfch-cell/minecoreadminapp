@@ -1,12 +1,16 @@
-/* Native Caja + Rutas for Minecore Admin (index v196). Maps+data from working minecore app.js. No iframe, no PIN. */
+/* Native Caja + Rutas for Minecore Admin (index v197). Data via minecore SCRIPT_URL.
+   Maps: iframe github.io/minecore/maps-embed.html when published; else Leaflet+OSRM.
+   No Caja PIN. Do not load Maps JS on portal.minecore.ec (RefererNotAllowed). */
 (function (global) {
   'use strict';
 
   const CAJA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw/exec';
-  const MAPS_KEY = 'AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o';
-  const MAPS_SRC = 'https://maps.googleapis.com/maps/api/js?key='+MAPS_KEY+'&libraries=places,geometry&callback=mapsReady';
   const MINECORE_LL = {lat:-0.1940519, lng:-78.4841933};
   const MINECORE_ADDR = 'Minecore S.A.S \u2014 Alpallana E7-212, Quito';
+  const MAPS_EMBED_ORIGIN = 'https://estebanfch-cell.github.io';
+  const MAPS_EMBED_URL = MAPS_EMBED_ORIGIN + '/minecore/maps-embed.html?v=1';
+  const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
   const CAJA_USER_ALIASES = {
     esteban:'EFCH','esteban ferlito':'EFCH',efch:'EFCH',
     osvaldo:'OPM','oswaldo pena':'OPM','oswaldo peña':'OPM',opm:'OPM',
@@ -39,7 +43,9 @@
   let session=null, cfg={precio_km:0.40, corte_dia_inicio:26, corte_dia_fin:25}, allUsers=COLAB_SEED.slice();
   let currentMod='', activeView='';
   let mReady=false, gmap, dirSvc, dirRen, geocoder;
-  let originLL=null, paradas=[], routeKm=0, markers=[];
+  let originLL=null, paradas=[], routeKm=0, markers=[], routeDur='';
+  let mapsMode='none';
+  let mapsEmbedWin=null, mapsEmbedReady=false, lmap=null, lRoute=null, lOrigin=null;
   let favs=[];
   try{ favs=JSON.parse(localStorage.getItem('mc_favs')||'[]'); }catch(e){}
 
@@ -129,43 +135,31 @@
 
   function mapsReady(){ mReady=true; }
   function cajaMapsReady(){ mapsReady(); }
-  function loadMaps(cb){
-    if(global.google && global.google.maps){ mReady=true; if(cb)cb(); return; }
-    if(global._mcMapsReady){ mReady=true; if(cb)cb(); return; }
-    function waitReady(){
-      var t=setInterval(function(){
-        if(mReady||(global.google&&global.google.maps)){ clearInterval(t); mReady=true; if(cb)cb(); }
-      },200);
-    }
-    if(global._cajaMapsLoading){ waitReady(); return; }
-    global._cajaMapsLoading=true;
-    var prev=global.mapsReady;
-    global.mapsReady=function(){
-      mReady=true;
-      try{ if(typeof prev==='function') prev(); }catch(e){}
-      if(cb)cb();
-    };
-    global.cajaMapsReady=global.mapsReady;
-    if(document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')){
-      waitReady();
+  function loadLeaflet(cb){
+    if(global.L){ mReady=true; if(cb)cb(); return; }
+    if(global._cajaLeafletLoading){
+      var t=setInterval(function(){ if(global.L){ clearInterval(t); mReady=true; if(cb)cb(); } },150);
       return;
     }
+    global._cajaLeafletLoading=true;
+    if(!document.getElementById('cj-leaflet-css')){
+      var lk=document.createElement('link');
+      lk.id='cj-leaflet-css'; lk.rel='stylesheet'; lk.href=LEAFLET_CSS;
+      document.head.appendChild(lk);
+    }
     var s=document.createElement('script');
-    s.src=MAPS_SRC;
-    s.async=true; s.defer=true;
+    s.src=LEAFLET_JS; s.async=true;
+    s.onload=function(){ mReady=true; if(cb)cb(); };
+    s.onerror=function(){ toast('No se pudo cargar el mapa'); };
     document.head.appendChild(s);
   }
-  if(typeof global.gm_authFailure!=='function'){
-    global.gm_authFailure=function(){
-      global._mcMapsAuthFail=true;
-      var hint=document.getElementById('map-hint');
-      if(hint){
-        hint.style.opacity='1';
-        hint.style.whiteSpace='normal';
-        hint.style.maxWidth='92%';
-        hint.textContent='Maps bloqueado en este dominio. En Google Cloud Console agregá https://portal.minecore.ec/* a los referrers HTTP de la key.';
-      }
-    };
+  function probeMapsEmbed(cb){
+    var done=false;
+    function fin(ok){ if(done) return; done=true; cb(!!ok); }
+    var t=setTimeout(function(){ fin(false); }, 2500);
+    fetch(MAPS_EMBED_URL, {method:'GET', mode:'cors', cache:'no-store'})
+      .then(function(r){ clearTimeout(t); fin(r.ok); })
+      .catch(function(){ clearTimeout(t); fin(false); });
   }
 
   function ensureDom(){
@@ -294,7 +288,6 @@
     buildSession();
     if(!puedeInteractuar()) root.classList.add('caja-ro'); else root.classList.remove('caja-ro');
     try{ if(typeof mcHideNotifBar==='function') mcHideNotifBar(); }catch(e){}
-    loadMaps();
     bootHome();
   }
 
@@ -605,25 +598,31 @@ function filterByDate(rutas, fi, ff){
 // ─── VIEW: NUEVA RUTA ────────────────────────────────────────────────────────
 function vNueva(c){
   if(!puedeInteractuar()){ c.innerHTML=roMsg('crear rutas'); return; }
-  originLL=null; paradas=[]; routeKm=0;
-  markers.forEach(m=>m&&m.setMap&&m.setMap(null)); markers=[];
+  originLL=null; paradas=[]; routeKm=0; routeDur='';
+  mapsMode='none'; mapsEmbedWin=null; mapsEmbedReady=false;
+  markers.forEach(m=>{ try{ if(m&&m.setMap) m.setMap(null); if(lmap&&m.remove) m.remove(); }catch(e){} }); markers=[];
+  if(lmap){ try{ lmap.remove(); }catch(e){} lmap=null; lRoute=null; lOrigin=null; }
   const userFavs=favs.filter(f=>f.usuario===session.usuario);
   c.innerHTML=`
   <div class="page-title">Nueva ruta</div>
   <div class="card" style="padding:12px">
+    ${userFavs.length?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">★ Favoritos:</div><div style="margin-bottom:8px">${userFavs.map((f,i)=>`<span class="fav-chip" onclick="usarFav(${i})">${f.nombre} <span onclick="event.stopPropagation();delFav(${i})" style="color:var(--text3)">×</span></span>`).join('')}</div>`:''}
+    <div id="cj-maps-native">
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Origen</div>
     <button class="btn-gps" onclick="usarGPS()">
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
       Usar mi ubicación actual
     </button>
-    <div class="field-group" style="margin-bottom:10px">
-      <input class="field-input" id="inp-origen" value="${MINECORE_ADDR}" style="font-size:13px;padding:9px 12px">
+    <div class="field-group" style="margin-bottom:10px;position:relative">
+      <input class="field-input" id="inp-origen" value="${MINECORE_ADDR}" style="font-size:13px;padding:9px 12px" autocomplete="off">
+      <div class="cj-ac" id="ac-origen"></div>
     </div>
     <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Destinos / Paradas</div>
-    ${userFavs.length?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">★ Favoritos:</div><div style="margin-bottom:8px">${userFavs.map((f,i)=>`<span class="fav-chip" onclick="usarFav(${i})">${f.nombre} <span onclick="event.stopPropagation();delFav(${i})" style="color:var(--text3)">×</span></span>`).join('')}</div>`:''}
     <div id="paradas-cont"></div>
     <button class="btn-add-parada" onclick="addParada()">+ Agregar parada</button>
     <div class="map-wrap"><div id="map"></div><div class="map-hint" id="map-hint">Toca el mapa para marcar destino</div></div>
+    </div>
+    <iframe id="mc-maps-embed" class="mc-maps-embed" title="Mapa de ruta" allow="geolocation" style="display:none"></iframe>
     <div class="km-box" id="km-box">
       <div class="km-row"><div class="km-lbl">Total a cobrar</div><div class="km-val" id="km-val">$0.00</div></div>
       <div class="km-sub" id="km-sub"></div>
@@ -662,8 +661,9 @@ function vNueva(c){
   const vehPorUsuario={'MPL':'Camioneta Mazda','OPM':'Camioneta Poer'};
   const defVeh=vehPorUsuario[session.usuario]||'Camioneta Nissan';
   document.getElementById('f-veh').value=defVeh;
+  originLL=MINECORE_LL;
   addParada();
-  initMap();
+  startNuevaMap();
 }
 
 function updVehPrice(){
@@ -676,28 +676,21 @@ function updVehPrice(){
 }
 
 function addParada(){
+  if(mapsMode==='iframe'){ mapsEmbedPost({type:'addStop'}); return; }
   const cont=document.getElementById('paradas-cont'); if(!cont)return;
   const idx=paradas.length;
   paradas.push({addr:'',ll:null});
   const div=document.createElement('div'); div.className='parada-row'; div.id='pr-'+idx;
-  div.innerHTML=`<div class="parada-num">${idx+1}</div><input class="parada-inp" id="pi-${idx}" placeholder="Buscar dirección..."><button class="btn-del" onclick="delParada(${idx})">×</button>`;
+  div.innerHTML=`<div class="parada-num">${idx+1}</div><div class="parada-grow"><input class="parada-inp" id="pi-${idx}" placeholder="Buscar dirección..." autocomplete="off"><div class="cj-ac" id="ac-pi-${idx}"></div></div><button class="btn-del" onclick="delParada(${idx})">×</button>`;
   cont.appendChild(div);
-  if(mReady&&window.google){
-    const inp=document.getElementById('pi-'+idx);
-    if(inp){
-      const ac=new google.maps.places.Autocomplete(inp,{componentRestrictions:{country:'ec'},fields:['geometry','formatted_address','name']});
-      ac.addListener('place_changed',()=>{
-        const p=ac.getPlace(); if(!p.geometry)return;
-        const name=p.name||p.formatted_address;
-        const addr=p.formatted_address;
-        paradas[idx]={addr:`${name} — ${addr}`,ll:{lat:p.geometry.location.lat(),lng:p.geometry.location.lng()}};
-        calcRoute();
-      });
-    }
-  }
+  bindPlaceInput(document.getElementById('pi-'+idx), document.getElementById('ac-pi-'+idx), function(hit){
+    paradas[idx]={addr:hit.addr,ll:hit.ll};
+    calcRoute();
+  });
 }
 
 function delParada(idx){
+  if(mapsMode==='iframe'){ mapsEmbedPost({type:'removeStop', index:idx}); return; }
   paradas.splice(idx,1);
   const cont=document.getElementById('paradas-cont'); if(!cont)return;
   cont.innerHTML='';
@@ -706,19 +699,14 @@ function delParada(idx){
     const i=paradas.length;
     paradas.push(p);
     const div=document.createElement('div'); div.className='parada-row'; div.id='pr-'+i;
-    div.innerHTML=`<div class="parada-num">${i+1}</div><input class="parada-inp" id="pi-${i}" placeholder="Buscar dirección..." value="${p.addr.split(' — ')[0]||p.addr}"><button class="btn-del" onclick="delParada(${i})">×</button>`;
+    div.innerHTML=`<div class="parada-num">${i+1}</div><div class="parada-grow"><input class="parada-inp" id="pi-${i}" placeholder="Buscar dirección..." autocomplete="off"><div class="cj-ac" id="ac-pi-${i}"></div></div><button class="btn-del" onclick="delParada(${i})">×</button>`;
     cont.appendChild(div);
-    if(mReady&&window.google){
-      const inp=document.getElementById('pi-'+i);
-      if(inp){
-        const ac=new google.maps.places.Autocomplete(inp,{componentRestrictions:{country:'ec'},fields:['geometry','formatted_address','name']});
-        ac.addListener('place_changed',()=>{
-          const pl=ac.getPlace(); if(!pl.geometry)return;
-          paradas[i]={addr:`${pl.name||pl.formatted_address} — ${pl.formatted_address}`,ll:{lat:pl.geometry.location.lat(),lng:pl.geometry.location.lng()}};
-          calcRoute();
-        });
-      }
-    }
+    const inp=document.getElementById('pi-'+i);
+    if(inp) inp.value=p.addr.split(' — ')[0]||p.addr||'';
+    bindPlaceInput(inp, document.getElementById('ac-pi-'+i), function(hit){
+      paradas[i]={addr:hit.addr,ll:hit.ll};
+      calcRoute();
+    });
   });
   calcRoute();
 }
@@ -726,6 +714,18 @@ function delParada(idx){
 function usarFav(idx){
   const userFavs=favs.filter(f=>f.usuario===session.usuario);
   const fav=userFavs[idx]; if(!fav)return;
+  if(mapsMode==='iframe'){
+    mapsEmbedPost({type:'addStop', addr:fav.addr, ll:fav.ll});
+    return;
+  }
+  const empty=paradas.findIndex(p=>!p.ll);
+  if(empty>=0){
+    paradas[empty]={addr:fav.addr,ll:fav.ll};
+    const inp=document.getElementById('pi-'+empty);
+    if(inp) inp.value=fav.addr.split(' — ')[0]||fav.addr;
+    calcRoute();
+    return;
+  }
   const i=paradas.length; addParada();
   setTimeout(()=>{
     paradas[i]={addr:fav.addr,ll:fav.ll};
@@ -757,123 +757,263 @@ function guardarFav(){
 }
 
 function usarGPS(){
+  if(mapsMode==='iframe'){ mapsEmbedPost({type:'useGPS'}); return; }
   if(!navigator.geolocation){toast('GPS no disponible');return;}
   toast('Obteniendo ubicación...');
   navigator.geolocation.getCurrentPosition(pos=>{
     originLL={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    if(geocoder) geocoder.geocode({location:originLL},(res,st)=>{
-      if(st==='OK'&&res[0]){
-        const inp=document.getElementById('inp-origen');
-        if(inp) inp.value=res[0].formatted_address;
-      }
+    reverseGeocode(originLL, function(addr){
+      const inp=document.getElementById('inp-origen');
+      if(inp&&addr) inp.value=addr;
     });
-    if(window._originMarker) window._originMarker.setPosition(originLL);
-    if(gmap) gmap.panTo(originLL);
+    if(lOrigin&&lmap){ lOrigin.setLatLng(originLL); lmap.panTo(originLL); }
     toast('✓ Ubicación obtenida');
     calcRoute();
   },()=>toast('No se pudo obtener ubicación'));
 }
 
-function initMap(){
-  if(!mReady||!window.google){setTimeout(initMap,300);return;}
-  if(window._mcMapsAuthFail){
-    var h0=document.getElementById('map-hint');
-    if(h0){h0.style.opacity='1';h0.style.whiteSpace='normal';h0.textContent='Maps bloqueado en este dominio. En Google Cloud Console agregá https://portal.minecore.ec/* a los referrers HTTP de la key.';}
-  }
-  gmap=new google.maps.Map(document.getElementById('map'),{
-    center:MINECORE_LL,zoom:13,disableDefaultUI:true,zoomControl:true,
-    styles:[{featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
+function startNuevaMap(){
+  probeMapsEmbed(function(ok){
+    if(ok){ mountMapsIframe(); return; }
+    mapsMode='leaflet';
+    loadLeaflet(initLeafletMap);
   });
-  dirSvc=new google.maps.DirectionsService();
-  dirRen=new google.maps.DirectionsRenderer({suppressMarkers:true,polylineOptions:{strokeColor:'#E8FF00',strokeWeight:4,strokeOpacity:.9}});
-  dirRen.setMap(gmap);
-  geocoder=new google.maps.Geocoder();
-  originLL=MINECORE_LL;
-  window._originMarker=new google.maps.Marker({position:MINECORE_LL,map:gmap,icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:'#1D9E75',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
+}
+
+function mapsEmbedPost(msg){
+  var fr=document.getElementById('mc-maps-embed');
+  if(!fr||!fr.contentWindow) return;
+  var payload={};
+  Object.keys(msg||{}).forEach(function(k){ payload[k]=msg[k]; });
+  payload.source='mc-maps-parent';
+  try{ fr.contentWindow.postMessage(payload, MAPS_EMBED_ORIGIN); }catch(e){}
+}
+
+function applyEmbedState(s){
+  if(!s) return;
+  if(s.origin){
+    originLL=s.origin.ll||originLL;
+    var inp=document.getElementById('inp-origen');
+    if(inp&&s.origin.addr) inp.value=s.origin.addr;
+  }
+  if(Array.isArray(s.stops)) paradas=s.stops.map(function(p){ return {addr:p.addr||'',ll:p.ll||null}; });
+  if(typeof s.km==='number'&&s.km>0){
+    routeKm=s.km;
+    routeDur=s.durationLabel||'';
+    showKmBox(s.km, s.durationLabel||'');
+  }
+}
+
+function onMapsEmbedMessage(e){
+  if(!e||e.origin!==MAPS_EMBED_ORIGIN) return;
+  var d=e.data||{};
+  if(d.source!=='mc-maps-embed') return;
+  if(d.type==='ready'){
+    mapsEmbedReady=true;
+    mapsEmbedPost({type:'init', origin:{addr:MINECORE_ADDR,ll:MINECORE_LL}, theme:(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches)?'dark':''});
+    if(d.state) applyEmbedState(d.state);
+    return;
+  }
+  if(d.type==='state'&&d.state) applyEmbedState(d.state);
+  if(d.type==='route'){
+    routeKm=d.km||0; routeDur=d.durationLabel||'';
+    if(d.origin){ originLL=d.origin.ll||originLL; var o=document.getElementById('inp-origen'); if(o&&d.origin.addr) o.value=d.origin.addr; }
+    if(Array.isArray(d.stops)) paradas=d.stops.map(function(p){ return {addr:p.addr||'',ll:p.ll||null}; });
+    if(routeKm) showKmBox(routeKm, routeDur);
+  }
+  if(d.type==='height'&&d.px){
+    var fr=document.getElementById('mc-maps-embed');
+    if(fr) fr.style.height=Math.max(360, Number(d.px)||360)+'px';
+  }
+  if(d.type==='error'&&d.message) toast(d.message);
+}
+
+function mountMapsIframe(){
+  mapsMode='iframe';
+  var native=document.getElementById('cj-maps-native');
+  if(native) native.style.display='none';
+  var fr=document.getElementById('mc-maps-embed');
+  if(!fr) return;
+  fr.style.display='block';
+  fr.src=MAPS_EMBED_URL;
+  mapsEmbedWin=fr.contentWindow;
+  window.removeEventListener('message', onMapsEmbedMessage);
+  window.addEventListener('message', onMapsEmbedMessage);
+}
+
+function showKmBox(km, dur){
+  const veh=document.getElementById('f-veh')?.value||'Camioneta Nissan';
+  const rate=VEH_RATE[veh]||parseFloat(cfg.precio_km||0.40);
+  const val=(km*rate).toFixed(2);
+  const box=document.getElementById('km-box');
+  if(box){
+    box.style.display='block';
+    document.getElementById('km-val').textContent='$'+val;
+    document.getElementById('km-sub').textContent=km+' km'+(dur?' · '+dur:'')+' · $'+rate.toFixed(2)+'/km';
+  }
+  const hint=document.getElementById('map-hint'); if(hint) hint.style.opacity='0';
+}
+
+function bindPlaceInput(inp, box, onPick){
+  if(!inp||!box||inp._acSetup) return;
+  inp._acSetup=true;
+  var timer=null;
+  function kick(){
+    clearTimeout(timer);
+    var q=inp.value.trim();
+    if(q.length<3){ box.innerHTML=''; box.style.display='none'; return; }
+    timer=setTimeout(function(){ searchPlaces(q, box, onPick, inp); }, 320);
+  }
+  inp.addEventListener('input', kick);
+  inp.addEventListener('keyup', kick);
+  inp.addEventListener('change', kick);
+  inp.addEventListener('focus', function(){
+    if(box.innerHTML) box.style.display='block';
+  });
+  inp.addEventListener('blur', function(){ setTimeout(function(){ box.style.display='none'; }, 180); });
+}
+
+function renderPlaceHits(hits, box, onPick, inp){
+  box.innerHTML='';
+  if(!hits||!hits.length){
+    box.innerHTML='<div class="cj-ac-item mute">Sin resultados</div>';
+    box.style.display='block';
+    return;
+  }
+  hits.forEach(function(hit){
+    var item=document.createElement('div');
+    item.className='cj-ac-item';
+    item.textContent=hit.label;
+    item.onmousedown=function(ev){
+      ev.preventDefault();
+      if(inp) inp.value=hit.name;
+      box.style.display='none';
+      onPick({addr:hit.addr, ll:hit.ll});
+    };
+    box.appendChild(item);
+  });
+  box.style.display='block';
+}
+
+function searchPlaces(q, box, onPick, inp){
+  var photon='https://photon.komoot.io/api/?lang=es&limit=6&lat='+MINECORE_LL.lat+'&lon='+MINECORE_LL.lng+'&q='+encodeURIComponent(q);
+  fetch(photon, {headers:{'Accept':'application/json'}}).then(function(r){ return r.json(); }).then(function(data){
+    var feats=(data&&data.features)||[];
+    var hits=feats.map(function(f){
+      var p=f.properties||{};
+      var g=(f.geometry&&f.geometry.coordinates)||[];
+      var name=p.name||p.street||p.city||'Lugar';
+      var parts=[p.name,p.street,p.city,p.state,p.country].filter(Boolean);
+      var label=parts.join(', ');
+      return {name:name, label:label, addr:name+' — '+label, ll:{lat:g[1],lng:g[0]}};
+    }).filter(function(h){ return h.ll.lat&&h.ll.lng; });
+    if(hits.length){ renderPlaceHits(hits, box, onPick, inp); return; }
+    return fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=ec&q='+encodeURIComponent(q), {headers:{'Accept':'application/json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(rows){
+        var alt=(rows||[]).map(function(row){
+          var name=(row.display_name||'').split(',')[0];
+          return {name:name, label:row.display_name, addr:name+' — '+row.display_name, ll:{lat:parseFloat(row.lat),lng:parseFloat(row.lon)}};
+        });
+        renderPlaceHits(alt, box, onPick, inp);
+      });
+  }).catch(function(){
+    box.innerHTML='<div class="cj-ac-item mute">Error de búsqueda</div>';
+    box.style.display='block';
+  });
+}
+
+function reverseGeocode(ll, cb){
+  var url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+ll.lat+'&lon='+ll.lng;
+  fetch(url, {headers:{'Accept':'application/json'}}).then(function(r){ return r.json(); }).then(function(row){
+    cb(row&&row.display_name?row.display_name:'');
+  }).catch(function(){ cb(''); });
+}
+
+function initMap(){ initLeafletMap(); }
+
+function initLeafletMap(){
+  if(!global.L){ loadLeaflet(initLeafletMap); return; }
+  var el=document.getElementById('map');
+  if(!el) return;
+  if(lmap){ try{ lmap.remove(); }catch(e){} lmap=null; }
+  lmap=L.map(el, {zoomControl:true, attributionControl:true}).setView([MINECORE_LL.lat,MINECORE_LL.lng], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19,
+    attribution:'&copy; OpenStreetMap'
+  }).addTo(lmap);
+  originLL=originLL||MINECORE_LL;
+  lOrigin=L.circleMarker([originLL.lat,originLL.lng], {
+    radius:8, color:'#fff', weight:2, fillColor:'#1D9E75', fillOpacity:1
+  }).addTo(lmap);
   const inpOrigen=document.getElementById('inp-origen');
   if(inpOrigen){
-    const acO=new google.maps.places.Autocomplete(inpOrigen,{componentRestrictions:{country:'ec'},fields:['geometry','formatted_address']});
-    acO.addListener('place_changed',()=>{
-      const p=acO.getPlace(); if(!p.geometry)return;
-      originLL={lat:p.geometry.location.lat(),lng:p.geometry.location.lng()};
-      window._originMarker.setPosition(originLL);
-      gmap.panTo(originLL);
+    bindPlaceInput(inpOrigen, document.getElementById('ac-origen'), function(hit){
+      originLL=hit.ll;
+      if(inpOrigen) inpOrigen.value=hit.addr;
+      if(lOrigin) lOrigin.setLatLng(originLL);
+      if(lmap) lmap.panTo(originLL);
       calcRoute();
     });
   }
-  // Setup autocomplete for existing paradas
-  paradas.forEach((_,i)=>{
+  paradas.forEach(function(_,i){
     const inp=document.getElementById('pi-'+i);
-    if(inp&&!inp._acSetup){
-      inp._acSetup=true;
-      const ac=new google.maps.places.Autocomplete(inp,{componentRestrictions:{country:'ec'},fields:['geometry','formatted_address','name']});
-      ac.addListener('place_changed',()=>{
-        const p=ac.getPlace(); if(!p.geometry)return;
-        paradas[i]={addr:`${p.name||p.formatted_address} — ${p.formatted_address}`,ll:{lat:p.geometry.location.lat(),lng:p.geometry.location.lng()}};
-        calcRoute();
-      });
-    }
+    if(inp) bindPlaceInput(inp, document.getElementById('ac-pi-'+i), function(hit){
+      paradas[i]={addr:hit.addr,ll:hit.ll};
+      calcRoute();
+    });
   });
-  gmap.addListener('click',e=>{
-    const ll=e.latLng;
-    const free=paradas.findIndex(p=>!p.ll);
-    const idx=free>=0?free:Math.max(0,paradas.length-1);
-    paradas[idx]={addr:'',ll:{lat:ll.lat(),lng:ll.lng()}};
-    geocoder.geocode({location:ll},(res,st)=>{
-      if(st==='OK'&&res[0]){
-        const name=res[0].address_components?.[1]?.short_name||res[0].formatted_address.split(',')[0];
-        paradas[idx].addr=`${name} — ${res[0].formatted_address}`;
-        const inp=document.getElementById('pi-'+idx);
+  lmap.on('click', function(e){
+    var ll={lat:e.latlng.lat,lng:e.latlng.lng};
+    var free=paradas.findIndex(p=>!p.ll);
+    var idx=free>=0?free:Math.max(0,paradas.length-1);
+    if(!paradas.length){ addParada(); idx=0; }
+    paradas[idx]={addr:'',ll:ll};
+    reverseGeocode(ll, function(addr){
+      if(addr){
+        var name=addr.split(',')[0];
+        paradas[idx].addr=name+' — '+addr;
+        var inp=document.getElementById('pi-'+idx);
         if(inp) inp.value=name;
       }
     });
     calcRoute();
   });
+  setTimeout(function(){ try{ lmap.invalidateSize(); }catch(e){} }, 250);
 }
 
 function calcRoute(){
   const valid=paradas.filter(p=>p.ll);
   if(!originLL||!valid.length)return;
-  markers.forEach(m=>m&&m.setMap&&m.setMap(null)); markers=[];
-  dirSvc.route({
-    origin:originLL,
-    destination:valid[valid.length-1].ll,
-    waypoints:valid.slice(0,-1).map(p=>({location:p.ll,stopover:true})),
-    travelMode:google.maps.TravelMode.DRIVING,
-    provideRouteAlternatives:true
-  },(result,status)=>{
-    if(status!=='OK')return;
-    // Pick shortest route
-    const sorted=[...result.routes].sort((a,b)=>{
-      const da=a.legs.reduce((s,l)=>s+l.distance.value,0);
-      const db=b.legs.reduce((s,l)=>s+l.distance.value,0);
-      return da-db;
-    });
-    const best=sorted[0];
-    dirRen.setDirections({...result,routes:[best]});
-    let totalM=0,totalS=0;
-    best.legs.forEach(l=>{totalM+=l.distance.value;totalS+=l.duration.value;});
-    routeKm=Math.round(totalM/100)/10;
-    const veh=document.getElementById('f-veh')?.value||'Camioneta Nissan';
-    const rate=VEH_RATE[veh]||parseFloat(cfg.precio_km||0.40);
-    const val=(routeKm*rate).toFixed(2);
-    const hrs=Math.floor(totalS/3600),mins=Math.floor((totalS%3600)/60);
-    const dur=hrs>0?`${hrs}h ${mins}min`:`${mins} min`;
-    const box=document.getElementById('km-box');
-    if(box){box.style.display='block';document.getElementById('km-val').textContent='$'+val;document.getElementById('km-sub').textContent=`${routeKm} km · ${dur} · $${rate.toFixed(2)}/km`;}
-    const hint=document.getElementById('map-hint');if(hint)hint.style.opacity='0';
-    // Markers
-    valid.forEach((p,i)=>{
-      const m=new google.maps.Marker({position:p.ll,map:gmap,
-        label:{text:String(i+1),color:'#2D3142',fontWeight:'bold',fontSize:'12px'},
-        icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:'#E8FF00',fillOpacity:1,strokeColor:'#2D3142',strokeWeight:2}
+  if(mapsMode==='iframe'){ mapsEmbedPost({type:'getRoute'}); return; }
+  markers.forEach(function(m){ try{ if(m.remove) m.remove(); }catch(e){} }); markers=[];
+  if(lRoute&&lmap){ try{ lmap.removeLayer(lRoute); }catch(e){} lRoute=null; }
+  var coords=[[originLL.lng,originLL.lat]].concat(valid.map(function(p){ return [p.ll.lng,p.ll.lat]; }));
+  var url='https://router.project-osrm.org/route/v1/driving/'+coords.map(function(c){ return c[0]+','+c[1]; }).join(';')+'?overview=full&geometries=geojson&alternatives=true';
+  fetch(url).then(function(r){ return r.json(); }).then(function(data){
+    if(!data||data.code!=='Ok'||!data.routes||!data.routes.length){ toast('No se pudo calcular la ruta'); return; }
+    var sorted=data.routes.slice().sort(function(a,b){ return a.distance-b.distance; });
+    var best=sorted[0];
+    routeKm=Math.round(best.distance/100)/10;
+    var totalS=Math.round(best.duration||0);
+    var hrs=Math.floor(totalS/3600), mins=Math.floor((totalS%3600)/60);
+    routeDur=hrs>0?(hrs+'h '+mins+'min'):(mins+' min');
+    showKmBox(routeKm, routeDur);
+    if(lmap){
+      valid.forEach(function(p,i){
+        var m=L.circleMarker([p.ll.lat,p.ll.lng], {
+          radius:9, color:'#2D3142', weight:2, fillColor:'#E8FF00', fillOpacity:1
+        }).bindTooltip(String(i+1), {permanent:true, direction:'center', className:'cj-map-lbl'}).addTo(lmap);
+        markers.push(m);
       });
-      markers.push(m);
-    });
-    const bounds=new google.maps.LatLngBounds();
-    best.legs.forEach(l=>{bounds.extend(l.start_location);bounds.extend(l.end_location);});
-    gmap.fitBounds(bounds,{top:20,right:20,bottom:20,left:20});
-  });
+      if(best.geometry&&best.geometry.coordinates){
+        var latlngs=best.geometry.coordinates.map(function(c){ return [c[1],c[0]]; });
+        lRoute=L.polyline(latlngs, {color:'#E8FF00', weight:4, opacity:.9}).addTo(lmap);
+        var b=L.latLngBounds(latlngs);
+        lmap.fitBounds(b, {padding:[20,20]});
+      }
+    }
+  }).catch(function(){ toast('No se pudo calcular la ruta'); });
 }
 
 async function enviarRuta(){
