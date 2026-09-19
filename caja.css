@@ -2,10 +2,24 @@
 #caja-screen{display:none;flex-direction:column;margin:0 -16px -16px;height:calc(100dvh - 78px);min-height:420px;background:#2D3142;overflow:hidden;position:relative}
 #caja-screen.on{display:flex}
 #caja-screen #scr-home{display:none;flex-direction:column;overflow:hidden;background:var(--mc-dark);z-index:1}
-#caja-screen .cj-home-body{flex:1;background:#161926;border-radius:28px 28px 0 0;padding:20px 20px 110px;overflow-y:auto;position:relative}
+#caja-screen .cj-home-head{padding:20px 24px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#caja-screen .cj-brand{display:flex;align-items:center;gap:10px}
+#caja-screen .cj-brand-logo{width:28px;height:28px;object-fit:contain;border-radius:7px}
+#caja-screen .cj-brand-txt{color:var(--mc-yellow);font-size:14px;font-weight:900;letter-spacing:3px}
+#caja-screen .cj-home-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;border:1.5px solid rgba(255,255,255,.2)}
+#caja-screen .cj-home-greet{padding:0 24px 16px;flex-shrink:0}
+#caja-screen .cj-greet-name{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px}
+#caja-screen .cj-greet-sub{font-size:13px;color:rgba(255,255,255,.4);margin-top:3px}
+#caja-screen .cj-home-body{flex:1;background:#161926;border-radius:28px 28px 0 0;padding:24px 20px 110px;overflow-y:auto;position:relative}
+#caja-screen .cj-admin-back{width:100%;margin-top:24px;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;color:rgba(255,255,255,.35);cursor:pointer}
+#caja-screen .cj-admin-back:active{color:rgba(255,255,255,.7)}
 #caja-screen #content{overflow-y:auto}
 #caja-screen.caja-ro .fab,#caja-screen.caja-ro #fab-btn{display:none!important}
 @media(min-width:1024px){#caja-screen{margin:0 -28px -22px;height:calc(100dvh - 90px)}}
+body.mc-caja-open #title{display:none!important;margin:0!important}
+body.mc-caja-open #home-edit-bar,body.mc-caja-open #landing-screen{display:none!important}
+body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
+@media(min-width:1024px){body.mc-caja-open #caja-screen{margin:0 -28px 0;height:calc(100dvh - 64px)}}
 .pac-container{z-index:9999!important}
 
 
@@ -59,7 +73,7 @@
 #caja-screen .mod-sub{font-size:11px;color:rgba(255,255,255,.4);text-align:center;line-height:1.4}
 
 /* APP SHELL */
-#caja-screen #app{display:none;flex-direction:column;position:absolute;inset:0;min-height:0;background:var(--bg);z-index:2}
+#caja-screen #app{display:none;flex-direction:column;position:absolute;inset:0 0 72px 0;min-height:0;background:var(--bg);z-index:2}
 #caja-screen .topbar{background:var(--mc-dark);border-bottom:.5px solid rgba(255,255,255,.08);padding:11px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50}
 #caja-screen .topbar-back{background:none;border:none;font-size:24px;color:rgba(255,255,255,.5);cursor:pointer;padding:2px 8px}
 #caja-screen .topbar-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -257,7 +271,7 @@
 #caja-screen .fab-item.fab-hi .fab-lbl{color:#161926}
 
 /* ── Home v8: nav inferior + actividad ── */
-#caja-screen .hnav{position:absolute;left:0;right:0;bottom:0;background:#1E2333;border-top:.5px solid rgba(255,255,255,.08);display:grid;grid-template-columns:repeat(4,1fr);padding:10px 0 24px;z-index:280}
+#caja-screen .hnav{position:absolute;left:0;right:0;bottom:0;background:#1E2333;border-top:.5px solid rgba(255,255,255,.08);display:grid;grid-template-columns:repeat(4,1fr);padding:10px 0 max(14px,env(safe-area-inset-bottom));z-index:280}
 #caja-screen .hnav.c3{grid-template-columns:repeat(3,1fr)}
 #caja-screen .hnav-item{background:none;border:none;text-align:center;cursor:pointer;padding:0}
 #caja-screen .hnav-item svg{width:21px;height:21px;stroke:rgba(255,255,255,.4);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -271,6 +285,10 @@
 #caja-screen .act-val{font-size:12px;color:rgba(255,255,255,.45);flex-shrink:0;font-weight:600}
 #caja-screen .fab{bottom:100px}
 #caja-screen .fab-actions{bottom:170px}
+#caja-screen #scr-home{padding-bottom:0}
+#caja-screen .metric-card:active,#caja-screen .hg-item:active,#caja-screen .attn-row:active{transform:scale(.98)}
+#caja-screen .metric-card,#caja-screen .hg-item{transition:transform .12s,background .12s}
+#caja-screen .metric-card:hover,#caja-screen .hg-item:hover{background:#2C3348}
 
 /* ── Chips de navegación en módulos (reemplaza barra de 6 tabs) ── */
 #caja-screen #bottom-nav{position:static;background:var(--bg);border-top:none;padding:0;display:block;height:auto;box-shadow:none}

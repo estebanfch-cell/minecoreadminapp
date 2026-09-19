@@ -83,9 +83,10 @@ Este agente no pudo pushear a `estebanfch-cell/minecore` (403).
 
 ## 4. Hard-refresh del portal
 
-1. Espera a que GitHub Pages publique este `index` (v197+).
-2. Abre `https://portal.minecore.ec/?v=197` (o el build del footer).
+1. Espera a que GitHub Pages publique este `index` (v198+).
+2. Abre `https://portal.minecore.ec/?v=198` (o el build del footer).
 3. Hard-refresh / borra el bookmark viejo si sale el banner de versión.
+4. Preview del shell Caja/Rutas (sin login Admin): `preview.html` en este repo / `https://estebanfch-cell.github.io/minecoreadminapp/preview.html?v=198`.
 
 Caja/Rutas ya leen el SCRIPT_URL de minecore (datos vivos). En el home, Motor API puede seguir en **v124** hasta que pegues v125; eso ya no vacía historial/balance.
 

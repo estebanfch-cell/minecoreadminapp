@@ -1,6 +1,6 @@
-/* Native Caja + Rutas for Minecore Admin (index v197). Data via minecore SCRIPT_URL.
-   Maps: iframe github.io/minecore/maps-embed.html when published; else Leaflet+OSRM.
-   No Caja PIN. Do not load Maps JS on portal.minecore.ec (RefererNotAllowed). */
+/* Native Caja + Rutas for Minecore Admin (index v198). Data via minecore SCRIPT_URL.
+   Maps: Leaflet + OSM tiles + Photon/Nominatim + OSRM (no Google Maps on portal).
+   No Caja PIN. Sesión = Admin (EFCH / Osvaldo / Secre). */
 (function (global) {
   'use strict';
 
@@ -169,15 +169,16 @@
     root.setAttribute('data-native','1');
     root.innerHTML=
       '<div id="scr-home">'+
-        '<div style="padding:16px 20px 12px;display:flex;align-items:center;justify-content:space-between">'+
-          '<div style="display:flex;align-items:center;gap:10px">'+
-            '<span style="color:var(--mc-yellow);font-size:13px;font-weight:900;letter-spacing:3px">RUTAS + CAJA</span>'+
+        '<div class="cj-home-head">'+
+          '<div class="cj-brand">'+
+            '<img class="cj-brand-logo" src="apple-touch-icon.png" alt="Minecore" width="28" height="28">'+
+            '<span class="cj-brand-txt">MINECORE</span>'+
           '</div>'+
-          '<div id="home-av" style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900"></div>'+
+          '<div id="home-av" class="cj-home-av"></div>'+
         '</div>'+
-        '<div style="padding:0 20px 12px">'+
-          '<div id="greet-name" style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px"></div>'+
-          '<div id="home-uname" style="font-size:13px;color:rgba(255,255,255,.4);margin-top:3px"></div>'+
+        '<div class="cj-home-greet">'+
+          '<div id="greet-name" class="cj-greet-name"></div>'+
+          '<div id="home-uname" class="cj-greet-sub"></div>'+
         '</div>'+
         '<div class="cj-home-body">'+
           '<div id="home-attn"></div>'+
@@ -187,6 +188,7 @@
           '<div id="home-grid" class="hg-grid"></div>'+
           '<div class="home-label" style="margin-top:18px" id="home-act-label">Actividad reciente</div>'+
           '<div id="home-activity" class="act-list"></div>'+
+          '<button type="button" class="cj-admin-back" onclick="cajaLeaveToAdmin()">← Menú Admin</button>'+
           '<div id="fab-menu" class="fab-menu" style="display:none" onclick="toggleFab(false)">'+
             '<div class="fab-actions">'+
               '<button class="fab-item" id="fab-dinero" onclick="event.stopPropagation();fabGo(\'caja\',\'nueva-entrega\')"><span class="fab-lbl">Entregar dinero</span></button>'+
@@ -194,25 +196,7 @@
               '<button class="fab-item fab-hi" onclick="event.stopPropagation();fabGo(\'caja\',\'nuevo-gasto\')"><span class="fab-lbl">Registrar gasto</span></button>'+
             '</div>'+
           '</div>'+
-          '<button id="fab-btn" class="fab" onclick="toggleFab()">+</button>'+
-          '<nav class="hnav" id="home-nav">'+
-            '<button class="hnav-item on" type="button">'+
-              '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2z"/></svg>'+
-              '<div class="hnav-lbl">Inicio</div>'+
-            '</button>'+
-            '<button class="hnav-item" type="button" onclick="cajaOpenMod(\'rutas\')">'+
-              '<svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16"/></svg>'+
-              '<div class="hnav-lbl">Rutas</div>'+
-            '</button>'+
-            '<button class="hnav-item" type="button" onclick="cajaOpenMod(\'caja\')">'+
-              '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M16 12h.01M2 10h20"/></svg>'+
-              '<div class="hnav-lbl">Caja</div>'+
-            '</button>'+
-            '<button class="hnav-item" type="button" id="hnav-config" onclick="cajaOpenMod(\'rutas\',\'config\')">'+
-              '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'+
-              '<div class="hnav-lbl">Config</div>'+
-            '</button>'+
-          '</nav>'+
+          '<button id="fab-btn" class="fab" type="button" onclick="toggleFab()">+</button>'+
         '</div>'+
       '</div>'+
       '<div id="app">'+
@@ -225,6 +209,24 @@
         '<nav class="bottom-nav" id="bottom-nav"></nav>'+
         '<div class="content" id="content"></div>'+
       '</div>'+
+      '<nav class="hnav" id="home-nav">'+
+        '<button class="hnav-item on" type="button" data-tab="inicio" onclick="cajaGoHome()">'+
+          '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2z"/></svg>'+
+          '<div class="hnav-lbl">Inicio</div>'+
+        '</button>'+
+        '<button class="hnav-item" type="button" data-tab="rutas" onclick="cajaOpenMod(\'rutas\')">'+
+          '<svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16"/></svg>'+
+          '<div class="hnav-lbl">Rutas</div>'+
+        '</button>'+
+        '<button class="hnav-item" type="button" data-tab="caja" onclick="cajaOpenMod(\'caja\')">'+
+          '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M16 12h.01M2 10h20"/></svg>'+
+          '<div class="hnav-lbl">Caja</div>'+
+        '</button>'+
+        '<button class="hnav-item" type="button" data-tab="config" id="hnav-config" onclick="cajaOpenMod(\'rutas\',\'config\')">'+
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'+
+          '<div class="hnav-lbl">Config</div>'+
+        '</button>'+
+      '</nav>'+
       '<div class="toast" id="toast"></div>';
   }
 
@@ -246,14 +248,32 @@
       var _M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
       var _d1=new Date(_pd.fi+'T12:00:00'),_d2=new Date(_pd.ff+'T12:00:00');
       var un=document.getElementById('home-uname');
-      if(un) un.textContent='Período '+_d1.getDate()+' '+_M[_d1.getMonth()]+' ? '+_d2.getDate()+' '+_M[_d2.getMonth()];
+      if(un) un.textContent='Período '+_d1.getDate()+' '+_M[_d1.getMonth()]+' \u2192 '+_d2.getDate()+' '+_M[_d2.getMonth()];
     }catch(e){ var u2=document.getElementById('home-uname'); if(u2) u2.textContent=''; }
     var gn=document.getElementById('greet-name');
     if(gn) gn.textContent='Hola, '+(session.nombre||session.usuario).split(' ')[0]+'!';
     hideAll(); show('scr-home');
+    markHomeTab('inicio');
     var fab=document.getElementById('fab-btn');
     if(fab) fab.style.display=puedeInteractuar()?'flex':'none';
     setTimeout(renderHomeActions,50);
+  }
+
+  function markHomeTab(tab){
+    var nav=document.getElementById('home-nav');
+    if(!nav) return;
+    var items=nav.querySelectorAll('.hnav-item');
+    for(var i=0;i<items.length;i++){
+      items[i].classList.toggle('on', items[i].getAttribute('data-tab')===tab);
+    }
+  }
+  function tabForView(mod, view){
+    if(view==='config'||view==='usuarios') return 'config';
+    return mod==='caja'?'caja':(mod==='rutas'?'rutas':'inicio');
+  }
+  function cajaLeaveToAdmin(){
+    try{ if(typeof global.goHome==='function'){ global.goHome(); return; } }catch(e){}
+    cajaGoHome();
   }
 
   function refreshColaboradores(){
@@ -298,7 +318,10 @@
     var td=document.getElementById('topbar-dot');
     if(td) td.className='topbar-dot '+mod;
     var tt=document.getElementById('topbar-title');
-    if(tt) tt.textContent=mod==='rutas'?'Rutas':'Caja Chica';
+    if(tt){
+      if(targetView==='config'||targetView==='usuarios') tt.textContent='Config';
+      else tt.textContent=mod==='rutas'?'Rutas':'Caja Chica';
+    }
     var c=avc(session.usuario);
     var av=document.getElementById('topbar-av');
     if(av){ av.style.background=c.bg; av.style.color=c.tx; av.textContent=session.usuario; }
@@ -308,10 +331,14 @@
     if((targetView==='nueva'||targetView==='nuevo-gasto'||targetView==='nueva-entrega') && !puedeInteractuar()){
       toast('Permiso de solo lectura'); return;
     }
+    markHomeTab(tabForView(mod, targetView||def));
     setView(targetView||def);
   }
   function cajaGoHome(){
     hideAll(); show('scr-home');
+    markHomeTab('inicio');
+    var fab=document.getElementById('fab-btn');
+    if(fab) fab.style.display=puedeInteractuar()?'flex':'none';
     setTimeout(renderHomeActions,40);
   }
 
@@ -358,7 +385,7 @@ function renderNav(){
       chofer:[{id:'mis-gastos',label:'Mis gastos'},{id:'historial-caja',label:'Historial'},{id:'balance',label:'Mi caja'}]
     },
     ajustes:{
-      admin:[{id:'config',label:'Config'}],
+      admin:[{id:'config',label:'Config'},{id:'usuarios',label:'Usuarios'}],
       chofer:[]
     }
   };
@@ -373,6 +400,13 @@ function renderNav(){
 
 function setView(v){
   activeView=v; renderNav();
+  markHomeTab(tabForView(currentMod, v));
+  var tt=document.getElementById('topbar-title');
+  if(tt){
+    if(v==='config'||v==='usuarios') tt.textContent='Config';
+    else if(currentMod==='caja') tt.textContent='Caja Chica';
+    else if(currentMod==='rutas') tt.textContent='Rutas';
+  }
   const c=document.getElementById('content');
   const views={
     'nueva':vNueva,'mis-rutas':vMisRutas,'cuenta':vCuenta,
@@ -773,11 +807,13 @@ function usarGPS(){
 }
 
 function startNuevaMap(){
-  probeMapsEmbed(function(ok){
-    if(ok){ mountMapsIframe(); return; }
-    mapsMode='leaflet';
-    loadLeaflet(initLeafletMap);
-  });
+  /* Portal: Leaflet/OSM only. Do not iframe Google Maps (RefererNotAllowed + UX lock). */
+  mapsMode='leaflet';
+  var fr=document.getElementById('mc-maps-embed');
+  if(fr){ fr.style.display='none'; fr.removeAttribute('src'); }
+  var native=document.getElementById('cj-maps-native');
+  if(native) native.style.display='block';
+  loadLeaflet(initLeafletMap);
 }
 
 function mapsEmbedPost(msg){
@@ -2251,6 +2287,7 @@ function _pdfSafe(s){
   global.Caja = pub;
   global.cajaOpenMod = cajaOpenMod;
   global.cajaGoHome = cajaGoHome;
+  global.cajaLeaveToAdmin = cajaLeaveToAdmin;
   global.cajaMapsReady = cajaMapsReady;
   global.mapsReady = mapsReady;
 })(window);
