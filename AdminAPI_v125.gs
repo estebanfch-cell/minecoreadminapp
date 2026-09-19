@@ -14,14 +14,32 @@
  *
  * Omitidas a propósito (EFCH lock): login, crearUsuario, editarUsuario, eliminarUsuario.
  *
- * Auth: el mismo user+pin de Admin. Los movimientos se atribuyen a
- * user.usuario / user.nombre de la sesión Admin (no hay PIN de Caja).
+ * Auth: sesión Admin únicamente (EFCH / Osvaldo / Secre). Sin PIN de Caja
+ * y sin CRUD de usuarios Caja. Los movimientos se atribuyen a
+ * user.usuario / user.nombre de esa sesión.
+ *
+ * Spreadsheets (IDs exactos):
+ *   Caja source (Minecore App): 1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY
+ *   Admin DB (Minecore - Datos inFlow): 1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY
  */
 
 var CAJA_API_VERSION = 'v125';
 var CAJA_SOURCE_ID = '1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY';
 var CAJA_ADMIN_DB_FALLBACK = '1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY';
 var CAJA_SKIP_SOURCE_TABS = { USUARIOS: 1, USERS: 1 };
+var CAJA_SESSION_ALLOW = { efch: 1, osvaldo: 1, oswaldo: 1, secre: 1 };
+
+/** Source tab → dest Caja_* (live Minecore App uses CajaGastos / CajaEntregas). */
+var CAJA_DEST_MAP = {
+  Rutas: 'Caja_Rutas',
+  Gastos: 'Caja_Gastos',
+  CajaGastos: 'Caja_Gastos',
+  Entregas: 'Caja_Entregas',
+  CajaEntregas: 'Caja_Entregas',
+  Config: 'Caja_Config',
+  Cortes: 'Caja_Cortes',
+  Corte: 'Caja_Cortes'
+};
 
 var CAJA_READ = {
   getRutas: 1, getGastos: 1, getEntregas: 1, getBalanceCaja: 1, getConfig: 1
@@ -36,9 +54,15 @@ var CAJA_HEADERS = {
   Rutas: ['ID', 'Fecha Solicitud', 'Fecha Servicio', 'Usuario', 'Origen', 'Destino', 'KM', 'Tipo', 'Motivo', 'Estado', 'Valor ($)', 'Fecha Aprobacion', 'Aprobado Por', 'Notas', 'Periodo', 'Vehiculo'],
   Gastos: ['ID', 'Fecha', 'Usuario', 'Monto ($)', 'Categoria', 'Descripcion', 'Foto URL', 'Estado', 'Aprobado Por', 'Fecha Aprobacion', 'Periodo'],
   Entregas: ['ID', 'Fecha', 'Admin', 'Usuario Destino', 'Monto ($)', 'Forma', 'Descripcion', 'Foto URL', 'Periodo'],
-  Config: ['clave', 'valor'],
-  Cortes: ['Periodo', 'Fecha Cierre', 'Admin', 'Total KM', 'Total USD', 'Notas']
+  Config: ['Clave', 'Valor', 'Descripcion'],
+  Cortes: ['ID', 'Periodo', 'Fecha', 'Total KM', 'Total USD', 'Rutas', 'Admin', 'Estado']
 };
+
+var CAJA_CONFIG_SEED = [
+  ['precio_km', '0.40', 'Precio por km en USD'],
+  ['corte_dia_inicio', '26', 'Dia inicio periodo'],
+  ['corte_dia_fin', '25', 'Dia fin periodo']
+];
 
 var CAJA_NAME_HINTS = {
   EFCH: 'Esteban Ferlito',
@@ -56,7 +80,10 @@ function cajaDispatch_(p, user) {
   var action = String(p.action || '');
   if (!CAJA_READ[action] && !CAJA_WRITE[action]) return null;
   if (!user) user = cajaAuth_(p);
-  if (!user) return cajaJson_({ ok: false, error: 'Usuario o PIN incorrectos' });
+  if (!user) return cajaJson_({ ok: false, error: 'Sesión Admin requerida (EFCH / Osvaldo / Secre)' });
+  if (!cajaAllowedSession_(user)) {
+    return cajaJson_({ ok: false, error: 'Caja solo para sesión Admin EFCH / Osvaldo / Secre' });
+  }
   if (!cajaCanView_(user)) return cajaJson_({ ok: false, error: 'Sin permiso del módulo Caja' });
   if (CAJA_WRITE[action] && !cajaCanWrite_(user, action)) {
     return cajaJson_({ ok: false, error: 'Se requiere permiso caja+ o admin para esta acción' });
@@ -98,7 +125,17 @@ function migrateCajaSheets() {
 function cajaMigrateSheets_(p, user) {
   if (!cajaIsAdmin_(user)) return { ok: false, error: 'Solo admin puede migrar Caja_*' };
   var destSs = cajaDestSs_();
-  var srcSs = SpreadsheetApp.openById(CAJA_SOURCE_ID);
+  var srcSs;
+  try {
+    srcSs = SpreadsheetApp.openById(CAJA_SOURCE_ID);
+  } catch (e) {
+    return {
+      ok: false,
+      error: 'No se pudo abrir Caja source ' + CAJA_SOURCE_ID +
+        ' (' + String(e && e.message || e) +
+        '). Compartir Minecore App con la cuenta del Apps Script Admin.'
+    };
+  }
   var srcSheets = srcSs.getSheets();
   var copied = [];
   var skipped = [];
@@ -134,11 +171,7 @@ function cajaMigrateSheets_(p, user) {
       var sh = destSs.insertSheet(destName);
       sh.getRange(1, 1, 1, CAJA_HEADERS[key].length).setValues([CAJA_HEADERS[key]]);
       if (key === 'Config') {
-        sh.getRange(2, 1, 3, 2).setValues([
-          ['precio_km', '0.40'],
-          ['corte_dia_inicio', '26'],
-          ['corte_dia_fin', '25']
-        ]);
+        sh.getRange(2, 1, CAJA_CONFIG_SEED.length, CAJA_CONFIG_SEED[0].length).setValues(CAJA_CONFIG_SEED);
       }
       createdEmpty.push(destName);
     }
@@ -241,10 +274,15 @@ function cajaGetConfig_(p, user) {
   var sh = cajaSheet_('Config');
   var vals = sh.getDataRange().getValues();
   var cfg = { precio_km: '0.40', corte_dia_inicio: '26', corte_dia_fin: '25' };
+  var headers = (vals[0] || []).map(function (h) { return String(h || '').trim().toLowerCase(); });
+  var iClave = headers.indexOf('clave');
+  var iValor = headers.indexOf('valor');
+  if (iClave < 0) iClave = 0;
+  if (iValor < 0) iValor = 1;
   for (var i = 1; i < vals.length; i++) {
-    var k = String(vals[i][0] || '').trim();
+    var k = String(vals[i][iClave] || '').trim();
     if (!k) continue;
-    cfg[k] = String(vals[i][1] == null ? '' : vals[i][1]);
+    cfg[k] = String(vals[i][iValor] == null ? '' : vals[i][iValor]);
   }
   return { ok: true, config: cfg };
 }
@@ -258,15 +296,29 @@ function cajaUpdateConfig_(p, user) {
   var valor = String(p.valor == null ? '' : p.valor);
   var sh = cajaSheet_('Config');
   var vals = sh.getDataRange().getValues();
+  var headers = (vals[0] || []).map(function (h) { return String(h || '').trim(); });
+  var iClave = -1, iValor = -1;
+  for (var h = 0; h < headers.length; h++) {
+    var hn = headers[h].toLowerCase();
+    if (hn === 'clave' && iClave < 0) iClave = h;
+    if (hn === 'valor' && iValor < 0) iValor = h;
+  }
+  if (iClave < 0) iClave = 0;
+  if (iValor < 0) iValor = 1;
   var found = false;
   for (var i = 1; i < vals.length; i++) {
-    if (String(vals[i][0] || '').trim() === clave) {
-      sh.getRange(i + 1, 2).setValue(valor);
+    if (String(vals[i][iClave] || '').trim() === clave) {
+      sh.getRange(i + 1, iValor + 1).setValue(valor);
       found = true;
       break;
     }
   }
-  if (!found) sh.appendRow([clave, valor]);
+  if (!found) {
+    var row = headers.length ? headers.map(function () { return ''; }) : ['', '', ''];
+    row[iClave] = clave;
+    row[iValor] = valor;
+    sh.appendRow(row);
+  }
   return { ok: true };
 }
 
@@ -416,16 +468,31 @@ function cajaCerrarCorte_(p, user) {
   if (!periodo) return { ok: false, error: 'periodo requerido' };
   var sh = cajaSheet_('Cortes');
   var vals = sh.getDataRange().getValues();
+  var headers = (vals[0] || []).map(function (h) { return String(h || '').trim(); });
+  var iPeriodo = headers.indexOf('Periodo');
+  if (iPeriodo < 0) iPeriodo = headers.length ? 1 : 0;
   for (var i = 1; i < vals.length; i++) {
-    if (String(vals[i][0] || '') === periodo) {
+    if (String(vals[i][iPeriodo] || '') === periodo) {
       return { ok: true, already: true };
     }
   }
   var rutas = cajaRows_('Rutas').filter(function (r) { return r['Estado'] === 'Aprobada'; });
+  var inPeriod = rutas.filter(function (r) { return String(r['Periodo'] || '') === periodo; });
+  if (inPeriod.length) rutas = inPeriod;
   var km = 0, usd = 0;
   rutas.forEach(function (r) { km += cajaNum_(r['KM']); usd += cajaNum_(r['Valor ($)']); });
-  sh.appendRow([periodo, cajaNow_(), user.usuario, cajaRound2_(km), cajaRound2_(usd), '']);
-  return { ok: true };
+  var id = 'CORTE-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Guayaquil', 'yyyyMMdd-HHmmss');
+  cajaAppend_('Cortes', {
+    'ID': id,
+    'Periodo': periodo,
+    'Fecha': cajaNow_(),
+    'Total KM': cajaRound2_(km),
+    'Total USD': cajaRound2_(usd),
+    'Rutas': rutas.length,
+    'Admin': user.usuario,
+    'Estado': 'Cerrado'
+  });
+  return { ok: true, id: id };
 }
 
 function cajaSavePhoto_(p, user) {
@@ -490,6 +557,19 @@ function cajaAuthFromSheet_(p) {
   return null;
 }
 
+function cajaAllowedSession_(user) {
+  var parts = [user && user.usuario, user && user.nombre];
+  for (var i = 0; i < parts.length; i++) {
+    var raw = String(parts[i] || '').trim();
+    if (!raw) continue;
+    var key = raw.toLowerCase();
+    try { key = key.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e2) {}
+    if (CAJA_SESSION_ALLOW[key]) return true;
+    var first = key.split(/\s+/)[0];
+    if (CAJA_SESSION_ALLOW[first]) return true;
+  }
+  return false;
+}
 function cajaIsAdmin_(user) {
   return String(user && user.rol || '').toLowerCase() === 'admin';
 }
@@ -532,9 +612,8 @@ function cajaDestSs_() {
 
 function cajaDestName_(sourceName) {
   var n = String(sourceName || '').trim();
+  if (CAJA_DEST_MAP[n]) return CAJA_DEST_MAP[n];
   if (/^Caja_/i.test(n)) return n;
-  var map = { Rutas: 'Caja_Rutas', Gastos: 'Caja_Gastos', Entregas: 'Caja_Entregas', Config: 'Caja_Config', Cortes: 'Caja_Cortes' };
-  if (map[n]) return map[n];
   return 'Caja_' + n.replace(/\s+/g, '_');
 }
 
@@ -547,11 +626,7 @@ function cajaSheet_(kind) {
     var hdrs = CAJA_HEADERS[kind] || ['ID'];
     sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
     if (kind === 'Config') {
-      sh.getRange(2, 1, 3, 2).setValues([
-        ['precio_km', '0.40'],
-        ['corte_dia_inicio', '26'],
-        ['corte_dia_fin', '25']
-      ]);
+      sh.getRange(2, 1, CAJA_CONFIG_SEED.length, CAJA_CONFIG_SEED[0].length).setValues(CAJA_CONFIG_SEED);
     }
   }
   return sh;

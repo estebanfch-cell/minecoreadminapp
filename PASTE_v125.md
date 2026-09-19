@@ -1,7 +1,21 @@
 # PASTE AdminAPI v125 — Caja nativa (EFCH)
 
 El frontend nativo ya no usa iframe a `estebanfch-cell.github.io/minecore`.  
-Las acciones de Caja viven en el **mismo AdminAPI** (user + PIN de Admin). No hay segundo login ni PIN de Caja.
+Las acciones de Caja viven en el **mismo AdminAPI**, con la **sesión Admin** (EFCH / Osvaldo / Secre). No hay segundo login ni PIN de Caja.
+
+## Spreadsheets (IDs exactos)
+
+| Rol | Título | ID |
+|---|---|---|
+| Caja source | Minecore App | `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` |
+| Admin DB | Minecore - Datos inFlow | `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` |
+
+**Verificación al abrir (agente):**
+
+- Admin DB: abre. Owner `estebanferlito@minecore.ec`. Aún **no** tiene pestañas `Caja_*` (Leyenda las lista como módulo).
+- Caja source: Drive API responde `Requested entity was not found` para esta cuenta. HTTP anónimo = 401 Sign-in (no es un 404 HTML público). `migrateCajaSheets` fallará hasta que **EFCH comparta Minecore App** con la cuenta del Apps Script Admin (mismo owner que Datos inFlow).
+
+Esquemas inferidos del API viejo (`AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw`) + copia compartida «Minecore App — Caja (copia migración Admin)». El ID de source en código **no** se sustituyó.
 
 ## 1. Apps Script (obligatorio)
 
@@ -39,9 +53,18 @@ En el editor de Apps Script:
 
 Qué hace (idempotente):
 
-- Lee el spreadsheet Caja fuente `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY`.
-- Copia pestañas operativas al Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` (`getProps_().sheetId`) como `Caja_Rutas`, `Caja_Gastos`, `Caja_Entregas`, `Caja_Config`, etc.
-- **No copia** la pestaña `Usuarios` (PIN de Caja). Los logins siguen siendo EFCH / Osvaldo / Secre en Admin → Usuarios.
+- Lee el spreadsheet Caja fuente `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` (hace falta que esté compartido con la cuenta del Apps Script).
+- Copia pestañas operativas al Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` (`getProps_().sheetId`) con este mapa:
+
+  | Source (Minecore App) | Destino Admin DB |
+  |---|---|
+  | `Rutas` | `Caja_Rutas` |
+  | `CajaGastos` (o `Gastos`) | `Caja_Gastos` |
+  | `CajaEntregas` (o `Entregas`) | `Caja_Entregas` |
+  | `Config` (`Clave`, `Valor`, `Descripcion`) | `Caja_Config` |
+  | `Cortes` (`ID`, `Periodo`, `Fecha`, `Total KM`, `Total USD`, `Rutas`, `Admin`, `Estado`) | `Caja_Cortes` |
+
+- **No copia** la pestaña `Usuarios` (PIN de Caja). Sesión = EFCH / Osvaldo / Secre en Admin → Usuarios. Sin PIN de Caja.
 - Si `Caja_*` ya tiene filas, no las pisa.
 
 También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCajaSheets', user, pin}`.
@@ -97,7 +120,7 @@ Entrar a Admin con **EFCH** (un solo login). Módulo **Rutas y Caja Chica** (`ca
 
 13. Usuario con solo `caja` (Ver): ve listados, **no** crea rutas/gastos (mensaje solo lectura).
 14. `caja+` (no admin): puede crear ruta/gasto; no aprueba ni entrega ni cierra corte.
-15. No existe pantalla PIN de Caja ni CRUD de usuarios Caja.
+15. No existe pantalla PIN de Caja ni CRUD de usuarios Caja. Solo sesión Admin **EFCH / Osvaldo / Secre**.
 
 ### Negativos
 
