@@ -10,12 +10,22 @@ Las acciones de Caja viven en el **mismo AdminAPI**, con la **sesión Admin** (E
 | Caja source | Minecore App | `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` |
 | Admin DB | Minecore - Datos inFlow | `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` |
 
-**Verificación al abrir (agente):**
+**IDs verificados (usar solo estos):**
 
-- Admin DB: abre. Owner `estebanferlito@minecore.ec`. Aún **no** tiene pestañas `Caja_*` (Leyenda las lista como módulo).
-- Caja source: Drive API responde `Requested entity was not found` para esta cuenta. HTTP anónimo = 401 Sign-in (no es un 404 HTML público). `migrateCajaSheets` fallará hasta que **EFCH comparta Minecore App** con la cuenta del Apps Script Admin (mismo owner que Datos inFlow).
+- Caja source `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` — Minecore App. Tabs: `Usuarios` (no copiar), `Rutas`, `Gastos`, `Entregas`, `Config` (+ `Cortes` si está).
+- Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` — Minecore - Datos inFlow. Aún sin `Caja_*`.
 
-Esquemas inferidos del API viejo (`AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw`) + copia compartida «Minecore App — Caja (copia migración Admin)». El ID de source en código **no** se sustituyó.
+Columnas operativas (API live + headers de esas tabs):
+
+| Tab | Columnas |
+|---|---|
+| `Rutas` | ID, Fecha Solicitud, Fecha Servicio, Usuario, Origen, Destino, KM, Tipo, Motivo, Estado, Valor ($), Fecha Aprobacion, Aprobado Por, Notas, Periodo, Vehiculo |
+| `Gastos` | ID, Fecha, Usuario, Monto ($), Categoria, Descripcion, Foto URL, Estado, Aprobado Por, Fecha Aprobacion, Periodo |
+| `Entregas` | ID, Fecha, Admin, Usuario Destino, Monto ($), Forma, Descripcion, Foto URL, Periodo |
+| `Config` | Clave, Valor, Descripcion — `precio_km` / `corte_dia_inicio` / `corte_dia_fin` |
+| `Cortes` (si existe) | ID, Periodo, Fecha, Total KM, Total USD, Rutas, Admin, Estado |
+
+En el editor, `inspectCajaSource()` vuelca nombre + headers reales de Minecore App.
 
 ## 1. Apps Script (obligatorio)
 
@@ -47,22 +57,22 @@ Si tu helper de auth se llama distinto, `cajaDispatch_` también puede autentica
 
 En el editor de Apps Script:
 
-1. Selecciona la función `migrateCajaSheets`.
-2. Ejecuta (autoriza Drive + Sheets si pide).
-3. Revisa el log: `copied` / `skipped` / `createdEmpty`.
+1. (Opcional) Ejecuta `inspectCajaSource` y revisa `tabs` en el log.
+2. Selecciona `migrateCajaSheets` y ejecuta (autoriza Drive + Sheets si pide).
+3. Revisa el log: `sourceTabs` / `copied` / `skipped` / `createdEmpty`.
 
 Qué hace (idempotente):
 
-- Lee el spreadsheet Caja fuente `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` (hace falta que esté compartido con la cuenta del Apps Script).
-- Copia pestañas operativas al Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` (`getProps_().sheetId`) con este mapa:
+- Abre **solo** Minecore App `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY`.
+- Copia pestañas operativas al Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` (`getProps_().sheetId`):
 
   | Source (Minecore App) | Destino Admin DB |
   |---|---|
   | `Rutas` | `Caja_Rutas` |
-  | `CajaGastos` (o `Gastos`) | `Caja_Gastos` |
-  | `CajaEntregas` (o `Entregas`) | `Caja_Entregas` |
-  | `Config` (`Clave`, `Valor`, `Descripcion`) | `Caja_Config` |
-  | `Cortes` (`ID`, `Periodo`, `Fecha`, `Total KM`, `Total USD`, `Rutas`, `Admin`, `Estado`) | `Caja_Cortes` |
+  | `Gastos` (alias `CajaGastos`) | `Caja_Gastos` |
+  | `Entregas` (alias `CajaEntregas`) | `Caja_Entregas` |
+  | `Config` | `Caja_Config` |
+  | `Cortes` | `Caja_Cortes` |
 
 - **No copia** la pestaña `Usuarios` (PIN de Caja). Sesión = EFCH / Osvaldo / Secre en Admin → Usuarios. Sin PIN de Caja.
 - Si `Caja_*` ya tiene filas, no las pisa.
@@ -84,8 +94,8 @@ Sin eso el mapa de Nueva ruta falla en el portal (Places/Geometry).
 
 ## 4. Hard-refresh del portal
 
-1. Espera a que GitHub Pages publique este `index` (v194+).
-2. Abre `https://portal.minecore.ec/?v=194` (o el build del footer).
+1. Espera a que GitHub Pages publique este `index` (v195+).
+2. Abre `https://portal.minecore.ec/?v=195` (o el build del footer).
 3. Hard-refresh / borra el bookmark viejo si sale el banner de versión.
 
 En el home, Motor API debe decir **`v125 ✓`**.

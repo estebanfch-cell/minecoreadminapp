@@ -18,9 +18,13 @@
  * y sin CRUD de usuarios Caja. Los movimientos se atribuyen a
  * user.usuario / user.nombre de esa sesión.
  *
- * Spreadsheets (IDs exactos):
+ * Spreadsheets (IDs exactos, únicos):
  *   Caja source (Minecore App): 1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY
  *   Admin DB (Minecore - Datos inFlow): 1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY
+ *
+ * Tabs source (EFCH): Usuarios (omitida), Rutas, Gastos, Entregas, Config
+ * + Cortes si existe. Alias CajaGastos / CajaEntregas por si el libro las usa.
+ * Columnas confirmadas vía API live getRutas / getGastos / getEntregas / getConfig.
  */
 
 var CAJA_API_VERSION = 'v125';
@@ -29,7 +33,7 @@ var CAJA_ADMIN_DB_FALLBACK = '1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY';
 var CAJA_SKIP_SOURCE_TABS = { USUARIOS: 1, USERS: 1 };
 var CAJA_SESSION_ALLOW = { efch: 1, osvaldo: 1, oswaldo: 1, secre: 1 };
 
-/** Source tab → dest Caja_* (live Minecore App uses CajaGastos / CajaEntregas). */
+/** Source tab → dest Caja_* (verified Minecore App: Rutas / Gastos / Entregas / Config). */
 var CAJA_DEST_MAP = {
   Rutas: 'Caja_Rutas',
   Gastos: 'Caja_Gastos',
@@ -39,6 +43,13 @@ var CAJA_DEST_MAP = {
   Config: 'Caja_Config',
   Cortes: 'Caja_Cortes',
   Corte: 'Caja_Cortes'
+};
+var CAJA_SHEET_ALIASES = {
+  Rutas: ['Caja_Rutas', 'Rutas'],
+  Gastos: ['Caja_Gastos', 'Gastos', 'CajaGastos'],
+  Entregas: ['Caja_Entregas', 'Entregas', 'CajaEntregas'],
+  Config: ['Caja_Config', 'Config'],
+  Cortes: ['Caja_Cortes', 'Cortes', 'Corte']
 };
 
 var CAJA_READ = {
@@ -122,6 +133,18 @@ function migrateCajaSheets() {
   return res;
 }
 
+function inspectCajaSource() {
+  var ss = SpreadsheetApp.openById(CAJA_SOURCE_ID);
+  var tabs = ss.getSheets().map(function (sh) {
+    var lastCol = sh.getLastColumn();
+    var headers = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h || ''); }) : [];
+    return { name: sh.getName(), rows: Math.max(0, sh.getLastRow() - 1), headers: headers };
+  });
+  var res = { ok: true, sourceId: CAJA_SOURCE_ID, title: ss.getName(), tabs: tabs };
+  Logger.log(JSON.stringify(res));
+  return res;
+}
+
 function cajaMigrateSheets_(p, user) {
   if (!cajaIsAdmin_(user)) return { ok: false, error: 'Solo admin puede migrar Caja_*' };
   var destSs = cajaDestSs_();
@@ -133,16 +156,23 @@ function cajaMigrateSheets_(p, user) {
       ok: false,
       error: 'No se pudo abrir Caja source ' + CAJA_SOURCE_ID +
         ' (' + String(e && e.message || e) +
-        '). Compartir Minecore App con la cuenta del Apps Script Admin.'
+        '). El ID es el verificado de Minecore App; la cuenta del Apps Script debe tener acceso.'
     };
   }
   var srcSheets = srcSs.getSheets();
   var copied = [];
   var skipped = [];
   var createdEmpty = [];
+  var sourceTabs = [];
   srcSheets.forEach(function (sh) {
     var name = String(sh.getName() || '').trim();
     if (!name) return;
+    var lastCol = sh.getLastColumn();
+    sourceTabs.push({
+      name: name,
+      rows: Math.max(0, sh.getLastRow() - 1),
+      headers: lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h || ''); }) : []
+    });
     if (CAJA_SKIP_SOURCE_TABS[name.toUpperCase()]) {
       skipped.push({ source: name, reason: 'PIN/Usuarios omitido' });
       return;
@@ -179,6 +209,9 @@ function cajaMigrateSheets_(p, user) {
   return {
     ok: true,
     action: 'migrateCajaSheets',
+    sourceId: CAJA_SOURCE_ID,
+    sourceTitle: srcSs.getName(),
+    sourceTabs: sourceTabs,
     copied: copied,
     skipped: skipped,
     createdEmpty: createdEmpty,
@@ -619,15 +652,18 @@ function cajaDestName_(sourceName) {
 
 function cajaSheet_(kind) {
   var ss = cajaDestSs_();
-  var name = 'Caja_' + kind;
-  var sh = ss.getSheetByName(name);
-  if (!sh) {
-    sh = ss.insertSheet(name);
-    var hdrs = CAJA_HEADERS[kind] || ['ID'];
-    sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
-    if (kind === 'Config') {
-      sh.getRange(2, 1, CAJA_CONFIG_SEED.length, CAJA_CONFIG_SEED[0].length).setValues(CAJA_CONFIG_SEED);
-    }
+  var aliases = CAJA_SHEET_ALIASES[kind] || ['Caja_' + kind];
+  var sh = null;
+  for (var i = 0; i < aliases.length; i++) {
+    sh = ss.getSheetByName(aliases[i]);
+    if (sh) return sh;
+  }
+  var name = aliases[0];
+  sh = ss.insertSheet(name);
+  var hdrs = CAJA_HEADERS[kind] || ['ID'];
+  sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
+  if (kind === 'Config') {
+    sh.getRange(2, 1, CAJA_CONFIG_SEED.length, CAJA_CONFIG_SEED[0].length).setValues(CAJA_CONFIG_SEED);
   }
   return sh;
 }

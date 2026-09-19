@@ -1,4 +1,4 @@
-/* Native Caja + Rutas for Minecore Admin (index v194). Ported from minecore app.js v23. No iframe, no PIN. */
+/* Native Caja + Rutas for Minecore Admin (index v195). Ported from minecore app.js v23. No iframe, no PIN. */
 (function (global) {
   'use strict';
 
@@ -22,7 +22,13 @@
     Osvaldo:'Oswaldo Pena', Secre:'SECRE Conta'
   };
 
-  let session=null, cfg={precio_km:0.40, corte_dia_inicio:26, corte_dia_fin:25}, allUsers=[];
+  const COLAB_SEED=[
+    {usuario:'EFCH',nombre:'Esteban Ferlito',rol:'admin',activo:'SI'},
+    {usuario:'OPM',nombre:'Oswaldo Pena',rol:'chofer',activo:'SI'},
+    {usuario:'MPL',nombre:'Martin Pinto',rol:'chofer',activo:'SI'},
+    {usuario:'AG',nombre:'Angel Guachamin',rol:'chofer',activo:'SI'}
+  ];
+  let session=null, cfg={precio_km:0.40, corte_dia_inicio:26, corte_dia_fin:25}, allUsers=COLAB_SEED.slice();
   let currentMod='', activeView='';
   let mReady=false, gmap, dirSvc, dirRen, geocoder;
   let originLL=null, paradas=[], routeKm=0, markers=[];
