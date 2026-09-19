@@ -72,31 +72,19 @@ Qué hace (idempotente):
 
 También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCajaSheets', user, pin}`.
 
-## 3. Google Maps (Places + Geometry)
+## 3. Mapa de Nueva ruta (v197 — sin cambiar Google Cloud)
 
-La UI nativa carga Maps **igual que minecore**: script tag estático con `libraries=places,geometry` y `callback=mapsReady`, misma key pública:
+`portal.minecore.ec` no está en la allowlist de la key (`RefererNotAllowed`). **v197 no carga Maps JS en el portal** (eso era el Oops).
 
-`AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o`
+1. **Preferido:** copiá `maps-embed.html` (este repo) a `estebanfch-cell/minecore` para que Pages sirva `https://estebanfch-cell.github.io/minecore/maps-embed.html`. Misma key que `index.html` (`places,geometry,callback`). El Admin lo iframea y habla por `postMessage` (`setOrigin` / `addStop` / `getRoute`).
+2. **Ahora:** si ese archivo aún no está publicado, Nueva ruta usa Leaflet + Nominatim/Photon + OSRM. Mismo UX (origen, paradas, tap, favorito, km).
 
-Si el mapa o los campos Places muestran *«Oops! Something went wrong»* en el portal, la key tiene **restricción de HTTP referrers** y `portal.minecore.ec` no está permitido (en github.io/minecore sí). Eso no se arregla en código.
-
-**Paso manual EFCH — Google Cloud Console**
-
-1. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
-2. Abrí la key `AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o`.
-3. Application restrictions → **HTTP referrers (web sites)**.
-4. Agregá (si no están):
-   - `https://portal.minecore.ec/*`
-   - `https://www.portal.minecore.ec/*`
-   - `https://estebanfch-cell.github.io/*`
-   - `https://estebanfch-cell.github.io/minecore/*`
-   - `https://estebanfch-cell.github.io/minecoreadminapp/*`
-5. Guardá. Esperá 1–5 min y hard-refresh `https://portal.minecore.ec/?v=196`.
+Este agente no pudo pushear a `estebanfch-cell/minecore` (403).
 
 ## 4. Hard-refresh del portal
 
-1. Espera a que GitHub Pages publique este `index` (v196+).
-2. Abre `https://portal.minecore.ec/?v=196` (o el build del footer).
+1. Espera a que GitHub Pages publique este `index` (v197+).
+2. Abre `https://portal.minecore.ec/?v=197` (o el build del footer).
 3. Hard-refresh / borra el bookmark viejo si sale el banner de versión.
 
 Caja/Rutas ya leen el SCRIPT_URL de minecore (datos vivos). En el home, Motor API puede seguir en **v124** hasta que pegues v125; eso ya no vacía historial/balance.
