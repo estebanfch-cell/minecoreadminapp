@@ -189,14 +189,6 @@
           '<div class="home-label" style="margin-top:18px" id="home-act-label">Actividad reciente</div>'+
           '<div id="home-activity" class="act-list"></div>'+
           '<button type="button" class="cj-admin-back" onclick="cajaLeaveToAdmin()">← Menú Admin</button>'+
-          '<div id="fab-menu" class="fab-menu" style="display:none" onclick="toggleFab(false)">'+
-            '<div class="fab-actions">'+
-              '<button class="fab-item" id="fab-dinero" onclick="event.stopPropagation();fabGo(\'caja\',\'nueva-entrega\')"><span class="fab-lbl">Entregar dinero</span></button>'+
-              '<button class="fab-item" onclick="event.stopPropagation();fabGo(\'rutas\',\'nueva\')"><span class="fab-lbl">Nueva ruta</span></button>'+
-              '<button class="fab-item fab-hi" onclick="event.stopPropagation();fabGo(\'caja\',\'nuevo-gasto\')"><span class="fab-lbl">Registrar gasto</span></button>'+
-            '</div>'+
-          '</div>'+
-          '<button id="fab-btn" class="fab" type="button" onclick="toggleFab()">+</button>'+
         '</div>'+
       '</div>'+
       '<div id="app">'+
@@ -227,7 +219,24 @@
           '<div class="hnav-lbl">Config</div>'+
         '</button>'+
       '</nav>'+
+      '<div id="fab-menu" class="fab-menu" style="display:none" onclick="toggleFab(false)">'+
+        '<div class="fab-actions">'+
+          '<button class="fab-item" id="fab-dinero" onclick="event.stopPropagation();fabGo(\'caja\',\'nueva-entrega\')"><span class="fab-lbl">Entregar dinero</span></button>'+
+          '<button class="fab-item" onclick="event.stopPropagation();fabGo(\'rutas\',\'nueva\')"><span class="fab-lbl">Nueva ruta</span></button>'+
+          '<button class="fab-item fab-hi" onclick="event.stopPropagation();fabGo(\'caja\',\'nuevo-gasto\')"><span class="fab-lbl">Registrar gasto</span></button>'+
+        '</div>'+
+      '</div>'+
+      '<button id="fab-btn" class="fab" type="button" onclick="toggleFab()">+</button>'+
       '<div class="toast" id="toast"></div>';
+  }
+
+  function syncFab(onHome){
+    var fab=document.getElementById('fab-btn');
+    var menu=document.getElementById('fab-menu');
+    var show=!!onHome && puedeInteractuar();
+    if(fab) fab.style.display=show?'flex':'none';
+    if(menu && !show) menu.style.display='none';
+    if(fab && !show) fab.textContent='+';
   }
 
   function hide(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }
@@ -254,8 +263,7 @@
     if(gn) gn.textContent='Hola, '+(session.nombre||session.usuario).split(' ')[0]+'!';
     hideAll(); show('scr-home');
     markHomeTab('inicio');
-    var fab=document.getElementById('fab-btn');
-    if(fab) fab.style.display=puedeInteractuar()?'flex':'none';
+    syncFab(true);
     setTimeout(renderHomeActions,50);
   }
 
@@ -331,14 +339,14 @@
     if((targetView==='nueva'||targetView==='nuevo-gasto'||targetView==='nueva-entrega') && !puedeInteractuar()){
       toast('Permiso de solo lectura'); return;
     }
+    syncFab(false);
     markHomeTab(tabForView(mod, targetView||def));
     setView(targetView||def);
   }
   function cajaGoHome(){
     hideAll(); show('scr-home');
     markHomeTab('inicio');
-    var fab=document.getElementById('fab-btn');
-    if(fab) fab.style.display=puedeInteractuar()?'flex':'none';
+    syncFab(true);
     setTimeout(renderHomeActions,40);
   }
 

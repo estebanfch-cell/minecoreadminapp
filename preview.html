@@ -7,18 +7,22 @@
 <link rel="stylesheet" href="caja.css?v=198">
 <style>
 html,body{margin:0;background:#0b1219;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
-.pv-note{max-width:420px;margin:0 auto;padding:10px 16px 8px;color:#8fa3b8;font-size:12px;line-height:1.45}
+.pv-wrap{max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+.pv-note{padding:10px 16px 8px;color:#8fa3b8;font-size:12px;line-height:1.45}
 .pv-note b{color:#E8FF00}
 .pv-note code{color:#dce6f0}
-#caja-screen{display:flex;margin:0 auto;height:calc(100dvh - 72px);max-width:420px;min-height:560px}
+body.mc-caja-open #caja-screen,
+#caja-screen{display:flex!important;margin:0!important;height:calc(100dvh - 72px);max-width:420px;min-height:560px;width:100%}
 </style>
 </head>
 <body class="mc-caja-open">
+<div class="pv-wrap">
 <div class="pv-note">
   <b>PREVIEW v198</b> — shell nativo Caja/Rutas (sin PIN, sin Google Maps).<br>
   Producción: hard-refresh <code>https://portal.minecore.ec/?v=198</code>
 </div>
 <div id="caja-screen" class="on"></div>
+</div>
 <script>
 window.getProfile=function(){return {nombre:'Esteban Ferlito',rol:'admin',modulos:['caja+']};};
 window.getUserName=function(){return 'EFCH';};
@@ -46,7 +50,15 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
       {usuario:'EFCH',nombre:'Esteban Ferlito',rol:'admin',activo:'SI'},
       {usuario:'OPM',nombre:'Oswaldo Pena',rol:'chofer',activo:'SI'}
     ]});
-    if(action==='getRutas') return j({ok:true,rutas:rutas});
+    if(action==='getRutas'){
+      try{
+        var q=new URL(u,location.href).searchParams;
+        var est=q.get('estado');
+        var out=rutas;
+        if(est) out=rutas.filter(function(r){ return r.Estado===est; });
+        return j({ok:true,rutas:out});
+      }catch(e){ return j({ok:true,rutas:rutas}); }
+    }
     if(action==='getBalanceCaja') return j({ok:true,balances:[
       {usuario:'EFCH',nombre:'Esteban Ferlito',entregado:200,aprobado:80,pendiente:20,disponible:120},
       {usuario:'OPM',nombre:'Oswaldo Pena',entregado:80,aprobado:40,pendiente:10,disponible:40}

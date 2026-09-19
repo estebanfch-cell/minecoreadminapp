@@ -10,7 +10,7 @@
 #caja-screen .cj-home-greet{padding:0 24px 16px;flex-shrink:0}
 #caja-screen .cj-greet-name{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px}
 #caja-screen .cj-greet-sub{font-size:13px;color:rgba(255,255,255,.4);margin-top:3px}
-#caja-screen .cj-home-body{flex:1;background:#161926;border-radius:28px 28px 0 0;padding:24px 20px 110px;overflow-y:auto;position:relative}
+#caja-screen .cj-home-body{flex:1;background:#161926;border-radius:28px 28px 0 0;padding:24px 20px 110px;overflow-y:auto;position:relative;min-height:0}
 #caja-screen .cj-admin-back{width:100%;margin-top:24px;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:10px;font-size:13px;color:rgba(255,255,255,.35);cursor:pointer}
 #caja-screen .cj-admin-back:active{color:rgba(255,255,255,.7)}
 #caja-screen #content{overflow-y:auto}
@@ -81,7 +81,8 @@ body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
 #caja-screen .topbar-dot.caja{background:var(--mc-yellow)}
 #caja-screen .topbar-title{font-size:15px;font-weight:700;color:#fff;flex:1}
 #caja-screen .topbar-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0}
-#caja-screen .content{flex:1;padding:16px;max-width:520px;margin:0 auto;width:100%;padding-bottom:90px}
+#caja-screen .content{flex:1;padding:16px 16px 24px;max-width:520px;margin:0 auto;width:100%;overflow-x:hidden;overflow-y:auto;min-height:0}
+#caja-screen .page-title{padding-left:1px}
 #caja-screen .bottom-nav{position:absolute;bottom:0;left:0;right:0;background:var(--mc-dark);border-top:.5px solid rgba(255,255,255,.08);display:flex;padding-bottom:env(safe-area-inset-bottom)}
 #caja-screen .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 0 7px;cursor:pointer;border:none;background:none;color:rgba(255,255,255,.3);gap:3px;transition:color .12s}
 #caja-screen .nav-btn.active{color:var(--brand)}
@@ -262,9 +263,9 @@ body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
 #caja-screen .hg-item{background:#252B3B;border:none;border-radius:12px;padding:14px;text-align:left;cursor:pointer;width:100%}
 #caja-screen .hg-t{font-size:13px;font-weight:700;color:#fff}
 #caja-screen .hg-s{font-size:11px;color:rgba(255,255,255,.4);margin-top:3px}
-#caja-screen .fab{position:absolute;bottom:26px;right:20px;width:58px;height:58px;border-radius:50%;background:#E8FF00;color:#161926;font-size:30px;font-weight:800;border:none;cursor:pointer;z-index:300;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.45);line-height:1;padding:0}
-#caja-screen .fab-menu{position:absolute;inset:0;background:rgba(0,0,0,.6);z-index:290}
-#caja-screen .fab-actions{position:absolute;bottom:96px;right:20px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+#caja-screen .fab{position:absolute;bottom:88px;right:16px;width:58px;height:58px;border-radius:50%;background:#E8FF00;color:#161926;font-size:30px;font-weight:800;border:none;cursor:pointer;z-index:300;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.45);line-height:1;padding:0}
+#caja-screen .fab-menu{position:absolute;inset:0;background:rgba(0,0,0,.62);z-index:290}
+#caja-screen .fab-actions{position:absolute;bottom:158px;right:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
 #caja-screen .fab-item{display:flex;align-items:center;gap:10px;background:#252B3B;border:none;border-radius:12px;padding:13px 18px;cursor:pointer}
 #caja-screen .fab-item .fab-lbl{color:#fff;font-size:14px;font-weight:700}
 #caja-screen .fab-item.fab-hi{background:#E8FF00}
@@ -283,8 +284,8 @@ body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
 #caja-screen .act-row:last-child{border-bottom:none}
 #caja-screen .act-txt{font-size:12px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:10px}
 #caja-screen .act-val{font-size:12px;color:rgba(255,255,255,.45);flex-shrink:0;font-weight:600}
-#caja-screen .fab{bottom:100px}
-#caja-screen .fab-actions{bottom:170px}
+#caja-screen .fab{bottom:88px}
+#caja-screen .fab-actions{bottom:158px}
 #caja-screen #scr-home{padding-bottom:0}
 #caja-screen .metric-card:active,#caja-screen .hg-item:active,#caja-screen .attn-row:active{transform:scale(.98)}
 #caja-screen .metric-card,#caja-screen .hg-item{transition:transform .12s,background .12s}
