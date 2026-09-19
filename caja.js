@@ -1,9 +1,17 @@
-/* Native Caja + Rutas for Minecore Admin (index v195). Ported from minecore app.js v23. No iframe, no PIN. */
+/* Native Caja + Rutas for Minecore Admin (index v196). Maps+data from working minecore app.js. No iframe, no PIN. */
 (function (global) {
   'use strict';
 
+  const CAJA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw/exec';
+  const MAPS_KEY = 'AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o';
+  const MAPS_SRC = 'https://maps.googleapis.com/maps/api/js?key='+MAPS_KEY+'&libraries=places,geometry&callback=mapsReady';
   const MINECORE_LL = {lat:-0.1940519, lng:-78.4841933};
   const MINECORE_ADDR = 'Minecore S.A.S \u2014 Alpallana E7-212, Quito';
+  const CAJA_USER_ALIASES = {
+    esteban:'EFCH','esteban ferlito':'EFCH',efch:'EFCH',
+    osvaldo:'OPM','oswaldo pena':'OPM','oswaldo peña':'OPM',opm:'OPM',
+    secre:'SECRE','secre conta':'SECRE',secreconta:'SECRE'
+  };
   const VEH_OWNER = {
     'Camioneta Nissan': 'EFCH',
     'Moto Minecore': 'EFCH',
@@ -59,13 +67,21 @@
     return '<div class="page-title">Solo lectura</div><div class="page-sub">Tu permiso de Caja es «Ver». Pedí <b>caja+</b> para '+accion+'.</div>';
   }
 
+  function cajaUsuarioFromAdmin(name){
+    var raw=String(name||'').trim();
+    if(!raw) return raw;
+    var key=raw;
+    try{ key=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim(); }catch(e){ key=raw.toLowerCase(); }
+    return CAJA_USER_ALIASES[key] || raw;
+  }
+
   function buildSession(){
     var p={}; try{ p=getProfile()||{}; }catch(e){}
     var user='';
     try{ user=getUserName()||''; }catch(e){}
     if(!user) user=p.nombre||'';
     session={
-      usuario:user,
+      usuario:cajaUsuarioFromAdmin(user),
       nombre:p.nombre||user,
       rol: esAdminCaja() ? 'admin' : 'chofer'
     };
@@ -74,28 +90,82 @@
     }
   }
 
+  function cajaParse(txt){
+    try{ return JSON.parse(txt); }catch(e){ return {ok:false,error:'Caja API no-JSON',_transport:true}; }
+  }
+
+  /* Same payloads/transport as working minecore app.js: GET query (savePhoto = POST JSON). */
+  function cajaCallScript(data){
+    if(data.action==='savePhoto'){
+      return fetch(CAJA_SCRIPT_URL,{method:'POST',body:JSON.stringify(data),redirect:'follow',credentials:'omit'})
+        .then(function(r){ return r.text(); }).then(cajaParse);
+    }
+    var p=new URLSearchParams();
+    Object.keys(data||{}).forEach(function(k){
+      var v=data[k];
+      if(v===undefined||v===null) return;
+      p.append(k, typeof v==='object' ? JSON.stringify(v) : String(v));
+    });
+    return fetch(CAJA_SCRIPT_URL+'?'+p.toString(),{redirect:'follow',credentials:'omit'})
+      .then(function(r){ return r.text(); }).then(cajaParse);
+  }
+
   function api(data){
     var payload={};
     Object.keys(data||{}).forEach(function(k){ payload[k]=data[k]; });
-    try{ payload.user=getUserName(); payload.pin=getPin(); }catch(e){}
     if(session){
       if(!payload.admin) payload.admin=session.usuario;
       if(payload.action==='crearRuta' && !payload.usuario) payload.usuario=session.usuario;
       if(payload.action==='crearGasto' && !payload.usuario) payload.usuario=session.usuario;
     }
-    return MCpost(payload);
+    return cajaCallScript(payload).catch(function(){
+      if(typeof MCpost!=='function') return {ok:false,error:'Error de conexión'};
+      var fb={};
+      Object.keys(payload).forEach(function(k){ fb[k]=payload[k]; });
+      try{ fb.user=getUserName(); fb.pin=getPin(); }catch(e2){}
+      return MCpost(fb);
+    });
   }
 
-  function cajaMapsReady(){ mReady=true; }
+  function mapsReady(){ mReady=true; }
+  function cajaMapsReady(){ mapsReady(); }
   function loadMaps(cb){
     if(global.google && global.google.maps){ mReady=true; if(cb)cb(); return; }
-    if(global._cajaMapsLoading){ var t=setInterval(function(){ if(mReady||(global.google&&global.google.maps)){ clearInterval(t); mReady=true; if(cb)cb(); } },200); return; }
+    if(global._mcMapsReady){ mReady=true; if(cb)cb(); return; }
+    function waitReady(){
+      var t=setInterval(function(){
+        if(mReady||(global.google&&global.google.maps)){ clearInterval(t); mReady=true; if(cb)cb(); }
+      },200);
+    }
+    if(global._cajaMapsLoading){ waitReady(); return; }
     global._cajaMapsLoading=true;
-    global.cajaMapsReady=function(){ mReady=true; if(cb)cb(); };
+    var prev=global.mapsReady;
+    global.mapsReady=function(){
+      mReady=true;
+      try{ if(typeof prev==='function') prev(); }catch(e){}
+      if(cb)cb();
+    };
+    global.cajaMapsReady=global.mapsReady;
+    if(document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')){
+      waitReady();
+      return;
+    }
     var s=document.createElement('script');
-    s.src='https://maps.googleapis.com/maps/api/js?key=AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o&libraries=places,geometry&callback=cajaMapsReady';
+    s.src=MAPS_SRC;
     s.async=true; s.defer=true;
     document.head.appendChild(s);
+  }
+  if(typeof global.gm_authFailure!=='function'){
+    global.gm_authFailure=function(){
+      global._mcMapsAuthFail=true;
+      var hint=document.getElementById('map-hint');
+      if(hint){
+        hint.style.opacity='1';
+        hint.style.whiteSpace='normal';
+        hint.style.maxWidth='92%';
+        hint.textContent='Maps bloqueado en este dominio. En Google Cloud Console agregá https://portal.minecore.ec/* a los referrers HTTP de la key.';
+      }
+    };
   }
 
   function ensureDom(){
@@ -193,6 +263,12 @@
   }
 
   function refreshColaboradores(){
+    api({action:'getUsuarios'}).then(function(r){
+      if(!r||!r.ok||!r.usuarios||!r.usuarios.length) return;
+      allUsers=r.usuarios.map(function(u){
+        return {usuario:u.usuario,nombre:u.nombre,rol:u.rol,activo:u.activo};
+      }).filter(function(u){ return u.activo==='SI'||u.activo===undefined||u.activo===true||u.activo===''; });
+    }).catch(function(){});
     api({action:'getBalanceCaja'}).then(function(r){
       if(!r.ok) return;
       var seen={};
@@ -217,12 +293,14 @@
     ensureDom();
     buildSession();
     if(!puedeInteractuar()) root.classList.add('caja-ro'); else root.classList.remove('caja-ro');
+    try{ if(typeof mcHideNotifBar==='function') mcHideNotifBar(); }catch(e){}
     loadMaps();
     bootHome();
   }
 
 
   function cajaOpenMod(mod, targetView){
+    try{ if(typeof mcHideNotifBar==='function') mcHideNotifBar(); }catch(e){}
     currentMod=mod; hideAll(); show('app');
     var td=document.getElementById('topbar-dot');
     if(td) td.className='topbar-dot '+mod;
@@ -698,6 +776,10 @@ function usarGPS(){
 
 function initMap(){
   if(!mReady||!window.google){setTimeout(initMap,300);return;}
+  if(window._mcMapsAuthFail){
+    var h0=document.getElementById('map-hint');
+    if(h0){h0.style.opacity='1';h0.style.whiteSpace='normal';h0.textContent='Maps bloqueado en este dominio. En Google Cloud Console agregá https://portal.minecore.ec/* a los referrers HTTP de la key.';}
+  }
   gmap=new google.maps.Map(document.getElementById('map'),{
     center:MINECORE_LL,zoom:13,disableDefaultUI:true,zoomControl:true,
     styles:[{featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
@@ -1940,7 +2022,7 @@ function _pdfSafe(s){
     .replace(/\uD83D\uDCC1/g,'');
 }
 
-  var pub = { init: cajaInit, mapsReady: cajaMapsReady, openMod: cajaOpenMod, goHome: cajaGoHome };
+  var pub = { init: cajaInit, mapsReady: mapsReady, openMod: cajaOpenMod, goHome: cajaGoHome };
   try{ if(typeof _pdfCheckPage==='function'){ pub._pdfCheckPage=_pdfCheckPage; if('_pdfCheckPage'!=='openMod'&&'_pdfCheckPage'!=='goHome') global._pdfCheckPage=_pdfCheckPage; } }catch(e){}
   try{ if(typeof _pdfHeader==='function'){ pub._pdfHeader=_pdfHeader; if('_pdfHeader'!=='openMod'&&'_pdfHeader'!=='goHome') global._pdfHeader=_pdfHeader; } }catch(e){}
   try{ if(typeof _pdfLinea==='function'){ pub._pdfLinea=_pdfLinea; if('_pdfLinea'!=='openMod'&&'_pdfLinea'!=='goHome') global._pdfLinea=_pdfLinea; } }catch(e){}
@@ -2030,4 +2112,5 @@ function _pdfSafe(s){
   global.cajaOpenMod = cajaOpenMod;
   global.cajaGoHome = cajaGoHome;
   global.cajaMapsReady = cajaMapsReady;
+  global.mapsReady = mapsReady;
 })(window);

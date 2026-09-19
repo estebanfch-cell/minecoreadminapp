@@ -1,7 +1,9 @@
 # PASTE AdminAPI v125 — Caja nativa (EFCH)
 
 El frontend nativo ya no usa iframe a `estebanfch-cell.github.io/minecore`.  
-Las acciones de Caja viven en el **mismo AdminAPI**, con la **sesión Admin** (EFCH / Osvaldo / Secre). No hay segundo login ni PIN de Caja.
+**index v196:** lecturas/escrituras de Rutas y Caja van al SCRIPT_URL que ya funciona en minecore (mismos payloads que `app.js`: GET query, `savePhoto` por POST). Sesión = Admin (EFCH / Osvaldo / Secre). No hay segundo login ni PIN de Caja.
+
+AdminAPI v125 + `migrateCajaSheets` sigue siendo el camino a largo plazo (una sola API). Hasta que eso esté pegado y en vivo, el portal usa el backend de minecore para que historial / balance / rutas no queden vacíos.
 
 ## Spreadsheets
 
@@ -72,24 +74,32 @@ También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCaj
 
 ## 3. Google Maps (Places + Geometry)
 
-La UI nativa carga la misma key de minecore:
+La UI nativa carga Maps **igual que minecore**: script tag estático con `libraries=places,geometry` y `callback=mapsReady`, misma key pública:
 
 `AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o`
 
-En Google Cloud → Credentials → esa key → **Website restrictions**, agregá (si no está):
+Si el mapa o los campos Places muestran *«Oops! Something went wrong»* en el portal, la key tiene **restricción de HTTP referrers** y `portal.minecore.ec` no está permitido (en github.io/minecore sí). Eso no se arregla en código.
 
-- `https://portal.minecore.ec/*`
-- `https://estebanfch-cell.github.io/*`
+**Paso manual EFCH — Google Cloud Console**
 
-Sin eso el mapa de Nueva ruta falla en el portal (Places/Geometry).
+1. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
+2. Abrí la key `AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o`.
+3. Application restrictions → **HTTP referrers (web sites)**.
+4. Agregá (si no están):
+   - `https://portal.minecore.ec/*`
+   - `https://www.portal.minecore.ec/*`
+   - `https://estebanfch-cell.github.io/*`
+   - `https://estebanfch-cell.github.io/minecore/*`
+   - `https://estebanfch-cell.github.io/minecoreadminapp/*`
+5. Guardá. Esperá 1–5 min y hard-refresh `https://portal.minecore.ec/?v=196`.
 
 ## 4. Hard-refresh del portal
 
-1. Espera a que GitHub Pages publique este `index` (v195+).
-2. Abre `https://portal.minecore.ec/?v=195` (o el build del footer).
+1. Espera a que GitHub Pages publique este `index` (v196+).
+2. Abre `https://portal.minecore.ec/?v=196` (o el build del footer).
 3. Hard-refresh / borra el bookmark viejo si sale el banner de versión.
 
-En el home, Motor API debe decir **`v125 ✓`**.
+Caja/Rutas ya leen el SCRIPT_URL de minecore (datos vivos). En el home, Motor API puede seguir en **v124** hasta que pegues v125; eso ya no vacía historial/balance.
 
 ## 5. Pruebas exactas (EFCH)
 
