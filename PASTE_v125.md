@@ -3,29 +3,28 @@
 El frontend nativo ya no usa iframe a `estebanfch-cell.github.io/minecore`.  
 Las acciones de Caja viven en el **mismo AdminAPI**, con la **sesión Admin** (EFCH / Osvaldo / Secre). No hay segundo login ni PIN de Caja.
 
-## Spreadsheets (IDs exactos)
+## Spreadsheets
 
 | Rol | Título | ID |
 |---|---|---|
-| Caja source | Minecore App | `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` |
-| Admin DB | Minecore - Datos inFlow | `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` |
+| Caja source **preferido** | Minecore App — Caja (copia migración Admin) | `1xHmpvXwuAvON4sw7D4ou92zszThXFHKdzUcoJ__71hA` |
+| Caja source fallback | Minecore App (original) | `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` |
+| Admin DB destino | Minecore - Datos inFlow | `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` |
 
-**IDs verificados (usar solo estos):**
+La copia ya está compartida **writer** con `estebanferlito@minecore.ec` (identidad del Apps Script Admin). El original puede no ser accesible para esa cuenta; `migrateCajaSheets` / `inspectCajaSource` prueban preferido y luego fallback.
 
-- Caja source `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY` — Minecore App. Tabs: `Usuarios` (no copiar), `Rutas`, `Gastos`, `Entregas`, `Config` (+ `Cortes` si está).
-- Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` — Minecore - Datos inFlow. Aún sin `Caja_*`.
+Tabs de la copia (inspeccionadas):
 
-Columnas operativas (API live + headers de esas tabs):
+| Source | Destino | Columnas |
+|---|---|---|
+| `Usuarios` | **no se copia** (PIN) | Usuario, Nombre, Rol, PIN, Activo |
+| `Rutas` | `Caja_Rutas` | ID, Fecha Solicitud, Fecha Servicio, Usuario, Origen, Destino, KM, Tipo, Motivo, Estado, Valor ($), Fecha Aprobacion, Aprobado Por, Notas, Periodo, Vehiculo |
+| `CajaGastos` | `Caja_Gastos` | ID, Fecha, Usuario, Monto ($), Categoria, Descripcion, Foto URL, Estado, Aprobado Por, Fecha Aprobacion, Periodo |
+| `CajaEntregas` | `Caja_Entregas` | ID, Fecha, Admin, Usuario Destino, Monto ($), Forma, Descripcion, Foto URL, Periodo |
+| `Config` | `Caja_Config` | Clave, Valor, Descripcion |
+| `Cortes` | `Caja_Cortes` | ID, Periodo, Fecha, Total KM, Total USD, Rutas, Admin, Estado |
 
-| Tab | Columnas |
-|---|---|
-| `Rutas` | ID, Fecha Solicitud, Fecha Servicio, Usuario, Origen, Destino, KM, Tipo, Motivo, Estado, Valor ($), Fecha Aprobacion, Aprobado Por, Notas, Periodo, Vehiculo |
-| `Gastos` | ID, Fecha, Usuario, Monto ($), Categoria, Descripcion, Foto URL, Estado, Aprobado Por, Fecha Aprobacion, Periodo |
-| `Entregas` | ID, Fecha, Admin, Usuario Destino, Monto ($), Forma, Descripcion, Foto URL, Periodo |
-| `Config` | Clave, Valor, Descripcion — `precio_km` / `corte_dia_inicio` / `corte_dia_fin` |
-| `Cortes` (si existe) | ID, Periodo, Fecha, Total KM, Total USD, Rutas, Admin, Estado |
-
-En el editor, `inspectCajaSource()` vuelca nombre + headers reales de Minecore App.
+Admin → Usuarios (EFCH / Osvaldo / Secre) es la fuente de verdad. No hay PIN de Caja.
 
 ## 1. Apps Script (obligatorio)
 
@@ -63,16 +62,8 @@ En el editor de Apps Script:
 
 Qué hace (idempotente):
 
-- Abre **solo** Minecore App `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY`.
-- Copia pestañas operativas al Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` (`getProps_().sheetId`):
-
-  | Source (Minecore App) | Destino Admin DB |
-  |---|---|
-  | `Rutas` | `Caja_Rutas` |
-  | `Gastos` (alias `CajaGastos`) | `Caja_Gastos` |
-  | `Entregas` (alias `CajaEntregas`) | `Caja_Entregas` |
-  | `Config` | `Caja_Config` |
-  | `Cortes` | `Caja_Cortes` |
+- Abre la copia `1xHmpvXwuAvON4sw7D4ou92zszThXFHKdzUcoJ__71hA`; si falla, el original `1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY`.
+- Copia pestañas operativas al Admin DB `1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY` (`getProps_().sheetId`) como `Caja_<Name>` (mapa de arriba).
 
 - **No copia** la pestaña `Usuarios` (PIN de Caja). Sesión = EFCH / Osvaldo / Secre en Admin → Usuarios. Sin PIN de Caja.
 - Si `Caja_*` ya tiene filas, no las pisa.

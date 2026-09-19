@@ -18,19 +18,22 @@
  * y sin CRUD de usuarios Caja. Los movimientos se atribuyen a
  * user.usuario / user.nombre de esa sesión.
  *
- * Spreadsheets (IDs exactos, únicos):
- *   Caja source (Minecore App): 1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY
- *   Admin DB (Minecore - Datos inFlow): 1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY
+ * Spreadsheets:
+ *   Prefer source: 1xHmpvXwuAvON4sw7D4ou92zszThXFHKdzUcoJ__71hA
+ *     Minecore App — Caja (copia migración Admin)
+ *     shared writer → estebanferlito@minecore.ec
+ *   Fallback original: 1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY
+ *   Dest Admin DB: 1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY
  *
- * Tabs source (EFCH): Usuarios (omitida), Rutas, Gastos, Entregas, Config
- * + Cortes si existe. Alias CajaGastos / CajaEntregas por si el libro las usa.
- * Columnas confirmadas vía API live getRutas / getGastos / getEntregas / getConfig.
+ * Source tabs (copia): Usuarios (omitida/PIN), Rutas, Config, Cortes,
+ * CajaEntregas, CajaGastos → dest Caja_<Name> (Caja_Entregas / Caja_Gastos).
  */
 
 var CAJA_API_VERSION = 'v125';
-var CAJA_SOURCE_ID = '1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY';
+var CAJA_SOURCE_ID = '1xHmpvXwuAvON4sw7D4ou92zszThXFHKdzUcoJ__71hA';
+var CAJA_SOURCE_FALLBACK_ID = '1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY';
 var CAJA_ADMIN_DB_FALLBACK = '1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY';
-var CAJA_SKIP_SOURCE_TABS = { USUARIOS: 1, USERS: 1 };
+var CAJA_SKIP_SOURCE_TABS = { USUARIOS: 1, USERS: 1, PIN: 1 };
 var CAJA_SESSION_ALLOW = { efch: 1, osvaldo: 1, oswaldo: 1, secre: 1 };
 
 /** Source tab → dest Caja_* (verified Minecore App: Rutas / Gastos / Entregas / Config). */
@@ -133,14 +136,37 @@ function migrateCajaSheets() {
   return res;
 }
 
+function cajaOpenSourceSs_() {
+  var ids = [CAJA_SOURCE_ID, CAJA_SOURCE_FALLBACK_ID];
+  var lastErr = '';
+  for (var i = 0; i < ids.length; i++) {
+    try {
+      var ss = SpreadsheetApp.openById(ids[i]);
+      return { ss: ss, id: ids[i], title: ss.getName(), usedFallback: i > 0 };
+    } catch (e) {
+      lastErr = String(e && e.message || e);
+    }
+  }
+  throw new Error(
+    'No se pudo abrir Caja source preferido ' + CAJA_SOURCE_ID +
+    ' ni fallback ' + CAJA_SOURCE_FALLBACK_ID + ': ' + lastErr
+  );
+}
+
 function inspectCajaSource() {
-  var ss = SpreadsheetApp.openById(CAJA_SOURCE_ID);
-  var tabs = ss.getSheets().map(function (sh) {
+  var opened = cajaOpenSourceSs_();
+  var tabs = opened.ss.getSheets().map(function (sh) {
     var lastCol = sh.getLastColumn();
     var headers = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h || ''); }) : [];
     return { name: sh.getName(), rows: Math.max(0, sh.getLastRow() - 1), headers: headers };
   });
-  var res = { ok: true, sourceId: CAJA_SOURCE_ID, title: ss.getName(), tabs: tabs };
+  var res = {
+    ok: true,
+    sourceId: opened.id,
+    title: opened.title,
+    usedFallback: opened.usedFallback,
+    tabs: tabs
+  };
   Logger.log(JSON.stringify(res));
   return res;
 }
@@ -148,17 +174,13 @@ function inspectCajaSource() {
 function cajaMigrateSheets_(p, user) {
   if (!cajaIsAdmin_(user)) return { ok: false, error: 'Solo admin puede migrar Caja_*' };
   var destSs = cajaDestSs_();
-  var srcSs;
+  var opened;
   try {
-    srcSs = SpreadsheetApp.openById(CAJA_SOURCE_ID);
+    opened = cajaOpenSourceSs_();
   } catch (e) {
-    return {
-      ok: false,
-      error: 'No se pudo abrir Caja source ' + CAJA_SOURCE_ID +
-        ' (' + String(e && e.message || e) +
-        '). El ID es el verificado de Minecore App; la cuenta del Apps Script debe tener acceso.'
-    };
+    return { ok: false, error: String(e && e.message || e) };
   }
+  var srcSs = opened.ss;
   var srcSheets = srcSs.getSheets();
   var copied = [];
   var skipped = [];
@@ -173,8 +195,8 @@ function cajaMigrateSheets_(p, user) {
       rows: Math.max(0, sh.getLastRow() - 1),
       headers: lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h || ''); }) : []
     });
-    if (CAJA_SKIP_SOURCE_TABS[name.toUpperCase()]) {
-      skipped.push({ source: name, reason: 'PIN/Usuarios omitido' });
+    if (cajaSkipSourceTab_(name)) {
+      skipped.push({ source: name, reason: 'PIN/Usuarios omitido — Admin Usuarios (EFCH/Osvaldo/Secre) es la fuente de verdad' });
       return;
     }
     var destName = cajaDestName_(name);
@@ -209,8 +231,9 @@ function cajaMigrateSheets_(p, user) {
   return {
     ok: true,
     action: 'migrateCajaSheets',
-    sourceId: CAJA_SOURCE_ID,
-    sourceTitle: srcSs.getName(),
+    sourceId: opened.id,
+    sourceTitle: opened.title,
+    usedFallback: opened.usedFallback,
     sourceTabs: sourceTabs,
     copied: copied,
     skipped: skipped,
@@ -643,10 +666,18 @@ function cajaDestSs_() {
   return SpreadsheetApp.openById(id);
 }
 
+function cajaSkipSourceTab_(name) {
+  var n = String(name || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (CAJA_SKIP_SOURCE_TABS[n]) return true;
+  if (n.indexOf('USUARIO') >= 0 || n.indexOf('PIN') >= 0) return true;
+  return false;
+}
+
 function cajaDestName_(sourceName) {
   var n = String(sourceName || '').trim();
   if (CAJA_DEST_MAP[n]) return CAJA_DEST_MAP[n];
   if (/^Caja_/i.test(n)) return n;
+  if (/^Caja/i.test(n)) return 'Caja_' + n.replace(/^Caja/i, '');
   return 'Caja_' + n.replace(/\s+/g, '_');
 }
 
