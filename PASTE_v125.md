@@ -46,7 +46,20 @@ Qué hace (idempotente):
 
 También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCajaSheets', user, pin}`.
 
-## 3. Hard-refresh del portal
+## 3. Google Maps (Places + Geometry)
+
+La UI nativa carga la misma key de minecore:
+
+`AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o`
+
+En Google Cloud → Credentials → esa key → **Website restrictions**, agregá (si no está):
+
+- `https://portal.minecore.ec/*`
+- `https://estebanfch-cell.github.io/*`
+
+Sin eso el mapa de Nueva ruta falla en el portal (Places/Geometry).
+
+## 4. Hard-refresh del portal
 
 1. Espera a que GitHub Pages publique este `index` (v194+).
 2. Abre `https://portal.minecore.ec/?v=194` (o el build del footer).
@@ -54,7 +67,7 @@ También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCaj
 
 En el home, Motor API debe decir **`v125 ✓`**.
 
-## 4. Pruebas exactas (EFCH)
+## 5. Pruebas exactas (EFCH)
 
 Entrar a Admin con **EFCH** (un solo login). Módulo **Rutas y Caja Chica** (`caja` / `caja+`).
 
@@ -91,6 +104,6 @@ Entrar a Admin con **EFCH** (un solo login). Módulo **Rutas y Caja Chica** (`ca
 16. Osvaldo / Secre entran con **su** login Admin; los movimientos nuevos llevan **su** `usuario`/`nombre`.
 17. El repo `estebanfch-cell/minecore` no se tocó.
 
-## 5. Si Motor API no es v125
+## 6. Si Motor API no es v125
 
 El footer del home Admin avisa en amarillo. Repite el paso 4–6 (nueva implementación) y hard-refresh.
