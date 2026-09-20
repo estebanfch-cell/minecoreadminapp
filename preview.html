@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Preview Caja/Rutas · index v200</title>
-<link rel="stylesheet" href="caja.css?v=200">
+<title>Preview Caja/Rutas · index v201</title>
+<link rel="stylesheet" href="caja.css?v=201">
 <style>
 html,body{margin:0;background:#0b1219;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
 .pv-wrap{max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
@@ -18,8 +18,8 @@ body.mc-caja-open #caja-screen,
 <body class="mc-caja-open">
 <div class="pv-wrap">
 <div class="pv-note">
-  <b>PREVIEW v200</b> — shell nativo Caja/Rutas (sin PIN). Google Maps es el mapa primario; OSM solo si Google falla.<br>
-  Producción: hard-refresh <code>https://portal.minecore.ec/?v=200</code>
+  <b>PREVIEW v201</b> — shell nativo Caja/Rutas (sin PIN). Google Maps es el mapa primario; OSM solo si Google falla.<br>
+  Producción: hard-refresh <code>https://portal.minecore.ec/?v=201</code>
 </div>
 <div id="caja-screen" class="on"></div>
 </div>
@@ -76,8 +76,8 @@ window.mapsReady=function(){window._mcMapsReady=true;};
 window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCrhdC_dRakb4Wp0lN8ySjW1ipuFuYgtD8&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=200"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
+<script src="caja.js?v=201"></script>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
   if(window.Caja&&Caja.init) Caja.init();

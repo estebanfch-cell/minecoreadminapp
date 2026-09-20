@@ -72,11 +72,11 @@ Qué hace (idempotente):
 
 También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCajaSheets', user, pin}`.
 
-## 3. Mapa de Nueva ruta (v200 — key del portal)
+## 3. Mapa de Nueva ruta (v201 — key org minecore.ec)
 
-El portal carga **Google Maps JS** con la key pública **Minecore Portal Maps** (GCP `casaferlito`, cuenta `estebanfch@gmail.com`):
+El portal carga **Google Maps JS** con la key pública **Minecore Portal Maps** (GCP `minecore-portal`, org `minecore.ec`, cuenta `estebanferlito@minecore.ec`):
 
-- Key: `AIzaSyCrhdC_dRakb4Wp0lN8ySjW1ipuFuYgtD8`
+- Key: `AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A`
 - `libraries=places,geometry` + `callback=mapsReady`
 - Autocomplete restringido a Ecuador (`country:'ec'`)
 - Origen por defecto `MINECORE_LL` (Alpallana E7-212)
@@ -87,7 +87,7 @@ Si aparece `RefererNotAllowedMapError` / Oops, Nueva ruta muestra un aviso en es
 
 ### Referrers HTTP (ya configurados)
 
-Los referrers de la key del portal **ya incluyen** `https://portal.minecore.ec/*` y github.io adminapp. No hace falta agregar la key vieja de minecore (`AIzaSyAZR0…7fHb2o`). Si el Oops persiste, contactá a DevOps.
+Los referrers de la key del portal **ya incluyen** `https://portal.minecore.ec/*`, `www`, github.io adminapp y localhost. Si el Oops persiste, contactá a DevOps.
 
 APIs habilitadas en el mismo proyecto: **Maps JavaScript API**, **Places API**, **Places API (New)**, **Directions API**, **Geocoding API**.
 
@@ -95,10 +95,10 @@ No hace falta tocar `estebanfch-cell/minecore`.
 
 ## 4. Hard-refresh del portal
 
-1. Espera a que GitHub Pages publique este `index` (v200+).
-2. Abre `https://portal.minecore.ec/?v=200` (o el build del footer).
+1. Espera a que GitHub Pages publique este `index` (v201+).
+2. Abre `https://portal.minecore.ec/?v=201` (o el build del footer).
 3. Hard-refresh / borra el bookmark viejo si sale el banner de versión.
-4. Preview del shell Caja/Rutas (sin login Admin): `preview.html` en este repo / `https://estebanfch-cell.github.io/minecoreadminapp/preview.html?v=200`.
+4. Preview del shell Caja/Rutas (sin login Admin): `preview.html` en este repo / `https://estebanfch-cell.github.io/minecoreadminapp/preview.html?v=201`.
 
 Caja/Rutas ya leen el SCRIPT_URL de minecore (datos vivos). En el home, Motor API puede seguir en **v124** hasta que pegues v125; eso ya no vacía historial/balance.
 

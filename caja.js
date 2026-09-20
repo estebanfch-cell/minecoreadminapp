@@ -1,5 +1,5 @@
-/* Native Caja + Rutas for Minecore Admin (index v200). Data via minecore SCRIPT_URL.
-   Maps: Google Maps JS (Minecore Portal Maps / casaferlito) — places+geometry, shortest route.
+/* Native Caja + Rutas for Minecore Admin (index v201). Data via minecore SCRIPT_URL.
+   Maps: Google Maps JS (Minecore Portal Maps / minecore.ec org) — places+geometry, shortest route.
    OSM/Leaflet only if Google fails (RefererNotAllowed). No Caja PIN. */
 (function (global) {
   'use strict';
@@ -7,7 +7,7 @@
   const CAJA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw/exec';
   const MINECORE_LL = {lat:-0.1940519, lng:-78.4841933};
   const MINECORE_ADDR = 'Minecore S.A.S \u2014 Alpallana E7-212, Quito';
-  const MAPS_KEY = 'AIzaSyCrhdC_dRakb4Wp0lN8ySjW1ipuFuYgtD8';
+  const MAPS_KEY = 'AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A';
   const MAPS_SRC = 'https://maps.googleapis.com/maps/api/js?key='+MAPS_KEY+'&libraries=places,geometry&callback=mapsReady';
   const MAPS_EMBED_ORIGIN = 'https://estebanfch-cell.github.io';
   const MAPS_EMBED_URL = MAPS_EMBED_ORIGIN + '/minecore/maps-embed.html?v=1';
