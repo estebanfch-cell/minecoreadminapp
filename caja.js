@@ -1,5 +1,5 @@
-/* Native Caja + Rutas for Minecore Admin (index v199). Data via minecore SCRIPT_URL.
-   Maps: Google Maps JS (same public key as minecore) — places+geometry, shortest route.
+/* Native Caja + Rutas for Minecore Admin (index v200). Data via minecore SCRIPT_URL.
+   Maps: Google Maps JS (Minecore Portal Maps / casaferlito) — places+geometry, shortest route.
    OSM/Leaflet only if Google fails (RefererNotAllowed). No Caja PIN. */
 (function (global) {
   'use strict';
@@ -7,7 +7,7 @@
   const CAJA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw/exec';
   const MINECORE_LL = {lat:-0.1940519, lng:-78.4841933};
   const MINECORE_ADDR = 'Minecore S.A.S \u2014 Alpallana E7-212, Quito';
-  const MAPS_KEY = 'AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o';
+  const MAPS_KEY = 'AIzaSyCrhdC_dRakb4Wp0lN8ySjW1ipuFuYgtD8';
   const MAPS_SRC = 'https://maps.googleapis.com/maps/api/js?key='+MAPS_KEY+'&libraries=places,geometry&callback=mapsReady';
   const MAPS_EMBED_ORIGIN = 'https://estebanfch-cell.github.io';
   const MAPS_EMBED_URL = MAPS_EMBED_ORIGIN + '/minecore/maps-embed.html?v=1';
@@ -144,12 +144,7 @@
   }
 
   function mapsReferrerHintHtml(){
-    return 'Google Maps no autorizó este dominio (<b>RefererNotAllowed</b>). En Google Cloud Console → APIs y servicios → Credenciales → esta key → restricciones de sitios web (HTTP referrers), agregá:<br>'+
-      '<code>https://portal.minecore.ec/*</code><br>'+
-      '<code>https://www.portal.minecore.ec/*</code><br>'+
-      '<code>https://estebanfch-cell.github.io/*</code><br>'+
-      '<code>https://estebanfch-cell.github.io/minecore/*</code><br>'+
-      '<code>https://estebanfch-cell.github.io/minecoreadminapp/*</code>';
+    return 'Google Maps no autorizó este dominio (<b>RefererNotAllowed</b>). Los referrers HTTP ya están configurados en la key del portal (portal.minecore.ec y github.io adminapp). Si el Oops persiste, contactá a DevOps.';
   }
   function showMapsReferrerHint(){
     var el=document.getElementById('maps-referrer-hint');
