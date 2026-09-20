@@ -172,16 +172,25 @@
   }
   installAuthHook();
 
+  function settleGoogleOk(cb){
+    /* RefererNotAllowed often arrives a beat after google.maps exists. */
+    setTimeout(function(){
+      if(global._mcMapsAuthFail || !googleMapsOk()){ if(cb) cb(false); return; }
+      mReady=true;
+      if(cb) cb(true);
+    }, 900);
+  }
+
   function loadGoogleMaps(cb){
     if(global._mcMapsAuthFail){ if(cb) cb(false); return; }
-    if(googleMapsOk()){ mReady=true; if(cb) cb(true); return; }
+    if(googleMapsOk()){ settleGoogleOk(cb); return; }
     function waitReady(){
       var n=0;
       var t=setInterval(function(){
         n++;
         if(global._mcMapsAuthFail){ clearInterval(t); if(cb) cb(false); return; }
-        if(googleMapsOk()){ clearInterval(t); mReady=true; if(cb) cb(true); return; }
-        if(n>=30){ clearInterval(t); if(cb) cb(googleMapsOk()); }
+        if(googleMapsOk()){ clearInterval(t); settleGoogleOk(cb); return; }
+        if(n>=30){ clearInterval(t); if(cb) cb(false); }
       },200);
     }
     if(document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')){
@@ -205,12 +214,23 @@
     waitReady();
   }
 
+  function resetPlaceBinds(){
+    var ids=['inp-origen'];
+    paradas.forEach(function(_,i){ ids.push('pi-'+i); });
+    ids.forEach(function(id){
+      var inp=document.getElementById(id);
+      if(inp){ inp._gac=false; inp._acSetup=false; }
+    });
+  }
+
   function fallbackOsmSilent(){
     if(mapsMode==='leaflet') return;
     mapsMode='leaflet';
     showMapsReferrerHint();
     try{ if(gmap) gmap=null; }catch(e){}
     dirSvc=null; dirRen=null; geocoder=null;
+    window._originMarker=null;
+    resetPlaceBinds();
     var el=document.getElementById('map');
     if(el) el.innerHTML='';
     loadLeaflet(initLeafletMap);
