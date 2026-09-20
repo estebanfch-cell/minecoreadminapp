@@ -72,21 +72,47 @@ Qué hace (idempotente):
 
 También se puede disparar desde Admin (solo rol admin) con `{action:'migrateCajaSheets', user, pin}`.
 
-## 3. Mapa de Nueva ruta (v197 — sin cambiar Google Cloud)
+## 3. Mapa de Nueva ruta (v199 — Google Maps otra vez)
 
-`portal.minecore.ec` no está en la allowlist de la key (`RefererNotAllowed`). **v197 no carga Maps JS en el portal** (eso era el Oops).
+El portal vuelve a cargar **Google Maps JS** igual que la app standalone `estebanfch-cell.github.io/minecore` (`app.js?v=23`):
 
-1. **Preferido:** copiá `maps-embed.html` (este repo) a `estebanfch-cell/minecore` para que Pages sirva `https://estebanfch-cell.github.io/minecore/maps-embed.html`. Misma key que `index.html` (`places,geometry,callback`). El Admin lo iframea y habla por `postMessage` (`setOrigin` / `addStop` / `getRoute`).
-2. **Ahora:** si ese archivo aún no está publicado, Nueva ruta usa Leaflet + Nominatim/Photon + OSRM. Mismo UX (origen, paradas, tap, favorito, km).
+- Key pública (ya en el browser de minecore): `AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o`
+- `libraries=places,geometry` + `callback=mapsReady`
+- Autocomplete restringido a Ecuador (`country:'ec'`)
+- Origen por defecto `MINECORE_LL` (Alpallana E7-212)
+- `DirectionsService.route({provideRouteAlternatives:true})` → se elige la ruta **más corta** en km
+- Tarifas: moto `$0.15` / resto `$0.40` (`VEH_RATE` / `cfg.precio_km`)
 
-Este agente no pudo pushear a `estebanfch-cell/minecore` (403).
+Si la key sigue con `RefererNotAllowedMapError` en `portal.minecore.ec`, Nueva ruta muestra un aviso en español y cae a OSM **solo como respaldo silencioso**.
+
+### Referrers HTTP que EFCH debe agregar (GCP)
+
+Google Cloud Console → **APIs y servicios** → **Credenciales** → la key de Maps (la de minecore, no una nueva) → Restricciones de aplicación → **Sitios web (HTTP referrers)**. Dejá / agregá **exactamente**:
+
+```
+https://portal.minecore.ec/*
+https://www.portal.minecore.ec/*
+https://estebanfch-cell.github.io/*
+https://estebanfch-cell.github.io/minecore/*
+https://estebanfch-cell.github.io/minecoreadminapp/*
+```
+
+Opcional (si alguna vez abrís el portal por HTTP):
+
+```
+http://portal.minecore.ec/*
+```
+
+APIs habilitadas en el mismo proyecto: **Maps JavaScript API**, **Places API**, **Directions API**, **Geocoding API**.
+
+No hace falta tocar `estebanfch-cell/minecore`. No inventar otra key.
 
 ## 4. Hard-refresh del portal
 
-1. Espera a que GitHub Pages publique este `index` (v198+).
-2. Abre `https://portal.minecore.ec/?v=198` (o el build del footer).
+1. Espera a que GitHub Pages publique este `index` (v199+).
+2. Abre `https://portal.minecore.ec/?v=199` (o el build del footer).
 3. Hard-refresh / borra el bookmark viejo si sale el banner de versión.
-4. Preview del shell Caja/Rutas (sin login Admin): `preview.html` en este repo / `https://estebanfch-cell.github.io/minecoreadminapp/preview.html?v=198`.
+4. Preview del shell Caja/Rutas (sin login Admin): `preview.html` en este repo / `https://estebanfch-cell.github.io/minecoreadminapp/preview.html?v=199`.
 
 Caja/Rutas ya leen el SCRIPT_URL de minecore (datos vivos). En el home, Motor API puede seguir en **v124** hasta que pegues v125; eso ya no vacía historial/balance.
 

@@ -1,12 +1,14 @@
-/* Native Caja + Rutas for Minecore Admin (index v198). Data via minecore SCRIPT_URL.
-   Maps: Leaflet + OSM tiles + Photon/Nominatim + OSRM (no Google Maps on portal).
-   No Caja PIN. Sesión = Admin (EFCH / Osvaldo / Secre). */
+/* Native Caja + Rutas for Minecore Admin (index v199). Data via minecore SCRIPT_URL.
+   Maps: Google Maps JS (same public key as minecore) — places+geometry, shortest route.
+   OSM/Leaflet only if Google fails (RefererNotAllowed). No Caja PIN. */
 (function (global) {
   'use strict';
 
   const CAJA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw/exec';
   const MINECORE_LL = {lat:-0.1940519, lng:-78.4841933};
   const MINECORE_ADDR = 'Minecore S.A.S \u2014 Alpallana E7-212, Quito';
+  const MAPS_KEY = 'AIzaSyAZR0KRqBE382md01vyeKMbW53_g7fHb2o';
+  const MAPS_SRC = 'https://maps.googleapis.com/maps/api/js?key='+MAPS_KEY+'&libraries=places,geometry&callback=mapsReady';
   const MAPS_EMBED_ORIGIN = 'https://estebanfch-cell.github.io';
   const MAPS_EMBED_URL = MAPS_EMBED_ORIGIN + '/minecore/maps-embed.html?v=1';
   const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
@@ -133,8 +135,87 @@
     });
   }
 
-  function mapsReady(){ mReady=true; }
+  function mapsReady(){ mReady=true; try{ global._mcMapsReady=true; }catch(e){} }
   function cajaMapsReady(){ mapsReady(); }
+  if(global._mcMapsReady) mReady=true;
+
+  function googleMapsOk(){
+    return !global._mcMapsAuthFail && !!(global.google && google.maps && google.maps.Map && google.maps.places && google.maps.DirectionsService);
+  }
+
+  function mapsReferrerHintHtml(){
+    return 'Google Maps no autorizó este dominio (<b>RefererNotAllowed</b>). En Google Cloud Console → APIs y servicios → Credenciales → esta key → restricciones de sitios web (HTTP referrers), agregá:<br>'+
+      '<code>https://portal.minecore.ec/*</code><br>'+
+      '<code>https://www.portal.minecore.ec/*</code><br>'+
+      '<code>https://estebanfch-cell.github.io/*</code><br>'+
+      '<code>https://estebanfch-cell.github.io/minecore/*</code><br>'+
+      '<code>https://estebanfch-cell.github.io/minecoreadminapp/*</code>';
+  }
+  function showMapsReferrerHint(){
+    var el=document.getElementById('maps-referrer-hint');
+    if(!el) return;
+    el.innerHTML=mapsReferrerHintHtml();
+    el.classList.add('on');
+  }
+
+  function installAuthHook(){
+    var prev=global.gm_authFailure;
+    global.gm_authFailure=function(){
+      global._mcMapsAuthFail=true;
+      try{ if(typeof prev==='function' && prev!==global.gm_authFailure) prev(); }catch(e){}
+      if(document.getElementById('map') && mapsMode!=='leaflet'){
+        fallbackOsmSilent();
+      } else {
+        showMapsReferrerHint();
+      }
+    };
+  }
+  installAuthHook();
+
+  function loadGoogleMaps(cb){
+    if(global._mcMapsAuthFail){ if(cb) cb(false); return; }
+    if(googleMapsOk()){ mReady=true; if(cb) cb(true); return; }
+    function waitReady(){
+      var n=0;
+      var t=setInterval(function(){
+        n++;
+        if(global._mcMapsAuthFail){ clearInterval(t); if(cb) cb(false); return; }
+        if(googleMapsOk()){ clearInterval(t); mReady=true; if(cb) cb(true); return; }
+        if(n>=30){ clearInterval(t); if(cb) cb(googleMapsOk()); }
+      },200);
+    }
+    if(document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')){
+      waitReady();
+      return;
+    }
+    if(global._cajaMapsLoading){ waitReady(); return; }
+    global._cajaMapsLoading=true;
+    var prevReady=global.mapsReady;
+    global.mapsReady=function(){
+      mapsReady();
+      try{ if(typeof prevReady==='function') prevReady(); }catch(e){}
+    };
+    global.cajaMapsReady=global.mapsReady;
+    var s=document.createElement('script');
+    s.id='mc-gmaps-js';
+    s.src=MAPS_SRC;
+    s.async=true; s.defer=true;
+    s.onerror=function(){ global._mcMapsAuthFail=true; if(cb) cb(false); };
+    document.head.appendChild(s);
+    waitReady();
+  }
+
+  function fallbackOsmSilent(){
+    if(mapsMode==='leaflet') return;
+    mapsMode='leaflet';
+    showMapsReferrerHint();
+    try{ if(gmap) gmap=null; }catch(e){}
+    dirSvc=null; dirRen=null; geocoder=null;
+    var el=document.getElementById('map');
+    if(el) el.innerHTML='';
+    loadLeaflet(initLeafletMap);
+  }
+
   function loadLeaflet(cb){
     if(global.L){ mReady=true; if(cb)cb(); return; }
     if(global._cajaLeafletLoading){
@@ -647,6 +728,7 @@ function vNueva(c){
   const userFavs=favs.filter(f=>f.usuario===session.usuario);
   c.innerHTML=`
   <div class="page-title">Nueva ruta</div>
+  <div id="maps-referrer-hint" class="maps-referrer-hint"></div>
   <div class="card" style="padding:12px">
     ${userFavs.length?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">★ Favoritos:</div><div style="margin-bottom:8px">${userFavs.map((f,i)=>`<span class="fav-chip" onclick="usarFav(${i})">${f.nombre} <span onclick="event.stopPropagation();delFav(${i})" style="color:var(--text3)">×</span></span>`).join('')}</div>`:''}
     <div id="cj-maps-native">
@@ -717,6 +799,37 @@ function updVehPrice(){
   }
 }
 
+function bindGoogleAutocomplete(inp, onPlace, withName){
+  if(!inp || inp._gac || !window.google || !google.maps || !google.maps.places) return;
+  inp._gac=true;
+  const fields=withName?['geometry','formatted_address','name']:['geometry','formatted_address'];
+  const ac=new google.maps.places.Autocomplete(inp,{componentRestrictions:{country:'ec'},fields:fields});
+  ac.addListener('place_changed',()=>{
+    const p=ac.getPlace(); if(!p||!p.geometry)return;
+    onPlace(p);
+  });
+}
+
+function attachParadaInput(idx){
+  const inp=document.getElementById('pi-'+idx);
+  if(!inp) return;
+  if(mapsMode==='google' && googleMapsOk()){
+    bindGoogleAutocomplete(inp, function(p){
+      const name=p.name||p.formatted_address;
+      const addr=p.formatted_address;
+      paradas[idx]={addr:`${name} — ${addr}`,ll:{lat:p.geometry.location.lat(),lng:p.geometry.location.lng()}};
+      calcRoute();
+    }, true);
+    return;
+  }
+  if(mapsMode==='leaflet'){
+    bindPlaceInput(inp, document.getElementById('ac-pi-'+idx), function(hit){
+      paradas[idx]={addr:hit.addr,ll:hit.ll};
+      calcRoute();
+    });
+  }
+}
+
 function addParada(){
   if(mapsMode==='iframe'){ mapsEmbedPost({type:'addStop'}); return; }
   const cont=document.getElementById('paradas-cont'); if(!cont)return;
@@ -725,10 +838,7 @@ function addParada(){
   const div=document.createElement('div'); div.className='parada-row'; div.id='pr-'+idx;
   div.innerHTML=`<div class="parada-num">${idx+1}</div><div class="parada-grow"><input class="parada-inp" id="pi-${idx}" placeholder="Buscar dirección..." autocomplete="off"><div class="cj-ac" id="ac-pi-${idx}"></div></div><button class="btn-del" onclick="delParada(${idx})">×</button>`;
   cont.appendChild(div);
-  bindPlaceInput(document.getElementById('pi-'+idx), document.getElementById('ac-pi-'+idx), function(hit){
-    paradas[idx]={addr:hit.addr,ll:hit.ll};
-    calcRoute();
-  });
+  attachParadaInput(idx);
 }
 
 function delParada(idx){
@@ -745,10 +855,7 @@ function delParada(idx){
     cont.appendChild(div);
     const inp=document.getElementById('pi-'+i);
     if(inp) inp.value=p.addr.split(' — ')[0]||p.addr||'';
-    bindPlaceInput(inp, document.getElementById('ac-pi-'+i), function(hit){
-      paradas[i]={addr:hit.addr,ll:hit.ll};
-      calcRoute();
-    });
+    attachParadaInput(i);
   });
   calcRoute();
 }
@@ -804,24 +911,42 @@ function usarGPS(){
   toast('Obteniendo ubicación...');
   navigator.geolocation.getCurrentPosition(pos=>{
     originLL={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    reverseGeocode(originLL, function(addr){
-      const inp=document.getElementById('inp-origen');
-      if(inp&&addr) inp.value=addr;
-    });
-    if(lOrigin&&lmap){ lOrigin.setLatLng(originLL); lmap.panTo(originLL); }
+    if(mapsMode==='google' && geocoder){
+      geocoder.geocode({location:originLL},(res,st)=>{
+        if(st==='OK'&&res[0]){
+          const inp=document.getElementById('inp-origen');
+          if(inp) inp.value=res[0].formatted_address;
+        }
+      });
+      if(window._originMarker) window._originMarker.setPosition(originLL);
+      if(gmap) gmap.panTo(originLL);
+    } else {
+      reverseGeocode(originLL, function(addr){
+        const inp=document.getElementById('inp-origen');
+        if(inp&&addr) inp.value=addr;
+      });
+      if(lOrigin&&lmap){ lOrigin.setLatLng(originLL); lmap.panTo(originLL); }
+    }
     toast('✓ Ubicación obtenida');
     calcRoute();
   },()=>toast('No se pudo obtener ubicación'));
 }
 
 function startNuevaMap(){
-  /* Portal: Leaflet/OSM only. Do not iframe Google Maps (RefererNotAllowed + UX lock). */
-  mapsMode='leaflet';
+  mapsMode='google';
   var fr=document.getElementById('mc-maps-embed');
   if(fr){ fr.style.display='none'; fr.removeAttribute('src'); }
   var native=document.getElementById('cj-maps-native');
   if(native) native.style.display='block';
-  loadLeaflet(initLeafletMap);
+  loadGoogleMaps(function(ok){
+    if(!document.getElementById('map')) return;
+    if(ok && !global._mcMapsAuthFail){
+      mapsMode='google';
+      initGoogleMap();
+      return;
+    }
+    fallbackOsmSilent();
+  });
 }
 
 function mapsEmbedPost(msg){
@@ -974,7 +1099,56 @@ function reverseGeocode(ll, cb){
   }).catch(function(){ cb(''); });
 }
 
-function initMap(){ initLeafletMap(); }
+function initMap(){
+  if(mapsMode==='leaflet'){ initLeafletMap(); return; }
+  if(global._mcMapsAuthFail){ fallbackOsmSilent(); return; }
+  if(!mReady||!window.google||!google.maps){ setTimeout(initMap,300); return; }
+  initGoogleMap();
+}
+
+function initGoogleMap(){
+  if(!document.getElementById('map')) return;
+  if(global._mcMapsAuthFail){ fallbackOsmSilent(); return; }
+  if(!mReady||!window.google||!google.maps){ setTimeout(initGoogleMap,300); return; }
+  if(lmap){ try{ lmap.remove(); }catch(e){} lmap=null; lRoute=null; lOrigin=null; }
+  mapsMode='google';
+  gmap=new google.maps.Map(document.getElementById('map'),{
+    center:MINECORE_LL,zoom:13,disableDefaultUI:true,zoomControl:true,
+    styles:[{featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
+  });
+  dirSvc=new google.maps.DirectionsService();
+  dirRen=new google.maps.DirectionsRenderer({suppressMarkers:true,polylineOptions:{strokeColor:'#E8FF00',strokeWeight:4,strokeOpacity:.9}});
+  dirRen.setMap(gmap);
+  geocoder=new google.maps.Geocoder();
+  originLL=originLL||MINECORE_LL;
+  window._originMarker=new google.maps.Marker({position:originLL,map:gmap,icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:'#1D9E75',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}});
+  const inpOrigen=document.getElementById('inp-origen');
+  if(inpOrigen){
+    bindGoogleAutocomplete(inpOrigen, function(p){
+      originLL={lat:p.geometry.location.lat(),lng:p.geometry.location.lng()};
+      if(window._originMarker) window._originMarker.setPosition(originLL);
+      if(gmap) gmap.panTo(originLL);
+      calcRoute();
+    }, false);
+  }
+  paradas.forEach(function(_,i){ attachParadaInput(i); });
+  gmap.addListener('click',e=>{
+    const ll=e.latLng;
+    const free=paradas.findIndex(p=>!p.ll);
+    const idx=free>=0?free:Math.max(0,paradas.length-1);
+    if(!paradas.length){ addParada(); }
+    paradas[idx]={addr:'',ll:{lat:ll.lat(),lng:ll.lng()}};
+    geocoder.geocode({location:ll},(res,st)=>{
+      if(st==='OK'&&res[0]){
+        const name=res[0].address_components?.[1]?.short_name||res[0].formatted_address.split(',')[0];
+        paradas[idx].addr=`${name} — ${res[0].formatted_address}`;
+        const inp=document.getElementById('pi-'+idx);
+        if(inp) inp.value=name;
+      }
+    });
+    calcRoute();
+  });
+}
 
 function initLeafletMap(){
   if(!global.L){ loadLeaflet(initLeafletMap); return; }
@@ -1026,11 +1200,52 @@ function initLeafletMap(){
   setTimeout(function(){ try{ lmap.invalidateSize(); }catch(e){} }, 250);
 }
 
-function calcRoute(){
-  const valid=paradas.filter(p=>p.ll);
-  if(!originLL||!valid.length)return;
-  if(mapsMode==='iframe'){ mapsEmbedPost({type:'getRoute'}); return; }
-  markers.forEach(function(m){ try{ if(m.remove) m.remove(); }catch(e){} }); markers=[];
+function clearRouteMarkers(){
+  markers.forEach(function(m){
+    try{ if(m&&m.setMap) m.setMap(null); if(m&&m.remove) m.remove(); }catch(e){}
+  });
+  markers=[];
+}
+
+function calcRouteGoogle(valid){
+  if(!dirSvc||!window.google) return;
+  clearRouteMarkers();
+  dirSvc.route({
+    origin:originLL,
+    destination:valid[valid.length-1].ll,
+    waypoints:valid.slice(0,-1).map(p=>({location:p.ll,stopover:true})),
+    travelMode:google.maps.TravelMode.DRIVING,
+    provideRouteAlternatives:true
+  },(result,status)=>{
+    if(status!=='OK')return;
+    const sorted=[...result.routes].sort((a,b)=>{
+      const da=a.legs.reduce((s,l)=>s+l.distance.value,0);
+      const db=b.legs.reduce((s,l)=>s+l.distance.value,0);
+      return da-db;
+    });
+    const best=sorted[0];
+    dirRen.setDirections({...result,routes:[best]});
+    let totalM=0,totalS=0;
+    best.legs.forEach(l=>{totalM+=l.distance.value;totalS+=l.duration.value;});
+    routeKm=Math.round(totalM/100)/10;
+    const hrs=Math.floor(totalS/3600),mins=Math.floor((totalS%3600)/60);
+    routeDur=hrs>0?`${hrs}h ${mins}min`:`${mins} min`;
+    showKmBox(routeKm, routeDur);
+    valid.forEach((p,i)=>{
+      const m=new google.maps.Marker({position:p.ll,map:gmap,
+        label:{text:String(i+1),color:'#2D3142',fontWeight:'bold',fontSize:'12px'},
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:'#E8FF00',fillOpacity:1,strokeColor:'#2D3142',strokeWeight:2}
+      });
+      markers.push(m);
+    });
+    const bounds=new google.maps.LatLngBounds();
+    best.legs.forEach(l=>{bounds.extend(l.start_location);bounds.extend(l.end_location);});
+    if(gmap) gmap.fitBounds(bounds,{top:20,right:20,bottom:20,left:20});
+  });
+}
+
+function calcRouteOsm(valid){
+  clearRouteMarkers();
   if(lRoute&&lmap){ try{ lmap.removeLayer(lRoute); }catch(e){} lRoute=null; }
   var coords=[[originLL.lng,originLL.lat]].concat(valid.map(function(p){ return [p.ll.lng,p.ll.lat]; }));
   var url='https://router.project-osrm.org/route/v1/driving/'+coords.map(function(c){ return c[0]+','+c[1]; }).join(';')+'?overview=full&geometries=geojson&alternatives=true';
@@ -1058,6 +1273,14 @@ function calcRoute(){
       }
     }
   }).catch(function(){ toast('No se pudo calcular la ruta'); });
+}
+
+function calcRoute(){
+  const valid=paradas.filter(p=>p.ll);
+  if(!originLL||!valid.length)return;
+  if(mapsMode==='iframe'){ mapsEmbedPost({type:'getRoute'}); return; }
+  if(mapsMode==='google'){ calcRouteGoogle(valid); return; }
+  calcRouteOsm(valid);
 }
 
 async function enviarRuta(){
