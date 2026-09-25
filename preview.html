@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Preview Caja/Rutas · index v201</title>
-<link rel="stylesheet" href="caja.css?v=201">
+<title>Preview Caja/Rutas · index v210</title>
+<link rel="stylesheet" href="caja.css?v=210">
 <style>
 html,body{margin:0;background:#0b1219;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
 .pv-wrap{max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
@@ -18,8 +18,8 @@ body.mc-caja-open #caja-screen,
 <body class="mc-caja-open">
 <div class="pv-wrap">
 <div class="pv-note">
-  <b>PREVIEW v201</b> — shell nativo Caja/Rutas (sin PIN). Google Maps es el mapa primario; OSM solo si Google falla.<br>
-  Producción: hard-refresh <code>https://portal.minecore.ec/?v=201</code>
+  <b>PREVIEW v210</b> — shell nativo Caja/Rutas (sin PIN). Caja disponible sale de entregas − aprobados, con arrastre 26→25. getBalanceCaja vacío no pinta $0.<br>
+  Producción: hard-refresh <code>https://portal.minecore.ec/?v=210</code>
 </div>
 <div id="caja-screen" class="on"></div>
 </div>
@@ -39,12 +39,28 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
     {ID:'R-DEMO-2','Fecha Servicio':ymd,Usuario:'EFCH',Destino:'Cumbayá — Quito',Estado:'Aprobada','Valor ($)':8.8,KM:22,Vehiculo:'Camioneta Nissan',Motivo:'Diligencia',Origen:'Minecore'},
     {ID:'R-DEMO-3','Fecha Servicio':ymd,Usuario:'MPL',Destino:'Valle de los Chillos',Estado:'Aprobada','Valor ($)':16,KM:40,Vehiculo:'Camioneta Mazda',Motivo:'Despacho',Origen:'Minecore'}
   ];
+  var gastos=[
+    {ID:'G-old',Usuario:'OPM','Monto ($)':120,Estado:'Aprobado',Descripcion:'Antes del corte',Fecha:'2026-07-01T15:00:00.000Z'},
+    {ID:'G-now',Usuario:'EFCH','Monto ($)':40,Estado:'Aprobado',Descripcion:'Peaje',Fecha:'2026-09-10T15:00:00.000Z'},
+    {ID:'G-1',Usuario:'OPM','Monto ($)':18.5,Estado:'Pendiente',Descripcion:'Combustible',Fecha:ymd+'T15:00:00.000Z'}
+  ];
+  var entregas=[
+    {ID:'E-arr',Admin:'EFCH','Usuario Destino':'OPM','Monto ($)':500,Forma:'Transferencia',Descripcion:'Fondo anterior',Fecha:'2026-06-09T15:00:00.000Z'},
+    {ID:'E-per',Admin:'EFCH','Usuario Destino':'EFCH','Monto ($)':200,Forma:'Efectivo',Descripcion:'Este período',Fecha:'2026-09-01T15:00:00.000Z'}
+  ];
+  var failMovs=false;
+  try{ failMovs=new URLSearchParams(location.search).get('fail')==='movs'; }catch(eF){}
   window.fetch=function(url,opts){
     var u=String(url||'');
+    window.__cajaUrls=window.__cajaUrls||[];
+    if(u.indexOf('script.google.com')>=0) window.__cajaUrls.push(u);
     if(u.indexOf('script.google.com')<0) return real(url,opts);
     var action='';
     try{ action=new URL(u,location.href).searchParams.get('action')||''; }catch(e){}
     if(!action && opts && opts.body){ try{ action=JSON.parse(opts.body).action||''; }catch(e2){} }
+    if(failMovs && (action==='getEntregas'||action==='getGastos'||action==='getBalanceCaja')){
+      return Promise.resolve({status:404, ok:false, text:function(){ return Promise.resolve('<html>Page Not Found unable to open the file</html>'); }});
+    }
     if(action==='getConfig') return j({ok:true,config:{precio_km:0.40,corte_dia_inicio:26,corte_dia_fin:25}});
     if(action==='getUsuarios') return j({ok:true,usuarios:[
       {usuario:'EFCH',nombre:'Esteban Ferlito',rol:'admin',activo:'SI'},
@@ -59,14 +75,32 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
         return j({ok:true,rutas:out});
       }catch(e){ return j({ok:true,rutas:rutas}); }
     }
-    if(action==='getBalanceCaja') return j({ok:true,balances:[
-      {usuario:'EFCH',nombre:'Esteban Ferlito',entregado:200,aprobado:80,pendiente:20,disponible:120},
-      {usuario:'OPM',nombre:'Oswaldo Pena',entregado:80,aprobado:40,pendiente:10,disponible:40}
-    ]});
-    if(action==='getGastos') return j({ok:true,gastos:[
-      {ID:'G-1',Usuario:'OPM','Monto ($)':18.5,Estado:'Pendiente',Descripcion:'Combustible',Fecha:ymd}
-    ]});
-    if(action==='getEntregas') return j({ok:true,entregas:[]});
+    /* Vacío a propósito: el home no puede depender de este endpoint (a veces llega [] y pintaba $0). */
+    if(action==='getBalanceCaja') return j({ok:true,balances:[]});
+    if(action==='aprobarGasto'||action==='rechazarGasto'){
+      var idG='';
+      try{ idG=new URL(u,location.href).searchParams.get('id')||''; }catch(eA){}
+      var estSet=action==='aprobarGasto'?'Aprobado':'Rechazado';
+      gastos.forEach(function(g){ if(g.ID===idG) g.Estado=estSet; });
+      return j({ok:true});
+    }
+    if(action==='aprobarRuta'||action==='rechazarRuta'){
+      var idR='';
+      try{ idR=new URL(u,location.href).searchParams.get('id')||''; }catch(eR){}
+      var estR=action==='aprobarRuta'?'Aprobada':'Rechazada';
+      rutas.forEach(function(r){ if(r.ID===idR) r.Estado=estR; });
+      return j({ok:true});
+    }
+    if(action==='getGastos'){
+      try{
+        var qg=new URL(u,location.href).searchParams;
+        var estG=qg.get('estado');
+        var outG=gastos;
+        if(estG) outG=gastos.filter(function(g){ return g.Estado===estG; });
+        return j({ok:true,gastos:outG});
+      }catch(eG){ return j({ok:true,gastos:gastos}); }
+    }
+    if(action==='getEntregas') return j({ok:true,entregas:entregas});
     return j({ok:true});
   };
 })();
@@ -77,10 +111,15 @@ window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=201"></script>
+<script src="caja.js?v=210"></script>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
   if(window.Caja&&Caja.init) Caja.init();
+  var v='';
+  try{ v=new URLSearchParams(location.search).get('view')||''; }catch(e){}
+  if(v==='balance') setTimeout(function(){ if(window.cajaOpenMod) cajaOpenMod('caja','balance'); }, 60);
+  if(v==='gastos') setTimeout(function(){ if(window.cajaOpenMod) cajaOpenMod('caja','aprobar-gastos'); }, 60);
+  if(v==='rutas') setTimeout(function(){ if(window.cajaOpenMod) cajaOpenMod('rutas','aprobar'); }, 60);
 });
 </script>
 </body>

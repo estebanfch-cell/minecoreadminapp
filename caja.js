@@ -99,23 +99,68 @@
   }
 
   function cajaParse(txt){
-    try{ return JSON.parse(txt); }catch(e){ return {ok:false,error:'Caja API no-JSON',_transport:true}; }
+    try{ return JSON.parse(txt); }catch(e){ return null; }
+  }
+  /* Google a veces responde HTML 404 ("unable to open the file") ANTES de correr el script. */
+  function cajaIsGooglePage(txt, status){
+    var s=String(txt||'');
+    if((status===404||status===500||status===502||status===503) && /<!doctype html|<html/i.test(s)) return true;
+    return /unable to open the file|no se pudo abrir el archivo|Page Not Found|Google Drive/i.test(s);
+  }
+  function cajaFetchOnce(data){
+    var isPhoto=data&&data.action==='savePhoto';
+    var url=CAJA_SCRIPT_URL;
+    var opts;
+    if(isPhoto){
+      opts={method:'POST',body:JSON.stringify(data),redirect:'follow',credentials:'omit'};
+    } else {
+      var p=new URLSearchParams();
+      Object.keys(data||{}).forEach(function(k){
+        var v=data[k];
+        if(v===undefined||v===null) return;
+        p.append(k, typeof v==='object' ? JSON.stringify(v) : String(v));
+      });
+      /* iOS reuses GET de Apps Script; un approve o un balance viejo se quedan pegados. */
+      p.append('_cb', String(Date.now()));
+      url=CAJA_SCRIPT_URL+'?'+p.toString();
+      opts={redirect:'follow',credentials:'omit',cache:'no-store'};
+    }
+    return fetch(url, opts).then(function(r){
+      return r.text().then(function(txt){
+        if(cajaIsGooglePage(txt, r.status)){
+          var err=new Error('google-page');
+          err.googlePage=true;
+          throw err;
+        }
+        var parsed=cajaParse(txt);
+        if(!parsed){
+          var err2=new Error('non-json');
+          err2.googlePage=true;
+          throw err2;
+        }
+        return parsed;
+      });
+    });
   }
 
-  /* Same payloads/transport as working minecore app.js: GET query (savePhoto = POST JSON). */
+  /* HTML 404 de Google llega ANTES de ejecutar el script, también en aprobar.
+     Reintentar es seguro. Un fallo de red en una escritura no se reintenta. */
   function cajaCallScript(data){
-    if(data.action==='savePhoto'){
-      return fetch(CAJA_SCRIPT_URL,{method:'POST',body:JSON.stringify(data),redirect:'follow',credentials:'omit'})
-        .then(function(r){ return r.text(); }).then(cajaParse);
+    var action=String((data&&data.action)||'');
+    var lectura=/^(get|list|mi)/.test(action);
+    function intento(n){
+      return cajaFetchOnce(data).catch(function(e){
+        var google=!!(e&&e.googlePage);
+        var tope=lectura||google?5:0;
+        if(n>=tope){
+          if(!lectura && !google) throw e;
+          return {ok:false,error:'Caja API no disponible',_transport:true};
+        }
+        var espera=[350,800,1500,2500,4000][n]||4000;
+        return new Promise(function(res){ setTimeout(res, espera); }).then(function(){ return intento(n+1); });
+      });
     }
-    var p=new URLSearchParams();
-    Object.keys(data||{}).forEach(function(k){
-      var v=data[k];
-      if(v===undefined||v===null) return;
-      p.append(k, typeof v==='object' ? JSON.stringify(v) : String(v));
-    });
-    return fetch(CAJA_SCRIPT_URL+'?'+p.toString(),{redirect:'follow',credentials:'omit'})
-      .then(function(r){ return r.text(); }).then(cajaParse);
+    return intento(0);
   }
 
   function api(data){
@@ -127,7 +172,10 @@
       if(payload.action==='crearGasto' && !payload.usuario) payload.usuario=session.usuario;
     }
     return cajaCallScript(payload).catch(function(){
-      if(typeof MCpost!=='function') return {ok:false,error:'Error de conexión'};
+      var action=String(payload.action||'');
+      var lectura=/^(get|list|mi)/.test(action);
+      /* v124 no aprueba Caja. Caer al motor Admin en una escritura solo esconde el error. */
+      if(!lectura || typeof MCpost!=='function') return {ok:false,error:'Error de conexión',_transport:true};
       var fb={};
       Object.keys(payload).forEach(function(k){ fb[k]=payload[k]; });
       try{ fb.user=getUserName(); fb.pin=getPin(); }catch(e2){}
@@ -555,10 +603,13 @@ function placeAddr(dest){
   const dash=last.indexOf(' — ');
   return dash>0?last.substring(dash+3):'';
 }
+function ymdLocal(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function getPeriodoDates(offset){
   const hoy=new Date();
   const dia=hoy.getDate();
-  const ini=parseInt(cfg.corte_dia_inicio||26);
+  const ini=parseInt(cfg.corte_dia_inicio||26,10)||26;
   let fi,ff;
   if(dia>=ini){
     fi=new Date(hoy.getFullYear(),hoy.getMonth()+offset,ini);
@@ -567,7 +618,8 @@ function getPeriodoDates(offset){
     fi=new Date(hoy.getFullYear(),hoy.getMonth()-1+offset,ini);
     ff=new Date(hoy.getFullYear(),hoy.getMonth()+offset,ini-1);
   }
-  return{fi:fi.toISOString().split('T')[0], ff:ff.toISOString().split('T')[0]};
+  /* Fecha local. toISOString() corre el corte un día en zonas UTC+. */
+  return{fi:ymdLocal(fi), ff:ymdLocal(ff)};
 }
 /** Previous Mon–Sun in local calendar (Mon=1). Used by filtro 'semana'. */
 function getSemanaAnteriorDates(){
@@ -640,13 +692,18 @@ function rutaTicket(r, isAdmin){
   </div>`;
 }
 
+function cajaToastApi(r,okMsg){
+  if(r&&r.ok){ toast(okMsg); return true; }
+  toast('Error: '+((r&&r.error)||'no se pudo guardar'));
+  return false;
+}
 async function doApprove(id){
-  try{ const r=await api({action:'aprobarRuta',id,admin:session.usuario}); if(r.ok){toast('✓ Aprobada');setView('aprobar');}else toast('Error'); }catch(e){toast('Error de conexión');}
+  try{ const r=await api({action:'aprobarRuta',id,admin:session.usuario}); if(cajaToastApi(r,'✓ Aprobada')) setView('aprobar'); }catch(e){toast('Error de conexión');}
 }
 async function doReject(id,btn){
   const inp=document.getElementById('ri-'+id);
   if(inp.style.display!=='block'){ inp.style.display='block'; inp.focus(); btn.textContent='Confirmar rechazo'; return; }
-  try{ const r=await api({action:'rechazarRuta',id,admin:session.usuario,notas:inp.value||''}); if(r.ok){toast('Rechazada');setView('aprobar');}else toast('Error'); }catch(e){toast('Error de conexión');}
+  try{ const r=await api({action:'rechazarRuta',id,admin:session.usuario,notas:inp.value||''}); if(cajaToastApi(r,'Rechazada')) setView('aprobar'); }catch(e){toast('Error de conexión');}
 }
 
 function editRuta(id){
@@ -1414,11 +1471,15 @@ function cSetFiltro(f){ window._cFiltro=f; const d=applyDateFiltro(f,'c'); windo
 function cApply(){ window._cFi=document.getElementById('c-fi').value; window._cFf=document.getElementById('c-ff').value; window._cFiltro='custom'; document.querySelectorAll('[id^="c-btn-"]').forEach(b=>b.classList.remove('active')); renderCuenta(document.getElementById('content')); }
 
 // ─── VIEW: APROBAR ────────────────────────────────────────────────────────────
+function cajaRetryBtn(view,msg){
+  return `<div class="page-title">${msg}</div><div class="empty">No se pudo cargar.<br><button class="btn-approve" style="margin-top:12px" onclick="setView('${view}')">Reintentar</button></div>`;
+}
 async function vAprobar(c){
   c.innerHTML=spin();
   try{
     const r=await api({action:'getRutas',rol:'admin',estado:'Pendiente'});
-    const rutas=r.rutas||[];
+    const rutas=cajaReadList(r,'rutas');
+    if(!rutas){ c.innerHTML=cajaRetryBtn('aprobar','Por aprobar'); return; }
     window._allRutas=rutas;
     c.innerHTML=`<div class="page-title">Por aprobar</div>
     <div class="page-sub">${rutas.length} pendiente${rutas.length!==1?'s':''}</div>
@@ -1428,10 +1489,15 @@ async function vAprobar(c){
 }
 async function aprobarTodo(){
   const pendientes=(window._allRutas||[]).filter(r=>r['Estado']==='Pendiente');
+  let okN=0, fail=0;
   for(const r of pendientes){
-    try{ await api({action:'aprobarRuta',id:r['ID'],admin:session.usuario}); }catch(e){}
+    try{
+      const res=await api({action:'aprobarRuta',id:r['ID'],admin:session.usuario});
+      if(res&&res.ok) okN++; else fail++;
+    }catch(e){ fail++; }
   }
-  toast('✓ Todas aprobadas');setView('aprobar');
+  toast(fail?(okN+' aprobadas · '+fail+' sin aprobar'):'✓ Todas aprobadas');
+  setView('aprobar');
 }
 
 // ─── VIEW: HISTORIAL ──────────────────────────────────────────────────────────
@@ -1602,16 +1668,34 @@ async function editPrecio(){
 async function vBalance(c){
   c.innerHTML=spin();
   try{
-    const r=await api({action:'getBalanceCaja'});
-    let balances=r.balances||[];
     const isAdmin=session.rol==='admin';
+    const rol=isAdmin?'admin':'chofer';
+    const res=await Promise.all([
+      api({action:'getEntregas',rol:rol,usuario:session.usuario}),
+      api({action:'getGastos',rol:rol,usuario:session.usuario}),
+      api({action:'getBalanceCaja'})
+    ]);
+    const entregas=cajaReadList(res[0],'entregas');
+    const gastos=cajaReadList(res[1],'gastos');
+    let balances=cajaReadList(res[2],'balances')||[];
+    const pd=getPeriodoDates(0);
+    let saldo=null;
+    if(entregas&&gastos){
+      saldo=saldoCajaPeriodo(entregas,gastos,pd.fi,pd.ff);
+      window._cajEnt=entregas;
+      window._cajGas=gastos;
+      balances=saldo.users.slice();
+    }
     if(!isAdmin) balances=balances.filter(b=>b.usuario===session.usuario);
+    if(!saldo){
+      const confirmed=balances.some(b=>(Number(b.entregado)||0)||(Number(b.aprobado)||0)||(Number(b.pendiente)||0)||(Number(b.disponible)||0));
+      if(!confirmed){ c.innerHTML=errMsg(); return; }
+    }
 
-    // Totales generales
-    const totalEnt=Math.round(balances.reduce((s,b)=>s+b.entregado,0)*100)/100;
-    const totalGast=Math.round(balances.reduce((s,b)=>s+b.aprobado,0)*100)/100;
-    const totalPend=Math.round(balances.reduce((s,b)=>s+b.pendiente,0)*100)/100;
-    const totalDisp=Math.round((totalEnt-totalGast)*100)/100;
+    const totalEnt=saldo?saldo.entregado:round2(balances.reduce((s,b)=>s+(Number(b.entregado)||0),0));
+    const totalGast=saldo?saldo.aprobado:round2(balances.reduce((s,b)=>s+(Number(b.aprobado)||0),0));
+    const totalPend=saldo?saldo.pendiente:round2(balances.reduce((s,b)=>s+(Number(b.pendiente)||0),0));
+    const totalDisp=saldo?saldo.disponible:round2(totalEnt-totalGast);
     const pct=totalEnt>0?Math.min(100,Math.round(totalGast/totalEnt*100)):0;
     const over=totalGast>totalEnt;
 
@@ -1717,17 +1801,27 @@ async function enviarEntrega(){
 
 async function vAprobarGastos(c){
   c.innerHTML=spin();
-  try{const r=await api({action:'getGastos',rol:'admin',estado:'Pendiente'});const g=r.gastos||[];
-  window._pendGastos=g;
-  c.innerHTML=`<div class="page-title">Gastos por aprobar</div><div class="page-sub">${g.length} pendiente${g.length!==1?'s':''}</div>
-  ${g.length?`<button onclick="aprobarTodosGastos()" style="width:100%;padding:12px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px">✓ Aprobar todos</button>`:''}
-  ${g.length?g.map(x=>gastoH(x,true)).join(''):empty('Sin gastos pendientes ✓')}`;
+  try{
+    const r=await api({action:'getGastos',rol:'admin',estado:'Pendiente'});
+    const g=cajaReadList(r,'gastos');
+    if(!g){ c.innerHTML=cajaRetryBtn('aprobar-gastos','Gastos por aprobar'); return; }
+    window._pendGastos=g;
+    c.innerHTML=`<div class="page-title">Gastos por aprobar</div><div class="page-sub">${g.length} pendiente${g.length!==1?'s':''}</div>
+    ${g.length?`<button onclick="aprobarTodosGastos()" style="width:100%;padding:12px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px">✓ Aprobar todos</button>`:''}
+    ${g.length?g.map(x=>gastoH(x,true)).join(''):empty('Sin gastos pendientes ✓')}`;
   }catch(e){c.innerHTML=errMsg();}
 }
 async function aprobarTodosGastos(){
   const pend=window._pendGastos||[];
-  for(const g of pend){try{await api({action:'aprobarGasto',id:g['ID'],admin:session.usuario});}catch(e){}}
-  toast('✓ Todos aprobados'); setView('aprobar-gastos');
+  let okN=0, fail=0;
+  for(const g of pend){
+    try{
+      const r=await api({action:'aprobarGasto',id:g['ID'],admin:session.usuario});
+      if(r&&r.ok) okN++; else fail++;
+    }catch(e){ fail++; }
+  }
+  toast(fail?(okN+' aprobados · '+fail+' sin aprobar'):'✓ Todos aprobados');
+  setView('aprobar-gastos');
 }
 
 async function vHistorialCaja(c){
@@ -1877,8 +1971,8 @@ function gastoH(g,isAdmin){
     :'<div style="font-size:11px;color:var(--text3);margin-top:4px">Sin foto adjunta</div>'}
     ${acc}</div>`;
 }
-async function aprG(id){try{const r=await api({action:'aprobarGasto',id,admin:session.usuario});if(r.ok){toast('✓ Aprobado');setView('aprobar-gastos');}else toast('Error');}catch(e){toast('Error de conexión');}}
-async function rejG(id){try{const r=await api({action:'rechazarGasto',id,admin:session.usuario});if(r.ok){toast('Rechazado');setView('aprobar-gastos');}else toast('Error');}catch(e){toast('Error de conexión');}}
+async function aprG(id){try{const r=await api({action:'aprobarGasto',id,admin:session.usuario});if(cajaToastApi(r,'✓ Aprobado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
+async function rejG(id){try{const r=await api({action:'rechazarGasto',id,admin:session.usuario});if(cajaToastApi(r,'Rechazado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
 
 // ─── PHOTO UPLOAD ─────────────────────────────────────────────────────────────
 async function handleFoto(input,prevId,statId,urlId){
@@ -1971,59 +2065,72 @@ async function renderHomeActions(){
     mcCard('caja','balance','Caja disponible','...','');
 
   try{
-    const calls=[
-      api({action:'getRutas',rol:isAdmin?'admin':'chofer',usuario:session.usuario}),
-      api({action:'getBalanceCaja'})
-    ];
-    if(isAdmin) calls.push(api({action:'getGastos',rol:'admin',estado:'Pendiente'}));
-    const res=await Promise.all(calls);
-    const rutas=res[0].rutas||[];
-    const balances=(res[1].balances)||[];
+    const rol=isAdmin?'admin':'chofer';
+    const res=await Promise.all([
+      api({action:'getRutas',rol:rol,usuario:session.usuario}),
+      api({action:'getEntregas',rol:rol,usuario:session.usuario}),
+      api({action:'getGastos',rol:rol,usuario:session.usuario})
+    ]);
+    const rutas=cajaReadList(res[0],'rutas');
+    const entregas=cajaReadList(res[1],'entregas');
+    const gastos=cajaReadList(res[2],'gastos');
 
     const pd=getPeriodoDates(0);
-    const enPeriodo=r=>{const f=String(r['Fecha Servicio']||'').slice(0,10);return f>=pd.fi&&f<=pd.ff;};
-    const aprob=rutas.filter(r=>r['Estado']==='Aprobada'&&enPeriodo(r));
-    const km=Math.round(aprob.reduce((s,r)=>s+parseFloat(r['KM']||0),0)*10)/10;
-    const usd=Math.round(aprob.reduce((s,r)=>s+parseFloat(r['Valor ($)']||0),0)*100)/100;
-
-    let dispTxt,dispSub;
-    if(isAdmin){
-      const tE=balances.reduce((s,b)=>s+(b.entregado||0),0);
-      const tA=balances.reduce((s,b)=>s+(b.aprobado||0),0);
-      const tP=balances.reduce((s,b)=>s+(b.pendiente||0),0);
-      const disp=Math.round((tE-tA)*100)/100;
-      dispTxt='$'+disp.toFixed(2);
-      dispSub=tP>0?('$'+(Math.round(tP*100)/100).toFixed(2)+' pendiente'):'al día ✓';
-    } else {
-      const b=balances.find(x=>x.usuario===session.usuario)||{entregado:0,aprobado:0,pendiente:0};
-      const disp=Math.round(((b.entregado||0)-(b.aprobado||0))*100)/100;
-      dispTxt='$'+disp.toFixed(2);
-      dispSub=(b.pendiente||0)>0?('$'+(Math.round(b.pendiente*100)/100).toFixed(2)+' pendiente'):'al día ✓';
+    let pagarTxt='—', pagarSub='sin conexión';
+    if(rutas){
+      const enPeriodo=r=>{const f=String(r['Fecha Servicio']||'').slice(0,10);return f>=pd.fi&&f<=pd.ff;};
+      const aprob=rutas.filter(r=>r['Estado']==='Aprobada'&&enPeriodo(r));
+      const km=Math.round(aprob.reduce((s,r)=>s+parseFloat(r['KM']||0),0)*10)/10;
+      const usd=Math.round(aprob.reduce((s,r)=>s+parseFloat(r['Valor ($)']||0),0)*100)/100;
+      pagarTxt='$'+usd.toFixed(2);
+      pagarSub=aprob.length+' rutas · '+km+' km';
     }
 
+    let saldo=null;
+    if(entregas&&gastos){
+      saldo=saldoCajaPeriodo(entregas,gastos,pd.fi,pd.ff);
+      window._cajEnt=entregas;
+      window._cajGas=gastos;
+    } else {
+      try{
+        const br=await api({action:'getBalanceCaja'});
+        const bals=cajaReadList(br,'balances')||[];
+        const mine=isAdmin?bals:bals.filter(b=>b.usuario===session.usuario);
+        const confirmed=mine.some(b=>(Number(b.entregado)||0)||(Number(b.aprobado)||0)||(Number(b.pendiente)||0)||(Number(b.disponible)||0));
+        if(confirmed){
+          const tE=mine.reduce((s,b)=>s+(Number(b.entregado)||0),0);
+          const tA=mine.reduce((s,b)=>s+(Number(b.aprobado)||0),0);
+          const tP=mine.reduce((s,b)=>s+(Number(b.pendiente)||0),0);
+          saldo={disponible:round2(tE-tA),pendiente:round2(tP)};
+        }
+      }catch(e2){}
+    }
+    const dispTxt=saldo?('$'+Number(saldo.disponible||0).toFixed(2)):'—';
+    const dispSub=!saldo?'sin conexión':((saldo.pendiente||0)>0?('$'+(Math.round(saldo.pendiente*100)/100).toFixed(2)+' pendiente'):'al día ✓');
+
     metEl.innerHTML=
-      mcCard('rutas','corte',isAdmin?'A pagar':'Mi período','$'+usd.toFixed(2),aprob.length+' rutas · '+km+' km')+
+      mcCard('rutas','corte',isAdmin?'A pagar':'Mi período',pagarTxt,pagarSub)+
       mcCard('caja','balance','Caja disponible',dispTxt,dispSub);
 
-    const pendR=rutas.filter(r=>r['Estado']==='Pendiente');
+    const pendR=(rutas||[]).filter(r=>r['Estado']==='Pendiente');
     if(isAdmin){
-      const pendG=(res[2]&&res[2].gastos)||[];
+      const pendG=gastos?gastos.filter(g=>cajaEstado(g)==='Pendiente'):[];
       let rows='';
-      if(pendR.length) rows+=attnRow('rutas','aprobar',pendR.length+(pendR.length!==1?' rutas':' ruta')+' por aprobar');
-      if(pendG.length) rows+=attnRow('caja','aprobar-gastos',pendG.length+(pendG.length!==1?' gastos':' gasto')+' por aprobar');
+      if(rutas&&pendR.length) rows+=attnRow('rutas','aprobar',pendR.length+(pendR.length!==1?' rutas':' ruta')+' por aprobar');
+      if(gastos&&pendG.length) rows+=attnRow('caja','aprobar-gastos',pendG.length+(pendG.length!==1?' gastos':' gasto')+' por aprobar');
       attnEl.innerHTML=rows?('<div class="attn-card"><div class="attn-title">Requiere tu atención</div>'+rows+'</div>'):'';
     } else {
-      const hoy=new Date().toISOString().split('T')[0];
-      const tieneHoy=rutas.some(r=>String(r['Fecha Servicio']||r['Fecha Solicitud']||'').slice(0,10)===hoy);
+      const hoy=ymdLocal(new Date());
+      const tieneHoy=!!(rutas&&rutas.some(r=>String(r['Fecha Servicio']||r['Fecha Solicitud']||'').slice(0,10)===hoy));
       let rows='';
-      if(!tieneHoy) rows+=attnRow('rutas','nueva','No has registrado rutas hoy');
+      if(rutas&&!tieneHoy) rows+=attnRow('rutas','nueva','No has registrado rutas hoy');
       attnEl.innerHTML=rows?('<div class="attn-card"><div class="attn-title">Recordatorio</div>'+rows+'</div>'):'';
     }
     // Actividad reciente: últimas 4 rutas
     const actEl=document.getElementById('home-activity');
     const actLbl=document.getElementById('home-act-label');
     if(actEl){
-      const rec=rutas.slice(0,4);
+      const rec=(rutas||[]).slice(0,4);
       if(rec.length){
         if(actLbl)actLbl.style.display='block';
         actEl.innerHTML=rec.map(r=>{
@@ -2426,6 +2533,84 @@ function togglePF(id,hdr){
   if(hdr){const ch=hdr.querySelector('.pf-chev');if(ch)ch.textContent=open?'▴':'▾';}
 }
 
+function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+function cajaMonto(row){
+  if(!row) return 0;
+  var raw=row['Monto ($)'];
+  if(raw==null||raw==='') raw=row.monto;
+  var n=parseFloat(raw);
+  return isNaN(n)?0:n;
+}
+function cajaDia(row){
+  var raw=String((row&&(row['Fecha']||row.fecha))||'');
+  return parseDateStr(raw.slice(0,10));
+}
+function cajaEstado(row){
+  return String((row&&(row['Estado']||row.estado))||'').trim();
+}
+function cajaReadList(res, key){
+  if(!res || res.ok===false || res._transport) return null;
+  var list=res[key];
+  return Array.isArray(list)?list:null;
+}
+/* Disponible del corte 26→25: arrastre anterior a fi + entregas del período − aprobados del período.
+   Pendiente no resta (igual que el PDF de historial). Sin fecha se incluye, para no esconder plata. */
+function saldoCajaPeriodo(entregas, gastos, fi, ff){
+  var d1=new Date(fi+'T00:00:00');
+  var d2=new Date(ff+'T23:59:59');
+  var ent=0, apr=0, pen=0, entArr=0, aprArr=0;
+  var by={};
+  function bump(u){
+    u=String(u||'').trim()||'—';
+    if(!by[u]) by[u]={usuario:u,nombre:NAME_HINTS[u]||u,entregado:0,aprobado:0,pendiente:0,disponible:0};
+    return by[u];
+  }
+  function inCut(d){ return !d || d<=d2; }
+  (entregas||[]).forEach(function(e){
+    var d=cajaDia(e);
+    if(!inCut(d)) return;
+    var m=cajaMonto(e);
+    ent+=m;
+    if(d&&d<d1) entArr+=m;
+    bump(e['Usuario Destino']||e.usuarioDestino||e.usuario).entregado+=m;
+  });
+  var pendN=0;
+  (gastos||[]).forEach(function(g){
+    var est=cajaEstado(g);
+    var m=cajaMonto(g);
+    var who=g['Usuario']||g.usuario;
+    if(est==='Pendiente'){
+      pendN++;
+      pen+=m;
+      bump(who).pendiente+=m;
+      return;
+    }
+    if(est!=='Aprobado') return;
+    var d=cajaDia(g);
+    if(!inCut(d)) return;
+    apr+=m;
+    if(d&&d<d1) aprArr+=m;
+    bump(who).aprobado+=m;
+  });
+  var users=Object.keys(by).map(function(k){
+    var b=by[k];
+    b.entregado=round2(b.entregado);
+    b.aprobado=round2(b.aprobado);
+    b.pendiente=round2(b.pendiente);
+    b.disponible=round2(b.entregado-b.aprobado);
+    return b;
+  });
+  return {
+    entregado:round2(ent),
+    aprobado:round2(apr),
+    pendiente:round2(pen),
+    pendienteN:pendN,
+    arrastre:round2(entArr-aprArr),
+    disponible:round2(ent-apr),
+    users:users
+  };
+}
+
 function saldoAnterior(fi){
   const d1=new Date(fi+'T00:00:00');
   const getD=x=>parseDateStr(((x['Fecha']||'').toString()).split(' ')[0]);
@@ -2516,6 +2701,8 @@ function _pdfSafe(s){
   try{ if(typeof renderNuevaEntrega==='function'){ pub.renderNuevaEntrega=renderNuevaEntrega; if('renderNuevaEntrega'!=='openMod'&&'renderNuevaEntrega'!=='goHome') global.renderNuevaEntrega=renderNuevaEntrega; } }catch(e){}
   try{ if(typeof rutaTicket==='function'){ pub.rutaTicket=rutaTicket; if('rutaTicket'!=='openMod'&&'rutaTicket'!=='goHome') global.rutaTicket=rutaTicket; } }catch(e){}
   try{ if(typeof saldoAnterior==='function'){ pub.saldoAnterior=saldoAnterior; if('saldoAnterior'!=='openMod'&&'saldoAnterior'!=='goHome') global.saldoAnterior=saldoAnterior; } }catch(e){}
+  try{ if(typeof saldoCajaPeriodo==='function'){ pub.saldoCajaPeriodo=saldoCajaPeriodo; if('saldoCajaPeriodo'!=='openMod'&&'saldoCajaPeriodo'!=='goHome') global.saldoCajaPeriodo=saldoCajaPeriodo; } }catch(e){}
+  try{ if(typeof cajaCallScript==='function'){ pub.cajaCallScript=cajaCallScript; if('cajaCallScript'!=='openMod'&&'cajaCallScript'!=='goHome') global.cajaCallScript=cajaCallScript; } }catch(e){}
   try{ if(typeof saveEditRuta==='function'){ pub.saveEditRuta=saveEditRuta; if('saveEditRuta'!=='openMod'&&'saveEditRuta'!=='goHome') global.saveEditRuta=saveEditRuta; } }catch(e){}
   try{ if(typeof setView==='function'){ pub.setView=setView; if('setView'!=='openMod'&&'setView'!=='goHome') global.setView=setView; } }catch(e){}
   try{ if(typeof show==='function'){ pub.show=show; if('show'!=='openMod'&&'show'!=='goHome') global.show=show; } }catch(e){}
