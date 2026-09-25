@@ -1,6 +1,6 @@
 # PASTE Admin API — Pick list (foto, ubicación, sububicación)
 
-El portal (index v213) ya arma el PDF. En el iPhone el toque abre el PDF en una pestaña de Safari (se guarda en Archivos desde el visor). No abre solo la hoja de AirDrop.
+El portal (index v214) ya arma el PDF. En el Mac el toque guarda el archivo en Descargas. No abre la hoja de AirDrop. En el iPhone abre el PDF en una pestaña de Safari.
 
 Si el PDF sale **sin foto** o **sin bodega / bin** (`1-A-2`), el motor no está mandando esos campos. Pega esto en el Apps Script del Admin API y publica una **nueva versión** del mismo deployment.
 
@@ -65,4 +65,4 @@ function proxyImagen_(p) {
 
 `json_` es el helper que ya usas para responder JSON. Si se llama distinto, usa ese.
 
-Después: Implementación → Administrar implementaciones → **Nueva versión**. El `API_URL` del portal no cambia. Hard-refresh del portal (index v213).
+Después: Implementación → Administrar implementaciones → **Nueva versión**. El `API_URL` del portal no cambia. Hard-refresh del portal (index v214).
