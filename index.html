@@ -303,7 +303,11 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <button onclick="doLogin()">Ingresar</button>
   <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin()">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
-  <div style="margin-top:18px;color:#c3ccd6;font-size:10px">index v202</div>
+  <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
+  <script>
+  var MC_BUILD='204';
+  (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
+  </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
     <a href="#" onclick="cambiarUsuario();return false" style="color:#1e4976;font-size:12px">Cambiar de usuario</a>
   </div>
@@ -375,7 +379,6 @@ function b64uToBuf(s){
 function bufToB64u(b){var a=new Uint8Array(b),s='';for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function webauthnAvailable(){try{if(location.protocol==='file:'||!location.hostname)return false;}catch(e){}return !!(window.PublicKeyCredential&&navigator.credentials);}
 
-var MC_BUILD='204';
 var MC_PAGES_URL='https://estebanfch-cell.github.io/minecoreadminapp/';
 function mcShowUpdateBanner(){
   var el=document.getElementById('mc-update-banner');
