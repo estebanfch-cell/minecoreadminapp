@@ -39,10 +39,21 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
     {ID:'R-DEMO-2','Fecha Servicio':ymd,Usuario:'EFCH',Destino:'Cumbayá — Quito',Estado:'Aprobada','Valor ($)':8.8,KM:22,Vehiculo:'Camioneta Nissan',Motivo:'Diligencia',Origen:'Minecore'},
     {ID:'R-DEMO-3','Fecha Servicio':ymd,Usuario:'MPL',Destino:'Valle de los Chillos',Estado:'Aprobada','Valor ($)':16,KM:40,Vehiculo:'Camioneta Mazda',Motivo:'Despacho',Origen:'Minecore'}
   ];
+  var gastos=[
+    {ID:'G-old',Usuario:'OPM','Monto ($)':120,Estado:'Aprobado',Descripcion:'Antes del corte',Fecha:'2026-07-01T15:00:00.000Z'},
+    {ID:'G-now',Usuario:'EFCH','Monto ($)':40,Estado:'Aprobado',Descripcion:'Peaje',Fecha:'2026-09-10T15:00:00.000Z'},
+    {ID:'G-1',Usuario:'OPM','Monto ($)':18.5,Estado:'Pendiente',Descripcion:'Combustible',Fecha:ymd+'T15:00:00.000Z'}
+  ];
+  var entregas=[
+    {ID:'E-arr',Admin:'EFCH','Usuario Destino':'OPM','Monto ($)':500,Forma:'Transferencia',Descripcion:'Fondo anterior',Fecha:'2026-06-09T15:00:00.000Z'},
+    {ID:'E-per',Admin:'EFCH','Usuario Destino':'EFCH','Monto ($)':200,Forma:'Efectivo',Descripcion:'Este período',Fecha:'2026-09-01T15:00:00.000Z'}
+  ];
   var failMovs=false;
   try{ failMovs=new URLSearchParams(location.search).get('fail')==='movs'; }catch(eF){}
   window.fetch=function(url,opts){
     var u=String(url||'');
+    window.__cajaUrls=window.__cajaUrls||[];
+    if(u.indexOf('script.google.com')>=0) window.__cajaUrls.push(u);
     if(u.indexOf('script.google.com')<0) return real(url,opts);
     var action='';
     try{ action=new URL(u,location.href).searchParams.get('action')||''; }catch(e){}
@@ -66,15 +77,20 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
     }
     /* Vacío a propósito: el home no puede depender de este endpoint (a veces llega [] y pintaba $0). */
     if(action==='getBalanceCaja') return j({ok:true,balances:[]});
-    var gastos=[
-      {ID:'G-old',Usuario:'OPM','Monto ($)':120,Estado:'Aprobado',Descripcion:'Antes del corte',Fecha:'2026-07-01T15:00:00.000Z'},
-      {ID:'G-now',Usuario:'EFCH','Monto ($)':40,Estado:'Aprobado',Descripcion:'Peaje',Fecha:'2026-09-10T15:00:00.000Z'},
-      {ID:'G-1',Usuario:'OPM','Monto ($)':18.5,Estado:'Pendiente',Descripcion:'Combustible',Fecha:ymd+'T15:00:00.000Z'}
-    ];
-    var entregas=[
-      {ID:'E-arr',Admin:'EFCH','Usuario Destino':'OPM','Monto ($)':500,Forma:'Transferencia',Descripcion:'Fondo anterior',Fecha:'2026-06-09T15:00:00.000Z'},
-      {ID:'E-per',Admin:'EFCH','Usuario Destino':'EFCH','Monto ($)':200,Forma:'Efectivo',Descripcion:'Este período',Fecha:'2026-09-01T15:00:00.000Z'}
-    ];
+    if(action==='aprobarGasto'||action==='rechazarGasto'){
+      var idG='';
+      try{ idG=new URL(u,location.href).searchParams.get('id')||''; }catch(eA){}
+      var estSet=action==='aprobarGasto'?'Aprobado':'Rechazado';
+      gastos.forEach(function(g){ if(g.ID===idG) g.Estado=estSet; });
+      return j({ok:true});
+    }
+    if(action==='aprobarRuta'||action==='rechazarRuta'){
+      var idR='';
+      try{ idR=new URL(u,location.href).searchParams.get('id')||''; }catch(eR){}
+      var estR=action==='aprobarRuta'?'Aprobada':'Rechazada';
+      rutas.forEach(function(r){ if(r.ID===idR) r.Estado=estR; });
+      return j({ok:true});
+    }
     if(action==='getGastos'){
       try{
         var qg=new URL(u,location.href).searchParams;
@@ -102,6 +118,8 @@ document.addEventListener('DOMContentLoaded',function(){
   var v='';
   try{ v=new URLSearchParams(location.search).get('view')||''; }catch(e){}
   if(v==='balance') setTimeout(function(){ if(window.cajaOpenMod) cajaOpenMod('caja','balance'); }, 60);
+  if(v==='gastos') setTimeout(function(){ if(window.cajaOpenMod) cajaOpenMod('caja','aprobar-gastos'); }, 60);
+  if(v==='rutas') setTimeout(function(){ if(window.cajaOpenMod) cajaOpenMod('rutas','aprobar'); }, 60);
 });
 </script>
 </body>

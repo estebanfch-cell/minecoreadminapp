@@ -120,8 +120,10 @@
         if(v===undefined||v===null) return;
         p.append(k, typeof v==='object' ? JSON.stringify(v) : String(v));
       });
+      /* iOS reuses GET de Apps Script; un approve o un balance viejo se quedan pegados. */
+      p.append('_cb', String(Date.now()));
       url=CAJA_SCRIPT_URL+'?'+p.toString();
-      opts={redirect:'follow',credentials:'omit'};
+      opts={redirect:'follow',credentials:'omit',cache:'no-store'};
     }
     return fetch(url, opts).then(function(r){
       return r.text().then(function(txt){
@@ -141,19 +143,19 @@
     });
   }
 
-  /* Same payloads as minecore app.js. Lecturas reintentan el HTML transitorio de Apps Script
-     para no pintar $0 cuando el script sí tiene saldo. */
+  /* HTML 404 de Google llega ANTES de ejecutar el script, también en aprobar.
+     Reintentar es seguro. Un fallo de red en una escritura no se reintenta. */
   function cajaCallScript(data){
     var action=String((data&&data.action)||'');
     var lectura=/^(get|list|mi)/.test(action);
-    var max=lectura?5:2;
     function intento(n){
       return cajaFetchOnce(data).catch(function(e){
         var google=!!(e&&e.googlePage);
-        if(n>=max){
+        var tope=lectura||google?5:0;
+        if(n>=tope){
+          if(!lectura && !google) throw e;
           return {ok:false,error:'Caja API no disponible',_transport:true};
         }
-        if(!lectura && !google) throw e;
         var espera=[350,800,1500,2500,4000][n]||4000;
         return new Promise(function(res){ setTimeout(res, espera); }).then(function(){ return intento(n+1); });
       });
@@ -170,7 +172,10 @@
       if(payload.action==='crearGasto' && !payload.usuario) payload.usuario=session.usuario;
     }
     return cajaCallScript(payload).catch(function(){
-      if(typeof MCpost!=='function') return {ok:false,error:'Error de conexión'};
+      var action=String(payload.action||'');
+      var lectura=/^(get|list|mi)/.test(action);
+      /* v124 no aprueba Caja. Caer al motor Admin en una escritura solo esconde el error. */
+      if(!lectura || typeof MCpost!=='function') return {ok:false,error:'Error de conexión',_transport:true};
       var fb={};
       Object.keys(payload).forEach(function(k){ fb[k]=payload[k]; });
       try{ fb.user=getUserName(); fb.pin=getPin(); }catch(e2){}
@@ -687,13 +692,18 @@ function rutaTicket(r, isAdmin){
   </div>`;
 }
 
+function cajaToastApi(r,okMsg){
+  if(r&&r.ok){ toast(okMsg); return true; }
+  toast('Error: '+((r&&r.error)||'no se pudo guardar'));
+  return false;
+}
 async function doApprove(id){
-  try{ const r=await api({action:'aprobarRuta',id,admin:session.usuario}); if(r.ok){toast('✓ Aprobada');setView('aprobar');}else toast('Error'); }catch(e){toast('Error de conexión');}
+  try{ const r=await api({action:'aprobarRuta',id,admin:session.usuario}); if(cajaToastApi(r,'✓ Aprobada')) setView('aprobar'); }catch(e){toast('Error de conexión');}
 }
 async function doReject(id,btn){
   const inp=document.getElementById('ri-'+id);
   if(inp.style.display!=='block'){ inp.style.display='block'; inp.focus(); btn.textContent='Confirmar rechazo'; return; }
-  try{ const r=await api({action:'rechazarRuta',id,admin:session.usuario,notas:inp.value||''}); if(r.ok){toast('Rechazada');setView('aprobar');}else toast('Error'); }catch(e){toast('Error de conexión');}
+  try{ const r=await api({action:'rechazarRuta',id,admin:session.usuario,notas:inp.value||''}); if(cajaToastApi(r,'Rechazada')) setView('aprobar'); }catch(e){toast('Error de conexión');}
 }
 
 function editRuta(id){
@@ -1461,11 +1471,15 @@ function cSetFiltro(f){ window._cFiltro=f; const d=applyDateFiltro(f,'c'); windo
 function cApply(){ window._cFi=document.getElementById('c-fi').value; window._cFf=document.getElementById('c-ff').value; window._cFiltro='custom'; document.querySelectorAll('[id^="c-btn-"]').forEach(b=>b.classList.remove('active')); renderCuenta(document.getElementById('content')); }
 
 // ─── VIEW: APROBAR ────────────────────────────────────────────────────────────
+function cajaRetryBtn(view,msg){
+  return `<div class="page-title">${msg}</div><div class="empty">No se pudo cargar.<br><button class="btn-approve" style="margin-top:12px" onclick="setView('${view}')">Reintentar</button></div>`;
+}
 async function vAprobar(c){
   c.innerHTML=spin();
   try{
     const r=await api({action:'getRutas',rol:'admin',estado:'Pendiente'});
-    const rutas=r.rutas||[];
+    const rutas=cajaReadList(r,'rutas');
+    if(!rutas){ c.innerHTML=cajaRetryBtn('aprobar','Por aprobar'); return; }
     window._allRutas=rutas;
     c.innerHTML=`<div class="page-title">Por aprobar</div>
     <div class="page-sub">${rutas.length} pendiente${rutas.length!==1?'s':''}</div>
@@ -1475,10 +1489,15 @@ async function vAprobar(c){
 }
 async function aprobarTodo(){
   const pendientes=(window._allRutas||[]).filter(r=>r['Estado']==='Pendiente');
+  let okN=0, fail=0;
   for(const r of pendientes){
-    try{ await api({action:'aprobarRuta',id:r['ID'],admin:session.usuario}); }catch(e){}
+    try{
+      const res=await api({action:'aprobarRuta',id:r['ID'],admin:session.usuario});
+      if(res&&res.ok) okN++; else fail++;
+    }catch(e){ fail++; }
   }
-  toast('✓ Todas aprobadas');setView('aprobar');
+  toast(fail?(okN+' aprobadas · '+fail+' sin aprobar'):'✓ Todas aprobadas');
+  setView('aprobar');
 }
 
 // ─── VIEW: HISTORIAL ──────────────────────────────────────────────────────────
@@ -1782,17 +1801,27 @@ async function enviarEntrega(){
 
 async function vAprobarGastos(c){
   c.innerHTML=spin();
-  try{const r=await api({action:'getGastos',rol:'admin',estado:'Pendiente'});const g=r.gastos||[];
-  window._pendGastos=g;
-  c.innerHTML=`<div class="page-title">Gastos por aprobar</div><div class="page-sub">${g.length} pendiente${g.length!==1?'s':''}</div>
-  ${g.length?`<button onclick="aprobarTodosGastos()" style="width:100%;padding:12px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px">✓ Aprobar todos</button>`:''}
-  ${g.length?g.map(x=>gastoH(x,true)).join(''):empty('Sin gastos pendientes ✓')}`;
+  try{
+    const r=await api({action:'getGastos',rol:'admin',estado:'Pendiente'});
+    const g=cajaReadList(r,'gastos');
+    if(!g){ c.innerHTML=cajaRetryBtn('aprobar-gastos','Gastos por aprobar'); return; }
+    window._pendGastos=g;
+    c.innerHTML=`<div class="page-title">Gastos por aprobar</div><div class="page-sub">${g.length} pendiente${g.length!==1?'s':''}</div>
+    ${g.length?`<button onclick="aprobarTodosGastos()" style="width:100%;padding:12px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px">✓ Aprobar todos</button>`:''}
+    ${g.length?g.map(x=>gastoH(x,true)).join(''):empty('Sin gastos pendientes ✓')}`;
   }catch(e){c.innerHTML=errMsg();}
 }
 async function aprobarTodosGastos(){
   const pend=window._pendGastos||[];
-  for(const g of pend){try{await api({action:'aprobarGasto',id:g['ID'],admin:session.usuario});}catch(e){}}
-  toast('✓ Todos aprobados'); setView('aprobar-gastos');
+  let okN=0, fail=0;
+  for(const g of pend){
+    try{
+      const r=await api({action:'aprobarGasto',id:g['ID'],admin:session.usuario});
+      if(r&&r.ok) okN++; else fail++;
+    }catch(e){ fail++; }
+  }
+  toast(fail?(okN+' aprobados · '+fail+' sin aprobar'):'✓ Todos aprobados');
+  setView('aprobar-gastos');
 }
 
 async function vHistorialCaja(c){
@@ -1942,8 +1971,8 @@ function gastoH(g,isAdmin){
     :'<div style="font-size:11px;color:var(--text3);margin-top:4px">Sin foto adjunta</div>'}
     ${acc}</div>`;
 }
-async function aprG(id){try{const r=await api({action:'aprobarGasto',id,admin:session.usuario});if(r.ok){toast('✓ Aprobado');setView('aprobar-gastos');}else toast('Error');}catch(e){toast('Error de conexión');}}
-async function rejG(id){try{const r=await api({action:'rechazarGasto',id,admin:session.usuario});if(r.ok){toast('Rechazado');setView('aprobar-gastos');}else toast('Error');}catch(e){toast('Error de conexión');}}
+async function aprG(id){try{const r=await api({action:'aprobarGasto',id,admin:session.usuario});if(cajaToastApi(r,'✓ Aprobado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
+async function rejG(id){try{const r=await api({action:'rechazarGasto',id,admin:session.usuario});if(cajaToastApi(r,'Rechazado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
 
 // ─── PHOTO UPLOAD ─────────────────────────────────────────────────────────────
 async function handleFoto(input,prevId,statId,urlId){
