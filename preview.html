@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Preview Caja/Rutas · index v210</title>
-<link rel="stylesheet" href="caja.css?v=210">
+<title>Preview Caja/Rutas · index v215</title>
+<link rel="stylesheet" href="caja.css?v=215">
 <style>
 html,body{margin:0;background:#0b1219;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
 .pv-wrap{max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
@@ -18,8 +18,8 @@ body.mc-caja-open #caja-screen,
 <body class="mc-caja-open">
 <div class="pv-wrap">
 <div class="pv-note">
-  <b>PREVIEW v210</b> — shell nativo Caja/Rutas (sin PIN). Caja disponible sale de entregas − aprobados, con arrastre 26→25. getBalanceCaja vacío no pinta $0.<br>
-  Producción: hard-refresh <code>https://portal.minecore.ec/?v=210</code>
+  <b>PREVIEW v215</b> — shell nativo Caja/Rutas (sin PIN). Los datos van por POST al Admin API (mock). Caja disponible sale de entregas − aprobados, con arrastre 26→25. getBalanceCaja vacío no pinta $0.<br>
+  Producción: hard-refresh <code>https://portal.minecore.ec/?v=215</code>
 </div>
 <div id="caja-screen" class="on"></div>
 </div>
@@ -50,14 +50,23 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
   ];
   var failMovs=false;
   try{ failMovs=new URLSearchParams(location.search).get('fail')==='movs'; }catch(eF){}
+  function postBody(opts){
+    try{ return opts&&opts.body?JSON.parse(opts.body):{}; }catch(e){ return {}; }
+  }
+  window.API_URL='https://script.google.com/macros/s/preview-admin/exec';
+  window.MCpost=function(p){
+    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(p||{})})
+      .then(function(r){ return r.text(); })
+      .then(function(t){ return JSON.parse(t); });
+  };
   window.fetch=function(url,opts){
     var u=String(url||'');
     window.__cajaUrls=window.__cajaUrls||[];
     if(u.indexOf('script.google.com')>=0) window.__cajaUrls.push(u);
     if(u.indexOf('script.google.com')<0) return real(url,opts);
-    var action='';
-    try{ action=new URL(u,location.href).searchParams.get('action')||''; }catch(e){}
-    if(!action && opts && opts.body){ try{ action=JSON.parse(opts.body).action||''; }catch(e2){} }
+    var body=postBody(opts);
+    var action=body.action||'';
+    try{ if(!action) action=new URL(u,location.href).searchParams.get('action')||''; }catch(e){}
     if(failMovs && (action==='getEntregas'||action==='getGastos'||action==='getBalanceCaja')){
       return Promise.resolve({status:404, ok:false, text:function(){ return Promise.resolve('<html>Page Not Found unable to open the file</html>'); }});
     }
@@ -68,8 +77,7 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
     ]});
     if(action==='getRutas'){
       try{
-        var q=new URL(u,location.href).searchParams;
-        var est=q.get('estado');
+        var est=body.estado||'';
         var out=rutas;
         if(est) out=rutas.filter(function(r){ return r.Estado===est; });
         return j({ok:true,rutas:out});
@@ -78,23 +86,20 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
     /* Vacío a propósito: el home no puede depender de este endpoint (a veces llega [] y pintaba $0). */
     if(action==='getBalanceCaja') return j({ok:true,balances:[]});
     if(action==='aprobarGasto'||action==='rechazarGasto'){
-      var idG='';
-      try{ idG=new URL(u,location.href).searchParams.get('id')||''; }catch(eA){}
+      var idG=body.id||'';
       var estSet=action==='aprobarGasto'?'Aprobado':'Rechazado';
       gastos.forEach(function(g){ if(g.ID===idG) g.Estado=estSet; });
       return j({ok:true});
     }
     if(action==='aprobarRuta'||action==='rechazarRuta'){
-      var idR='';
-      try{ idR=new URL(u,location.href).searchParams.get('id')||''; }catch(eR){}
+      var idR=body.id||'';
       var estR=action==='aprobarRuta'?'Aprobada':'Rechazada';
       rutas.forEach(function(r){ if(r.ID===idR) r.Estado=estR; });
       return j({ok:true});
     }
     if(action==='getGastos'){
       try{
-        var qg=new URL(u,location.href).searchParams;
-        var estG=qg.get('estado');
+        var estG=body.estado||'';
         var outG=gastos;
         if(estG) outG=gastos.filter(function(g){ return g.Estado===estG; });
         return j({ok:true,gastos:outG});
@@ -111,7 +116,7 @@ window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=210"></script>
+<script src="caja.js?v=215"></script>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
   if(window.Caja&&Caja.init) Caja.init();
