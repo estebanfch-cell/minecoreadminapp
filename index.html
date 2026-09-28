@@ -8214,7 +8214,10 @@ function renderHome(){
   if(p.rol==='admin'){
     fetch(API_URL).then(function(r){return r.json();}).then(function(d){
       var e=document.getElementById('api-ver');
-      window._motorVer=d.version||'?';if(e)e.innerHTML='Motor API: '+(d.version||'?')+(d.version==='v125'?' ✓':' <span style="color:#8fa3b8">Caja/Rutas usan SCRIPT_URL minecore · v125 opcional a largo plazo</span>');
+      window._motorVer=d.version||'?';
+      var mv=parseInt(String(d.version||'').replace(/\D/g,''),10)||0;
+      var cajaOk=mv>=127||d.cajaNative===true;
+      if(e)e.innerHTML='Motor API: '+(d.version||'?')+(cajaOk?' ✓':' <span style="color:#8fa3b8">Caja/Rutas nativas esperan motor v127 (pestañas Caja_* en la base Admin)</span>');
     }).catch(function(){});
   }
   try{

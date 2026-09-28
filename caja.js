@@ -1,10 +1,9 @@
-/* Native Caja + Rutas for Minecore Admin (index v201). Data via minecore SCRIPT_URL.
+/* Caja + Rutas nativo en Minecore Admin. Lecturas y escrituras solo por MCpost → API_URL (Admin).
    Maps: Google Maps JS (Minecore Portal Maps / minecore.ec org) — places+geometry, shortest route.
    OSM/Leaflet only if Google fails (RefererNotAllowed). No Caja PIN. */
 (function (global) {
   'use strict';
 
-  const CAJA_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwey092-gmFNWsJQmJVSZ9aiSVNxMCFUhfcu_3hyotGNtc6219atTs-y3dApG3JtWw/exec';
   const MINECORE_LL = {lat:-0.1940519, lng:-78.4841933};
   const MINECORE_ADDR = 'Minecore S.A.S \u2014 Alpallana E7-212, Quito';
   const MAPS_KEY = 'AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A';
@@ -98,71 +97,6 @@
     }
   }
 
-  function cajaParse(txt){
-    try{ return JSON.parse(txt); }catch(e){ return null; }
-  }
-  /* Google a veces responde HTML 404 ("unable to open the file") ANTES de correr el script. */
-  function cajaIsGooglePage(txt, status){
-    var s=String(txt||'');
-    if((status===404||status===500||status===502||status===503) && /<!doctype html|<html/i.test(s)) return true;
-    return /unable to open the file|no se pudo abrir el archivo|Page Not Found|Google Drive/i.test(s);
-  }
-  function cajaFetchOnce(data){
-    var isPhoto=data&&data.action==='savePhoto';
-    var url=CAJA_SCRIPT_URL;
-    var opts;
-    if(isPhoto){
-      opts={method:'POST',body:JSON.stringify(data),redirect:'follow',credentials:'omit'};
-    } else {
-      var p=new URLSearchParams();
-      Object.keys(data||{}).forEach(function(k){
-        var v=data[k];
-        if(v===undefined||v===null) return;
-        p.append(k, typeof v==='object' ? JSON.stringify(v) : String(v));
-      });
-      /* iOS reuses GET de Apps Script; un approve o un balance viejo se quedan pegados. */
-      p.append('_cb', String(Date.now()));
-      url=CAJA_SCRIPT_URL+'?'+p.toString();
-      opts={redirect:'follow',credentials:'omit',cache:'no-store'};
-    }
-    return fetch(url, opts).then(function(r){
-      return r.text().then(function(txt){
-        if(cajaIsGooglePage(txt, r.status)){
-          var err=new Error('google-page');
-          err.googlePage=true;
-          throw err;
-        }
-        var parsed=cajaParse(txt);
-        if(!parsed){
-          var err2=new Error('non-json');
-          err2.googlePage=true;
-          throw err2;
-        }
-        return parsed;
-      });
-    });
-  }
-
-  /* HTML 404 de Google llega ANTES de ejecutar el script, también en aprobar.
-     Reintentar es seguro. Un fallo de red en una escritura no se reintenta. */
-  function cajaCallScript(data){
-    var action=String((data&&data.action)||'');
-    var lectura=/^(get|list|mi)/.test(action);
-    function intento(n){
-      return cajaFetchOnce(data).catch(function(e){
-        var google=!!(e&&e.googlePage);
-        var tope=lectura||google?5:0;
-        if(n>=tope){
-          if(!lectura && !google) throw e;
-          return {ok:false,error:'Caja API no disponible',_transport:true};
-        }
-        var espera=[350,800,1500,2500,4000][n]||4000;
-        return new Promise(function(res){ setTimeout(res, espera); }).then(function(){ return intento(n+1); });
-      });
-    }
-    return intento(0);
-  }
-
   function api(data){
     var payload={};
     Object.keys(data||{}).forEach(function(k){ payload[k]=data[k]; });
@@ -171,15 +105,15 @@
       if(payload.action==='crearRuta' && !payload.usuario) payload.usuario=session.usuario;
       if(payload.action==='crearGasto' && !payload.usuario) payload.usuario=session.usuario;
     }
-    return cajaCallScript(payload).catch(function(){
-      var action=String(payload.action||'');
-      var lectura=/^(get|list|mi)/.test(action);
-      /* v124 no aprueba Caja. Caer al motor Admin en una escritura solo esconde el error. */
-      if(!lectura || typeof MCpost!=='function') return {ok:false,error:'Error de conexión',_transport:true};
-      var fb={};
-      Object.keys(payload).forEach(function(k){ fb[k]=payload[k]; });
-      try{ fb.user=getUserName(); fb.pin=getPin(); }catch(e2){}
-      return MCpost(fb);
+    try{
+      if(!payload.user && typeof getUserName==='function') payload.user=getUserName();
+      if(payload.pin==null && typeof getPin==='function') payload.pin=getPin();
+    }catch(ePin){}
+    if(typeof MCpost!=='function'){
+      return Promise.resolve({ok:false,error:'Admin API no disponible',_transport:true});
+    }
+    return MCpost(payload).catch(function(e){
+      return {ok:false,error:(e&&e.message)||'Error de conexión',_transport:true};
     });
   }
 
@@ -2702,7 +2636,6 @@ function _pdfSafe(s){
   try{ if(typeof rutaTicket==='function'){ pub.rutaTicket=rutaTicket; if('rutaTicket'!=='openMod'&&'rutaTicket'!=='goHome') global.rutaTicket=rutaTicket; } }catch(e){}
   try{ if(typeof saldoAnterior==='function'){ pub.saldoAnterior=saldoAnterior; if('saldoAnterior'!=='openMod'&&'saldoAnterior'!=='goHome') global.saldoAnterior=saldoAnterior; } }catch(e){}
   try{ if(typeof saldoCajaPeriodo==='function'){ pub.saldoCajaPeriodo=saldoCajaPeriodo; if('saldoCajaPeriodo'!=='openMod'&&'saldoCajaPeriodo'!=='goHome') global.saldoCajaPeriodo=saldoCajaPeriodo; } }catch(e){}
-  try{ if(typeof cajaCallScript==='function'){ pub.cajaCallScript=cajaCallScript; if('cajaCallScript'!=='openMod'&&'cajaCallScript'!=='goHome') global.cajaCallScript=cajaCallScript; } }catch(e){}
   try{ if(typeof saveEditRuta==='function'){ pub.saveEditRuta=saveEditRuta; if('saveEditRuta'!=='openMod'&&'saveEditRuta'!=='goHome') global.saveEditRuta=saveEditRuta; } }catch(e){}
   try{ if(typeof setView==='function'){ pub.setView=setView; if('setView'!=='openMod'&&'setView'!=='goHome') global.setView=setView; } }catch(e){}
   try{ if(typeof show==='function'){ pub.show=show; if('show'!=='openMod'&&'show'!=='goHome') global.show=show; } }catch(e){}

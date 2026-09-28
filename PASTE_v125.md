@@ -1,3 +1,7 @@
+# PASTE AdminAPI v125 — SUPERSEDED
+
+**No pegues este archivo.** La copia del 19-sep (`1xHmpv…`) quedó como fuente preferida y eso está mal: el libro vivo es `1TBkb…`. Usá `PASTE_v127.md` + `AdminAPI_v127.gs`. El portal (index v215) ya no llama al SCRIPT_URL viejo de Minecore App.
+
 # PASTE AdminAPI v125 — Caja nativa (EFCH)
 
 El frontend nativo ya no usa iframe a `estebanfch-cell.github.io/minecore`.  
