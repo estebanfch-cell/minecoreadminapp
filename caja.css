@@ -116,6 +116,10 @@ body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
 #caja-screen .action-row{display:flex;gap:8px;margin-top:10px}
 #caja-screen .btn-approve{flex:1;padding:10px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer}
 #caja-screen .btn-reject{flex:1;padding:10px;background:var(--err-bg);color:var(--err-tx);border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer}
+#caja-screen .del-row{margin-top:10px;padding-top:8px;border-top:1px dashed rgba(196,92,38,.35)}
+#caja-screen .btn-delete{width:100%;padding:8px 10px;background:transparent;color:#c2410c;border:1px solid #c2410c;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer}
+#caja-screen .btn-delete:disabled{opacity:.45;cursor:default}
+#caja-screen .del-hint{margin-top:4px;font-size:10px;color:var(--text3);letter-spacing:.01em}
 #caja-screen .reject-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);margin-top:8px;display:none}
 
 /* FORMS */
