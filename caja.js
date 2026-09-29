@@ -1755,13 +1755,50 @@ async function vBalance(c){
   }catch(e){c.innerHTML=errMsg();}
 }
 
+/* b220: «Para quién» SIEMPRE arranca en OPM (al abrir y tras cada envío). */
+const CAJA_DEST_DEFAULT='OPM';
+function cajaResetDestDefault(){
+  const sel=document.getElementById('e-dest');
+  if(!sel) return;
+  if(![...sel.options].some(o=>o.value===CAJA_DEST_DEFAULT)){
+    const o=document.createElement('option'); o.value=CAJA_DEST_DEFAULT; o.textContent=CAJA_DEST_DEFAULT+' — Oswaldo Peña'; sel.insertBefore(o,sel.firstChild);
+  }
+  sel.value=CAJA_DEST_DEFAULT;
+}
+/* b220: anti-duplicado Caja. Una sola solicitud en vuelo por formulario + clave de idempotencia
+   (clientReqId) generada al abrir el formulario y REUTILIZADA en cada reintento hasta que se confirme.
+   El motor v129 deduplica por esa clave (LockService + CacheService). Si la respuesta se pierde,
+   antes de habilitar el botón se verifica en el Sheet si la línea ya quedó guardada. */
+const _cajaInflight={};
+const _cajaReqIds={};
+function cajaNewReqId(kind){ return kind+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10); }
+function cajaReqId(kind){ if(!_cajaReqIds[kind]) _cajaReqIds[kind]=cajaNewReqId(kind); return _cajaReqIds[kind]; }
+function cajaReqDone(kind){ delete _cajaReqIds[kind]; }
+function cajaFechaMs(v){
+  const s=String(v||'').trim(); if(!s) return 0;
+  if(/T.*Z$/.test(s)){ const t=Date.parse(s); return isNaN(t)?0:t; }
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0)).getTime();
+  const t=Date.parse(s); return isNaN(t)?0:t;
+}
+/* ¿Ya existe en el Sheet una línea igual creada hace < 3 min? (la respuesta se perdió pero el motor sí escribió) */
+async function cajaYaGuardado(action,match,t0){
+  try{
+    const r=await api({action:action,_retries:2});
+    const list=(r&&(r.entregas||r.gastos||r.data||r.rows))||[];
+    const lim=(t0||Date.now())-180000;
+    return list.find(x=>{ if(cajaFechaMs(x['Fecha'])<lim) return false; return Object.keys(match).every(k=>String(x[k]==null?'':x[k]).trim()===String(match[k]==null?'':match[k]).trim()); })||null;
+  }catch(e){ return null; }
+}
 function renderNuevaEntrega(c){
+  cajaReqDone('entrega');
   const us=[...allUsers.filter(u=>(u.activo==='SI'||(u.activo===undefined))&&(u.rol||'').toLowerCase()==='chofer'),
              ...allUsers.filter(u=>(u.activo==='SI'||(u.activo===undefined))&&(u.rol||'').toLowerCase()!=='chofer')];
+  if(!us.some(u=>u.usuario===CAJA_DEST_DEFAULT)) us.unshift({usuario:CAJA_DEST_DEFAULT,nombre:'Oswaldo Peña',rol:'chofer',activo:'SI'});
   c.innerHTML=`<div class="page-title">Registrar entrega</div><div class="page-sub">Dinero entregado a un colaborador</div>
   <div class="card">
     <div class="field-group"><label class="field-label">Para quién</label>
-      <select class="field-sel" id="e-dest">${us.map(u=>`<option value="${u.usuario}">${u.usuario} — ${u.nombre}</option>`).join('')}</select></div>
+      <select class="field-sel" id="e-dest">${us.map(u=>`<option value="${u.usuario}"${u.usuario===CAJA_DEST_DEFAULT?' selected':''}>${u.usuario} — ${u.nombre}</option>`).join('')}</select></div>
     <div class="field-group"><label class="field-label">Monto ($)</label><input class="field-input" type="number" id="e-monto" placeholder="0.00" step="0.01" min="0.01"></div>
     <div class="field-group"><label class="field-label">Forma</label>
       <select class="field-sel" id="e-forma"><option value="Transferencia">💳 Transferencia</option><option value="Efectivo">💵 Efectivo</option><option value="Cheque">📄 Cheque</option></select></div>
@@ -1777,6 +1814,7 @@ function renderNuevaEntrega(c){
     <input type="hidden" id="e-url">
     <button class="btn-submit gold" onclick="enviarEntrega()" id="btn-e">Registrar entrega</button>
   </div>`;
+  cajaResetDestDefault();
 }
 function vNuevaEntrega(c){ if(!puedeInteractuar()||!esAdminCaja()){ c.innerHTML=roMsg('registrar entregas'); return; } renderNuevaEntrega(c); }
 async function enviarEntrega(){
@@ -1794,10 +1832,33 @@ async function enviarEntrega(){
     excMotivoE=mEl?mEl.value.trim():'';
     if(excMotivoE.length<5){ mostrarExcepcion('e'); toast('Escribe el motivo en la caja naranja (mínimo unas palabras)'); return; }
   }
-  const btn=document.getElementById('btn-e');btn.textContent='Guardando...';btn.disabled=true;
-  try{const r=await api({action:'crearEntrega',admin:session.usuario,usuarioDestino:document.getElementById('e-dest').value,monto,forma:document.getElementById('e-forma').value,descripcion:(excMotivoE?'[SIN COMPROBANTE: '+excMotivoE+'] ':'')+(document.getElementById('e-desc').value||'Sin descripción'),fotoUrl:document.getElementById('e-url').value||''});
-  if(r.ok){toast('✓ Entrega registrada');try{setView('balance');}catch(e2){cajaGoHome();}}else toast('Error: '+(r.error||''));}catch(e){toast('Error de conexión');}
-  btn.textContent='Registrar entrega';btn.disabled=false;
+  if(_cajaInflight.entrega) return;
+  _cajaInflight.entrega=true;
+  const btn=document.getElementById('btn-e');if(btn){btn.textContent='Guardando...';btn.disabled=true;}
+  const payload={action:'crearEntrega',admin:session.usuario,usuarioDestino:document.getElementById('e-dest').value||CAJA_DEST_DEFAULT,monto,forma:document.getElementById('e-forma').value,descripcion:(excMotivoE?'[SIN COMPROBANTE: '+excMotivoE+'] ':'')+(document.getElementById('e-desc').value||'Sin descripción'),fotoUrl:document.getElementById('e-url').value||'',clientReqId:cajaReqId('entrega')};
+  const t0=Date.now();
+  let ok=false, err='';
+  try{
+    const r=await api(payload);
+    if(r&&r.ok) ok=true;
+    else{
+      err=(r&&r.error)||'';
+      if(!r||r._transport){
+        const hit=await cajaYaGuardado('getEntregas',{'Usuario Destino':payload.usuarioDestino,'Monto ($)':payload.monto,'Forma':payload.forma,'Descripcion':payload.descripcion,'Foto URL':payload.fotoUrl},t0);
+        if(hit) ok=true;
+      }
+    }
+  }catch(e){ err='Error de conexión'; }
+  _cajaInflight.entrega=false;
+  if(ok){
+    cajaReqDone('entrega');
+    toast('✓ Entrega registrada');
+    try{ const m=document.getElementById('e-monto'); if(m) m.value=''; const d=document.getElementById('e-desc'); if(d) d.value=''; cajaResetDestDefault(); }catch(eR){}
+    try{setView('balance');}catch(e2){cajaGoHome();}
+    return;
+  }
+  toast('Error: '+(err||'Error de conexión')+' — reintentá: no se duplicará');
+  if(btn){btn.textContent='Registrar entrega';btn.disabled=false;}
 }
 
 async function vAprobarGastos(c){
@@ -1886,6 +1947,7 @@ function filtG(el,est){ document.querySelectorAll('.tab').forEach(t=>t.classList
 
 function vNuevoGasto(c){
   if(!puedeInteractuar()){ c.innerHTML=roMsg('registrar gastos'); return; }
+  cajaReqDone('gasto');
   c.innerHTML=`<div class="page-title">Registrar gasto</div><div class="page-sub">Sube la factura para aprobación</div>
   <div class="card">
     <div class="field-group"><label class="field-label">Monto ($)</label><input class="field-input" type="number" id="g-monto" placeholder="0.00" step="0.01" min="0.01"></div>
@@ -1920,11 +1982,20 @@ async function enviarGasto(){
     excMotivo=mEl?mEl.value.trim():'';
     if(excMotivo.length<5){ mostrarExcepcion('g'); toast('Escribe el motivo en la caja naranja (mínimo unas palabras)'); return; }
   }
+  if(_cajaInflight.gasto) return;
+  _cajaInflight.gasto=true;
   const btn=document.getElementById('btn-g');btn.textContent='Enviando...';btn.disabled=true;
+  const gPayload={action:'crearGasto',usuario:session.usuario,monto,categoria:document.getElementById('g-cat').value,descripcion:(excMotivo?'[SIN RESPALDO: '+excMotivo+'] ':'')+(document.getElementById('g-desc').value||'Sin descripción'),fotoUrl:document.getElementById('g-url').value||'',clientReqId:cajaReqId('gasto')};
+  const t0=Date.now();
   let r=null;
-  try{r=await api({action:'crearGasto',usuario:session.usuario,monto,categoria:document.getElementById('g-cat').value,descripcion:(excMotivo?'[SIN RESPALDO: '+excMotivo+'] ':'')+(document.getElementById('g-desc').value||'Sin descripción'),fotoUrl:document.getElementById('g-url').value||''});}
-  catch(e){toast('Error de conexión');btn.textContent='Enviar para aprobación';btn.disabled=false;return;}
+  try{r=await api(gPayload);}catch(e){r={ok:false,_transport:true,error:'Error de conexión'};}
+  if(r&&!r.ok&&r._transport){
+    const hit=await cajaYaGuardado('getGastos',{'Usuario':gPayload.usuario,'Monto ($)':gPayload.monto,'Descripcion':gPayload.descripcion,'Foto URL':gPayload.fotoUrl},t0);
+    if(hit) r={ok:true,id:hit['ID'],reconciled:true};
+  }
+  _cajaInflight.gasto=false;
   btn.textContent='Enviar para aprobación';btn.disabled=false;
+  if(r&&r.ok) cajaReqDone('gasto');
   if(r&&r.ok){
     toast('✓ Gasto enviado');
     try{setView(session.rol==='admin'?'aprobar-gastos':'mis-gastos');}catch(e){cajaGoHome();}

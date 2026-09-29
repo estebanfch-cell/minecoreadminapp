@@ -305,7 +305,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='219';
+  var MC_BUILD='220';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -416,6 +416,7 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
    del API ({ok:true, service, version}) en vez de ejecutar la acción. Se detecta y se reintenta; para acciones
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
 var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow|saveVendor|saveStockTransfer|savePurchaseOrder|cancelPurchaseOrder|approvePurchaseOrder|crearRuta|crearGasto|crearEntrega|savePhoto|cerrarCorte)$/;
+var MC_ALTA_CAJA=/^(crearEntrega|crearGasto|crearRuta|cerrarCorte)$/;
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
 function MCpost(p){
   p=p||{};
@@ -453,7 +454,10 @@ function MCpost(p){
       }
       var trans=!!(lectura&&esGoogleTransitorio(e));
       var tope=trans?Math.max(maxRetry,6):maxRetry;
-      var puede=esPaginaGoogle(e)||(lectura&&!esPaginaGoogle(e));
+      /* b220: una página HTML de Google puede llegar DESPUÉS de que el script escribió (p.ej. la redirección
+         a googleusercontent falla con 404/500 «no se pudo abrir el archivo»). Las altas no repetibles
+         (crearEntrega/crearGasto/crearRuta/cerrarCorte) NO se reintentan solas: duplicaban la línea en Caja_*. */
+      var puede=(esPaginaGoogle(e)&&!MC_ALTA_CAJA.test(accion))||(lectura&&!esPaginaGoogle(e));
       if(n>=tope||!puede)throw e;
       var espera=trans?([800,1500,2500,4000,6000,8000][n]||8000):([900,1800,3200][n]||3200);
       return new Promise(function(ok){setTimeout(ok,espera);}).then(function(){return intento(n+1);});
@@ -8575,6 +8579,6 @@ window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=219"></script>
+<script src="caja.js?v=220"></script>
 </body>
 </html>
