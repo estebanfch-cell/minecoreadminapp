@@ -13,7 +13,8 @@
  *   getRutas, getGastos, getEntregas, getBalanceCaja, getConfig, updateConfig,
  *   crearRuta, editarRuta, aprobarRuta, rechazarRuta,
  *   crearGasto, aprobarGasto, rechazarGasto, crearEntrega,
- *   eliminarCajaFila (borra la fila; solo Esteban admin),
+ *   eliminarLineaCaja (borra la fila; solo EFCH / nombre Esteban).
+ *   Alias: eliminarEntrega, eliminarGasto, eliminarRuta.
  *   cerrarCorte, savePhoto, migrateCajaSheets
  *
  * Omitidas a propósito (EFCH lock): login, crearUsuario, editarUsuario, eliminarUsuario.
@@ -70,7 +71,7 @@ var CAJA_READ = {
 var CAJA_WRITE = {
   updateConfig: 1, crearRuta: 1, editarRuta: 1, aprobarRuta: 1, rechazarRuta: 1,
   crearGasto: 1, aprobarGasto: 1, rechazarGasto: 1, crearEntrega: 1,
-  eliminarCajaFila: 1,
+  eliminarLineaCaja: 1, eliminarEntrega: 1, eliminarGasto: 1, eliminarRuta: 1,
   cerrarCorte: 1, savePhoto: 1, migrateCajaSheets: 1
 };
 /** tipo del POST → pestaña lógica. Rechazar no usa esto: solo parchea Estado. */
@@ -119,8 +120,8 @@ function cajaDispatch_(p, user) {
   }
   if (!cajaCanView_(user)) return cajaJson_({ ok: false, error: 'Sin permiso del módulo Caja' });
   if (CAJA_WRITE[action] && !cajaCanWrite_(user, action)) {
-    if (action === 'eliminarCajaFila') {
-      return cajaJson_({ ok: false, error: 'Solo Esteban (admin) puede eliminar filas de Caja' });
+    if (action === 'eliminarLineaCaja' || action === 'eliminarEntrega' || action === 'eliminarGasto' || action === 'eliminarRuta') {
+      return cajaJson_({ ok: false, error: 'Solo Esteban puede eliminar filas de Caja' });
     }
     return cajaJson_({ ok: false, error: 'Se requiere permiso caja+ o admin para esta acción' });
   }
@@ -140,7 +141,7 @@ function cajaDispatch_(p, user) {
     else if (action === 'aprobarGasto') out = cajaAprobarGasto_(p, user);
     else if (action === 'rechazarGasto') out = cajaRechazarGasto_(p, user);
     else if (action === 'crearEntrega') out = cajaCrearEntrega_(p, user);
-    else if (action === 'eliminarCajaFila') out = cajaEliminarFila_(p, user);
+    else if (action === 'eliminarLineaCaja' || action === 'eliminarEntrega' || action === 'eliminarGasto' || action === 'eliminarRuta') out = cajaEliminarFila_(p, user);
     else if (action === 'cerrarCorte') out = cajaCerrarCorte_(p, user);
     else if (action === 'savePhoto') out = cajaSavePhoto_(p, user);
     else if (action === 'migrateCajaSheets') out = cajaMigrateSheets_(p, user);
@@ -606,9 +607,13 @@ function cajaCrearEntrega_(p, user) {
  */
 function cajaEliminarFila_(p, user) {
   if (!cajaCanEliminar_(user)) {
-    return { ok: false, error: 'Solo Esteban (admin) puede eliminar filas de Caja' };
+    return { ok: false, error: 'Solo Esteban puede eliminar filas de Caja' };
   }
+  var action = String(p.action || '');
   var tipo = String(p.tipo || '').toLowerCase().trim();
+  if (action === 'eliminarEntrega') tipo = 'entrega';
+  else if (action === 'eliminarGasto') tipo = 'gasto';
+  else if (action === 'eliminarRuta') tipo = 'ruta';
   var kind = CAJA_DELETE_KIND[tipo];
   if (!kind) return { ok: false, error: 'tipo inválido (entrega, gasto o ruta)' };
   var id = String(p.id || '').trim();
@@ -747,21 +752,22 @@ function cajaSessionKey_(raw) {
   try { key = key.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e2) {}
   return key.replace(/\s+/g, ' ');
 }
-/** Esteban / EFCH con rol admin. Osvaldo y Secre no, aunque tengan caja+ o rol mal cargado. */
+/** user/nombre === EFCH, o empieza con Esteban. No mira el rol: Osvaldo y Secre también son admin. */
 function cajaCanEliminar_(user) {
-  if (!cajaIsAdmin_(user)) return false;
   var parts = [user && user.usuario, user && user.nombre];
   for (var i = 0; i < parts.length; i++) {
-    var key = cajaSessionKey_(parts[i]);
-    if (!key) continue;
-    if (key === 'esteban' || key === 'efch' || key.indexOf('esteban ') === 0) return true;
-    var first = key.split(' ')[0];
-    if (first === 'esteban' || first === 'efch') return true;
+    var raw = String(parts[i] || '').trim();
+    if (!raw) continue;
+    if (raw.toUpperCase() === 'EFCH') return true;
+    var key = cajaSessionKey_(raw);
+    if (key.indexOf('esteban') === 0) return true;
   }
   return false;
 }
 function cajaCanWrite_(user, action) {
-  if (action === 'eliminarCajaFila') return cajaCanEliminar_(user);
+  if (action === 'eliminarLineaCaja' || action === 'eliminarEntrega' || action === 'eliminarGasto' || action === 'eliminarRuta') {
+    return cajaCanEliminar_(user);
+  }
   if (cajaIsAdmin_(user)) return true;
   if (action === 'migrateCajaSheets') return false;
   if (action === 'updateConfig' || action === 'aprobarRuta' || action === 'rechazarRuta' ||

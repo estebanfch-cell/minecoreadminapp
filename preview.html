@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Preview Caja/Rutas · index v218</title>
-<link rel="stylesheet" href="caja.css?v=218">
+<title>Preview Caja/Rutas · index v219</title>
+<link rel="stylesheet" href="caja.css?v=219">
 <style>
 html,body{margin:0;background:#0b1219;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif}
 .pv-wrap{max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
@@ -18,8 +18,8 @@ body.mc-caja-open #caja-screen,
 <body class="mc-caja-open">
 <div class="pv-wrap">
 <div class="pv-note">
-  <b>PREVIEW v218</b> — shell nativo Caja/Rutas (sin PIN). Los datos van por POST al Admin API (mock). Caja disponible sale de entregas − aprobados, con arrastre 26→25. Esteban (admin) puede <b>Eliminar</b> la fila; Osvaldo y Secre no. <code>?who=osvaldo</code> o <code>?who=secre</code> para ver el historial sin ese botón.<br>
-  Producción: hard-refresh <code>https://portal.minecore.ec/?v=218</code>
+  <b>PREVIEW v219</b> — shell nativo Caja/Rutas (sin PIN). Los datos van por POST al Admin API (mock). Caja disponible = entregas − gastos aprobados. <b>Eliminar</b> solo si el usuario es EFCH o el nombre empieza con Esteban. Osvaldo y Secre son admin y no lo ven. <code>?who=osvaldo</code> o <code>?who=secre</code>.<br>
+  Producción: hard-refresh <code>https://portal.minecore.ec/?v=219</code>
 </div>
 <div id="caja-screen" class="on"></div>
 </div>
@@ -27,11 +27,14 @@ body.mc-caja-open #caja-screen,
 window.__pvWho='esteban';
 try{ window.__pvWho=(new URLSearchParams(location.search).get('who')||'esteban').toLowerCase(); }catch(eW){}
 if(window.__pvWho==='osvaldo'||window.__pvWho==='oswaldo'){
-  window.getProfile=function(){return {nombre:'Osvaldo',rol:'usuario',modulos:['caja+']};};
+  window.getProfile=function(){return {nombre:'Osvaldo',rol:'admin',modulos:['caja+']};};
   window.getUserName=function(){return 'Osvaldo';};
 }else if(window.__pvWho==='secre'){
-  window.getProfile=function(){return {nombre:'Secre',rol:'usuario',modulos:['caja+']};};
+  window.getProfile=function(){return {nombre:'Secre',rol:'admin',modulos:['caja+']};};
   window.getUserName=function(){return 'Secre';};
+}else if(window.__pvWho==='esteban'){
+  window.getProfile=function(){return {nombre:'Esteban Ferlito',rol:'admin',modulos:['caja+']};};
+  window.getUserName=function(){return 'Esteban';};
 }else{
   window.getProfile=function(){return {nombre:'Esteban Ferlito',rol:'admin',modulos:['caja+']};};
   window.getUserName=function(){return 'EFCH';};
@@ -108,13 +111,22 @@ window.goHome=function(){ var t=document.getElementById('toast'); if(window.toas
       rutas.forEach(function(r){ if(r.ID===idR) r.Estado=estR; });
       return j({ok:true});
     }
-    if(action==='eliminarCajaFila'){
+    if(action==='eliminarLineaCaja'||action==='eliminarEntrega'||action==='eliminarGasto'||action==='eliminarRuta'){
       var prof=window.getProfile()||{};
-      var nom=String(prof.nombre||'').toLowerCase();
-      var un=String((window.getUserName&&window.getUserName())||'').toLowerCase();
-      var esEsteban=prof.rol==='admin' && (nom.indexOf('esteban')===0 || un==='efch' || un==='esteban');
-      if(!esEsteban) return j({ok:false, error:'Solo Esteban (admin) puede eliminar filas de Caja'});
+      var nom=String(prof.nombre||'').trim();
+      var un=String((window.getUserName&&window.getUserName())||'').trim();
+      function esEstebanNombre(s){
+        if(!s) return false;
+        if(s.toUpperCase()==='EFCH') return true;
+        var k=s;
+        try{ k=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }catch(eN){ k=s.toLowerCase(); }
+        return k.indexOf('esteban')===0;
+      }
+      if(!esEstebanNombre(nom)&&!esEstebanNombre(un)) return j({ok:false, error:'Solo Esteban puede eliminar filas de Caja'});
       var tipoDel=String(body.tipo||'');
+      if(action==='eliminarEntrega') tipoDel='entrega';
+      if(action==='eliminarGasto') tipoDel='gasto';
+      if(action==='eliminarRuta') tipoDel='ruta';
       var idDel=String(body.id||'');
       var listDel=tipoDel==='entrega'?entregas:tipoDel==='gasto'?gastos:tipoDel==='ruta'?rutas:null;
       var sheetDel=tipoDel==='entrega'?'Caja_Entregas':tipoDel==='gasto'?'Caja_Gastos':tipoDel==='ruta'?'Caja_Rutas':'';
@@ -144,7 +156,7 @@ window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=218"></script>
+<script src="caja.js?v=219"></script>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
   if(window.Caja&&Caja.init) Caja.init();
