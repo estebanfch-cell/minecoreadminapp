@@ -13,6 +13,7 @@
  *   getRutas, getGastos, getEntregas, getBalanceCaja, getConfig, updateConfig,
  *   crearRuta, editarRuta, aprobarRuta, rechazarRuta,
  *   crearGasto, aprobarGasto, rechazarGasto, crearEntrega,
+ *   eliminarCajaFila (borra la fila; solo Esteban admin),
  *   cerrarCorte, savePhoto, migrateCajaSheets
  *
  * Omitidas a propósito (EFCH lock): login, crearUsuario, editarUsuario, eliminarUsuario.
@@ -42,7 +43,7 @@ var CAJA_SOURCE_LIVE_ID = '1TBkb2PgHejJuBmPn84FeUhFUFO7Ws61w8cR1RLDOETY';
 var CAJA_SOURCE_COPY_ID = '1xHmpvXwuAvON4sw7D4ou92zszThXFHKdzUcoJ__71hA';
 var CAJA_ADMIN_DB_FALLBACK = '1u8H51MkQ2hyHeQqxDWTH7qCf3a3M57qCzAG-fajLPmY';
 var CAJA_SKIP_SOURCE_TABS = { USUARIOS: 1, USERS: 1, PIN: 1 };
-var CAJA_SESSION_ALLOW = { efch: 1, osvaldo: 1, oswaldo: 1, secre: 1 };
+var CAJA_SESSION_ALLOW = { efch: 1, esteban: 1, osvaldo: 1, oswaldo: 1, secre: 1 };
 
 /** Source tab → dest Caja_* (verified Minecore App: Rutas / Gastos / Entregas / Config). */
 var CAJA_DEST_MAP = {
@@ -69,7 +70,17 @@ var CAJA_READ = {
 var CAJA_WRITE = {
   updateConfig: 1, crearRuta: 1, editarRuta: 1, aprobarRuta: 1, rechazarRuta: 1,
   crearGasto: 1, aprobarGasto: 1, rechazarGasto: 1, crearEntrega: 1,
+  eliminarCajaFila: 1,
   cerrarCorte: 1, savePhoto: 1, migrateCajaSheets: 1
+};
+/** tipo del POST → pestaña lógica. Rechazar no usa esto: solo parchea Estado. */
+var CAJA_DELETE_KIND = {
+  entrega: 'Entregas',
+  entregas: 'Entregas',
+  gasto: 'Gastos',
+  gastos: 'Gastos',
+  ruta: 'Rutas',
+  rutas: 'Rutas'
 };
 
 var CAJA_HEADERS = {
@@ -108,6 +119,9 @@ function cajaDispatch_(p, user) {
   }
   if (!cajaCanView_(user)) return cajaJson_({ ok: false, error: 'Sin permiso del módulo Caja' });
   if (CAJA_WRITE[action] && !cajaCanWrite_(user, action)) {
+    if (action === 'eliminarCajaFila') {
+      return cajaJson_({ ok: false, error: 'Solo Esteban (admin) puede eliminar filas de Caja' });
+    }
     return cajaJson_({ ok: false, error: 'Se requiere permiso caja+ o admin para esta acción' });
   }
   try {
@@ -126,6 +140,7 @@ function cajaDispatch_(p, user) {
     else if (action === 'aprobarGasto') out = cajaAprobarGasto_(p, user);
     else if (action === 'rechazarGasto') out = cajaRechazarGasto_(p, user);
     else if (action === 'crearEntrega') out = cajaCrearEntrega_(p, user);
+    else if (action === 'eliminarCajaFila') out = cajaEliminarFila_(p, user);
     else if (action === 'cerrarCorte') out = cajaCerrarCorte_(p, user);
     else if (action === 'savePhoto') out = cajaSavePhoto_(p, user);
     else if (action === 'migrateCajaSheets') out = cajaMigrateSheets_(p, user);
@@ -584,6 +599,25 @@ function cajaCrearEntrega_(p, user) {
   return { ok: true, id: id };
 }
 
+/**
+ * Borra la fila física (deleteRow) en Caja_Entregas / Caja_Gastos / Caja_Rutas.
+ * No cambia Estado. Rechazar sigue siendo otro camino.
+ * Disponible se recalcula al leer: no hay saldo guardado en la hoja.
+ */
+function cajaEliminarFila_(p, user) {
+  if (!cajaCanEliminar_(user)) {
+    return { ok: false, error: 'Solo Esteban (admin) puede eliminar filas de Caja' };
+  }
+  var tipo = String(p.tipo || '').toLowerCase().trim();
+  var kind = CAJA_DELETE_KIND[tipo];
+  if (!kind) return { ok: false, error: 'tipo inválido (entrega, gasto o ruta)' };
+  var id = String(p.id || '').trim();
+  if (!id) return { ok: false, error: 'id requerido' };
+  var gone = cajaDeleteRow_(kind, id);
+  if (!gone) return { ok: false, error: 'Fila no encontrada' };
+  return { ok: true, deleted: true, tipo: tipo, id: id, sheet: gone.sheet, row: gone.row };
+}
+
 function cajaCerrarCorte_(p, user) {
   var periodo = String(p.periodo || '').trim();
   if (!periodo) return { ok: false, error: 'periodo requerido' };
@@ -707,7 +741,27 @@ function cajaCanView_(user) {
   if (typeof ms === 'string') ms = ms.split(',');
   return ms.indexOf('caja') >= 0 || ms.indexOf('caja+') >= 0;
 }
+function cajaSessionKey_(raw) {
+  var key = String(raw || '').trim().toLowerCase();
+  if (!key) return '';
+  try { key = key.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e2) {}
+  return key.replace(/\s+/g, ' ');
+}
+/** Esteban / EFCH con rol admin. Osvaldo y Secre no, aunque tengan caja+ o rol mal cargado. */
+function cajaCanEliminar_(user) {
+  if (!cajaIsAdmin_(user)) return false;
+  var parts = [user && user.usuario, user && user.nombre];
+  for (var i = 0; i < parts.length; i++) {
+    var key = cajaSessionKey_(parts[i]);
+    if (!key) continue;
+    if (key === 'esteban' || key === 'efch' || key.indexOf('esteban ') === 0) return true;
+    var first = key.split(' ')[0];
+    if (first === 'esteban' || first === 'efch') return true;
+  }
+  return false;
+}
 function cajaCanWrite_(user, action) {
+  if (action === 'eliminarCajaFila') return cajaCanEliminar_(user);
   if (cajaIsAdmin_(user)) return true;
   if (action === 'migrateCajaSheets') return false;
   if (action === 'updateConfig' || action === 'aprobarRuta' || action === 'rechazarRuta' ||
@@ -815,6 +869,15 @@ function cajaPatchRow_(kind, rowNum, patch) {
     var ix = headers.indexOf(k);
     if (ix >= 0) sh.getRange(rowNum, ix + 1).setValue(patch[k]);
   });
+}
+
+/** Quita la fila entera. Rechazar usa cajaPatchRow_ y deja la línea. */
+function cajaDeleteRow_(kind, id) {
+  var hit = cajaFindById_(kind, id);
+  if (!hit) return null;
+  var sh = cajaSheet_(kind);
+  sh.deleteRow(hit.row);
+  return { sheet: sh.getName(), row: hit.row };
 }
 
 function cajaPhotosFolder_() {

@@ -70,6 +70,27 @@
   function esAdminCaja(){
     return getRol()==='admin';
   }
+  function cajaSessionKey(raw){
+    var key=String(raw||'').trim();
+    try{ key=key.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }catch(e){ key=key.toLowerCase(); }
+    return key.replace(/\s+/g,' ').trim();
+  }
+  /** Botón Eliminar: solo la sesión Esteban con rol admin. Osvaldo y Secre no. */
+  function puedeEliminarCaja(){
+    if(getRol()!=='admin') return false;
+    var keys=[];
+    try{ keys.push(getUserName()||''); }catch(e){}
+    try{ var p=getProfile()||{}; keys.push(p.nombre||''); }catch(e2){}
+    if(session){ keys.push(session.usuario||''); keys.push(session.nombre||''); }
+    for(var i=0;i<keys.length;i++){
+      var key=cajaSessionKey(keys[i]);
+      if(!key) continue;
+      if(key==='esteban'||key==='efch'||key.indexOf('esteban ')===0) return true;
+      var first=key.split(' ')[0];
+      if(first==='esteban'||first==='efch') return true;
+    }
+    return false;
+  }
   function roMsg(accion){
     return '<div class="page-title">Solo lectura</div><div class="page-sub">Tu permiso de Caja es «Ver». Pedí <b>caja+</b> para '+accion+'.</div>';
   }
@@ -589,7 +610,7 @@ function hideAll(){ ['scr-home','app'].forEach(hide); }
 function badgeClass(est){ return est==='Aprobada'?'approved':est==='Rechazada'?'rejected':'pending'; }
 
 // ─── RUTAS HTML ──────────────────────────────────────────────────────────────
-function rutaTicket(r, isAdmin){
+function rutaTicket(r, isAdmin, canDelete){
   const km=parseFloat(r['KM']||0), val=parseFloat(r['Valor ($)']||0);
   const est=r['Estado']||'Pendiente', bc=badgeClass(est);
   const veh=r['Vehiculo']||'', usr=r['Usuario']||'';
@@ -603,7 +624,8 @@ function rutaTicket(r, isAdmin){
       <button class="btn-reject" onclick="doReject('${r['ID']}',this)">Rechazar</button>
       <button class="btn-approve" onclick="doApprove('${r['ID']}')">✓ Aprobar</button>
     </div>`:'';
-  const editBtn=isAdmin?`<button onclick="editRuta('${r['ID']}')" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;cursor:pointer;color:var(--text)">✏️ Editar</button>`:'';
+  const editBtn=isAdmin?`<button onclick="editRuta('${cajaJsAttr(r['ID'])}')" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;cursor:pointer;color:var(--text)">✏️ Editar</button>`:'';
+  const delBtn=canDelete?cajaDeleteBtn('ruta', r['ID']):'';
   return `<div class="rticket">
     <div class="rt-top">
       <div class="rt-dest">${titulo}</div>
@@ -623,7 +645,53 @@ function rutaTicket(r, isAdmin){
       ${editBtn}
     </div>
     ${actions}
+    ${delBtn}
   </div>`;
+}
+function cajaJsAttr(v){
+  return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/</g,'');
+}
+function cajaDeleteBtn(tipo, id){
+  return `<div class="del-row"><button type="button" class="btn-delete" onclick="eliminarCajaFila('${tipo}','${cajaJsAttr(id)}',this)">Eliminar</button><div class="del-hint">Borra la fila de la hoja. No es Rechazar.</div></div>`;
+}
+async function eliminarCajaFila(tipo, id, btn){
+  if(!puedeEliminarCaja()){ toast('Solo Esteban (admin) puede eliminar'); return; }
+  tipo=String(tipo||'');
+  id=String(id||'');
+  var sheet={entrega:'Caja_Entregas',gasto:'Caja_Gastos',ruta:'Caja_Rutas'}[tipo];
+  var que={entrega:'esta entrega de dinero',gasto:'este gasto',ruta:'esta ruta'}[tipo];
+  if(!sheet||!id){ toast('No se puede eliminar'); return; }
+  var resumen=cajaFilaResumen(tipo, id);
+  var ok=confirm('¿Eliminar '+que+'?\n\nNo es Rechazar: se borra la fila completa de '+sheet+'. Desaparece del historial y el disponible se recalcula sin ese monto.'+(resumen?'\n'+resumen:'')+'\n\nID: '+id);
+  if(!ok) return;
+  if(btn){ btn.disabled=true; btn.textContent='Eliminando…'; }
+  try{
+    const r=await api({action:'eliminarCajaFila', tipo:tipo, id:id});
+    if(!cajaToastApi(r,'✓ Fila eliminada')){
+      if(btn){ btn.disabled=false; btn.textContent='Eliminar'; }
+      return;
+    }
+    setView(activeView||(tipo==='ruta'?'historial':'historial-caja'));
+  }catch(e){
+    toast('Error de conexión');
+    if(btn){ btn.disabled=false; btn.textContent='Eliminar'; }
+  }
+}
+function cajaFilaResumen(tipo, id){
+  function money(row){ return '$'+parseFloat((row&&row['Monto ($)'])||0).toFixed(2); }
+  if(tipo==='entrega'){
+    var e=(window._cajEnt||[]).filter(function(x){ return String(x['ID'])===id; })[0];
+    if(!e) return '';
+    return (e['Descripcion']||e['Descripción']||'Entrega')+' · '+money(e)+' · '+(e['Usuario Destino']||'');
+  }
+  if(tipo==='gasto'){
+    var g=(window._cajGas||[]).filter(function(x){ return String(x['ID'])===id; })[0];
+    if(!g) return '';
+    return (g['Descripcion']||g['Descripción']||'Gasto')+' · '+money(g)+' · '+(g['Usuario']||'');
+  }
+  var r=(window._histRutas||[]).filter(function(x){ return String(x['ID'])===id; })[0];
+  if(!r) return '';
+  return (r['Destino']||'Ruta')+' · '+(r['Usuario']||'')+' · $'+parseFloat(r['Valor ($)']||0).toFixed(2);
 }
 
 function cajaToastApi(r,okMsg){
@@ -1877,23 +1945,26 @@ async function vMisEntregas(c){
   }catch(e){c.innerHTML=errMsg();}
 }
 
-function entregasH(ent){
+function entregasH(ent, canDelete){
   if(!ent.length)return empty('Sin entregas');
   return ent.map(e=>{
     const fotoUrl=e['Foto URL']||e['FotoURL']||'';
     const fotoOk=fotoUrl&&fotoUrl!=='undefined'&&fotoUrl.startsWith('http');
+    const del=canDelete?cajaDeleteBtn('entrega', e['ID']):'';
     return `<div class="caja-item">
     <div class="caja-hdr"><div class="caja-desc">${e['Descripción']||e['Descripcion']||'Sin descripción'}</div><div class="caja-monto" style="color:var(--gold)">$${parseFloat(e['Monto ($)']||0).toFixed(2)}</div></div>
     <div class="caja-meta">Para: <strong>${e['Usuario Destino']}</strong> · ${e['Forma de Entrega']||e['Forma']||''} · ${fd((e['Fecha']||'').split(' ')[0])}</div>
     ${fotoOk?`<a href="${fotoUrl}" target="_blank" class="caja-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:6px 12px;background:var(--gold-light);border-radius:20px;font-size:12px;font-weight:600;color:var(--gold);text-decoration:none">📎 Ver comprobante →</a>`
     :'<div style="font-size:11px;color:var(--text3);margin-top:4px">Sin comprobante adjunto</div>'}
+    ${del}
   </div>`;
   }).join('');
 }
 
-function gastoH(g,isAdmin){
+function gastoH(g,isAdmin,canDelete){
   const est=g['Estado']||'Pendiente', bc=badgeClass(est==='Aprobado'?'Aprobada':est==='Rechazado'?'Rechazada':est);
   const acc=isAdmin&&est==='Pendiente'?`<div class="action-row"><button class="btn-reject" onclick="rejG('${g['ID']}')">Rechazar</button><button class="btn-approve" onclick="aprG('${g['ID']}')">✓ Aprobar</button></div>`:'';
+  const del=canDelete?cajaDeleteBtn('gasto', g['ID']):'';
   const fotoUrl=g['Foto Factura URL']||g['Foto URL']||g['FotoURL']||'';
   const fotoOk=fotoUrl&&fotoUrl!=='undefined'&&fotoUrl.startsWith('http');
   return `<div class="caja-item">
@@ -1903,7 +1974,7 @@ function gastoH(g,isAdmin){
     <div class="caja-meta">${g['Categoría']||g['Categoria']||''} · ${g['Usuario']} · ${fd((g['Fecha']||'').split(' ')[0])}</div>
     ${fotoOk?`<a href="${fotoUrl}" target="_blank" class="caja-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:6px 12px;background:var(--brand-light);border-radius:20px;font-size:12px;font-weight:600;color:var(--brand-dark);text-decoration:none">📎 Ver factura →</a>`
     :'<div style="font-size:11px;color:var(--text3);margin-top:4px">Sin foto adjunta</div>'}
-    ${acc}</div>`;
+    ${acc}${del}</div>`;
 }
 async function aprG(id){try{const r=await api({action:'aprobarGasto',id,admin:session.usuario});if(cajaToastApi(r,'✓ Aprobado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
 async function rejG(id){try{const r=await api({action:'rechazarGasto',id,admin:session.usuario});if(cajaToastApi(r,'Rechazado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
@@ -2382,7 +2453,7 @@ function hRender(){
         <div><div class="pf-lbl">📁 ${p.label}</div><div class="pf-sub">${items.length} ruta${items.length!==1?'s':''} · ${km} km · $${usd.toFixed(2)} aprobado</div></div>
         <div class="pf-actions"><button class="pf-pdf" onclick="event.stopPropagation();descargarCortePDF('${p.fi}','${p.ff}')">↓ PDF</button><span class="pf-chev">${open?'▴':'▾'}</span></div>
       </div>
-      <div class="pfolder-body" id="pf-r-${i}" style="display:${open?'block':'none'}">${items.map(r=>rutaTicket(r,isAdmin)).join('')}</div>
+      <div class="pfolder-body" id="pf-r-${i}" style="display:${open?'block':'none'}">${items.map(r=>rutaTicket(r,isAdmin,puedeEliminarCaja())).join('')}</div>
     </div>`;
   }).join('')||empty('Sin rutas');
 }
@@ -2434,8 +2505,8 @@ function renderHistCaja(c){
         <div class="pf-actions"><button class="pf-pdf" onclick="event.stopPropagation();descargarCajaPDF('${p.fi}','${p.ff}')">↓ PDF</button><span class="pf-chev">${open?'▴':'▾'}</span></div>
       </div>
       <div class="pfolder-body" id="pf-c-${i}" style="display:${open?'block':'none'}">
-        ${e.length?'<div class="pf-mini">Entregas</div>'+entregasH(e):''}
-        ${g.length?'<div class="pf-mini">Gastos</div>'+g.map(x=>gastoH(x,isAdmin)).join(''):''}
+        ${e.length?'<div class="pf-mini">Entregas</div>'+entregasH(e,puedeEliminarCaja()):''}
+        ${g.length?'<div class="pf-mini">Gastos</div>'+g.map(x=>gastoH(x,isAdmin,puedeEliminarCaja())).join(''):''}
       </div>
     </div>`;
   }).join('')||empty('Sin movimientos');
@@ -2593,6 +2664,7 @@ function _pdfSafe(s){
   try{ if(typeof descargarCortePDF==='function'){ pub.descargarCortePDF=descargarCortePDF; if('descargarCortePDF'!=='openMod'&&'descargarCortePDF'!=='goHome') global.descargarCortePDF=descargarCortePDF; } }catch(e){}
   try{ if(typeof doApprove==='function'){ pub.doApprove=doApprove; if('doApprove'!=='openMod'&&'doApprove'!=='goHome') global.doApprove=doApprove; } }catch(e){}
   try{ if(typeof doReject==='function'){ pub.doReject=doReject; if('doReject'!=='openMod'&&'doReject'!=='goHome') global.doReject=doReject; } }catch(e){}
+  try{ if(typeof eliminarCajaFila==='function'){ pub.eliminarCajaFila=eliminarCajaFila; if('eliminarCajaFila'!=='openMod'&&'eliminarCajaFila'!=='goHome') global.eliminarCajaFila=eliminarCajaFila; } }catch(e){}
   try{ if(typeof editPrecio==='function'){ pub.editPrecio=editPrecio; if('editPrecio'!=='openMod'&&'editPrecio'!=='goHome') global.editPrecio=editPrecio; } }catch(e){}
   try{ if(typeof editRuta==='function'){ pub.editRuta=editRuta; if('editRuta'!=='openMod'&&'editRuta'!=='goHome') global.editRuta=editRuta; } }catch(e){}
   try{ if(typeof empty==='function'){ pub.empty=empty; if('empty'!=='openMod'&&'empty'!=='goHome') global.empty=empty; } }catch(e){}
