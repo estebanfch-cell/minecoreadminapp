@@ -305,7 +305,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='220';
+  var MC_BUILD='221';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -344,6 +344,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div id="cot-screen" style="display:none"></div>
   <div id="prov-screen" style="display:none"></div>
   <div id="transf-screen" style="display:none"></div>
+  <div id="wa-screen" style="display:none"></div>
   <div id="caja-screen"></div>
 </div>
 
@@ -8125,11 +8126,312 @@ var LiqMod = (function(){
 
 
 
+/* ===================== WHATSAPP INBOX (v221, solo Admin) =====================
+   Motor v130: waChats / waThread / waSend / waSendTemplate / waTemplates / waMarkRead.
+   Mensajes en Admin DB (WA_Mensajes / WA_Contactos); adjuntos en Drive «WhatsApp Minecore».
+   Polling cada 12 s mientras la pestaña está abierta y visible (rev: si nada cambió, el motor responde "unchanged").
+   El esqueleto (buscador, cuadro de texto) solo se reconstruye al cambiar de chat / estado de ventana,
+   así el polling no quita el foco ni cierra el teclado del celular. */
+var WA = (function(){
+  var POLL_MS=12000;
+  var chats=[], rev='', sel=null, thread=null, q='', timer=null, busy=false, sending=false, reqId='';
+  var tpls=null, tplOpen=false, errMsg='', drafts={}, layout='';
+  function api(p){p.user=getUserName();p.pin=getPin();return MCpost(p);}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function $(id){return document.getElementById(id);}
+  function el(){return $('wa-screen');}
+  function visible(){var e=el();return !!(e&&e.style.display!=='none');}
+  function linkify(s){
+    return esc(s).replace(/(https?:\/\/[^\s<]+)/g,function(u){return '<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>';}).replace(/\n/g,'<br>');
+  }
+  function fmtPhone(w){w=String(w||'');if(/^593\d{9}$/.test(w))return '+593 '+w.slice(3,5)+' '+w.slice(5,8)+' '+w.slice(8);if(/^1\d{10}$/.test(w))return '+1 '+w.slice(1,4)+' '+w.slice(4,7)+' '+w.slice(7);return '+'+w;}
+  function hhmm(ms){var d=new Date(ms);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+  function dayLabel(ms){
+    var d=new Date(ms), t=new Date(), y=new Date(); y.setDate(t.getDate()-1);
+    if(d.toDateString()===t.toDateString())return 'Hoy';
+    if(d.toDateString()===y.toDateString())return 'Ayer';
+    return d.toLocaleDateString('es-EC',{weekday:'short',day:'numeric',month:'short'});
+  }
+  function shortWhen(ms){if(!ms)return '';var d=new Date(ms),t=new Date();return d.toDateString()===t.toDateString()?hhmm(ms):d.toLocaleDateString('es-EC',{day:'numeric',month:'short'});}
+  function newReq(){return 'wa-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
+  function chatOf(w){for(var i=0;i<chats.length;i++)if(chats[i].wa_id===w)return chats[i];return null;}
+  function css(){
+    if($('wa-css'))return;
+    var st=document.createElement('style');st.id='wa-css';
+    st.textContent=
+      '#wa-screen{max-width:1100px;margin:0 auto}'+
+      '.wa-wrap{display:grid;grid-template-columns:1fr;gap:10px}'+
+      '@media(min-width:900px){.wa-wrap{grid-template-columns:330px 1fr}.wa-wrap .wa-list{display:block!important}.wa-back{display:none!important}.wa-list{max-height:calc(100dvh - 150px);overflow-y:auto}}'+
+      '.wa-list{background:#0f1720;border:1px solid #223142;border-radius:12px;overflow:hidden}'+
+      '.wa-search{width:100%;box-sizing:border-box;background:#0b1219;border:none;border-bottom:1px solid #223142;color:#e8eef5;font-size:15px;padding:11px 12px}'+
+      '.wa-chat{display:flex;gap:10px;align-items:center;padding:11px 12px;border-bottom:1px solid #1a2633;cursor:pointer}'+
+      '.wa-chat:active,.wa-chat.on{background:#13202d}'+
+      '.wa-av{width:38px;height:38px;border-radius:50%;background:#1e4976;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none;font-size:14px}'+
+      '.wa-cmain{flex:1;min-width:0}.wa-crow{display:flex;justify-content:space-between;gap:6px;align-items:center}'+
+      '.wa-cname{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+      '.wa-ctime{font-size:11px;color:#8fa3b8;flex:none}'+
+      '.wa-cprev{font-size:12px;color:#8fa3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+      '.wa-badge{background:#25d366;color:#0b1219;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px;flex:none}'+
+      '.wa-th{background:#0f1720;border:1px solid #223142;border-radius:12px;display:flex;flex-direction:column;height:calc(100dvh - 150px);min-height:380px;overflow:hidden}'+
+      '.wa-thead{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #223142}'+
+      '.wa-back{background:#1c2a3a;border:1px solid #26405c;color:#fff;border-radius:999px;width:34px;height:34px;cursor:pointer;flex:none}'+
+      '.wa-msgs{flex:1;overflow-y:auto;padding:10px 10px 4px;-webkit-overflow-scrolling:touch;background:#0b1219}'+
+      '.wa-day{text-align:center;margin:10px 0 6px}.wa-day span{background:#1c2a3a;color:#b8c7d6;font-size:11px;border-radius:8px;padding:3px 9px}'+
+      '.wa-b{max-width:82%;width:fit-content;margin:3px 0;padding:7px 9px 5px;border-radius:10px;font-size:14px;line-height:1.35;overflow-wrap:anywhere}'+
+      '.wa-b.in{background:#1c2a3a;margin-right:auto;border-top-left-radius:3px}'+
+      '.wa-b.out{background:#144d37;margin-left:auto;border-top-right-radius:3px}'+
+      '.wa-b a{color:#7cc4ff}.wa-meta{font-size:10px;color:#9fb3c6;text-align:right;margin-top:2px;white-space:nowrap}'+
+      '.wa-b .wa-who{font-size:10px;color:#9fe0bf;font-weight:700;margin-bottom:2px}'+
+      '.wa-b img{display:block;max-width:100%;max-height:300px;border-radius:7px;margin-bottom:4px;background:#0b1219}'+
+      '.wa-doc{display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.2);border-radius:7px;padding:8px;margin-bottom:4px;text-decoration:none;color:#dce6f0!important}'+
+      '.wa-note{font-size:11px;color:#f0c040;margin-top:2px}.wa-tick.read{color:#53bdeb}.wa-tick.failed{color:#ff7b7b}'+
+      '.wa-win{font-size:12px;padding:7px 12px;border-top:1px solid #223142}.wa-win.open{color:#7fd18c}.wa-win.closed{color:#f0c040;background:#2a2108}'+
+      '.wa-comp{display:flex;gap:8px;padding:8px;border-top:1px solid #223142;align-items:flex-end}'+
+      '.wa-comp textarea{flex:1;resize:none;background:#0b1219;border:1px solid #26405c;border-radius:18px;color:#e8eef5;font-size:16px;padding:9px 13px;max-height:140px;font-family:inherit}'+
+      '.wa-send{background:#25d366;border:none;color:#0b1219;border-radius:50%;width:42px;height:42px;font-size:18px;font-weight:800;cursor:pointer;flex:none}'+
+      '.wa-send:disabled{opacity:.45}'+
+      '.wa-tpl{padding:8px 12px;border-top:1px solid #223142;font-size:13px;max-height:45%;overflow-y:auto}.wa-tpl select,.wa-tpl input{width:100%;box-sizing:border-box;background:#0b1219;border:1px solid #26405c;border-radius:8px;color:#e8eef5;padding:8px;margin:4px 0;font-size:16px}'+
+      '.wa-empty{padding:30px 14px;text-align:center;color:#8fa3b8;font-size:13px}';
+    document.head.appendChild(st);
+  }
+
+  /* ---------- carga / polling ---------- */
+  function init(){
+    css(); stop();
+    chats=[]; rev=''; sel=null; thread=null; tpls=null; tplOpen=false; errMsg=''; layout='';
+    el().innerHTML='<div class="cbz-loading">Cargando chats de WhatsApp...</div>';
+    refresh(true);
+    timer=setInterval(function(){if(visible()&&document.visibilityState!=='hidden')refresh(false);},POLL_MS);
+    if(!WA._vis){WA._vis=1;document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&timer&&visible())refresh(false);});}
+  }
+  function stop(){if(timer){clearInterval(timer);timer=null;}}
+  function refresh(force){
+    if(busy)return; busy=true;
+    api({action:'waChats',rev:force?'':rev,_retries:force?2:0,_timeout:30000}).then(function(res){
+      busy=false;
+      if(!res.ok){errMsg=res.error||'error';render();return;}
+      if(res.unchanged){if(errMsg){errMsg='';render();}return;}
+      errMsg=''; rev=res.rev||''; chats=res.chats||[];
+      render();
+      if(sel)loadThread(false);
+    }).catch(function(e){busy=false;errMsg=MCerr(e);render();});
+  }
+  function loadThread(scrollEnd){
+    if(!sel)return;
+    var want=sel;
+    api({action:'waThread',wa_id:want,_retries:1,_timeout:30000}).then(function(res){
+      if(sel!==want)return;
+      if(!res.ok){errMsg=res.error||'error';render();return;}
+      var prevLast=thread&&thread.messages&&thread.messages.length?thread.messages[thread.messages.length-1].id:'';
+      thread=res;
+      var nowLast=res.messages.length?res.messages[res.messages.length-1].id:'';
+      render(scrollEnd||prevLast!==nowLast);
+      if(res.unread>0)markRead(want);
+    }).catch(function(e){errMsg=MCerr(e);render();});
+  }
+  function markRead(w){
+    api({action:'waMarkRead',wa_id:w,_retries:0}).then(function(){
+      var c=chatOf(w); if(c)c.unread=0; renderList();
+    }).catch(function(){});
+  }
+
+  /* ---------- acciones UI ---------- */
+  function saveDraft(){var t=$('wa-text');if(t&&sel)drafts[sel]=t.value;}
+  function open(w){
+    saveDraft();
+    sel=String(w); thread=null; tplOpen=false; reqId='';
+    render(true);
+    loadThread(true);
+  }
+  function back(){saveDraft();sel=null;thread=null;tplOpen=false;render();}
+  function onSearch(v){q=v||'';renderList();}
+  function autosize(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,140)+'px';}
+  function onInput(t){autosize(t);if(sel)drafts[sel]=t.value;reqId='';}
+  function onKey(ev){if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ev.preventDefault();send();}}
+  function send(){
+    var t=$('wa-text'); if(!t||!sel||sending)return;
+    var text=t.value.trim(); if(!text)return;
+    if(!reqId)reqId=newReq();   // mismo id en cada reintento del mismo texto → el motor no duplica
+    sending=true; var btn=$('wa-sendbtn'); if(btn)btn.disabled=true;
+    var w=sel;
+    api({action:'waSend',wa_id:w,text:text,clientReqId:reqId,_timeout:45000}).then(function(res){
+      sending=false; if(btn)btn.disabled=false;
+      if(!res.ok){
+        if(res.needTemplate&&thread&&sel===w){thread.windowOpen=false;render();}
+        alert('No se envió: '+(res.error||'error'));return;
+      }
+      reqId=''; drafts[w]=''; rev=''; setTimeout(function(){refresh(false);},1500);
+      var tt=$('wa-text'); if(tt&&sel===w){tt.value='';autosize(tt);}
+      if(thread&&sel===w){thread.messages.push({id:res.id,ts_ms:res.ts_ms||Date.now(),dir:'out',type:'text',text:text,status:'accepted',sender:res.sender||''});render(true);}
+      loadThread(true);
+    }).catch(function(e){
+      sending=false; if(btn)btn.disabled=false;
+      alert('No se pudo confirmar el envío: '+MCerr(e)+'\nSi tocas Enviar otra vez sin cambiar el texto, no se duplica.');
+    });
+  }
+  function toggleTpl(){
+    tplOpen=!tplOpen; render();
+    if(tplOpen&&!tpls){
+      api({action:'waTemplates',_retries:1}).then(function(res){
+        tpls=res.ok?(res.templates||[]):[]; if(!res.ok)alert('Plantillas: '+(res.error||'error')); render();
+      }).catch(function(e){tpls=[];alert(MCerr(e));render();});
+    }
+  }
+  function tplChange(){reqId='';renderTplParams();}
+  function renderTplParams(){
+    var s=$('wa-tplsel'), box=$('wa-tplparams'); if(!s||!box)return;
+    var t=(tpls||[])[parseInt(s.value,10)]; if(!t){box.innerHTML='';return;}
+    var h='<div class="cbz-muted" style="font-size:12px;white-space:pre-wrap;margin:4px 0">'+esc(t.body)+'</div>';
+    for(var i=1;i<=t.vars;i++)h+='<input id="wa-tp'+i+'" placeholder="{{'+i+'}}">';
+    box.innerHTML=h;
+  }
+  function sendTpl(){
+    var s=$('wa-tplsel'); var t=s&&(tpls||[])[parseInt(s.value,10)]; if(!t||!sel)return;
+    var params=[], prev=t.body;
+    for(var i=1;i<=t.vars;i++){var v=($('wa-tp'+i)||{}).value||'';if(!v.trim()){alert('Completa {{'+i+'}}');return;}params.push(v.trim());prev=prev.split('{{'+i+'}}').join(v.trim());}
+    if(!confirm('¿Enviar la plantilla «'+t.name+'» a '+fmtPhone(sel)+'?'))return;
+    if(!reqId)reqId=newReq();
+    var w=sel;
+    api({action:'waSendTemplate',wa_id:w,name:t.name,lang:t.lang,params:params,preview:prev,clientReqId:reqId,_timeout:45000}).then(function(res){
+      if(!res.ok){alert('No se envió: '+(res.error||'error'));return;}
+      reqId=''; tplOpen=false; rev=''; render(); loadThread(true); setTimeout(function(){refresh(false);},1500);
+    }).catch(function(e){alert('No se pudo confirmar el envío: '+MCerr(e));});
+  }
+
+  /* ---------- render ---------- */
+  function winOpen(){var c=chatOf(sel);return thread?!!thread.windowOpen:!!(c&&c.windowOpen);}
+  function render(scrollEnd){
+    var e=el(); if(!e)return;
+    var key=(sel||'-')+'|'+(sel?winOpen():'')+'|'+tplOpen+'|'+(tpls?tpls.length:'x');
+    if(key!==layout||!$('wa-items')){
+      var hadFocus=document.activeElement&&document.activeElement.id==='wa-text';
+      saveDraft();
+      layout=key;
+      var h='<div class="wa-wrap"><div class="wa-list" style="'+(sel?'display:none':'')+'">'+
+        '<input class="wa-search" placeholder="🔎 Buscar chat o número" value="'+esc(q)+'" oninput="WA.onSearch(this.value)">'+
+        '<div id="wa-items"></div></div>';
+      if(sel)h+='<div>'+skeletonThread()+'</div>';
+      h+='</div>';
+      e.innerHTML=h;
+      var t=$('wa-text'); if(t){t.value=drafts[sel]||'';autosize(t);if(hadFocus)t.focus();}
+      if(tplOpen)renderTplParams();
+      scrollEnd=true;
+    }
+    renderList();
+    if(sel)renderThread(scrollEnd);
+  }
+  function renderList(){
+    var box=$('wa-items'); if(!box)return;
+    var qq=q.trim().toLowerCase();
+    var list=chats.filter(function(c){return !qq||(c.name+' '+c.wa_id+' '+c.last_text).toLowerCase().indexOf(qq)>=0;});
+    var h='';
+    if(errMsg)h+='<div class="cbz-error" style="margin:8px">'+esc(errMsg)+'</div>';
+    if(!list.length)h+='<div class="wa-empty">'+(chats.length?'Sin resultados.':(rev?'Todavía no hay mensajes. Cuando alguien escriba al +1 617 372 0787 aparece aquí.':'Cargando...'))+'</div>';
+    list.forEach(function(c){
+      var nm=c.name||fmtPhone(c.wa_id);
+      var ini=(nm.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9 ]/g,'').trim().split(/\s+/).map(function(x){return x.charAt(0);}).join('').slice(0,2)||'#').toUpperCase();
+      h+='<div class="wa-chat'+(sel===c.wa_id?' on':'')+'" onclick="WA.open(\''+esc(c.wa_id)+'\')">'+
+        '<div class="wa-av">'+esc(ini)+'</div><div class="wa-cmain">'+
+        '<div class="wa-crow"><span class="wa-cname">'+esc(nm)+'</span><span class="wa-ctime">'+esc(shortWhen(c.last_ms))+'</span></div>'+
+        '<div class="wa-crow"><span class="wa-cprev">'+(c.last_dir==='out'?'↪ ':'')+esc(c.last_text)+'</span>'+
+        (c.unread>0?'<span class="wa-badge">'+c.unread+'</span>':(c.windowOpen?'':'<span class="wa-ctime" title="Ventana de 24 h cerrada">🔒</span>'))+'</div>'+
+        '</div></div>';
+    });
+    box.innerHTML=h;
+  }
+  function skeletonThread(){
+    var open=winOpen();
+    var h='<div class="wa-th"><div class="wa-thead"><button class="wa-back" onclick="WA.back()">←</button>'+
+      '<div style="min-width:0"><div class="wa-cname" id="wa-tname"></div><div class="wa-ctime">'+esc(fmtPhone(sel))+'</div></div></div>'+
+      '<div class="wa-msgs" id="wa-msgs"><div class="cbz-loading">Cargando...</div></div><div id="wa-win"></div>';
+    if(tplOpen){
+      h+='<div class="wa-tpl">';
+      if(!tpls)h+='<div class="cbz-loading">Cargando plantillas aprobadas...</div>';
+      else if(!tpls.length)h+='<div class="cbz-muted">No hay plantillas aprobadas todavía.</div>';
+      else h+='<select id="wa-tplsel" onchange="WA.tplChange()">'+tpls.map(function(t,i){return '<option value="'+i+'">'+esc(t.name)+' ('+esc(t.lang)+')</option>';}).join('')+'</select>'+
+          '<div id="wa-tplparams"></div><button class="cbz-btn" onclick="WA.sendTpl()">Enviar plantilla</button>';
+      h+='</div>';
+    }
+    if(open){
+      h+='<div class="wa-comp"><textarea id="wa-text" rows="1" maxlength="4096" placeholder="Escribe un mensaje" oninput="WA.onInput(this)" onkeydown="WA.onKey(event)"></textarea>'+
+        '<button class="wa-send" id="wa-sendbtn" onclick="WA.send()" title="Enviar (Ctrl+Enter)">➤</button></div>';
+    }
+    return h+'</div>';
+  }
+  function tick(st){
+    if(st==='read')return '<span class="wa-tick read">✓✓</span>';
+    if(st==='delivered')return '<span class="wa-tick">✓✓</span>';
+    if(st==='sent')return '<span class="wa-tick">✓</span>';
+    if(st==='failed')return '<span class="wa-tick failed">⚠ no enviado</span>';
+    return '<span class="wa-tick">🕓</span>';
+  }
+  function mediaHtml(m){
+    var h='';
+    if(m.url){
+      if(m.type==='image'||m.type==='sticker'||/^image\//.test(m.mime)){
+        var th=m.fileId?'https://drive.google.com/thumbnail?id='+encodeURIComponent(m.fileId)+'&sz=w640':m.url;
+        h+='<a href="'+esc(m.url)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+esc(th)+'" alt="imagen"></a>';
+      }else{
+        var ico=m.type==='audio'?'🎧':(m.type==='video'?'🎬':'📄');
+        var nm=m.filename||(m.type==='audio'?'Audio':(m.type==='video'?'Video':'Documento'));
+        h+='<a class="wa-doc" href="'+esc(m.url)+'" target="_blank" rel="noopener"><span style="font-size:20px">'+ico+'</span><span>'+esc(nm)+'</span></a>';
+      }
+    }else if(/^(image|video|audio|document|sticker)$/.test(m.type)){
+      h+='<div class="wa-doc"><span style="font-size:20px">📎</span><span>'+esc(m.filename||m.type)+' (sin copia en Drive)</span></div>';
+    }
+    return h;
+  }
+  function renderThread(scrollEnd){
+    var c=chatOf(sel);
+    var nmEl=$('wa-tname'); if(nmEl)nmEl.textContent=(thread&&thread.name)||(c&&c.name)||fmtPhone(sel);
+    var box=$('wa-msgs');
+    if(box&&thread){
+      var nearEnd=box.scrollHeight-box.scrollTop-box.clientHeight<80;
+      var h='';
+      if(thread.truncated)h+='<div class="wa-day"><span>Mostrando los últimos '+thread.messages.length+' mensajes</span></div>';
+      var lastDay='';
+      thread.messages.forEach(function(m){
+        var dl=dayLabel(m.ts_ms); if(dl!==lastDay){lastDay=dl;h+='<div class="wa-day"><span>'+esc(dl)+'</span></div>';}
+        var out=m.dir==='out';
+        h+='<div class="wa-b '+(out?'out':'in')+'">';
+        if(out&&m.sender&&m.sender!=='externo')h+='<div class="wa-who">'+esc(m.sender)+'</div>';
+        if(out&&m.type==='externo'&&!m.text)h+='<div class="cbz-muted" style="font-size:12px"><i>Mensaje enviado desde otra herramienta</i></div>';
+        h+=mediaHtml(m);
+        if(m.type==='location'&&m.text){
+          var ll=(m.text.match(/(-?\d+\.\d+),(-?\d+\.\d+)/)||[]);
+          if(ll[0])h+='<a href="https://maps.google.com/?q='+ll[1]+','+ll[2]+'" target="_blank" rel="noopener">📍 Ver ubicación</a>';
+          h+='<div class="cbz-muted" style="font-size:12px">'+esc(m.text)+'</div>';
+        }else if(m.text)h+='<div>'+linkify(m.text)+'</div>';
+        if(m.error)h+='<div class="wa-note">'+esc(m.error)+'</div>';
+        h+='<div class="wa-meta">'+(m.type==='template'?'plantilla · ':'')+esc(hhmm(m.ts_ms))+(out?' '+tick(m.status):'')+'</div></div>';
+      });
+      if(!thread.messages.length)h+='<div class="wa-empty">Sin mensajes.</div>';
+      var prevTop=box.scrollTop;
+      box.innerHTML=h;
+      box.scrollTop=(scrollEnd||nearEnd)?box.scrollHeight:prevTop;
+    }
+    var win=$('wa-win');
+    if(win&&(thread||c)){
+      if(winOpen()){
+        var ends=(thread&&thread.windowEndsMs)||(c&&c.windowEndsMs)||0;
+        win.className='wa-win open';
+        win.innerHTML='🟢 Ventana de 24 h abierta'+(ends?' hasta '+esc(dayLabel(ends).toLowerCase())+' '+esc(hhmm(ends)):'')+' · texto libre permitido';
+      }else{
+        win.className='wa-win closed';
+        win.innerHTML='🔒 Pasaron más de 24 h desde su último mensaje: WhatsApp solo permite una <b>plantilla aprobada</b>. Cuando el contacto responda, se reabre el chat libre. '+
+          '<a href="javascript:void(0)" onclick="WA.toggleTpl()" style="color:#f0c040;font-weight:700">'+(tplOpen?'Ocultar plantillas':'Enviar plantilla')+'</a>';
+      }
+    }
+  }
+  return {init:init,stop:stop,open:open,back:back,onSearch:onSearch,send:send,onKey:onKey,onInput:onInput,
+    toggleTpl:toggleTpl,tplChange:tplChange,sendTpl:sendTpl,refresh:refresh};
+})();
+
 function mcHomeVisible(){
   var home=document.getElementById('home');
   if(!home) return false;
   if(home.style.display==='none') return false;
-  var ids=['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'];
+  var ids=['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen'];
   for(var i=0;i<ids.length;i++){
     var e=document.getElementById(ids[i]);
     if(!e) continue;
@@ -8187,6 +8489,7 @@ function renderHome(){
   if(p.rol==='admin') add('consig','🚚','Consignación y alquiler','De todos los clientes, con días por acta');
   if(p.rol==='admin') add('sols','🔔','Aprobaciones','Solicitudes de acceso de clientes');
   if(p.rol==='admin') add('users','👥','Usuarios','Cuentas, PINs y permisos');
+  if(p.rol==='admin') add('wa','💬','WhatsApp','Chats del +1 617 372 0787: responder, fotos y PDFs');
   var order=mcLoadHomeOrder();
   if(order.length){
     var idx={}, i;
@@ -8291,9 +8594,10 @@ function openMod(m){
   document.getElementById('home').style.display='none';
   var _eb=document.getElementById('home-edit-bar');if(_eb)_eb.style.display='none';
   try{ document.body.classList.toggle('mc-caja-open', m==='caja'); }catch(e){}
+  if(m!=='wa'){try{WA.stop();}catch(e){}}
   mcHideNotifBar();
   try{Landing.hide();}catch(e){}
-  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'].forEach(function(id){
+  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('backBtn').style.display='block';
@@ -8317,11 +8621,13 @@ function openMod(m){
     document.getElementById('title').textContent='RUTAS Y CAJA CHICA';
     try{ if(window.Caja&&Caja.init) Caja.init(); }catch(e){ cs.innerHTML='<div class="cbz-error">No se pudo abrir Caja: '+(e&&e.message?e.message:e)+'</div>'; }
   }
+  if(m==='wa'){document.getElementById('wa-screen').style.display='block';document.getElementById('title').textContent='WHATSAPP';WA.init();}
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
 }
 function goHome(){
   try{ document.body.classList.remove('mc-caja-open'); }catch(e){}
-  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen'].forEach(function(id){
+  try{ WA.stop(); }catch(e){}
+  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('home').style.display='grid';
