@@ -14,7 +14,8 @@
   const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
   const CAJA_USER_ALIASES = {
     esteban:'EFCH','esteban ferlito':'EFCH',efch:'EFCH',
-    osvaldo:'OPM','oswaldo pena':'OPM','oswaldo peña':'OPM',opm:'OPM',
+    oswal:'OPM', /* b222: usuario del portal «Oswal» = OPM en Caja */
+    osvaldo:'OPM',oswaldo:'OPM','oswaldo pena':'OPM','oswaldo peña':'OPM','osvaldo pena':'OPM',opm:'OPM',
     secre:'SECRE','secre conta':'SECRE',secreconta:'SECRE'
   };
   const VEH_OWNER = {
