@@ -305,7 +305,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='223';
+  var MC_BUILD='224';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -467,6 +467,9 @@ function MCpost(p){
     });
   }
   return intento(0);}
+/* b224: id único por alta de pre-cotización. MCpost reenvía el MISMO cuerpo en sus reintentos, así que el motor v133
+   (crearSolicitudInterna idempotente) reconoce el reintento y devuelve la misma fila en vez de duplicarla. */
+function MCreqId(){return 'R'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function MCbodegaDefault(bs){bs=bs||[];for(var i=0;i<bs.length;i++)if(/principal/i.test(bs[i]))return bs[i];return bs[0]||'';}
 /* v202: precarga en segundo plano de clientes + catálogo para el Cotizador.
    v205: también las últimas 5 cotizaciones y órdenes de venta (getInflowOrdenes count).
@@ -766,6 +769,17 @@ var MCWarm = (function(){
     return {rows:mem[key],at:mem[key+'At']||0,source:mem[key+'Source']||'',loading:!!mem[key+'Loading'],fresh:isDocFresh(mem[key+'At'], mem[key+'Source']),err:mem[key+'Err']||''};
   }
   function getCotAdmin(){hydrateDocs();return Array.isArray(mem.pre)?mem.pre:null;}
+  /* b224: saca de la caché (memoria + localStorage) las pre-cotizaciones borradas y marca la recién creada en inFlow */
+  function dropPre(ids, creada){
+    hydrateDocs();
+    if(!Array.isArray(mem.pre))return;
+    var fuera={};(ids||[]).forEach(function(i){fuera[String(i)]=1;});
+    var rows=mem.pre.filter(function(r){return !fuera[String(r.id)];}).map(function(r){
+      if(creada&&String(r.id)===String(creada.id)){var c={};for(var k in r)c[k]=r[k];c.estado='CREADA';if(creada.inflowNum)c.inflowNum=creada.inflowNum;return c;}
+      return r;
+    });
+    mem.pre=rows;writeDocLs(LS_PRE, rows);notify('cotadmin');
+  }
   function absorbInflow(tipo, rows){
     if(!Array.isArray(rows))return;
     applyDoc(docKey(tipo), rows.slice(0, IO_RECENT), 'api');
@@ -818,7 +832,7 @@ var MCWarm = (function(){
   }
   hydrate();
   return {preload:preload,loadClientes:loadClientes,loadProductos:loadProductos,getClientes:getClientes,getProductos:getProductos,status:status,subscribe:subscribe,
-    RECENT:IO_RECENT,loadInflow:loadInflow,getInflow:getInflow,loadCotAdmin:loadCotAdmin,getCotAdmin:getCotAdmin,absorbInflow:absorbInflow,markStale:markStale};
+    RECENT:IO_RECENT,loadInflow:loadInflow,getInflow:getInflow,loadCotAdmin:loadCotAdmin,getCotAdmin:getCotAdmin,dropPre:dropPre,absorbInflow:absorbInflow,markStale:markStale};
 })();
 function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.stockTotal:it.stock)||0;var sp=it.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}return parseFloat(v)||0;}
 /* v214: en el Mac (Safari o Chrome) el toque descarga el PDF a Descargas.
@@ -3777,7 +3791,7 @@ var Inv = (function(){
     var items2=Object.keys(carrito).map(function(sku){return {sku:sku,nombre:carrito[sku].nombre,cantidad:carrito[sku].cantidad};});
     if(!items2.length){alert('Agrega productos primero.');return;}
     if(!confirm('¿Crear la pre-cotización para "'+MC_cotPara+'" con '+items2.length+' producto'+(items2.length===1?'':'s')+'?'))return;
-    api({action:'crearSolicitudInterna',empresa:MC_cotPara,items:items2}).then(function(res){
+    api({action:'crearSolicitudInterna',empresa:MC_cotPara,items:items2,clientReqId:MCreqId()}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
       carrito={};cartSave();updateFab();MC_cotPara=null;
       alert('✔ Pre-cotización creada. Abriéndola para revisar precios...');
@@ -3792,7 +3806,7 @@ var Inv = (function(){
     var items2=Object.keys(carrito).map(function(sku){return {sku:sku,nombre:carrito[sku].nombre,cantidad:carrito[sku].cantidad};});
     if(!items2.length){alert('El carrito está vacío.');return;}
     if(!confirm('¿Crear solicitud de cotización para "'+cli+'" con '+items2.length+' producto'+(items2.length===1?'':'s')+'?'))return;
-    api({action:'crearSolicitudInterna',empresa:cli,items:items2}).then(function(res){
+    api({action:'crearSolicitudInterna',empresa:cli,items:items2,clientReqId:MCreqId()}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);return;}
       carrito={};cartSave();updateFab();
       alert('✔ Solicitud creada. Ábrela en el módulo 🧾 Cotizaciones del menú para revisar precios y crearla en inFlow.');
@@ -4753,7 +4767,7 @@ var Cot = (function(){
     det.lineas=lineasDesdeCarrito(lines);
     renderDet();
     czSolFlight=true;
-    api({action:'crearSolicitudInterna',empresa:empresa,items:items2}).then(function(res){
+    api({action:'crearSolicitudInterna',empresa:empresa,items:items2,clientReqId:tok}).then(function(res){
       czSolFlight=false;
       if(!res||!res.ok){
         if(mismoOpt(tok)){alert('Error: '+((res&&res.error)||'no se pudo crear la pre-cotización'));det=null;renderCotizador();}
@@ -4819,10 +4833,68 @@ var Cot = (function(){
     el().innerHTML='<div class="cbz-loading">Cargando solicitudes...</div>';
     api({action:'getCotAdmin'}).then(function(res){
       if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      lista=res.solicitudes||[];renderLista();
+      lista=res.solicitudes||[];limp=null;renderLista();cargarLimpieza();
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div><div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Cot.setTab(\'pre\')">↻ Reintentar</button></div>';});
   }
   var filtroEmp='';
+  /* ---------- b224: borrar en lote las pre-cotizaciones que ya pasaron a inFlow (solo admin) ---------- */
+  var limp=null, limpSeq=0;
+  function esAdminCot(){try{return getProfile().rol==='admin';}catch(e){return false;}}
+  function quitarDeLista(ids, creada){
+    var fuera={};(ids||[]).forEach(function(i){fuera[String(i)]=1;});
+    if(Array.isArray(lista)){
+      lista=lista.filter(function(x){return !fuera[String(x.id)];});
+      if(creada)lista.forEach(function(x){if(String(x.id)===String(creada.id)){x.estado='CREADA';if(creada.inflowNum)x.inflowNum=creada.inflowNum;}});
+    }
+    if(limp&&limp.filas){limp.filas=limp.filas.filter(function(f){return !fuera[String(f)];});limp.n=limp.filas.length;}
+    try{MCWarm.dropPre(ids, creada);}catch(e){}
+  }
+  function cargarLimpieza(){
+    if(!esAdminCot()||!pendCount())return;
+    var my=++limpSeq;
+    api({action:'getPrecotsConvertidas',_timeout:60000,_retries:1}).then(function(res){
+      if(my!==limpSeq||!res||!res.ok||!Array.isArray(res.filas))return; // motor < v133: sin botón
+      var pend={};(lista||[]).filter(esPendPre).forEach(function(x){pend[String(x.id)]=1;});
+      var filas=res.filas.filter(function(f){return pend[String(f)];});
+      var det2={};(res.detalle||[]).forEach(function(d){det2[String(d.fila)]=d;});
+      limp={n:filas.length,filas:filas,detalle:det2};
+      if(cotTab==='pre'&&!det)renderLista();
+    }).catch(function(){});
+  }
+  function limpiezaHtml(){
+    if(!esAdminCot())return '';
+    var nPend=pendCount();
+    var h='<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap">';
+    if(limp===null)h+='<span class="cbz-muted" style="font-size:11px">Buscando pre-cotizaciones ya pasadas a inFlow…</span>';
+    else if(limp.n)h+='<button class="cbz-btn" style="background:#5a1f1f;border-color:#e05c5c" onclick="Cot.borrarConvertidas()">🧹 Borrar precotizaciones ya pasadas a inFlow ('+limp.n+')</button>';
+    if(nPend)h+='<button class="chip" style="color:#e05c5c;font-size:11px" onclick="Cot.borrarTodasPre()">Borrar TODAS las pendientes ('+nPend+')</button>';
+    return h+'</div>';
+  }
+  function borrarLote(payload, ids){
+    el().innerHTML='<div class="cbz-loading">Borrando '+ids.length+' pre-cotización'+(ids.length===1?'':'es')+'...</div>';
+    api(payload).then(function(res){
+      if(!res||!res.ok){alert('No se borró: '+((res&&res.error)||'error'));renderLista();return;}
+      quitarDeLista(res.borradas||[]);
+      var om=(res.omitidas||[]).length;
+      alert('✔ '+(res.n||0)+(res.n===1?' pre-cotización borrada.':' pre-cotizaciones borradas.')+(om?'\n('+om+' ya no estaban pendientes y no se tocaron.)':'')+'\nQuedó respaldo en la hoja Precot_Borradas.');
+      filtroEmp='';renderLista();cargarLimpieza();
+    }).catch(function(e){alert(MCerr(e)+'. Revisa la lista antes de repetir.');cargar();});
+  }
+  function borrarConvertidas(){
+    if(!limp||!limp.n)return;
+    var ids=limp.filas.slice();
+    var muestra=ids.slice(0,12).map(function(f){var d=limp.detalle[String(f)]||{};return '• '+(d.empresa||'')+' · '+(d.fecha||'')+' → '+(d.inflowNum||'');}).join('\n');
+    if(!confirm('¿Borrar '+ids.length+(ids.length===1?' pre-cotización que ya está creada':' pre-cotizaciones que ya están creadas')+' en inFlow?\n\n'+muestra+(ids.length>12?'\n… y '+(ids.length-12)+' más':'')+'\n\nLas cotizaciones de inFlow NO se tocan.'))return;
+    borrarLote({action:'borrarPrecotsConvertidas',filas:ids}, ids);
+  }
+  function borrarTodasPre(){
+    var ids=(lista||[]).filter(esPendPre).map(function(x){return x.id;});
+    if(!ids.length)return;
+    if(!confirm('⚠ Esto borra TODAS las '+ids.length+' pre-cotizaciones pendientes, incluidas las que todavía NO están en inFlow (pedidos de clientes, liquidación).\n\n¿Continuar?'))return;
+    var t=prompt('Para confirmar escribe: BORRAR TODAS');
+    if(String(t||'').trim().toUpperCase()!=='BORRAR TODAS'){alert('No se borró nada.');return;}
+    borrarLote({action:'borrarPrecotsConvertidas',todas:true,confirmar:'BORRAR TODAS',filas:ids}, ids);
+  }
   function esPendPre(x){return (x.estado==='NUEVA'||x.estado==='EN REVISION')&&!String(x.inflowNum||'').trim();}
   function pendCount(){return (lista||[]).filter(esPendPre).length;}
   function coladaOVGlobal(){
@@ -4859,7 +4931,7 @@ var Cot = (function(){
         if(x.fecha>porEmp[e2].ult)porEmp[e2].ult=x.fecha;
       });
       el().innerHTML=tabsHtml()+coladaOV+
-      '<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap"><button class="cbz-btn" onclick="Cot.nuevaCotizacion()">➕ Nueva cotización para un cliente</button></div>'+
+      '<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap"><button class="cbz-btn" onclick="Cot.nuevaCotizacion()">➕ Nueva cotización para un cliente</button></div>'+limpiezaHtml()+
       '<div class="cbz-muted" style="margin-bottom:8px">📁 Pre-cotizaciones pendientes por cliente · toca una carpeta</div>'+
         Object.keys(porEmp).sort().map(function(e2){
           var d=porEmp[e2];
@@ -4876,8 +4948,9 @@ var Cot = (function(){
     el().innerHTML=tabsHtml()+'<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<button class="chip" onclick="Cot.filtrar(\'\')">← Clientes</button>'+
       '<span class="cbz-card-name">📁 '+filtroEmp+'</span>'+
-      '<span class="cbz-muted" style="font-size:11px">'+visibles.length+' cotización'+(visibles.length===1?'':'es')+'</span></div>'+
+      '<span class="cbz-muted" style="font-size:11px">'+visibles.length+' cotización'+(visibles.length===1?'':'es')+'</span></div>'+limpiezaHtml()+
       visibles.map(function(s){
+        var dl=limp&&limp.detalle&&limp.detalle[String(s.id)]&&limp.filas.indexOf(s.id)>=0?limp.detalle[String(s.id)]:null;
         return '<div class="cbz-card" style="cursor:pointer" onclick="Cot.abrir('+s.id+')">'+
           '<div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
           '<div class="cbz-card-name">'+(s.inflowNum?'🧾 '+s.inflowNum:'🧾 Solicitud')+'</div>'+
@@ -4885,7 +4958,8 @@ var Cot = (function(){
           '<button class="chip" style="color:#e05c5c" onclick="event.stopPropagation();Cot.borrarPre('+s.id+',\''+s.estado+'\')">🗑</button></div></div>'+
           '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between">'+
           '<span>'+s.fecha+' · '+s.usuario+(s.contacto?' · '+s.contacto:'')+'</span>'+
-          '<span>'+s.n+' ítem'+(s.n===1?'':'s')+'</span></div></div>';
+          '<span>'+s.n+' ítem'+(s.n===1?'':'s')+'</span></div>'+
+          (dl?'<div class="cbz-muted" style="font-size:11px;color:#e0a05c">⚠ Ya está en inFlow: '+esc(dl.motivo||dl.inflowNum||'')+'</div>':'')+'</div>';
       }).join('');
   }
   function detalleFallo(id, msg){
@@ -6200,6 +6274,10 @@ var Cot = (function(){
     renderDet();
     api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},avisar:avisar,lineas:payloadLineas}).then(function(res){
       var aqui=mismoOpt(tok);
+      /* b224: un reintento (página HTML de Google) después de crearla devolvía «ya fue creada en inFlow como X»: es éxito */
+      var mYa=res&&!res.ok&&/ya fue creada en inFlow como\s+(\S+)/i.exec(String(res.error||''));
+      if(mYa)res={ok:true,orderNumber:mYa[1],yaExistia:true};
+      if(res&&res.ok)quitarDeLista(res.precotsBorradas||[], {id:cotIdPartes,inflowNum:res.orderNumber||''});
       if(!res||!res.ok){
         if(aqui){det._creando=false;det.cot.estado=estadoAntes;renderDet();alert('Error: '+((res&&res.error)||'no se pudo crear en inFlow'));}
         return;
@@ -6303,7 +6381,7 @@ var Cot = (function(){
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
-          setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,
+          setTab:setTab,nuevaCotizacion:nuevaCotizacion,pickGo:pickGo,borrarConvertidas:borrarConvertidas,borrarTodasPre:borrarTodasPre,
           czElegir:czElegir,czCambiar:czCambiar,czBuscar:czBuscar,czMas:czMas,czMenos:czMenos,czQuitar:czQuitar,czFinalizar:czFinalizar,czSetCat:czSetCat,czSetLin:czSetLin,czSetDesc:czSetDesc,czSetMm:czSetMm,czSetModo:czSetModo,czSetQty:czSetQty,czAgregar:czAgregar,czInc:czInc,czDec:czDec,
           czFiltrarCli:czFiltrarCli,czAbrirCli:czAbrirCli,czCliKey:czCliKey,czPickB64:czPickB64,czRetryCli:czRetryCli,czRetryCat:czRetryCat,
           abrirInflow:abrirInflow,abrirDesde:abrirDesde,ioToggle:ioToggle,ioMenu:ioMenu,ioMenuCerrar:ioMenuCerrar,ioPdf:ioPdf,ioConvertir:ioConvertir,ioFulfill:ioFulfill,ioPickList:ioPickList,ioCargarMas:ioCargarMas,ioSet:ioSet,ioQuitar:ioQuitar,ioAgregar:ioAgregar,ioDuplicar:ioDuplicar,ioGuardar:ioGuardar,borrarPre:borrarPre};
