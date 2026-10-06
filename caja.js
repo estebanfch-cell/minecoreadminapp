@@ -133,8 +133,14 @@
     if(typeof MCpost!=='function'){
       return Promise.resolve({ok:false,error:'Admin API no disponible',_transport:true});
     }
-    return MCpost(payload).catch(function(e){
-      return {ok:false,error:(e&&e.message)||'Error de conexión',_transport:true};
+    return MCpost(payload).then(function(res){
+      /* b223: guardar el motivo real para mostrarlo en errMsg() */
+      if(res && (res.ok===false || res._transport)) global._cajaLastErr=String(res.error||'');
+      return res;
+    }).catch(function(e){
+      var msg=(e&&e.message)||'Error de conexión';
+      global._cajaLastErr=(msg==='TIMEOUT')?'El servidor (Apps Script) tardó más de 75 s en responder':msg;
+      return {ok:false,error:msg,_transport:true};
     });
   }
 
@@ -530,7 +536,7 @@ function setView(v){
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function spin(){ return '<div class="loading"><div class="spinner"></div>Cargando...</div>'; }
 function empty(msg){ return `<div class="empty">${msg}</div>`; }
-function errMsg(){ return `<div class="empty" style="color:var(--err-tx)">⚠️ Error de conexión<br><small>Verifica tu conexión e intenta de nuevo</small></div>`; }
+function errMsg(){ const why=String(window._cajaLastErr||'').replace(/[<>&"]/g,'').slice(0,160); return `<div class="empty" style="color:var(--err-tx)">⚠️ Error de conexión<br><small>Verifica tu conexión e intenta de nuevo</small>${why?'<br><small style="opacity:.8">Motivo: '+why+'</small>':''}</div>`; }
 function toast(msg){ const t=document.getElementById('toast'); if(!t) return; t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800); }
 function today(){ return new Date().toISOString().split('T')[0]; }
 function fd(s){
