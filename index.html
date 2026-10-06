@@ -305,7 +305,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='222';
+  var MC_BUILD='223';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -418,7 +418,9 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
 var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow|saveVendor|saveStockTransfer|savePurchaseOrder|cancelPurchaseOrder|approvePurchaseOrder|crearRuta|crearGasto|crearEntrega|savePhoto|cerrarCorte)$/;
 var MC_ALTA_CAJA=/^(crearEntrega|crearGasto|crearRuta|cerrarCorte)$/;
-function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&Object.keys(res).length<=3);}
+/* b223: el doGet del motor devuelve 4 claves ({ok,service,version,cajaNative}) desde v127; el tope «<=3» lo dejaba pasar como respuesta válida
+   (un ping así guardaba rol 'usuario' y modulos [] en mc_profile ⇒ «No tienes permiso del módulo Caja»). Ninguna acción real trae «service». */
+function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&res.auth===undefined);}
 function MCpost(p){
   p=p||{};
   var timeoutMs=75000; // v145: tope por defecto
@@ -8751,6 +8753,7 @@ function doBioLogin(){
       // Revalidación en segundo plano (por si el PIN cambió o el usuario fue desactivado)
       MCpost({action:'ping',user:u,pin:pin}).then(function(res){
         if(!res.ok){clearCreds();alert('Tu sesión ya no es válida. Ingresa de nuevo.');location.reload();}
+        else if(res.auth!==true||!res.rol){/* b223: respuesta sin perfil (p.ej. tarjeta del doGet): no pisar mc_profile */}
         else{try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||u,rol:res.rol||'usuario',modulos:res.modulos||[],empresa:res.empresa||'',master:!!res.master,aprobado:!!res.aprobado,vinculada:res.vinculada!==false}));}catch(e){}}
       }).catch(function(){});
     } else {
@@ -8885,6 +8888,6 @@ window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=222"></script>
+<script src="caja.js?v=223"></script>
 </body>
 </html>
