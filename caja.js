@@ -1,4 +1,7 @@
-/* Caja + Rutas nativo en Minecore Admin. Lecturas y escrituras solo por MCpost → API_URL (Admin).
+/* v225 (2026-10-06): fotos robustas (reintento idempotente clientReqId, «Reintentar subida», sin trampa
+   «Espera que la foto termine de subirse»), Nueva ruta idempotente + verificación si se pierde la respuesta,
+   vistas sin pisarse (respuesta tardía de otra pestaña), sin getUsuarios (acción inexistente).
+   Caja + Rutas nativo en Minecore Admin. Lecturas y escrituras solo por MCpost → API_URL (Admin).
    Maps: Google Maps JS (Minecore Portal Maps / minecore.ec org) — places+geometry, shortest route.
    OSM/Leaflet only if Google fails (RefererNotAllowed). No Caja PIN. */
 (function (global) {
@@ -390,12 +393,7 @@
   }
 
   function refreshColaboradores(){
-    api({action:'getUsuarios'}).then(function(r){
-      if(!r||!r.ok||!r.usuarios||!r.usuarios.length) return;
-      allUsers=r.usuarios.map(function(u){
-        return {usuario:u.usuario,nombre:u.nombre,rol:u.rol,activo:u.activo};
-      }).filter(function(u){ return u.activo==='SI'||u.activo===undefined||u.activo===true||u.activo===''; });
-    }).catch(function(){});
+    /* v225: 'getUsuarios' no existe en el motor (respondía «Acción desconocida» y quedaba como «Motivo» en errMsg). */
     api({action:'getBalanceCaja'}).then(function(r){
       if(!r.ok) return;
       var seen={};
@@ -520,7 +518,11 @@ function setView(v){
     else if(currentMod==='caja') tt.textContent='Caja Chica';
     else if(currentMod==='rutas') tt.textContent='Rutas';
   }
-  const c=document.getElementById('content');
+  const c0=document.getElementById('content');
+  /* v225: contenedor propio por vista. Si llega tarde la respuesta de la vista anterior (p. ej. «Mis rutas»
+     mientras ya estás en «Nueva ruta»), escribe en un div desconectado y no borra el formulario/mapa. */
+  let c=c0;
+  if(c0){ c0.innerHTML=''; c=document.createElement('div'); c.className='cj-view'; c.setAttribute('data-view',v); c0.appendChild(c); }
   const views={
     'nueva':vNueva,'mis-rutas':vMisRutas,'cuenta':vCuenta,
     'aprobar':vAprobar,'historial':vHistorial,'corte':vCorte,
@@ -538,7 +540,7 @@ function spin(){ return '<div class="loading"><div class="spinner"></div>Cargand
 function empty(msg){ return `<div class="empty">${msg}</div>`; }
 function errMsg(){ const why=String(window._cajaLastErr||'').replace(/[<>&"]/g,'').slice(0,160); return `<div class="empty" style="color:var(--err-tx)">⚠️ Error de conexión<br><small>Verifica tu conexión e intenta de nuevo</small>${why?'<br><small style="opacity:.8">Motivo: '+why+'</small>':''}</div>`; }
 function toast(msg){ const t=document.getElementById('toast'); if(!t) return; t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800); }
-function today(){ return new Date().toISOString().split('T')[0]; }
+function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fd(s){
   if(!s||s==='undefined'||s==='0')return'—';
   const str=String(s).split(' ')[0];
@@ -801,6 +803,7 @@ function filterByDate(rutas, fi, ff){
 // ─── VIEW: NUEVA RUTA ────────────────────────────────────────────────────────
 function vNueva(c){
   if(!puedeInteractuar()){ c.innerHTML=roMsg('crear rutas'); return; }
+  cajaReqDone('ruta');
   originLL=null; paradas=[]; routeKm=0; routeDur='';
   mapsMode='none'; mapsEmbedWin=null; mapsEmbedReady=false;
   markers.forEach(m=>{ try{ if(m&&m.setMap) m.setMap(null); if(lmap&&m.remove) m.remove(); }catch(e){} }); markers=[];
@@ -1367,20 +1370,30 @@ async function enviarRuta(){
   const valid=paradas.filter(p=>p.ll);
   if(!valid.length){toast('Agrega al menos un destino');return;}
   if(!routeKm){toast('Calcula la ruta primero');return;}
+  if(_cajaInflight.ruta) return;
   const veh=document.getElementById('f-veh').value;
   const rate=VEH_RATE[veh]||parseFloat(cfg.precio_km||0.40);
   const btn=document.getElementById('btn-enviar');btn.textContent='Enviando...';btn.disabled=true;
+  _cajaInflight.ruta=true;
   const origen=document.getElementById('inp-origen').value||MINECORE_ADDR;
   const destino=valid.map(p=>p.addr).join(' → ');
-  try{
-    const r=await api({action:'crearRuta',usuario:(session.rol==='admin'&&document.getElementById('f-usuario')?document.getElementById('f-usuario').value:session.usuario),origen,destino,km:routeKm,
+  const usuarioRuta=(session.rol==='admin'&&document.getElementById('f-usuario')?document.getElementById('f-usuario').value:session.usuario);
+  /* v225: clientReqId (el motor v129+ deduplica) + si la respuesta se pierde, se verifica en el Sheet antes de dar error. */
+  const payload={action:'crearRuta',usuario:usuarioRuta,origen,destino,km:routeKm,
       vehiculo:veh,precioKm:rate,tipo:document.getElementById('f-tipo').value,
       fechaServicio:document.getElementById('f-fecha').value,
-      motivo:document.getElementById('f-motivo').value||'Sin descripción'});
-    if(r.ok){toast('✓ Solicitud enviada');setView('mis-rutas');}
-    else toast('Error: '+(r.error||''));
-  }catch(e){toast('Error de conexión');}
+      motivo:document.getElementById('f-motivo').value||'Sin descripción',clientReqId:cajaReqId('ruta')};
+  const t0=Date.now();
+  let r=null;
+  try{ r=await api(payload); }catch(e){ r={ok:false,_transport:true,error:'Error de conexión'}; }
+  if(r&&!r.ok&&(r._transport||/ocupado/i.test(String(r.error||'')))){
+    const hit=await cajaYaGuardado('getRutas',{'KM':payload.km,'Destino':payload.destino,'Vehiculo':payload.vehiculo},t0);
+    if(hit) r={ok:true,id:hit['ID'],reconciled:true};
+  }
+  _cajaInflight.ruta=false;
   btn.textContent='Enviar solicitud';btn.disabled=false;
+  if(r&&r.ok){ cajaReqDone('ruta'); toast('✓ Solicitud enviada'); setView('mis-rutas'); return; }
+  toast('Error: '+((r&&r.error)||'Error de conexión')+' — reintentá: no se duplicará');
 }
 
 // ─── VIEW: MIS RUTAS (CHOFER) ────────────────────────────────────────────────
@@ -1416,7 +1429,7 @@ async function vCuenta(c){
       const veh=String(rt['Vehiculo']||'').trim();
       const owner=VEH_OWNER[veh];
       if(owner) return owner===session.usuario;
-      return rt['Usuario']===session.usuario;
+      return cajaUsuarioFromAdmin(rt['Usuario'])===session.usuario;
     });
     window._cuentaRutas=todas;
     const pd=getPeriodoDates(0);
@@ -1792,9 +1805,9 @@ function cajaFechaMs(v){
 async function cajaYaGuardado(action,match,t0){
   try{
     const r=await api({action:action,_retries:2});
-    const list=(r&&(r.entregas||r.gastos||r.data||r.rows))||[];
+    const list=(r&&(r.entregas||r.gastos||r.rutas||r.data||r.rows))||[];
     const lim=(t0||Date.now())-180000;
-    return list.find(x=>{ if(cajaFechaMs(x['Fecha'])<lim) return false; return Object.keys(match).every(k=>String(x[k]==null?'':x[k]).trim()===String(match[k]==null?'':match[k]).trim()); })||null;
+    return list.find(x=>{ if(cajaFechaMs(x['Fecha']||x['Fecha Solicitud'])<lim) return false; return Object.keys(match).every(k=>String(x[k]==null?'':x[k]).trim()===String(match[k]==null?'':match[k]).trim()); })||null;
   }catch(e){ return null; }
 }
 function renderNuevaEntrega(c){
@@ -1812,7 +1825,7 @@ function renderNuevaEntrega(c){
     <div class="field-group"><label class="field-label">Descripción</label><input class="field-input" id="e-desc" placeholder="Ej: Anticipo caja chica junio"></div>
     <label class="field-label">Foto del comprobante (opcional)</label>
     <div class="photo-zone" onclick="document.getElementById('e-foto').click()">
-      <input type="file" id="e-foto" accept="image/*" onchange="handleFoto(this,'e-prev','e-stat','e-url')">
+      <input type="file" id="e-foto" accept="image/*" onclick="event.stopPropagation()" onchange="handleFoto(this,'e-prev','e-stat','e-url')">
       <div style="font-size:28px;margin-bottom:6px">📷</div>
       <div style="font-size:13px;color:var(--text2)">Tomar foto o subir imagen</div>
       <img id="e-prev" class="photo-preview">
@@ -1828,11 +1841,8 @@ async function enviarEntrega(){
   const monto=parseFloat(document.getElementById('e-monto').value);
   if(!monto||monto<=0){toast('Ingresa el monto');return;}
   // If a photo was selected but not yet uploaded, block submission
-  const fotoInp=document.getElementById('e-foto');
   const fotoUrl=document.getElementById('e-url').value;
-  if(fotoInp&&fotoInp.files&&fotoInp.files.length>0&&!fotoUrl){
-    toast('⏳ Espera que la foto termine de subirse');return;
-  }
+  if(!cajaFotoListaParaEnviar('e-url','e')) return;
   let excMotivoE='';
   if(!fotoUrl){
     const mEl=document.getElementById('e-exc-motivo');
@@ -1858,7 +1868,7 @@ async function enviarEntrega(){
   }catch(e){ err='Error de conexión'; }
   _cajaInflight.entrega=false;
   if(ok){
-    cajaReqDone('entrega');
+    cajaReqDone('entrega'); delete _cajaFoto['e-url'];
     toast('✓ Entrega registrada');
     try{ const m=document.getElementById('e-monto'); if(m) m.value=''; const d=document.getElementById('e-desc'); if(d) d.value=''; cajaResetDestDefault(); }catch(eR){}
     try{setView('balance');}catch(e2){cajaGoHome();}
@@ -1963,7 +1973,7 @@ function vNuevoGasto(c){
     <div class="field-group"><label class="field-label">Descripción</label><input class="field-input" id="g-desc" placeholder="Ej: Almuerzo en cliente norte"></div>
     <label class="field-label">Foto de la factura</label>
     <div class="photo-zone" onclick="document.getElementById('g-foto').click()">
-      <input type="file" id="g-foto" accept="image/*" onchange="handleFoto(this,'g-prev','g-stat','g-url')">
+      <input type="file" id="g-foto" accept="image/*" onclick="event.stopPropagation()" onchange="handleFoto(this,'g-prev','g-stat','g-url')">
       <div style="font-size:28px;margin-bottom:6px">🧾</div>
       <div style="font-size:13px;color:var(--text2)">Tomar foto de la factura</div>
       <img id="g-prev" class="photo-preview">
@@ -1977,12 +1987,8 @@ async function enviarGasto(){
   const monto=parseFloat(document.getElementById('g-monto').value);
   if(!monto||monto<=0){toast('Ingresa el monto');return;}
   // If a photo was selected but not yet uploaded, block submission
-  const stat=document.getElementById('g-stat');
-  const fotoInp=document.getElementById('g-foto');
   const fotoUrl=document.getElementById('g-url').value;
-  if(fotoInp&&fotoInp.files&&fotoInp.files.length>0&&!fotoUrl){
-    toast('⏳ Espera que la foto termine de subirse');return;
-  }
+  if(!cajaFotoListaParaEnviar('g-url','g')) return;
   let excMotivo='';
   if(!fotoUrl){
     const mEl=document.getElementById('g-exc-motivo');
@@ -1996,13 +2002,13 @@ async function enviarGasto(){
   const t0=Date.now();
   let r=null;
   try{r=await api(gPayload);}catch(e){r={ok:false,_transport:true,error:'Error de conexión'};}
-  if(r&&!r.ok&&r._transport){
+  if(r&&!r.ok&&(r._transport||/ocupado/i.test(String(r.error||'')))){
     const hit=await cajaYaGuardado('getGastos',{'Usuario':gPayload.usuario,'Monto ($)':gPayload.monto,'Descripcion':gPayload.descripcion,'Foto URL':gPayload.fotoUrl},t0);
     if(hit) r={ok:true,id:hit['ID'],reconciled:true};
   }
   _cajaInflight.gasto=false;
   btn.textContent='Enviar para aprobación';btn.disabled=false;
-  if(r&&r.ok) cajaReqDone('gasto');
+  if(r&&r.ok){ cajaReqDone('gasto'); delete _cajaFoto['g-url']; }
   if(r&&r.ok){
     toast('✓ Gasto enviado');
     try{setView(session.rol==='admin'?'aprobar-gastos':'mis-gastos');}catch(e){cajaGoHome();}
@@ -2056,51 +2062,128 @@ function gastoH(g,isAdmin,canDelete){
 async function aprG(id){try{const r=await api({action:'aprobarGasto',id,admin:session.usuario});if(cajaToastApi(r,'✓ Aprobado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
 async function rejG(id){try{const r=await api({action:'rechazarGasto',id,admin:session.usuario});if(cajaToastApi(r,'Rechazado'))setView('aprobar-gastos');}catch(e){toast('Error de conexión');}}
 
-// ─── PHOTO UPLOAD ─────────────────────────────────────────────────────────────
+// ─── PHOTO UPLOAD (v225) ──────────────────────────────────────────────────────
+/* Estado por formulario (clave = id del input oculto con la URL: 'g-url' / 'e-url').
+   La foto comprimida se guarda en memoria para «Reintentar subida» sin volver a elegirla.
+   clientReqId por foto: el motor v134 devuelve el MISMO archivo si el reintento llega después de que
+   el primer intento ya lo guardó (antes: la respuesta se perdía ⇒ error en pantalla y foto huérfana en Drive). */
+const _cajaFoto={};
+const CAJA_FOTO_INTENTOS=3;
+function cajaFotoSt(urlId){ return _cajaFoto[urlId]||null; }
+function cajaFotoStatus(st, html, color){
+  const el=document.getElementById(st.statId); if(!el) return;
+  el.style.display='block'; el.style.color=color||'var(--text2)'; el.innerHTML=html;
+}
+function cajaEsc(s){ return String(s==null?'':s).replace(/[<>&"]/g,''); }
 async function handleFoto(input,prevId,statId,urlId){
-  const file=input.files[0]; if(!file)return;
-  const prev=document.getElementById(prevId), stat=document.getElementById(statId), urlInp=document.getElementById(urlId);
-  prev.src=URL.createObjectURL(file); prev.style.display='block';
-  stat.style.display='block'; stat.style.color='var(--text2)'; stat.textContent='Comprimiendo imagen...';
-  // Disable ALL submit buttons while uploading
+  const file=input&&input.files&&input.files[0]; if(!file)return;
+  const prev=document.getElementById(prevId), urlInp=document.getElementById(urlId);
+  try{ if(prev){ if(prev._objUrl) URL.revokeObjectURL(prev._objUrl); prev._objUrl=URL.createObjectURL(file); prev.src=prev._objUrl; prev.style.display='block'; } }catch(eP){}
+  if(urlInp) urlInp.value='';
+  const st={urlId:urlId,statId:statId,state:'comprimiendo',b64:'',mime:'image/jpeg',name:file.name||'foto.jpg',reqId:'foto-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10),err:''};
+  _cajaFoto[urlId]=st;
+  cajaFotoStatus(st,'Comprimiendo imagen...');
+  try{
+    const c=await comprimirImagen(file,1600,0.75);
+    st.b64=c.b64; st.mime=c.mime;
+    if(c.mime==='image/jpeg' && !/\.jpe?g$/i.test(st.name)) st.name=st.name.replace(/\.[a-z0-9]{2,5}$/i,'')+'.jpg';
+  }catch(eC){
+    if(_cajaFoto[urlId]!==st) return;
+    st.state='error'; st.err=(eC&&eC.message)||'No se pudo leer la imagen';
+    cajaFotoStatus(st,'❌ '+cajaEsc(st.err)+'<br><small>Toma la foto de nuevo con la cámara o elige otra imagen (JPG/PNG). También puedes enviar sin foto escribiendo el motivo.</small>','var(--err-tx)');
+    return;
+  }
+  await cajaFotoSubir(urlId);
+}
+async function cajaFotoSubir(urlId){
+  const st=_cajaFoto[urlId]; if(!st||!st.b64) return;
+  if(st.state==='subiendo') return;
+  st.state='subiendo';
   const btns=document.querySelectorAll('.btn-submit');
   btns.forEach(b=>{b._wasDisabled=b.disabled;b.disabled=true;b.style.opacity='0.4';});
-  urlInp.value=''; // Clear previous URL
+  let r=null;
   try{
-    const b64=await comprimirImagen(file,1200,0.75);
-    stat.textContent='Subiendo foto a Drive...';
-    const r=await api({action:'savePhoto',base64:b64,mimeType:'image/jpeg',nombre:file.name||'foto.jpg'});
-    if(r.ok){
-      urlInp.value=r.url;
-      stat.textContent='✓ Foto subida correctamente';
-      stat.style.color='var(--brand)';
-    } else {
-      stat.textContent='❌ Error al subir: '+(r.error||'intenta de nuevo');
-      stat.style.color='var(--err-tx)';
+    for(let i=1;i<=CAJA_FOTO_INTENTOS;i++){
+      if(_cajaFoto[urlId]!==st) return; // eligió otra foto mientras tanto
+      cajaFotoStatus(st, i===1?'Subiendo foto a Drive...':('Reintentando subida ('+i+'/'+CAJA_FOTO_INTENTOS+')... no cierres esta pantalla'));
+      try{
+        r=await api({action:'savePhoto',base64:st.b64,mimeType:st.mime,nombre:st.name,clientReqId:st.reqId,_timeout:90000});
+      }catch(e){ r={ok:false,_transport:true,error:(e&&e.message)||'Error de conexión'}; }
+      if(r&&r.ok&&r.url) break;
+      const transitorio=!r||r._transport||r.busy||/ocupado|HTTP \d|respuesta vac|Google/i.test(String(r.error||''));
+      if(!transitorio) break;            // error real del servidor (permiso, foto dañada…): no insistir
+      if(i<CAJA_FOTO_INTENTOS) await new Promise(ok=>setTimeout(ok,i*2500));
     }
-  }catch(e){
-    stat.textContent='❌ Error de conexión al subir foto';
-    stat.style.color='var(--err-tx)';
   } finally {
-    // Re-enable submit buttons
     btns.forEach(b=>{b.disabled=b._wasDisabled||false;b.style.opacity='';});
   }
+  if(_cajaFoto[urlId]!==st) return;
+  const urlInp=document.getElementById(urlId);
+  if(r&&r.ok&&r.url){
+    st.state='ok'; st.url=r.url; st.b64='';
+    if(urlInp) urlInp.value=r.url;
+    cajaFotoStatus(st,'✓ Foto subida correctamente','var(--brand)');
+    return;
+  }
+  st.state='error'; st.err=(r&&r.error)||'intenta de nuevo';
+  const why=st.err==='TIMEOUT'?'Google tardó demasiado en responder':st.err;
+  cajaFotoStatus(st,'❌ No se pudo subir la foto: '+cajaEsc(why).slice(0,160)
+    +'<br><button type="button" onclick="event.stopPropagation();cajaFotoReintentar(\''+urlId+'\')" style="margin-top:8px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-weight:700;cursor:pointer">↻ Reintentar subida</button>'
+    +'<br><small>Si no hay señal, puedes enviar sin foto escribiendo el motivo.</small>','var(--err-tx)');
 }
-
-function comprimirImagen(file, maxW, quality){
+function cajaFotoReintentar(urlId){ const st=_cajaFoto[urlId]; if(st&&st.b64) cajaFotoSubir(urlId); else toast('Vuelve a elegir la foto'); }
+/** ¿Se puede enviar el formulario? Bloquea solo mientras la foto se sube; si falló, ofrece reintentar o enviar sin foto (motivo). */
+function cajaFotoListaParaEnviar(urlId,prefix){
+  const st=_cajaFoto[urlId];
+  const url=(document.getElementById(urlId)||{}).value||'';
+  if(url) return true;
+  if(st&&(st.state==='subiendo'||st.state==='comprimiendo')){ toast('⏳ Espera que la foto termine de subirse'); return false; }
+  if(st&&st.state==='error'){
+    const m=document.getElementById(prefix+'-exc-motivo');
+    if(!m||m.value.trim().length<5){
+      mostrarExcepcion(prefix);
+      toast('La foto no se subió: toca «Reintentar subida» o escribe el motivo para enviar sin foto');
+      return false;
+    }
+  }
+  return true;
+}
+/** Comprime a JPEG (lado mayor ≤ maxLado). Si el navegador no puede decodificar (p. ej. HEIC en Android),
+    sube el archivo original si pesa ≤ 8 MB. Devuelve {b64, mime}. */
+function comprimirImagen(file, maxLado, quality){
+  function leerOriginal(){
+    return new Promise((res,rej)=>{
+      if(!file||file.size>8*1024*1024){ rej(new Error('No se pudo procesar la imagen en este teléfono')); return; }
+      const fr=new FileReader();
+      fr.onload=()=>{ const s=String(fr.result||''); const b=s.split(',')[1]||''; if(!b){ rej(new Error('La imagen está vacía')); return; } res({b64:b,mime:file.type||'image/jpeg'}); };
+      fr.onerror=()=>rej(new Error('No se pudo leer la imagen'));
+      fr.readAsDataURL(file);
+    });
+  }
   return new Promise((res,rej)=>{
+    let url='';
+    try{ url=URL.createObjectURL(file); }catch(e){ leerOriginal().then(res,rej); return; }
     const img=new Image();
     img.onload=()=>{
-      let w=img.width, h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      const canvas=document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const data=canvas.toDataURL('image/jpeg',quality);
-      res(data.split(',')[1]);
+      try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h) throw new Error('dim');
+        const k=Math.min(1, maxLado/Math.max(w,h));
+        w=Math.max(1,Math.round(w*k)); h=Math.max(1,Math.round(h*k));
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img,0,0,w,h);
+        const data=canvas.toDataURL('image/jpeg',quality);
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        const b=(data||'').split(',')[1]||'';
+        if(b.length<200) throw new Error('canvas vacío');
+        res({b64:b,mime:'image/jpeg'});
+      }catch(e){ try{ URL.revokeObjectURL(url); }catch(e2){} leerOriginal().then(res,rej); }
     };
-    img.onerror=rej;
-    img.src=URL.createObjectURL(file);
+    img.onerror=()=>{ try{ URL.revokeObjectURL(url); }catch(e){} leerOriginal().then(res,rej); };
+    img.src=url;
   });
 }
 
@@ -2799,6 +2882,7 @@ function _pdfSafe(s){
   try{ if(typeof vNueva==='function'){ pub.vNueva=vNueva; if('vNueva'!=='openMod'&&'vNueva'!=='goHome') global.vNueva=vNueva; } }catch(e){}
   try{ if(typeof vNuevaEntrega==='function'){ pub.vNuevaEntrega=vNuevaEntrega; if('vNuevaEntrega'!=='openMod'&&'vNuevaEntrega'!=='goHome') global.vNuevaEntrega=vNuevaEntrega; } }catch(e){}
   try{ if(typeof vNuevoGasto==='function'){ pub.vNuevoGasto=vNuevoGasto; if('vNuevoGasto'!=='openMod'&&'vNuevoGasto'!=='goHome') global.vNuevoGasto=vNuevoGasto; } }catch(e){}
+  global.cajaFotoReintentar = cajaFotoReintentar; pub.cajaFotoReintentar = cajaFotoReintentar;
   global.Caja = pub;
   global.cajaOpenMod = cajaOpenMod;
   global.cajaGoHome = cajaGoHome;

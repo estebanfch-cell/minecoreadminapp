@@ -305,7 +305,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='224';
+  var MC_BUILD='225';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -418,6 +418,10 @@ function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')r
    que crean documentos (no repetibles sin riesgo de duplicar) se avisa en lugar de reintentar. */
 var MC_NO_REPETIR=/^(crearCotInflow|crearSolicitudInterna|convertirCotOrden|enviarCarrito|sendNow|generarActa|redeemInvite|kycSubmit|editarCotCreada|editarOrdenInflow|saveVendor|saveStockTransfer|savePurchaseOrder|cancelPurchaseOrder|approvePurchaseOrder|crearRuta|crearGasto|crearEntrega|savePhoto|cerrarCorte)$/;
 var MC_ALTA_CAJA=/^(crearEntrega|crearGasto|crearRuta|cerrarCorte)$/;
+/* b225: altas de Caja + savePhoto que el motor deduplica por clientReqId (v129 altas, v134 fotos).
+   Con clientReqId, reintentar es seguro: (a) «tarjeta del doGet» = el doPost NO corrió; (b) página HTML de Google
+   después de escribir ⇒ el motor devuelve el mismo id/archivo. Sin clientReqId se mantiene la regla b220. */
+var MC_IDEM_CAJA=/^(crearEntrega|crearGasto|crearRuta|savePhoto)$/;
 /* b223: el doGet del motor devuelve 4 claves ({ok,service,version,cajaNative}) desde v127; el tope «<=3» lo dejaba pasar como respuesta válida
    (un ping así guardaba rol 'usuario' y modulos [] en mc_profile ⇒ «No tienes permiso del módulo Caja»). Ninguna acción real trae «service». */
 function MCesDoGet(res){return !!(res&&res.ok===true&&res.service==='Minecore Admin API'&&res.version&&res.auth===undefined);}
@@ -432,6 +436,7 @@ function MCpost(p){
   var body=JSON.stringify(clean);
   var accion=String(clean.action||'');
   var lectura=/^(get|list|mi|ping|syncNow)/.test(accion);
+  var idem=!!(clean.clientReqId&&MC_IDEM_CAJA.test(accion));
   function go(){
     var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
     var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},timeoutMs):null;
@@ -451,7 +456,7 @@ function MCpost(p){
   function intento(n){
     return go().catch(function(e){
       if(e&&e.doget){
-        if(MC_NO_REPETIR.test(accion))throw new Error('Google devolvió una respuesta vacía para "'+accion+'". Verifica en la app/inFlow si la acción se aplicó antes de repetirla.');
+        if(MC_NO_REPETIR.test(accion)&&!idem)throw new Error('Google devolvió una respuesta vacía para "'+accion+'". Verifica en la app/inFlow si la acción se aplicó antes de repetirla.');
         if(n>=maxRetry)throw new Error('Google respondió sin ejecutar la acción "'+accion+'" ('+(maxRetry+1)+' intentos). Reintenta en unos segundos.');
         return new Promise(function(ok){setTimeout(ok,[700,1500,3000][n]||3000);}).then(function(){return intento(n+1);});
       }
@@ -460,7 +465,7 @@ function MCpost(p){
       /* b220: una página HTML de Google puede llegar DESPUÉS de que el script escribió (p.ej. la redirección
          a googleusercontent falla con 404/500 «no se pudo abrir el archivo»). Las altas no repetibles
          (crearEntrega/crearGasto/crearRuta/cerrarCorte) NO se reintentan solas: duplicaban la línea en Caja_*. */
-      var puede=(esPaginaGoogle(e)&&!MC_ALTA_CAJA.test(accion))||(lectura&&!esPaginaGoogle(e));
+      var puede=(esPaginaGoogle(e)&&(!MC_ALTA_CAJA.test(accion)||idem))||(lectura&&!esPaginaGoogle(e));
       if(n>=tope||!puede)throw e;
       var espera=trans?([800,1500,2500,4000,6000,8000][n]||8000):([900,1800,3200][n]||3200);
       return new Promise(function(ok){setTimeout(ok,espera);}).then(function(){return intento(n+1);});
@@ -8966,6 +8971,6 @@ window.cajaMapsReady=window.mapsReady;
 window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBV61oL-BrmLYIm5aof56ql-C8aLBNcx8A&libraries=places,geometry&callback=mapsReady" async defer></script>
-<script src="caja.js?v=223"></script>
+<script src="caja.js?v=225"></script>
 </body>
 </html>
