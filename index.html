@@ -311,7 +311,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='227';
+  var MC_BUILD='228';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -990,8 +990,19 @@ function mcPdfSaveSheet_(blob, filename){
     if(file&&navigator.share)navigator.share({files:[file],title:filename}).catch(function(){});
   };
   row.appendChild(a);
-  /* Compartir solo si este navegador no puede descargar con <a download>. */
-  try{if(!mcHasDownloadAttr()&&typeof navigator.share==='function'&&typeof File!=='undefined')row.appendChild(shareBtn);}catch(e){}
+  /* Compartir si no hay <a download>, o en iPhone/iPad cuando el sistema acepta archivos
+     (el PDF impreso de la PWA ignora el nombre; Compartir sí usa el nombre del File). */
+  try{
+    var showShare=false;
+    if(typeof navigator.share==='function'&&typeof File!=='undefined'){
+      if(!mcHasDownloadAttr())showShare=true;
+      else if(mcIsIOS()&&navigator.canShare){
+        var probe=new File([blob], filename, {type:blob.type||'application/pdf'});
+        showShare=!!navigator.canShare({files:[probe]});
+      }
+    }
+    if(showShare)row.appendChild(shareBtn);
+  }catch(e){}
   row.appendChild(closeBtn);
   wrap.appendChild(title);
   wrap.appendChild(sub);
@@ -3889,6 +3900,200 @@ function MCPartesNorm(raw, cant){
   if(cant!=null&&sum!==(parseInt(cant,10)||0))return null;
   return out;
 }
+/* b228: Cotización MCOR000760.pdf (orden: Orden de venta <num>.pdf). Mismo criterio que _plTitle: tipo + cfg.num. */
+function mcPlanillaPdfBase(cfg){
+  cfg=cfg||{};
+  var titulo=String(cfg.titulo||'');
+  var num=String(cfg.num==null?'':cfg.num).trim();
+  var label=/ORDEN/i.test(titulo)?'Orden de venta':'Cotización';
+  if(num)return label+' '+num;
+  var t=titulo.trim();
+  return t||'Planilla';
+}
+function mcPlanillaPdfFilename(cfg){
+  return mcSanitizeFilename(mcPlanillaPdfBase(cfg)+'.pdf');
+}
+function mcPlanillaIsMobile_(){
+  if(typeof mcIsIOS==='function'&&mcIsIOS())return true;
+  var ua='';
+  try{ua=navigator.userAgent||'';}catch(e){ua='';}
+  return /Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+}
+/* iPhone (PWA o Safari): compartir el File conserva el nombre. Escritorio: descarga directa. */
+function mcDeliverPlanillaPdf(blob, filename){
+  filename=mcSanitizeFilename(filename);
+  var file=null;
+  try{file=new File([blob], filename, {type:'application/pdf'});}catch(e){file=null;}
+  if(!mcPlanillaIsMobile_()){
+    mcDownloadViaAnchor_(blob, filename);
+    return Promise.resolve(file);
+  }
+  var can=false;
+  try{can=!!(file&&navigator.canShare&&navigator.canShare({files:[file]}));}catch(e){can=false;}
+  if(can){
+    return navigator.share({files:[file],title:filename}).then(function(){return file;}).catch(function(err){
+      if(err&&err.name==='AbortError')return file;
+      mcPdfSaveSheet_(blob, filename);
+      return file;
+    });
+  }
+  if(typeof mcHasDownloadAttr==='function'&&mcHasDownloadAttr()){
+    mcDownloadViaAnchor_(blob, filename);
+    return Promise.resolve(file);
+  }
+  mcPdfSaveSheet_(blob, filename);
+  return Promise.resolve(file);
+}
+function mcPlanillaLoadH2c(doc){
+  var w=doc.defaultView||window;
+  if(typeof w.html2canvas==='function')return Promise.resolve(w.html2canvas);
+  return new Promise(function(res,rej){
+    var s=doc.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.async=true;
+    var done=false;
+    function fail(){if(done)return;done=true;rej(new Error('No se pudo cargar el generador de PDF'));}
+    s.onload=function(){
+      if(done)return;
+      if(typeof w.html2canvas==='function'){done=true;res(w.html2canvas);}
+      else fail();
+    };
+    s.onerror=fail;
+    setTimeout(function(){fail();},20000);
+    (doc.head||doc.documentElement).appendChild(s);
+  });
+}
+function mcPlanillaLoadJsPDF(){
+  try{
+    if(window.jspdf&&window.jspdf.jsPDF)return Promise.resolve(window.jspdf.jsPDF);
+  }catch(e){}
+  if(typeof loadJsPDF==='function')return loadJsPDF();
+  return new Promise(function(res,rej){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload=function(){
+      if(window.jspdf&&window.jspdf.jsPDF)res(window.jspdf.jsPDF);
+      else rej(new Error('No se pudo cargar jsPDF'));
+    };
+    s.onerror=function(){rej(new Error('No se pudo cargar jsPDF'));};
+    document.head.appendChild(s);
+  });
+}
+function mcPlanillaWaitReady(doc){
+  var pending=[];
+  try{
+    if(doc.fonts&&doc.fonts.ready)pending.push(Promise.race([
+      doc.fonts.ready.catch(function(){}),
+      new Promise(function(r){setTimeout(r,4000);})
+    ]));
+  }catch(e){}
+  var imgs=[];
+  try{imgs=[].slice.call(doc.images||[]);}catch(e2){imgs=[];}
+  imgs.forEach(function(img){
+    if(!img||img.complete)return;
+    pending.push(new Promise(function(r){
+      var t=setTimeout(r,4000);
+      function fin(){clearTimeout(t);r();}
+      img.addEventListener('load',fin);
+      img.addEventListener('error',fin);
+    }));
+  });
+  return Promise.all(pending);
+}
+function mcPlanillaSliceCanvases(canvas){
+  var doc=canvas.ownerDocument||document;
+  var pageH=Math.round(canvas.width*297/210);
+  if(pageH<1)return [canvas];
+  /* Unos pocos px de más son el redondeo mm→px de la hoja A4, no otra página. */
+  var sliver=Math.max(16, Math.round(pageH*0.012));
+  if(canvas.height<=pageH+sliver)return [canvas];
+  var slices=[];
+  var y=0;
+  while(y<canvas.height-2){
+    var remain=canvas.height-y;
+    if(slices.length&&remain<sliver)break;
+    var h=Math.min(pageH, remain);
+    if(h<8)break;
+    var c=doc.createElement('canvas');
+    c.width=canvas.width;
+    c.height=h;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,c.width,c.height);
+    ctx.drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+    slices.push(c);
+    y+=h;
+  }
+  return slices.length?slices:[canvas];
+}
+function mcPlanillaScaleFor(w,h){
+  var s=2;
+  var maxEdge=4096;
+  var maxArea=14000000;
+  if(w*s>maxEdge)s=maxEdge/w;
+  if(h*s>maxEdge)s=Math.min(s, maxEdge/h);
+  if(w*h*s*s>maxArea)s=Math.min(s, Math.sqrt(maxArea/(w*h)));
+  if(s<1)s=1;
+  return Math.round(s*100)/100;
+}
+function mcPlanillaShot(h2c, el){
+  var w=Math.max(1, el.scrollWidth||el.offsetWidth||794);
+  var h=Math.max(1, el.scrollHeight||el.offsetHeight||1123);
+  return h2c(el, {
+    backgroundColor:'#ffffff',
+    scale:mcPlanillaScaleFor(w,h),
+    useCORS:true,
+    allowTaint:false,
+    logging:false,
+    imageTimeout:12000,
+    removeContainer:true,
+    windowWidth:Math.max(w, 900),
+    windowHeight:Math.max(h, 1200),
+    scrollX:0,
+    scrollY:0
+  });
+}
+/* Dibuja la planilla visible (ediciones e IVA incluidos) a un PDF A4 de varias páginas. */
+function mcPlanillaRenderPdf(idoc, filename){
+  if(!idoc||!idoc.body)return Promise.reject(new Error('No se pudo leer la planilla'));
+  filename=mcSanitizeFilename(filename||'Cotización.pdf');
+  try{idoc.title=filename;}catch(e){}
+  var hojas;
+  try{hojas=[].slice.call(idoc.querySelectorAll('.hoja'));}catch(e2){hojas=[];}
+  if(!hojas.length)return Promise.reject(new Error('La planilla no tiene páginas'));
+  var margins=hojas.map(function(el){return el.style.marginTop;});
+  hojas.forEach(function(el){el.style.marginTop='0';});
+  function restore(){
+    hojas.forEach(function(el,i){el.style.marginTop=margins[i]||'';});
+  }
+  return Promise.all([mcPlanillaLoadH2c(idoc), mcPlanillaLoadJsPDF(), mcPlanillaWaitReady(idoc)]).then(function(pack){
+    var h2c=pack[0], JsPDF=pack[1];
+    var seq=Promise.resolve([]);
+    hojas.forEach(function(el){
+      seq=seq.then(function(list){
+        return mcPlanillaShot(h2c, el).then(function(canvas){
+          if(!canvas||canvas.width<200)throw new Error('No se pudo dibujar la planilla');
+          mcPlanillaSliceCanvases(canvas).forEach(function(c){list.push(c);});
+          return list;
+        });
+      });
+    });
+    return seq.then(function(canvases){
+      if(!canvases.length)throw new Error('No se pudo dibujar la planilla');
+      var doc=new JsPDF({unit:'mm',format:'a4',compress:true});
+      try{doc.setProperties({title:filename,subject:filename,author:'Minecore',creator:'Minecore'});}catch(e){}
+      canvases.forEach(function(canvas,i){
+        if(i>0)doc.addPage();
+        var hMm=210*(canvas.height/canvas.width);
+        if(hMm>296.5)hMm=297;
+        doc.addImage(canvas.toDataURL('image/png'),'PNG',0,0,210,hMm);
+      });
+      var blob=doc.output('blob');
+      try{if(!blob||blob.type!=='application/pdf')blob=new Blob([blob],{type:'application/pdf'});}catch(e){}
+      return {blob:blob, pages:canvases.length, filename:filename};
+    });
+  }).then(function(out){restore();return out;}, function(err){restore();throw err;});
+}
 /* ===== Planilla de cotización (compartida admin/cliente) — réplica del formato inFlow ===== */
 function MCPlanillaCot(cfg){
   function esc(x){return String(x===undefined||x===null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -3990,12 +4195,11 @@ function MCPlanillaCot(cfg){
       '<div class="h2s">Disponibilidad y plazo estimado de entrega por producto, contados desde la confirmación de la orden.</div>'+
       '<table class="te"><thead><tr><td class="num"></td>'+(hayFoto?'<td class="foto"></td>':'')+'<td>Producto</td><td class="qty">Cant.</td><td class="stk">Stock</td><td class="ent">Entrega</td></tr></thead>'+filas2+'</table>'+
       '<div class="leyenda"><span class="tag tg">Inmediata</span><span class="tag to">Hasta 15 días</span><span class="tag tr">Más de 15 días</span><span class="tag tn">Por confirmar</span></div>'+
-      '<div class="nota2" contenteditable="true">- Los plazos son estimados en días calendario y están sujetos a disponibilidad del fabricante y tiempos de importación.<br>- La entrega parcial de los productos en stock puede realizarse de inmediato mientras se completa el saldo.</div>'+
+      '<div class="nota2" contenteditable="true">- Los plazos son estimados en días laborables y están sujetos a disponibilidad del fabricante y tiempos de importación.<br>- La entrega parcial de los productos en stock puede realizarse de inmediato mientras se completa el saldo.</div>'+
       '</div>';
   }
-  var _plTipo=/ORDEN/i.test(String(cfg.titulo||''))?'ORDEN DE VENTA':'COTIZACIÓN';
-  var _plTitle=(cfg.num?(_plTipo+' '+cfg.num):(cfg.titulo||'Planilla'));
-  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(_plTitle)+'</title>'+
+  var _plPdfName=mcPlanillaPdfFilename(cfg);
+  var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(_plPdfName)+'</title>'+
     '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>'+
     '<style>'+
@@ -4119,7 +4323,9 @@ function MCPlanillaCot(cfg){
   ov.style.cssText='position:fixed;inset:0;z-index:1000;background:#0b0f14;display:flex;flex-direction:column';
   var bar=document.createElement('div');
   bar.style.cssText='display:flex;gap:8px;align-items:center;padding:8px 12px;background:#141b24;border-bottom:1px solid #223142;flex-wrap:wrap';
+  ov.setAttribute('data-pdf-name', _plPdfName);
   bar.innerHTML='<span style="font-weight:700;color:#dce6f0;font-size:13px;flex:1;min-width:120px">🧾 '+esc(cfg.num||'Planilla')+'</span>'+
+    '<button type="button" class="cbz-btn" id="mc-pl-pdf" title="'+esc(_plPdfName)+'">⬇️ Descargar PDF</button>'+
     '<button class="cbz-btn" id="mc-pl-print" title="En iPhone el PDF toma el nombre de la cotización/orden">🖨 Imprimir / Guardar como PDF</button>'+
     '<button class="chip" id="mc-pl-tab" title="Abrir en una pestaña aparte (por ejemplo para compartir en iPhone)">↗ Abrir en pestaña</button>'+
     '<button class="chip" id="mc-pl-close">✖ Cerrar</button>';
@@ -4130,7 +4336,30 @@ function MCPlanillaCot(cfg){
   ov.appendChild(bar);ov.appendChild(fr);document.body.appendChild(ov);
   document.body.style.overflow='hidden';
   function cerrar(){try{ov.remove();}catch(e){}document.body.style.overflow='';}
+  function mcPlanillaApplyTitle(){
+    try{if(fr.contentDocument)fr.contentDocument.title=_plPdfName;}catch(e){}
+  }
+  fr.addEventListener('load', mcPlanillaApplyTitle);
+  setTimeout(mcPlanillaApplyTitle, 0);
   bar.querySelector('#mc-pl-close').onclick=cerrar;
+  bar.querySelector('#mc-pl-pdf').onclick=function(){
+    var btn=bar.querySelector('#mc-pl-pdf');
+    if(!btn||btn.disabled)return;
+    var idoc=null;
+    try{idoc=fr.contentDocument||(fr.contentWindow&&fr.contentWindow.document);}catch(e){idoc=null;}
+    if(!idoc){alert('No se pudo leer la planilla.');return;}
+    btn.disabled=true;
+    var prevTxt=btn.textContent;
+    btn.textContent='Generando PDF…';
+    mcPlanillaRenderPdf(idoc, _plPdfName).then(function(out){
+      return mcDeliverPlanillaPdf(out.blob, (out&&out.filename)||_plPdfName);
+    }).catch(function(e){
+      alert('No se pudo crear el PDF. '+(e&&e.message?e.message:'Inténtalo de nuevo.'));
+    }).then(function(){
+      btn.disabled=false;
+      btn.textContent=prevTxt;
+    });
+  };
   bar.querySelector('#mc-pl-print').onclick=function(){
     var prevTitle=document.title;
     var restored=false;
@@ -4140,8 +4369,8 @@ function MCPlanillaCot(cfg){
       try{window.removeEventListener('afterprint',restoreTitle);}catch(e){}
     }
     try{
-      document.title=_plTitle;
-      try{if(fr.contentDocument)fr.contentDocument.title=_plTitle;}catch(e){}
+      document.title=_plPdfName;
+      mcPlanillaApplyTitle();
       window.addEventListener('afterprint',restoreTitle);
       setTimeout(restoreTitle,2500);
       fr.contentWindow.focus();
@@ -4153,7 +4382,7 @@ function MCPlanillaCot(cfg){
   };
   bar.querySelector('#mc-pl-tab').onclick=function(){
     var prevTitle=document.title;
-    try{document.title=_plTitle;}catch(e){}
+    try{document.title=_plPdfName;}catch(e){}
     var blob=new Blob([html],{type:'text/html'});var url=URL.createObjectURL(blob);
     var w=window.open(url,'_blank');if(!w)alert('El navegador bloqueó la ventana. Permite ventanas emergentes para la app.');
     setTimeout(function(){try{document.title=prevTitle;}catch(e){}},1500);
