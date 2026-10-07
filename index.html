@@ -246,6 +246,12 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
 .uform{margin-top:10px;display:flex;flex-direction:column;gap:8px}
 .uinput{background:#0b1219;border:1px solid #2e4257;border-radius:8px;color:#dce6f0;padding:9px;font-size:13px;width:100%}
 .cz-cli-wrap{position:relative}
+.cz-ubic{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.cz-ubic .cz-seg{display:inline-flex;border:1px solid #223142;border-radius:20px;overflow:hidden;max-width:100%}
+.cz-ubic .cz-seg .chip{border:0;border-radius:0;border-right:1px solid #223142;white-space:nowrap}
+.cz-ubic .cz-seg .chip:last-child{border-right:0}
+.cz-ubic .cz-ubic-n{font-size:10px;opacity:.75;margin-left:4px}
+@media (max-width:520px){.cz-ubic .cz-seg{width:100%}.cz-ubic .cz-seg .chip{flex:1;padding:7px 6px;font-size:11px}}
 .cz-cli-dd{display:none;position:absolute;left:0;right:0;top:100%;z-index:80;max-height:min(50vh,380px);overflow:auto;background:#0f1720;border:1px solid #26405c;border-radius:8px;margin-top:4px;box-shadow:0 10px 28px rgba(0,0,0,.45)}
 .cz-cli-dd.on{display:block}
 .cz-cli-opt{padding:10px 12px;cursor:pointer;border-bottom:1px solid #1a2530;font-size:13px;line-height:1.3}
@@ -305,7 +311,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='226';
+  var MC_BUILD='227';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -541,7 +547,7 @@ var MCWarm = (function(){
   function slimForLs(items){
     return (items||[]).map(function(it){
       return {sku:it.sku,nombre:it.nombre,productId:it.productId||'',precio:it.precio||0,img:it.img||'',
-        stock:it.stock||0,stockTotal:it.stockTotal||it.stock||0,codigo:it.codigo||'',categoria:it.categoria||'',
+        stock:it.stock||0,stockTotal:it.stockTotal||it.stock||0,stockPor:it.stockPor||{},codigo:it.codigo||'',categoria:it.categoria||'',
         ubicacion:it.ubicacion||'',sububicacion:it.sububicacion||'',ubicaciones:it.ubicaciones||''};
     });
   }
@@ -836,7 +842,7 @@ var MCWarm = (function(){
     };
   }
   hydrate();
-  return {preload:preload,loadClientes:loadClientes,loadProductos:loadProductos,getClientes:getClientes,getProductos:getProductos,status:status,subscribe:subscribe,
+  return {preload:preload,loadClientes:loadClientes,loadProductos:loadProductos,getClientes:getClientes,getProductos:getProductos,getBodegas:function(){return mem.bodegas||[];},status:status,subscribe:subscribe,
     RECENT:IO_RECENT,loadInflow:loadInflow,getInflow:getInflow,loadCotAdmin:loadCotAdmin,getCotAdmin:getCotAdmin,dropPre:dropPre,absorbInflow:absorbInflow,markStale:markStale};
 })();
 function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.stockTotal:it.stock)||0;var sp=it.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}return parseFloat(v)||0;}
@@ -4176,10 +4182,54 @@ var Cot = (function(){
   var czCliente=null, czClientes=null, czQ='', czCat='', czLin='', czDesc='', czMm='', czModo='buscar';
   var czCliQ='', czWarmBound=false, czCliDocBound=false, ioWarmBound=false;
   var czDestino='cart'; // 'cart' = carrito del Cotizador · 'det' = agregar líneas al detalle de una cotización
+  /* b227: ubicación de inventario del cotizador. Siempre arranca en Bodega principal; en el detalle usa la bodega guardada
+     de la cotización (entregas.bodega). Stock por ubicación = it.stockPor de getInventario (hoja Stock_Ubicacion). */
+  var CZ_UBIC=[{k:'BP',l:'Bodega principal',i:'🏢',re:/PRINCIPAL/,def:'BODEGA PRINCIPAL'},{k:'CONS',l:'Consignación',i:'🤝',re:/CONSIGN/,def:'CONSIGNACIÓN'},{k:'ALQ',l:'Alquiler',i:'🔧',re:/ALQUIL/,def:'EN ALQUILER'}];
+  var czUbic='BP', czUbicInfo=null, czSinStock=false;
+  try{czSinStock=localStorage.getItem('mc_cz_sinstock')==='1';}catch(e){}
+  function czNormU(s){s=String(s||'');try{s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){}return s.toUpperCase().replace(/\s+/g,' ').trim();}
+  function czUbicDef(k){for(var i=0;i<CZ_UBIC.length;i++)if(CZ_UBIC[i].k===k)return CZ_UBIC[i];return CZ_UBIC[0];}
+  function czUbicKeyDe(n){var x=czNormU(n);for(var i=0;i<CZ_UBIC.length;i++)if(CZ_UBIC[i].re.test(x))return CZ_UBIC[i].k;return '';}
+  function czUbicNombreDe(k){
+    var u=czUbicDef(k),bs=[];
+    try{bs=(MCWarm.getBodegas&&MCWarm.getBodegas())||[];}catch(e){}
+    if(det&&det.bodegas)bs=bs.concat(det.bodegas);
+    for(var i=0;i<bs.length;i++)if(u.re.test(czNormU(bs[i])))return bs[i];
+    if(czUbicInfo)for(var j=0;j<czUbicInfo.length;j++)if(czUbicInfo[j].key===u.k&&czUbicInfo[j].nombre)return czUbicInfo[j].nombre;
+    return u.def;
+  }
+  function czUbicActualNombre(){if(czDestino==='det'&&det)return bodegaSel();return czUbicNombreDe(czUbic);}
+  function czUbicActualKey(){return czUbicKeyDe(czUbicActualNombre())||'BP';}
+  function czLocIdDe(nombre){var k=czUbicKeyDe(nombre);if(!k||!czUbicInfo)return '';for(var i=0;i<czUbicInfo.length;i++)if(czUbicInfo[i].key===k)return czUbicInfo[i].locationId||'';return '';}
+  function czStockEn(p,b){
+    var sp=p.stockPor||{},has=false;for(var k in sp){has=true;break;}
+    // Producto sin filas en Stock_Ubicacion: su total cuenta como Bodega principal (igual que la planilla de entregas)
+    if(!has)return czUbicKeyDe(b)==='BP'?(parseFloat(p.stockTotal!==undefined?p.stockTotal:p.stock)||0):0;
+    return MCstockDe(p,b);
+  }
+  function czStock(p){return czStockEn(p,czUbicActualNombre());}
+  function czCargarUbicInfo(){
+    if(czUbicInfo)return;
+    api({action:'getUbicacionesCot'}).then(function(r){if(r&&r.ok&&r.ubicaciones){czUbicInfo=r.ubicaciones;var bar=document.getElementById('cz-ubic');if(bar)bar.outerHTML=czUbicHtml();}}).catch(function(){});
+  }
+  function czUbicHtml(){
+    var cur=czUbicActualKey();
+    function nCon(k){if(!prodCat)return '';var n=0,b=czUbicNombreDe(k);for(var i=0;i<prodCat.length;i++)if(czStockEn(prodCat[i],b)>0)n++;return '<span class="cz-ubic-n">'+n+'</span>';}
+    var bloq=(czDestino==='det'&&det&&!esLineaEditable());
+    return '<div class="cz-ubic" id="cz-ubic"><span class="cbz-muted" style="font-size:11px">📦 Stock desde</span><span class="cz-seg" role="tablist">'+
+      CZ_UBIC.map(function(u){return '<button class="chip '+(cur===u.k?'on':'')+'" role="tab" aria-selected="'+(cur===u.k)+'" title="'+czEsc(czUbicNombreDe(u.k))+'"'+(bloq?' disabled':'')+' onclick="Cot.czSetUbic(\''+u.k+'\')">'+u.i+' '+u.l+nCon(u.k)+'</button>';}).join('')+
+      '</span><button class="chip '+(czSinStock?'on':'')+'" style="padding:5px 11px;font-size:11px" onclick="Cot.czToggleSinStock()">'+(czSinStock?'☑':'☐')+' Ver sin stock</button></div>';
+  }
+  function czSetUbic(k){
+    k=czUbicDef(k).k;
+    if(czDestino==='det'&&det){if(!esLineaEditable())return;setBodega(czUbicNombreDe(k));return;}
+    czUbic=k;czRe();
+  }
+  function czToggleSinStock(){czSinStock=!czSinStock;try{localStorage.setItem('mc_cz_sinstock',czSinStock?'1':'0');}catch(e){}czRe();}
   function czRe(){if(czDestino==='det')renderDet();else renderCotizador();}
   /* v146: el mismo buscador (categorías, filtros de brocas, fotos, stock) sirve para el carrito y para el detalle */
   function czFiltrosHtml(){
-    var f='<input class="uinput" id="cz-q" placeholder="🔍 Busca el producto: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="margin-bottom:8px;width:100%">';
+    var f=czUbicHtml()+'<input class="uinput" id="cz-q" placeholder="🔍 Busca el producto: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="margin-bottom:8px;width:100%">';
     f+='<div class="cbz-card-row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'+
       '<select class="uinput" id="cz-cat" style="max-width:240px;padding:9px" onchange="Cot.czSetCat(this.value)">'+
       '<option value="">📂 Todas las categorías</option>'+
@@ -4268,7 +4318,7 @@ var Cot = (function(){
   }
   function init(){
     abrirSeq++;
-    det=null;lista=null;ioLista=null;ioDet=null;ioLimit=recentN();cotTab='cotz';czCliente=null;czModo='buscar';czCliQ='';
+    det=null;lista=null;ioLista=null;ioDet=null;ioLimit=recentN();cotTab='cotz';czCliente=null;czModo='buscar';czCliQ='';czUbic='BP';czCargarUbicInfo();
     window.MC_onCartChange=null;
     czBindWarm();
     ioBindWarm();
@@ -4333,6 +4383,7 @@ var Cot = (function(){
       Inv.mountDesp('cz-desp');
       return;
     }
+    h+=czUbicHtml();
     h+='<input class="uinput" id="cz-q" placeholder="🔍 Busca el producto: nombre, SKU, código..." value="'+czQ.replace(/"/g,'&quot;')+'" oninput="Cot.czBuscar(this.value)" autocomplete="off" style="margin-bottom:8px;width:100%">';
     h+='<div class="cbz-card-row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">'+
       '<select class="uinput" id="cz-cat" style="max-width:240px;padding:9px" onchange="Cot.czSetCat(this.value)">'+
@@ -4446,7 +4497,7 @@ var Cot = (function(){
   function czElegirNombre(v){
     v=String(v||'').trim();
     if(!v){alert('Escribe o elige el cliente.');return;}
-    czCliente=v;czCliQ='';czQ='';czCat='';czLin='';czDesc='';czMm='';czModo='buscar';
+    czCliente=v;czCliQ='';czQ='';czCat='';czLin='';czDesc='';czMm='';czModo='buscar';czUbic='BP';
     czCartSet([]); // cada cotización nace en CERO
     renderCotizador();
   }
@@ -4532,24 +4583,25 @@ var Cot = (function(){
         box.innerHTML='<div class="cbz-muted" style="font-size:12px;padding:8px 2px">Busca arriba o elige una categoría — '+prodCat.length+' productos en catálogo.</div>';
         return;
       }
-      var preview=prodCat.slice(0,24);
-      var head='<div class="cbz-muted" style="font-size:12px;padding:4px 2px 8px">Catálogo listo · '+prodCat.length+' productos'+(MCWarm.status().productosLoading?' · actualizando…':'')+' — busca o elige una categoría.</div>';
+      var preview=prodCat.filter(function(p){return czSinStock||czStock(p)>0;}).slice(0,24);
+      var head='<div class="cbz-muted" style="font-size:12px;padding:4px 2px 8px">Catálogo listo · '+prodCat.length+' productos'+(czSinStock?'':' · mostrando los que tienen stock en '+czEsc(czUbicDef(czUbicActualKey()).l))+(MCWarm.status().productosLoading?' · actualizando…':'')+' — busca o elige una categoría.</div>';
       box.innerHTML=head+preview.map(czCardHtml).join('');
       return;
     }
-    var res=[];
+    var res=[],ocultos=0;
     for(var i=0;i<prodCat.length&&res.length<30;i++){
       var p=prodCat[i];
       if(czCat&&p.categoria!==czCat)continue;
       if(czLin&&!czHayEn(p,czLin))continue;
       if(czDesc&&!czHayEn(p,czDesc))continue;
       if(czMm&&!czHayEn(p,czMm+' MM'))continue;
+      if(!czSinStock&&!(czStock(p)>0)){ocultos++;continue;}
       var H=(p.sku+' '+p.nombre+' '+p.codigo).toLowerCase();
       var ok=true;
       for(var t=0;t<toks.length;t++){if(H.indexOf(toks[t])<0){ok=false;break;}}
       if(ok)res.push(p);
     }
-    if(!res.length){box.innerHTML='<div class="cbz-muted" style="padding:8px 2px">Sin resultados para "'+czEsc(czQ)+'".</div>';return;}
+    if(!res.length){box.innerHTML='<div class="cbz-muted" style="padding:8px 2px">'+(ocultos?'Sin stock en '+czEsc(czUbicDef(czUbicActualKey()).l)+' para "'+czEsc(czQ)+'". <a href="#" style="color:#5cc8ff" onclick="Cot.czToggleSinStock();return false">Ver sin stock</a> o cambia de ubicación.':'Sin resultados para "'+czEsc(czQ)+'".')+'</div>';return;}
     box.innerHTML=res.map(czCardHtml).join('');
   }
   function czOtraBtn(sku){
@@ -4558,7 +4610,7 @@ var Cot = (function(){
   function czCardHtml(p){
     var thumb=(p.img?'<img src="'+p.img+'" class="pimg" style="width:38px;height:38px;flex:none;cursor:zoom-in" loading="lazy" onclick="MCfoto(\''+p.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:38px;height:38px;flex:none">📦</div>');
     var meta='<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;line-height:1.25">'+czEsc(p.nombre)+'</div>'+
-      '<div class="cbz-muted" style="font-size:10.5px">'+czEsc(p.sku)+(p.stock>0?' · <span style="color:#6fd68f">'+(p.stock%1?p.stock:Math.round(p.stock))+' und.</span>':' · <span style="color:#e05c5c">agotado</span>')+(p.precio?' · '+fmt(p.precio):'')+'</div></div>';
+      '<div class="cbz-muted" style="font-size:10.5px">'+czEsc(p.sku)+(function(){var q=czStock(p),u=czUbicDef(czUbicActualKey()).l;return q>0?' · <span style="color:#6fd68f">'+(q%1?q:Math.round(q))+' und. en '+u+'</span>':' · <span style="color:#e05c5c">sin stock en '+u+'</span>';})()+(p.precio?' · '+fmt(p.precio):'')+'</div></div>';
     if(czDestino==='det'){
       var n=0;if(det&&det.lineas)det.lineas.forEach(function(l){if(l.sku===p.sku)n++;});
       var accion=n
@@ -4757,7 +4809,7 @@ var Cot = (function(){
     det={
       cot:{id:0,empresa:empresa,estado:'NUEVA',fecha:ymdHoy(),usuario:(typeof getUserName==='function'?getUserName():'')||'',contacto:'',inflowNum:''},
       lineas:[],
-      entregas:{bodega:'',lineas:{}},
+      entregas:{bodega:czUbicNombreDe(czUbic),lineas:{}},
       campos:{},
       vinculo:vinculoPorNombre(empresa),
       candidatos:[],
@@ -4772,7 +4824,7 @@ var Cot = (function(){
     det.lineas=lineasDesdeCarrito(lines);
     renderDet();
     czSolFlight=true;
-    api({action:'crearSolicitudInterna',empresa:empresa,items:items2,clientReqId:tok}).then(function(res){
+    api({action:'crearSolicitudInterna',empresa:empresa,items:items2,clientReqId:tok,bodega:czUbicNombreDe(czUbic)}).then(function(res){
       czSolFlight=false;
       if(!res||!res.ok){
         if(mismoOpt(tok)){alert('Error: '+((res&&res.error)||'no se pudo crear la pre-cotización'));det=null;renderCotizador();}
@@ -5769,7 +5821,7 @@ var Cot = (function(){
     return '<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
       '<span class="cbz-card-name" style="font-size:12px">📦 Stock desde:</span>'+
       (bs.length?'<select class="uinput" style="padding:6px;width:auto" onchange="Cot.setBodega(this.value)">'+bs.map(function(x){return '<option'+(x===b?' selected':'')+'>'+x+'</option>';}).join('')+'</select>':'<b>'+b+'</b>')+
-      '<span class="cbz-muted" style="font-size:10.5px">Por defecto Bodega Principal. Cambia solo si esta cotización sale de consignación o alquiler. Lo que ves aquí (stock y entrega) sale en la planilla PDF, no en inFlow.</span></div></div>';
+      '<span class="cbz-muted" style="font-size:10.5px">Por defecto Bodega Principal. Cambia solo si esta cotización sale de consignación o alquiler. Se usa en el stock, la planilla PDF y como ubicación de la cotización en inFlow al crearla.</span></div></div>';
   }
   function setDesc(i,v){var d=parseFloat(v)||0;if(d<0)d=0;if(d>=100)d=99;det.lineas[i].descuento=d;tocado();renderDet();}
   var camposOpen=false;
@@ -6277,7 +6329,8 @@ var Cot = (function(){
     var payloadLineas=lineas.map(lineaApi);
     var detSnap={cot:det.cot,vinculo:det.vinculo};
     renderDet();
-    api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},avisar:avisar,lineas:payloadLineas}).then(function(res){
+    var bodCrear=bodegaSel();
+    api({action:'crearCotInflow',id:det.cot.id,campos:det.campos||{},avisar:avisar,lineas:payloadLineas,bodega:bodCrear,locationId:czLocIdDe(bodCrear)}).then(function(res){
       var aqui=mismoOpt(tok);
       /* b224: un reintento (página HTML de Google) después de crearla devolvía «ya fue creada en inFlow como X»: es éxito */
       var mYa=res&&!res.ok&&/ya fue creada en inFlow como\s+(\S+)/i.exec(String(res.error||''));
@@ -6382,7 +6435,7 @@ var Cot = (function(){
       subtotal:Math.round(sub*100)/100
     });
   }
-  return {init:init,setEntAhora:setEntAhora,resetEntAhora:resetEntAhora,setEntPlazo:setEntPlazo,setParteCant:setParteCant,setPartePlazo:setPartePlazo,quitarPartes:quitarPartes,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,agregarSku:agregarSku,duplicarLinea:duplicarLinea,dividirEntrega:dividirEntrega,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
+  return {czSetUbic:czSetUbic,czToggleSinStock:czToggleSinStock,init:init,setEntAhora:setEntAhora,resetEntAhora:resetEntAhora,setEntPlazo:setEntPlazo,setParteCant:setParteCant,setPartePlazo:setPartePlazo,quitarPartes:quitarPartes,setBodega:setBodega,mover:mover,moverA:moverA,dragStart:dragStart,quitarLinea:quitarLinea,agregarLinea:agregarLinea,agregarSku:agregarSku,duplicarLinea:duplicarLinea,dividirEntrega:dividirEntrega,abrir:abrir,volver:volver,setPrecio:setPrecio,setCant:setCant,setDesc:setDesc,
           guardar:guardar,crear:crear,vincular:vincular,pdf:pdf,
           filtrar:filtrar,editarCreada:editarCreada,cancelarEdicion:cancelarEdicion,guardarEdicion:guardarEdicion,
           togCampos:togCampos,setCampo:setCampo,convertirOV:convertirOV,
