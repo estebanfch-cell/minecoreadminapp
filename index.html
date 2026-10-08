@@ -221,6 +221,9 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
 .cbz-input-bad{border-color:#ff5252}
 .cbz-btn{background:#1e4976;border:none;color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer}
 .cbz-btn:disabled{opacity:.4;cursor:default}
+.edc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.edc-dl{font-weight:700}
+.edc-dl-msg{font-size:12px;margin:-2px 0 8px}
 .cbz-btn-wa{background:#1e7648}
 .cbz-btn-mini{background:#1c2a3a;border:none;color:#fff;border-radius:6px;width:24px;height:24px;cursor:pointer}
 .cbz-freq{font-size:12px;display:inline-flex;align-items:center;gap:6px}
@@ -311,7 +314,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='228';
+  var MC_BUILD='229';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -6706,7 +6709,9 @@ var Edc = (function(){
   }
   function render(){
     var el=document.getElementById('edc-screen');
-    el.innerHTML='<div class="cbz-muted" style="margin-bottom:6px">'+data.empresa+'</div>'+
+    el.innerHTML='<div class="edc-top"><div class="cbz-muted">'+data.empresa+'</div>'+
+      '<button class="cbz-btn edc-dl" id="edc-dl-btn" onclick="Edc.descargarPdf(this)">⬇️ Descargar estado de cuenta</button></div>'+
+      '<div id="edc-dl-msg" class="edc-dl-msg"></div>'+
       '<div id="edc-kpis"></div>'+
       '<div class="cbz-card-row" style="margin-bottom:6px">'+
       '<input class="cbz-search" placeholder="🔍 Buscar orden, factura, fecha, monto..." value="'+q.replace(/"/g,'&quot;')+'" oninput="Edc.setQ(this.value)">'+
@@ -6802,6 +6807,28 @@ var Edc = (function(){
       return c+'</div>';
     }).join('');
   }
+  /* b229: mismo PDF que los correos de cobranza (buildStatementPdf_), generado en el servidor con la empresa del usuario. */
+  function descargarPdf(btn){
+    var msg=document.getElementById('edc-dl-msg');
+    if(msg)msg.innerHTML='';
+    var lbl='⬇️ Descargar estado de cuenta';
+    if(btn){btn.disabled=true;btn.textContent='Generando PDF...';}
+    function fin(){if(btn){btn.disabled=false;btn.textContent=lbl;}}
+    function err(t){if(msg)msg.innerHTML='<div class="cbz-error">'+t+'</div>';}
+    var pdfTab=mcArmPdfTab();
+    var emp=(data&&data.empresa)||'cliente';
+    api({action:'miEstadoCuentaPdf'}).then(function(res){
+      fin();
+      if(!res||!res.ok){
+        mcClosePdfTab_(pdfTab);
+        var e=(res&&res.error)||'No se pudo generar el estado de cuenta.';
+        if(/no tiene cartera|sin cartera/i.test(e))e='No tienes facturas pendientes, así que no hay estado de cuenta para descargar 🎉';
+        else if(/acci[oó]n|desconocid|unknown/i.test(e))e='La descarga aún no está activa en el servidor. Intenta más tarde.';
+        err(e);return;
+      }
+      return mcDownloadBlob(res.b64, res.filename||('Estado_de_cuenta_'+String(emp).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf'), 'application/pdf', pdfTab);
+    }).catch(function(e){fin();mcClosePdfTab_(pdfTab);err(MCerr(e));});
+  }
   function setQ(v){q=v;renderListE();}
   function setV(v){vistaE=v;detalle=null;renderListE();}
   function toggleOrden(){ordenDesc=!ordenDesc;renderListE();}
@@ -6825,7 +6852,7 @@ var Edc = (function(){
       var m=document.getElementById('edc-sol-msg');if(m)m.innerHTML='<div class="cbz-error">Sin conexión.</div>';
     });
   }
-  return {init:init,setV:setV,setQ:setQ,abrir:abrir,solicitar:solicitar,toggleOrden:toggleOrden};
+  return {init:init,setV:setV,setQ:setQ,abrir:abrir,solicitar:solicitar,toggleOrden:toggleOrden,descargarPdf:descargarPdf};
 })();
 
 /* ===================== MI EQUIPO (cliente máster: invita y administra) ===================== */
