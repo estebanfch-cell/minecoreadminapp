@@ -314,7 +314,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='229';
+  var MC_BUILD='230';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -4056,6 +4056,57 @@ function mcPlanillaShot(h2c, el){
     scrollY:0
   });
 }
+/* b230: las fotos de producto de inFlow (inflowclouduser.blob.core.windows.net) no traen CORS; html2canvas
+   (useCORS) no puede dibujarlas y el PDF «Descargar PDF» salía sin fotos. Antes de dibujar, cada foto externa se
+   pide al motor (acción proxyImagen, una sola llamada) y se pone como data: URL; si falla, mcLoadImg (CORS/proxy). */
+function mcPlanillaInlineImgs(idoc){
+  var imgs=[];
+  try{imgs=[].slice.call(idoc.images||[]);}catch(e){imgs=[];}
+  var here='';
+  try{here=location.origin;}catch(e){}
+  imgs=imgs.filter(function(img){
+    var src='';
+    try{src=img.getAttribute('src')||'';}catch(e){src='';}
+    if(!/^https?:/i.test(src))return false;
+    try{if(here&&new URL(src).origin===here)return false;}catch(e){}
+    return true;
+  });
+  if(!imgs.length)return Promise.resolve();
+  var urls=[];
+  imgs.forEach(function(img){var u=img.getAttribute('src');if(urls.indexOf(u)<0)urls.push(u);});
+  var lote=Promise.resolve({});
+  if(typeof MCpost==='function'){
+    var cred={};
+    try{cred.user=getUserName();cred.pin=getPin();}catch(e){}
+    lote=MCpost({action:'proxyImagen',urls:urls.slice(0,40),user:cred.user||'',pin:cred.pin||'',_timeout:30000,_retries:1}).then(function(r){
+      var map={};
+      ((r&&r.ok&&r.imgs)||[]).forEach(function(it){
+        if(it&&it.ok&&it.b64)map[it.url]='data:'+(it.mime||'image/jpeg')+';base64,'+it.b64;
+      });
+      return map;
+    }).catch(function(){return {};});
+  }
+  return lote.then(function(map){
+    return Promise.all(imgs.map(function(img){
+      var src=img.getAttribute('src');
+      var tope=new Promise(function(r){setTimeout(function(){r(null);},15000);});
+      var pide=map[src]?Promise.resolve(map[src]):
+        (typeof mcLoadImg==='function'?Promise.race([mcLoadImg(src).catch(function(){return null;}),tope]):Promise.resolve(null));
+      return pide.then(function(data){
+        if(!data||String(data).indexOf('data:image/')!==0)return;
+        return new Promise(function(r){
+          var t=setTimeout(r,4000);
+          function fin(){clearTimeout(t);r();}
+          img.addEventListener('load',fin);
+          img.addEventListener('error',fin);
+          img.removeAttribute('onerror');
+          try{img.style.display='';}catch(e){}
+          img.src=data;
+        });
+      });
+    }));
+  });
+}
 /* Dibuja la planilla visible (ediciones e IVA incluidos) a un PDF A4 de varias páginas. */
 function mcPlanillaRenderPdf(idoc, filename){
   if(!idoc||!idoc.body)return Promise.reject(new Error('No se pudo leer la planilla'));
@@ -4069,7 +4120,7 @@ function mcPlanillaRenderPdf(idoc, filename){
   function restore(){
     hojas.forEach(function(el,i){el.style.marginTop=margins[i]||'';});
   }
-  return Promise.all([mcPlanillaLoadH2c(idoc), mcPlanillaLoadJsPDF(), mcPlanillaWaitReady(idoc)]).then(function(pack){
+  return Promise.all([mcPlanillaLoadH2c(idoc), mcPlanillaLoadJsPDF(), mcPlanillaWaitReady(idoc).then(function(){return mcPlanillaInlineImgs(idoc);})]).then(function(pack){
     var h2c=pack[0], JsPDF=pack[1];
     var seq=Promise.resolve([]);
     hojas.forEach(function(el){
