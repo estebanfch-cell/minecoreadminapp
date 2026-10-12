@@ -314,7 +314,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='231';
+  var MC_BUILD='232';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -6371,6 +6371,8 @@ var Cot = (function(){
     var btns=document.querySelectorAll('#cot-screen .cbz-btn');for(var b=0;b<btns.length;b++)btns[b].disabled=true;
     function vacio(){return {nombre:o.cliente,ruc:'',direccion:'',contacto:'',telefono:'',email:'',terminos:''};}
     // 1) catálogo (código y categoría de cada línea)  2) datos del cliente  3) pre-cotización hermana (entregas + stock por bodega)
+    // b232: nada de esto puede dejar los botones bloqueados: cada paso tiene tope de 12 s
+    function tope(p,v){return Promise.race([p,new Promise(function(r){setTimeout(function(){r(v);},12000);})]);}
     var pCat=prodCat?Promise.resolve():MCWarm.loadProductos(false).then(function(items){if(items&&items.length)prodCat=items;}).catch(function(){});
     var pCli=o.customerId?api({action:'getClienteInflowData',customerId:o.customerId}).then(function(res){return (res.ok&&res.cliente)?res.cliente:vacio();}).catch(vacio):Promise.resolve(vacio());
     var pPre=(lista?Promise.resolve(lista):(MCWarm.getCotAdmin()?Promise.resolve(MCWarm.getCotAdmin()):MCWarm.loadCotAdmin(false).catch(function(){return [];})))
@@ -6379,7 +6381,7 @@ var Cot = (function(){
         if(!m)return null;
         return api({action:'getCotDetalle',id:m.id}).then(function(res){return (res.ok&&res.cot)?res:null;}).catch(function(){return null;});
       });
-    Promise.all([pCat,pCli,pPre]).then(function(r){
+    Promise.all([tope(pCat,null),tope(pCli,vacio()),tope(pPre,null)]).then(function(r){
       var cli=r[1], pre=r[2];
       var porSku={};if(prodCat)prodCat.forEach(function(p){porSku[p.sku]=p;});
       var entQueues={};
@@ -6397,7 +6399,7 @@ var Cot = (function(){
         }catch(e){}
         det=detPrev;
       }
-      var sub=0;
+      var sub=0, sinPlazos=false;
       var lineas=o.lineas.map(function(l){
         var d=parseFloat(l.descuento)||0, pu=parseFloat(l.precio)||0;
         var fin=Math.round(pu*(1-d/100)*100)/100;sub+=fin*(parseFloat(l.cantidad)||0);
@@ -6414,11 +6416,18 @@ var Cot = (function(){
             else{e.partes=loc;if(!e.plazo)e.plazo=loc[0].plazo;}
           }
         }else if(e)e.partes=partesOk;
-        return {nombre:l.nombre,codigo:p.codigo||'',sku:l.sku,categoria:p.categoria||'',cantidad:l.cantidad,precioLista:pu,descuento:d,precioFinal:fin,img:l.img||p.img||'',partesEntrega:(e&&e.partes)||null,ent:e||null};
+        if(!e){ // b232: sin plazos marcados (creada en inFlow): inmediato lo que cubre stock+armable de Bodega Principal; el resto «Por confirmar»
+          var spk='';for(var kk in (p.stockPor||{})){if(/principal/i.test(kk)){spk=kk;break;}}
+          var disp=p.sku?(spk?MCstockDe(p,spk):(p.stockPor&&Object.keys(p.stockPor).length?0:(parseFloat(p.stock)||0))):0;
+          var arm=p.sku?MCarmDe(p,'*'):0;
+          e={cant:cantDoc,ahora:Math.min(Math.max(0,Math.floor(disp)+arm),cantDoc),plazo:'Por confirmar',partes:null,auto:true};
+          sinPlazos=true;
+        }
+        return {nombre:l.nombre,codigo:p.codigo||l.codigo||'',sku:l.sku,categoria:p.categoria||l.categoria||'',cantidad:l.cantidad,precioLista:pu,descuento:d,precioFinal:fin,img:l.img||p.img||'',partesEntrega:(e&&e.partes)||null,ent:e||null};
       });
+      if(sinPlazos&&!confirm('⚠ Plazos de entrega no marcados — esta cotización se creó directo en inFlow.\n\nMárcalos en el Cotizador (abrir la cotización → plazos) para que salgan bien.\n\nSi descargas ahora, la página 2 dirá «Inmediata» en lo que cubre el stock o lo armable de Bodega Principal y «Por confirmar» en el resto.\n\n¿Descargar igual?'))return;
       MCPlanillaCot({num:o.num,titulo:tituloDoc,fecha:o.fecha,cliente:cli,contacto:'',lineas:lineas,subtotal:Math.round(sub*100)/100});
-      if(!pre)setTimeout(function(){alert('Nota: este documento no nació en la app, así que la planilla sale sin la página 2 de tiempos de entrega.');},400);
-    }).catch(function(e){alert(MCerr(e));}).then(function(){renderInflowLista();});
+    }).catch(function(e){alert(MCerr(e));}).then(function(){for(var b2=0;b2<btns.length;b2++)btns[b2].disabled=false;renderInflowLista();});
   }
   function abrirInflow(ix){ioDet=JSON.parse(JSON.stringify(ioLista[ix]));renderInflowDet();}
   function renderInflowDet(){
