@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='241';
+  var MC_BUILD='242';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -3386,9 +3386,16 @@ var Inv = (function(){
   var carrito={}, vistaCart='cart', enviadas=null;
   var despArr=null, despOpen={}, despProv=null, despCat=null;
   function cartKey(){return 'mc_carrito_'+(getUserName()||'').toLowerCase();}
-  function cartLoad(){try{carrito=JSON.parse(localStorage.getItem(cartKey())||'{}');}catch(e){carrito={};}
+  // b242 · causa raíz despiece: el Cotizador guarda en la MISMA clave un ARRAY de líneas; Inventario lo trataba como objeto por SKU
+  // (carrito[sku]=…) y JSON.stringify de un array descarta esas propiedades → la pieza se perdía en silencio. Ahora se normaliza.
+  var cartArr=false;
+  function cartLoad(){var raw;try{raw=JSON.parse(localStorage.getItem(cartKey())||'{}');}catch(e){raw={};}
+    cartArr=Array.isArray(raw);carrito={};
+    if(cartArr){raw.forEach(function(l){if(!l||!l.sku)return;var k=String(l.sku);if(carrito[k]){carrito[k].cantidad+=parseInt(l.cantidad,10)||1;return;}carrito[k]={id:l.id,nombre:l.nombre||'',cantidad:parseInt(l.cantidad,10)||1,img:l.img||''};});}
+    else if(raw&&typeof raw==='object')carrito=raw;
     try{localStorage.removeItem('mc_carrito');}catch(e){}}
-  function cartSave(){try{localStorage.setItem(cartKey(),JSON.stringify(carrito));}catch(e){}}
+  function cartSave(){try{var v=carrito;if(cartArr){v=[];for(var k in carrito){var c=carrito[k];if(c&&c.cantidad>0)v.push({id:c.id||('C'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)),sku:k,nombre:c.nombre||'',cantidad:c.cantidad,img:c.img||''});}}
+    localStorage.setItem(cartKey(),JSON.stringify(v));}catch(e){}}
   function cartCount(){cartLoad();var n=0;for(var k in carrito)n+=carrito[k].cantidad;return n;}
   var q='', filtro='todos', cat='', marca='', abierto=null, vista='inv', reo=null;
   var fDesc='', fMm='';   // filtros finos de brocas (descarga y milimetraje)
@@ -3564,7 +3571,8 @@ var Inv = (function(){
           (it.img?'<div style="text-align:center;margin:6px 0"><img src="'+it.img+'" style="max-width:180px;max-height:150px;object-fit:contain;background:#fff;border-radius:8px;padding:6px;cursor:zoom-in" onclick="MCfoto(\''+it.img+'\',event)"></div>':'')+
           '<div class="pmeta">'+(it.categoria||'Sin categoría')+(it.marca?' · Marca: '+it.marca:'')+'</div>'+
           (it.ubicaciones?'<div class="pmeta" style="color:#9fc3e8">📍 '+it.ubicaciones+'</div>':'<div class="pmeta">📍 Sin stock en bodegas</div>')+
-          (!esCliente?'<div style="margin:6px 0"><button class="chip" onclick="MCUbic.abrir(\''+it.sku+'\',event)">📍 Ubicaciones y sububicaciones</button></div>':'')+
+          (!esCliente?'<div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap"><button class="chip" onclick="MCUbic.abrir(\''+it.sku+'\',event)">📍 Ubicaciones y sububicaciones</button>'+
+            (it.productId&&window.Manuf?'<button class="chip" onclick="Manuf.bomDe(\''+it.productId+'\',event)">🧩 Lista de materiales</button><button class="chip" onclick="Manuf.armar(\''+it.productId+'\',event)">🏭 Armar</button><button class="chip" onclick="Manuf.faltan(\''+it.productId+'\',event)">🔎 ¿Qué falta para armar?</button>':'')+'</div>':'')+
           (it.extra?'<div class="pmeta">'+it.extra+'</div>':'')+
           (it.v365!==undefined?'<div class="pmeta" style="color:#f0c040">Rotación: '+(it.v90||0)+' (90d) · '+(it.v180||0)+' (180d) · '+(it.v365||0)+' (365d)'+(it.ultimaVenta?' · Últ. venta: '+it.ultimaVenta:'')+'</div>':'')+
           (esAdmin&&it.costo!==undefined?'<div class="pmeta" style="color:#5cc8ff">Costo: '+fmt(it.costo)+
@@ -4143,6 +4151,7 @@ var Inv = (function(){
   function despVer(archivo,nombre,esRezoom){
     archivo=absUrl(archivo);
     despVerArgs=[archivo,nombre];
+    if(!esRezoom)despCods=[];
     if(!esRezoom)despZoomN=1;
     var m=despModal('<div style="width:100%;max-width:920px;height:94%;display:flex;flex-direction:column;background:#0d1622;border:1px solid #1e3247;border-radius:12px;overflow:hidden">'+
       '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:10px 12px;flex:none;flex-wrap:wrap;gap:6px">'+
@@ -4152,6 +4161,8 @@ var Inv = (function(){
       '<button class="chip" onclick="Inv.despZoom(1)">🔍+</button>'+
       '<a class="chip" style="text-decoration:none" href="'+archivo+'" download>⬇</a>'+
       '<a class="chip" style="text-decoration:none" href="'+archivo+'" target="_blank">↗</a>'+
+      (puedeCot||window.MC_despDestino?'<button class="cbz-btn" id="desp-todo" style="padding:6px 10px" onclick="Inv.despTodo()">➕ Agregar todo</button>':'')+
+      (window.MC_despDestino?'<button class="chip" onclick="MCvolverCot()">← Cotización</button>':'')+
       '<button class="chip" onclick="Inv.despCerrar()">✕ Cerrar</button></div></div>'+
       '<div id="pdf-hint" style="background:#12233a;color:#9fc3e8;font-size:11px;padding:6px 12px;flex:none">👆 Toca cualquier <b style="color:#f0c040">código resaltado</b> del documento y te mostramos el producto y su stock al instante.</div>'+
       '<div id="pdf-vis" style="flex:1;overflow:auto;background:#3a3f46;padding:10px 0;-webkit-overflow-scrolling:touch"><div class="cbz-loading" style="color:#fff">Cargando documento...</div></div></div>');
@@ -4235,6 +4246,7 @@ var Inv = (function(){
                   var fh=c0.fh, yTop=c0.yBase-fh;
                   var hot=document.createElement('div');
                   hot.style.cssText='position:absolute;left:'+(c0.x-1)+'px;top:'+yTop+'px;width:'+Math.max(c1.x+c1.w-c0.x+2,26)+'px;height:'+(fh*1.3)+'px;background:rgba(240,192,64,.16);border-bottom:2px solid rgba(240,192,64,.85);border-radius:2px;cursor:pointer';
+                  if(despCods.indexOf(mm[0])<0)despCods.push(mm[0]);var _ab=document.getElementById('desp-todo');if(_ab)_ab.textContent='➕ Agregar todo ('+despCods.length+')';
                   (function(cod){hot.onclick=function(ev){ev.stopPropagation();Inv.despFichaPdf(cod);};})(mm[0]);
                   wrap.appendChild(hot);
                 }
@@ -4251,7 +4263,18 @@ var Inv = (function(){
       aIframe(String(eDoc&&eDoc.message||'motor PDF no disponible').slice(0,60));
     });
   }
+  var despCods=[];
+  function despItem(cod){var cands=[cod];if(cod.length>=12&&(cod.indexOf('120')===0||cod.indexOf('150')===0))cands.push(cod.slice(3));
+    for(var i=0;i<cands.length;i++)for(var j=0;j<items.length;j++)if(String(items[j].codigo||'').trim()===cands[i])return items[j];return null;}
+  // b242: agrega una pieza directo a la cotización abierta (nuevo cotizador vía MC_despDestino; antiguo vía carrito compartido)
+  function despAgregar(it,n){if(window.MC_despDestino&&typeof Ventas!=='undefined'){Ventas.agregarSku(it.sku,n);return;}
+    cartLoad();if(!carrito[it.sku])carrito[it.sku]={nombre:it.nombre,cantidad:0,img:it.img||''};carrito[it.sku].cantidad+=n;cartSave();updateFab();}
+  function despTodo(){if(!despCods.length){alert('Aún no se detectan códigos en el documento.');return;}var ok=0,no=[];
+    despCods.forEach(function(c){var it=despItem(c);if(it){despAgregar(it,1);ok++;}else no.push(c);});
+    if(window.MC_despDestino&&no.length&&typeof Ventas!=='undefined')Ventas.agregarConsulta(no);
+    alert('Agregadas '+ok+' piezas'+(no.length?' · '+no.length+' códigos fuera de catálogo'+(window.MC_despDestino?' (como consulta a fábrica)':' (no agregados)'):'')+'.');}
   function despFichaPdf(cod){
+    if(enModoCot()||window.MC_despDestino){var di=despItem(cod);if(di){despAgregar(di,1);despFicha(String(di.codigo).trim(),true);return;}}
     // Normaliza el código impreso contra el catálogo de inFlow: exacto → sin prefijo 120 → sin prefijo 150
     var cands=[cod];
     if(cod.length>=12&&cod.indexOf('120')===0)cands.push(cod.slice(3));
@@ -4284,10 +4307,10 @@ var Inv = (function(){
         '<div style="margin:6px 0">'+st+'</div>'+
         (it.ubicaciones&&!esCliente?'<div class="cbz-muted" style="margin-bottom:4px">📍 '+it.ubicaciones+'</div>':'')+
         (it.precio!==undefined&&it.precio?'<div class="cbz-card-name" style="margin:6px 0">'+fmt(it.precio)+'</div>':'')+
-        (agregado?'<div style="color:#6fd68f;margin:8px 0">✔ Agregado al carrito ('+cartCount()+')</div>':'')+
+        (agregado?'<div style="color:#6fd68f;margin:8px 0">'+(window.MC_despDestino?'✔ Agregado a la cotización':'✔ Agregado al carrito ('+cartCount()+')')+'</div>':'')+
         '<div class="cbz-card-row" style="justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">'+
         (puedeCot&&!agregado?'<span style="display:inline-flex;align-items:center;gap:6px"><input type="number" id="df-qty" min="1" inputmode="numeric" class="uinput" style="width:62px;text-align:center;padding:7px" value="1"><button class="cbz-btn" onclick="Inv.despCotizar(\''+String(it.sku).replace(/'/g,'')+'\',\''+cod+'\')">➕ Cotizar</button></span>':'')+
-        (puedeCot&&agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>':'')+
+        (agregado&&window.MC_despDestino?'<button class="cbz-btn" onclick="MCvolverCot()">← Volver a la cotización</button>':(puedeCot&&agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>':''))+
         '<button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div>';
     }
     var m=despModal('<div class="cbz-card" style="max-width:420px;width:100%;text-align:center;padding:20px" onclick="event.stopPropagation()">'+inner+'</div>',2);
@@ -4295,15 +4318,13 @@ var Inv = (function(){
   }
   function despCotizar(sku,cod){
     var n=parseInt((document.getElementById('df-qty')||{}).value,10)||1;if(n<1)n=1;
-    cartLoad();
     var it=null;for(var i=0;i<items.length;i++){if(items[i].sku===sku){it=items[i];break;}}
     if(!it)return;
-    if(!carrito[sku])carrito[sku]={nombre:it.nombre,cantidad:0,img:it.img||''};
-    carrito[sku].cantidad+=n;
-    cartSave();updateFab();
+    despAgregar(it,n);
     despFicha(cod,true);
   }
   function despConsulta(cod){
+    if(window.MC_despDestino&&typeof Ventas!=='undefined'){Ventas.agregarConsulta([cod]);despModal('<div class="cbz-card" style="max-width:400px;width:100%;text-align:center;padding:20px"><div style="font-size:26px">✔</div><div class="cbz-card-name" style="margin:6px 0">Agregado a la cotización como consulta a fábrica</div><div class="cbz-card-row" style="justify-content:center;gap:8px"><button class="cbz-btn" onclick="MCvolverCot()">← Volver a la cotización</button><button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div></div>',2);return;}
     cartLoad();
     var k='CONS-'+cod;
     if(!carrito[k])carrito[k]={nombre:'CONSULTA A FÁBRICA · código '+cod,cantidad:0,img:''};
@@ -4379,7 +4400,7 @@ var Inv = (function(){
   function setMm(m){fMm=m;render();}
   return {setBodega:setBodega,init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setLin:setLin,setMm:setMm,
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
-          despVer:despVer,despCerrar:despCerrar,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
+          despVer:despVer,despCerrar:despCerrar,despTodo:despTodo,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
           despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,mountDesp:mountDesp,
           miscotToggle:miscotToggle,miscotPdf:miscotPdf,despConsulta:despConsulta,despZoom:despZoom,despMas:despMas,miscotAprobar:miscotAprobar,finalizarCotPara:finalizarCotPara,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel,
@@ -4401,6 +4422,11 @@ function MCfoto(url,ev){
 
 /* ===== Cotizando-para: flujo cliente-primero (staff) ===== */
 var MC_cotPara=null;
+// b242: despieces desde el nuevo cotizador (Ventas). El formulario queda en memoria y se vuelve sin perderlo.
+function MCdespAVentas(){window.MC_despDestino=true;MC_cotPara=null;openMod('inv');setTimeout(function(){Inv.setVista('desp');},60);}
+function MCvolverCot(){try{Inv.despCerrar(2);Inv.despCerrar();}catch(e){}window.MC_despDestino=null;
+  var a=document.getElementById('inv-screen');if(a)a.style.display='none';var v=document.getElementById('ventas-screen');if(v)v.style.display='block';
+  var t=document.getElementById('title');if(t)t.textContent='COTIZACIONES';Ventas.volverForm();}
 function irACotizarPara(nombre){MC_cotPara=nombre;openMod('inv');}
 function cancelarCotPara(){MC_cotPara=null;if(typeof Inv!=='undefined')Inv.init();}
 
@@ -9680,7 +9706,7 @@ var Ventas = (function(){
       '<div><div class="cbz-muted">IVA %</div><input class="uinput" type="number" id="vt-iva" value="'+(parseFloat(o.tax1_rate)||15)+'" style="width:100%" oninput="Ventas.sync()"></div></div>'+
       '<div style="margin-top:8px"><div class="cbz-muted">Notas</div><textarea class="uinput" id="vt-rem" style="width:100%;min-height:50px">'+esc(o.order_remarks||'')+'</textarea></div></div>';
     h+=camposHtml()+bodegaInfoHtml()+lineasHtml()+'<div class="cbz-card" style="border-color:#2e5c3e;margin-top:10px"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">➕ Agregar producto</div>'+
-      '<div style="display:flex;gap:6px;flex-wrap:wrap"><input class="uinput" id="vt-pq" placeholder="SKU, nombre, código o marca (varias palabras)…" oninput="Ventas.buscarProd(this.value)" style="flex:1;min-width:200px">'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" onclick="Ventas.despieces()" title="Abrir despieces y tocar las piezas para agregarlas aquí">📄 Despieces</button><input class="uinput" id="vt-pq" placeholder="SKU, nombre, código o marca (varias palabras)…" oninput="Ventas.buscarProd(this.value)" style="flex:1;min-width:200px">'+
       '<select class="uinput" id="vt-pcat" style="width:190px" onchange="Ventas.buscarProd()"><option value="">Todas las categorías</option>'+(cats||[]).map(function(c){return '<option'+(c===pcat?' selected':'')+'>'+esc(c)+'</option>';}).join('')+'</select>'+
       '<label class="cbz-muted" style="display:flex;gap:4px;align-items:center;font-size:12px"><input type="checkbox" id="vt-psin" '+(psin?'checked':'')+' onchange="Ventas.buscarProd()"> incluir sin stock</label></div><div id="vt-pres"></div></div>'+
       '<div class="cbz-card" style="text-align:right" id="vt-tot">'+totHtml()+'</div>'+
@@ -9718,7 +9744,7 @@ var Ventas = (function(){
         r.historial.map(function(h){return '<tr><td>'+h.tipo+'</td><td>'+esc(h.n)+'</td><td>'+esc(h.f)+'</td><td style="text-align:right">'+h.q+'</td><td style="text-align:right">'+money(h.lista)+'</td><td style="text-align:right">'+(h.d?h.d+'%':'')+'</td><td style="text-align:right"><b>'+money(h.p)+'</b></td></tr>';}).join('')+'</table>':'')+'</div>';}
   function entHtml(l,i){if(!l.product_id)return '';var e=entDe(l),b=bodNombre();
     var col=e.partesOk?'#9fc3e8':(e.resto<=0?'#6fd68f':(e.ahora>0?'#f0c040':'#e05c5c'));
-    var h='<div style="margin-top:6px;padding-top:6px;border-top:1px solid #1c2a3a"><span class="cbz-muted" style="font-size:11px">📦 '+esc(b)+': <b style="color:'+col+'">'+e.disp+'</b>'+(e.arm>0?' · <span style="color:#f0c040">🔧 Armable '+e.arm+'</span>':'')+'</span> '+pedTxt(prodDe(l));
+    var h='<div class="vt-lent" style="margin-top:6px;padding-top:6px;border-top:1px solid #1c2a3a"><div style="font-size:11px;line-height:1.5"><span class="cbz-muted">📦 '+esc(b)+': <b style="color:'+col+'">'+e.disp+'</b>'+(e.arm>0?' · <span style="color:#f0c040">🔧 Armable '+e.arm+'</span>':'')+'</span></div><div style="font-size:11px;line-height:1.5">'+pedTxt(prodDe(l))+'</div>';
     if(e.partes.length>=2){h+='<div class="cbz-muted" style="font-size:11px;margin-top:4px">Entrega dividida (solo planilla; en inFlow sigue una línea)'+(e.partesOk?'':' <span style="color:#e05c5c">⚠ las partes deben sumar '+e.cant+'</span>')+'</div>'+
       e.partes.map(function(p,pi){return '<div style="display:flex;gap:6px;align-items:center;margin-top:3px"><span class="cbz-muted" style="font-size:11px;min-width:52px">Parte '+(pi+1)+'</span><input class="uinput" type="number" min="1" style="width:64px" value="'+p.cantidad+'" onchange="Ventas.setParte('+i+','+pi+',\'cantidad\',this.value)"><select class="uinput" style="width:auto" onchange="Ventas.setParte('+i+','+pi+',\'plazo\',this.value)">'+PLAZOS.map(function(z){return '<option'+(z===p.plazo?' selected':'')+'>'+z+'</option>';}).join('')+'</select></div>';}).join('')+
       '<button class="chip" style="margin-top:4px;padding:2px 8px;font-size:11px" onclick="Ventas.quitarPartes('+i+')">Quitar división</button>';}
@@ -9726,18 +9752,20 @@ var Ventas = (function(){
       (e.resto>0?'<span class="cbz-muted" style="font-size:11px">Resto '+e.resto+' en:</span><select class="uinput" style="width:auto" onchange="Ventas.setEnt('+i+',\'plazo\',this.value)">'+PLAZOS.map(function(z){return '<option'+(z===e.plazo?' selected':'')+'>'+z+'</option>';}).join('')+'</select>'+(e.plazo===PLAZOS[0]?' <span style="color:#f0c040;font-size:11px">elige el plazo</span>':''):'')+
       (l.entrega&&l.entrega.manual?'<span class="chip" style="padding:2px 6px;font-size:10px" onclick="Ventas.setEnt('+i+',\'reset\')">↺ según stock</span>':'')+'</div>';
     return h+'<div class="cbz-muted" style="font-size:11px;margin-top:2px">Planilla: <b>'+esc(entTexto(l))+'</b></div></div>';}
+  var VT_LCSS='<style>.vt-lnum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:8px;align-items:end;margin-top:6px}.vt-lnum label{display:flex;flex-direction:column;gap:2px;min-width:0}.vt-lnum label span{font-size:11px}.vt-lnum input{width:100%;box-sizing:border-box;min-width:0}.vt-lfin{white-space:nowrap;align-self:center;text-align:right}'+
+    '.vt-lent select{max-width:100%}.vt-lent .uinput{box-sizing:border-box}@media(max-width:560px){.vt-lnum{grid-template-columns:repeat(3,minmax(0,1fr))}.vt-lfin{grid-column:1/-1;white-space:normal}.vt-lacc .chip{flex:1 1 auto;text-align:center}}</style>';
   function lineasHtml(){var n=form.lineas.length;
-    return '<div class="cbz-card" style="margin-top:10px"><div class="cbz-card-name" style="margin-bottom:4px">Líneas ('+n+')</div><div class="cbz-muted" style="font-size:11px;margin-bottom:6px">Precio propuesto = el MAYOR entre lista y la referencia del cliente (último cotizado; si no hay, último vendido). Descuento pre-cargado = el del cliente ('+(descCli||0)+'%). Tú tienes la última palabra en cada línea.</div>'+
+    return VT_LCSS+'<div class="cbz-card" style="margin-top:10px"><div class="cbz-card-name" style="margin-bottom:4px">Líneas ('+n+')</div><div class="cbz-muted" style="font-size:11px;margin-bottom:6px">Precio propuesto = el MAYOR entre lista y la referencia del cliente (último cotizado; si no hay, último vendido). Descuento pre-cargado = el del cliente ('+(descCli||0)+'%). Tú tienes la última palabra en cada línea.</div>'+
       form.lineas.map(function(l,i){var pr=prodDe(l),fin=lineaFinal(l);
         return '<div class="cbz-card" style="padding:10px;margin:6px 0"><div style="display:flex;gap:8px;align-items:flex-start">'+th(l.img||pr.img,48)+
-          '<div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(l.nombre||pr.nombre||l.description||'')+'</div><div class="cbz-muted" style="font-size:11px">SKU '+esc(l.sku||'')+(pr.codigo?' · '+esc(pr.codigo):'')+(pr.categoria?' · '+esc(pr.categoria):'')+'</div></div>'+
-          '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:none"><input class="uinput" type="number" min="1" max="'+n+'" title="Posición" style="width:46px;text-align:center;padding:4px" value="'+(i+1)+'" onchange="Ventas.moverA('+i+',this.value)">'+
-          '<button class="chip" style="padding:4px 8px" onclick="Ventas.dividirEnt('+i+')">Dividir entrega</button><button class="chip" style="padding:4px 8px" onclick="Ventas.otraLinea('+i+')">Otra línea</button><button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Ventas.delL('+i+')">🗑</button></div></div>'+
+          '<div style="flex:1;min-width:0"><div style="font-weight:700;word-break:break-word">'+esc(l.nombre||pr.nombre||l.description||'')+'</div><div class="cbz-muted" style="font-size:11px;word-break:break-word">SKU '+esc(l.sku||'')+(pr.codigo?' · '+esc(pr.codigo):'')+(pr.categoria?' · '+esc(pr.categoria):'')+'</div></div></div>'+
+          '<div class="vt-lacc" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px"><span class="cbz-muted" style="font-size:11px">Pos.</span><input class="uinput" type="number" min="1" max="'+n+'" title="Posición" style="width:46px;text-align:center;padding:4px" value="'+(i+1)+'" onchange="Ventas.moverA('+i+',this.value)">'+
+          '<button class="chip" style="padding:4px 8px" onclick="Ventas.dividirEnt('+i+')">Dividir entrega</button><button class="chip" style="padding:4px 8px" onclick="Ventas.otraLinea('+i+')">Otra línea</button><button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Ventas.delL('+i+')">🗑</button></div>'+
           '<div class="cbz-muted" style="font-size:11px;margin:4px 0;line-height:1.5">'+refTxt(l)+'</div>'+histHtml(l,i)+
-          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><span class="cbz-muted" style="font-size:11px">Cant:</span><input class="uinput" type="number" min="1" style="width:64px;text-align:center" value="'+l.quantity+'" onchange="Ventas.setL('+i+',\'quantity\',this.value,1)">'+
-          '<span class="cbz-muted" style="font-size:11px">Precio:</span><input class="uinput" type="number" step="0.01" style="width:90px;text-align:center" value="'+(parseFloat(l.unit_price)||0).toFixed(2)+'" onchange="Ventas.setL('+i+',\'unit_price\',this.value,1)">'+
-          '<span class="cbz-muted" style="font-size:11px">Desc %:</span><input class="uinput" type="number" step="0.5" min="0" max="99" style="width:64px;text-align:center" value="'+(parseFloat(l.discount_pct)||0)+'" onchange="Ventas.setL('+i+',\'discount_pct\',this.value,1)">'+
-          '<span style="margin-left:auto">Final: <b style="color:#9fc3e8">'+money(fin)+'</b> · = <b>'+money(Math.round(fin*(parseFloat(l.quantity)||0)*100)/100)+'</b></span></div>'+
+          '<div class="vt-lnum"><label><span class="cbz-muted">Cant.</span><input class="uinput" type="number" min="1" style="text-align:center" value="'+l.quantity+'" onchange="Ventas.setL('+i+',\'quantity\',this.value,1)">'+
+          '</label><label><span class="cbz-muted">Precio</span><input class="uinput" type="number" step="0.01" style="text-align:center" value="'+(parseFloat(l.unit_price)||0).toFixed(2)+'" onchange="Ventas.setL('+i+',\'unit_price\',this.value,1)">'+
+          '</label><label><span class="cbz-muted">Desc %</span><input class="uinput" type="number" step="0.5" min="0" max="99" style="text-align:center" value="'+(parseFloat(l.discount_pct)||0)+'" onchange="Ventas.setL('+i+',\'discount_pct\',this.value,1)"></label>'+
+          '<span class="vt-lfin">Final: <b style="color:#9fc3e8">'+money(fin)+'</b> · = <b>'+money(Math.round(fin*(parseFloat(l.quantity)||0)*100)/100)+'</b></span></div>'+
           '<input class="uinput" value="'+esc(l.description||'')+'" title="Descripción en el documento" placeholder="Descripción en el documento" style="width:100%;margin-top:6px;font-size:12px" onchange="Ventas.setL('+i+',\'description\',this.value)">'+entHtml(l,i)+'</div>';}).join('')+'</div>';}
   function bodegaInfoHtml(){return '<div class="cbz-muted" style="font-size:11px;margin-top:8px">📦 Stock, armables y plazos se calculan con la bodega de despacho: <b>'+esc(bodNombre())+'</b>. Cámbiala solo si sale de consignación o alquiler.</div>';}
   function camposHtml(){var cf=form.orden.custom_fields||{};return '<div class="cbz-card" style="margin-top:10px"><div style="cursor:pointer" onclick="Ventas.togCampos()"><span class="cbz-card-name" style="font-size:13px">'+(camposOpen?'▾':'▸')+' 📋 Campos de inFlow (opcional)</span> <span class="cbz-muted" style="font-size:11px">factura, anticipo, entrega, pesos…</span></div>'+
@@ -9774,6 +9802,12 @@ var Ventas = (function(){
           (n?'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><span class="cbz-muted" style="font-size:11px">En '+n+' línea'+(n===1?'':'s')+'</span><button class="cbz-btn" style="padding:6px 10px;font-size:12px" onclick="Ventas.elegirProd('+i+')">Agregar otra línea</button></div>':'<button class="cbz-btn" style="padding:7px 12px" onclick="Ventas.elegirProd('+i+')">➕</button>')+'</div></div>';}).join('')||'<div class="cbz-muted">Sin resultados'+(psin?'':' con stock (marca «incluir sin stock»)')+'</div>';});},300);}
   function elegirProd(i){leerForm();var p=prodRes[i];var l={product_id:p.id,sku:p.sku,nombre:p.name,img:p.img||'',description:p.name,quantity:1,unit_price:p.precio||0,discount_pct:descCli||(form.cliente&&parseFloat(form.cliente.discount))||0,_nuevo:true,_prod:p,entrega:{}};
     form.lineas.push(l);sincEnt(l);renderForm();cargarRefs();var q=$('vt-pq');if(q){q.value='';q.focus();}}
+  function agregarSku(sku,n){if(!form)return;api({op:'productos',q:sku,limit:10}).then(function(r){var p=(r.productos||[]).filter(function(x){return x.sku===sku;})[0];if(!p){alert('No encontré '+sku+' en Supabase');return;}
+    var l={product_id:p.id,sku:p.sku,nombre:p.name,img:p.img||'',description:p.name,quantity:n||1,unit_price:p.precio||0,discount_pct:descCli||(form.cliente&&parseFloat(form.cliente.discount))||0,_nuevo:true,_prod:p,entrega:{}};
+    form.lineas.push(l);sincEnt(l);if(!window.MC_despDestino)renderForm();}).catch(function(e){alert('No se pudo agregar '+sku+': '+MCerr(e));});}
+  function agregarConsulta(cods){if(!form)return;form.lineas.push({product_id:null,sku:'',nombre:'CONSULTA A FÁBRICA',img:'',description:'CONSULTA A FÁBRICA · código'+(cods.length>1?'s ':' ')+cods.join(', '),quantity:1,unit_price:0,discount_pct:0,_nuevo:true,entrega:{}});}
+  function despieces(){if(!form)return;leerForm();MCdespAVentas();}
+  function volverForm(){if(form){renderForm();cargarRefs();}}
   function guardar(){leerForm();if(!form.orden.customer_id){alert('Elige el cliente');return;}if(!form.lineas.length){alert('Agrega al menos una línea');return;}
     run({op:'save',orden:form.orden,lineas:form.lineas.map(function(l){var o={};for(var k in l)if(k.charAt(0)!=='_'&&k!=='img'&&k!=='nombre')o[k]=l[k];return o;})},'Guardado',function(r){form=null;abrir(r.id);});}
   /* ---------- PDFs (b236: mismos generadores del portal; sin pestañas sin salida) ---------- */
@@ -9861,18 +9895,23 @@ var Ventas = (function(){
   function pqPickList(){var o=pq.ordenes[pq.sel];imprimir('pick',o.so,o.order_number);}
   function irPiquear(){var id=cur.orden.id;try{document.getElementById('title').textContent='PARA PIQUEAR';}catch(e){}
     el().innerHTML='<div class="cbz-loading">Cargando...</div>';api({op:'paraPiquear'}).then(function(r){pq.ordenes=r.ordenes||[];var k=-1;pq.ordenes.forEach(function(x,i){if(x.so===id)k=i;});if(k<0){alert('Esta OV no tiene stock disponible para piquear en su bodega.');abrir(id);return;}pqAbrir(k);}).catch(err);}
-  return {init:init,re:re,togHist:togHist,togCampos:togCampos,setCampo:setCampo,setEnt:setEnt,dividirEnt:dividirEnt,setParte:setParte,quitarPartes:quitarPartes,otraLinea:otraLinea,moverA:moverA,printMenu:printMenu,imprimir:imprimir,irCot:irCot,initPick:initPick,pqAbrir:pqAbrir,pqSub:pqSub,pqCant:pqCant,pqPick:pqPick,pqPickTodo:pqPickTodo,pqSplit:pqSplit,pqPickList:pqPickList,irPiquear:irPiquear,cerrarOv:cerrarOv,packCajas:packCajas,packSet:packSet,packPeso:packPeso,packOk:packOk,cargar:cargar,filtrar:filtrar,abrir:abrir,recargar:recargar,volver:volver,nuevo:nuevo,editar:editar,guardar:guardar,convertir:convertir,cancelar:cancelar,dividir:dividir,dividirOk:dividirOk,
+  return {init:init,agregarSku:agregarSku,agregarConsulta:agregarConsulta,despieces:despieces,volverForm:volverForm,re:re,togHist:togHist,togCampos:togCampos,setCampo:setCampo,setEnt:setEnt,dividirEnt:dividirEnt,setParte:setParte,quitarPartes:quitarPartes,otraLinea:otraLinea,moverA:moverA,printMenu:printMenu,imprimir:imprimir,irCot:irCot,initPick:initPick,pqAbrir:pqAbrir,pqSub:pqSub,pqCant:pqCant,pqPick:pqPick,pqPickTodo:pqPickTodo,pqSplit:pqSplit,pqPickList:pqPickList,irPiquear:irPiquear,cerrarOv:cerrarOv,packCajas:packCajas,packSet:packSet,packPeso:packPeso,packOk:packOk,cargar:cargar,filtrar:filtrar,abrir:abrir,recargar:recargar,volver:volver,nuevo:nuevo,editar:editar,guardar:guardar,convertir:convertir,cancelar:cancelar,dividir:dividir,dividirOk:dividirOk,
     pickTodo:pickTodo,empacar:empacar,enviar:enviar,facturar:facturar,pagar:pagar,vencePrev:vencePrev,verAdjunto:verAdjunto,adjuntar:adjuntar,pdf:pdf,pickList:pickList,boxContent:boxContent,
     buscarCliente:buscarCliente,elegirCliente:elegirCliente,cambiarCliente:cambiarCliente,buscarProd:buscarProd,elegirProd:elegirProd,setL:setL,delL:delL,sync:sync,titulo:titulo};
 })();
 
-/* ===================== MANUFACTURA (b240, nativo Minecore · Supabase) =====================
+/* ===================== MANUFACTURA (b242, nativo Minecore · Supabase) =====================
    Listas de materiales (BOM), órdenes de manufactura (OM), consumo de componentes y costo del armado igual que inFlow:
    Σ(componentes consumidos × costo promedio) + costos extra, ÷ unidades. Stock en Supabase al instante; inFlow por cola (emisor SIMULADO). */
 var Manuf=(function(){
   var tab='om',lista=[],cur=null,form=null,bom=null,cat=null,fEst='',fQ='',res=[],busy=false,tmr=null;
   function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p);}
-  function el(){return document.getElementById('ventas-screen');}
+  var host=null; // b242: capa a pantalla completa cuando se abre desde Inventario (BOM, Armar, ¿Qué falta?)
+  function el(){return host||document.getElementById('ventas-screen');}
+  function capa(titulo){var m=document.getElementById('mc-mf');if(!m){m=document.createElement('div');m.id='mc-mf';m.style.cssText='position:fixed;inset:0;z-index:300;background:#0e1520;overflow:auto;-webkit-overflow-scrolling:touch';document.body.appendChild(m);}
+    m.innerHTML='<div style="position:sticky;top:0;z-index:2;background:#0e1520;border-bottom:1px solid #223142;padding:10px 12px;display:flex;gap:8px;align-items:center"><button class="chip" onclick="Manuf.cerrarCapa()">← Volver a Inventario</button><b>'+titulo+'</b></div><div id="mc-mf-b" style="padding:12px;max-width:820px;margin:0 auto"></div>';
+    host=document.getElementById('mc-mf-b');}
+  function cerrarCapa(){var m=document.getElementById('mc-mf');if(m)m.remove();host=null;}
   function $(id){return document.getElementById(id);}
   function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function money(n,d){var x=parseFloat(n);if(isNaN(x))return '—';return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:d||2});}
@@ -9882,9 +9921,9 @@ var Manuf=(function(){
   function err(e){busy=false;alert('Error: '+(e&&e.message?e.message:MCerr(e)));}
   var EST={abierta:['Abierta','#5cc8ff'],en_proceso:['En proceso','#f0c040'],completada:['Completada','#6fd68f'],cancelada:['Cancelada','#e05c5c']};
   function chip(e){var x=EST[e]||[e,'#9aa4b2'];return '<span style="font-size:11px;font-weight:700;color:'+x[1]+'">'+x[0]+'</span>';}
-  function tabs(){return '<div class="cbz-card-row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap">'+[['om','🏭 Órdenes de manufactura'],['bom','🧩 Listas de materiales'],['rec','⚖️ Conciliación con inFlow']].map(function(t){return '<button class="'+(tab===t[0]?'cbz-btn':'chip')+'" onclick="Manuf.setTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';}
+  function tabs(){if(host)return '';return '<div class="cbz-card-row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap">'+[['om','🏭 Órdenes de manufactura'],['bom','🧩 Listas de materiales'],['rec','⚖️ Conciliación con inFlow'],['cola','📡 Cola a inFlow']].map(function(t){return '<button class="'+(tab===t[0]?'cbz-btn':'chip')+'" onclick="Manuf.setTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';}
   function init(){tab='om';cur=null;form=null;bom=null;if(!cat)api({op:'catalogos'}).then(function(r){if(r.ok)cat=r;}).catch(function(){});cargar();}
-  function setTab(t){tab=t;cur=null;form=null;bom=null;if(t==='om')cargar();else if(t==='bom')cargarBoms();else cargarRec();}
+  function setTab(t){tab=t;cur=null;form=null;bom=null;if(t==='om')cargar();else if(t==='bom')cargarBoms();else if(t==='cola')cargarCola();else cargarRec();}
   /* ---------- Órdenes ---------- */
   function cargar(){el().innerHTML=tabs()+'<div class="cbz-loading">Cargando órdenes de manufactura…</div>';
     api({op:'mo_list',estado:fEst,q:fQ}).then(function(r){if(!r.ok)throw new Error(r.error);lista=r.ordenes||[];renderLista();}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
@@ -9902,7 +9941,7 @@ var Manuf=(function(){
   function abrir(id){cur=null;el().innerHTML=tabs()+'<div class="cbz-loading">Cargando orden…</div>';api({op:'mo_get',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);cur=r;renderDet();}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div><button class="chip" onclick="Manuf.setTab(\'om\')">← Órdenes</button>';});}
   function renderDet(){var o=cur.orden,p=cur.producto||{},ab=o.estado==='abierta'||o.estado==='en_proceso',ce=cur.costoEstimado||{};
     var falt=(cur.lineas||[]).filter(function(l){return l.falta>0;});
-    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Manuf.setTab(\'om\')">← Órdenes</button>'+
+    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap">'+(host?'':'<button class="chip" onclick="Manuf.setTab(\'om\')">← Órdenes</button>')+
       (ab?'<button class="chip" onclick="Manuf.editar()">✏️ Editar</button><button class="cbz-btn" onclick="Manuf.completar()">✅ Completar (consumir y producir)</button>':'')+
       (o.estado!=='cancelada'&&o.source==='minecore'?'<button class="chip" style="color:#e05c5c" onclick="Manuf.cancelar()">✖ Cancelar orden</button>':'')+
       '<button class="chip" onclick="Manuf.pdf()">🖨 Imprimir</button></div>'+
@@ -9954,7 +9993,7 @@ var Manuf=(function(){
         '<div style="margin-top:6px"><input class="uinput" id="mf-cq" placeholder="➕ Agregar componente: SKU o nombre…" oninput="Manuf.buscarComp(this.value,\'form\')" style="width:100%"><div id="mf-cres"></div></div>'+
         '<div style="text-align:right;margin-top:8px;font-size:12.5px">Componentes <b>'+money(tot)+'</b> + extras <b>'+money(exTot())+'</b> = <b>'+money(tot+exTot())+'</b> · Costo unitario estimado <b style="color:#c8f560">'+(q>0?money((tot+exTot())/q,4):'—')+'</b></div>'+
         '<div class="cbz-muted" style="font-size:10.5px">Estimado al costo promedio actual. El costo real se fija al completar, con el costo de cada componente en ese momento (igual que inFlow).</div></div>';}
-    h+='<div class="cbz-card-row" style="gap:6px;margin-top:10px"><button class="chip" onclick="'+(o.id?'Manuf.abrir(\''+o.id+'\')':'Manuf.setTab(\'om\')')+'">Cancelar</button><button class="cbz-btn" onclick="Manuf.guardar()">💾 Guardar orden</button></div>';
+    h+='<div class="cbz-card-row" style="gap:6px;margin-top:10px"><button class="chip" onclick="'+(o.id?'Manuf.abrir(\''+o.id+'\')':(host?'Manuf.cerrarCapa()':'Manuf.setTab(\'om\')'))+'">Cancelar</button><button class="cbz-btn" onclick="Manuf.guardar()">💾 Guardar orden</button></div>';
     el().innerHTML=h;}
   function exTot(){return (form.orden.extra_costs||[]).reduce(function(s,x){return s+(parseFloat(x.cost)||0);},0);}
   function addEx(){leer();form.orden.extra_costs.push({name:'Mano de obra',cost:0});renderForm();}
@@ -9989,7 +10028,7 @@ var Manuf=(function(){
   function abrirBom(pid){el().innerHTML=tabs()+'<div class="cbz-loading">Cargando…</div>';api({op:'bom_get',product_id:pid}).then(function(r){if(!r.ok)throw new Error(r.error);bom=r;renderBom();}).catch(err);}
   function nuevoBom(){bom={producto:null,lineas:[],nuevo:true};renderBom();}
   function renderBom(){var p=bom.producto,tot=0;
-    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px"><button class="chip" onclick="Manuf.setTab(\'bom\')">← Listas de materiales</button>'+(p&&!bom.nuevo?'<button class="chip" onclick="Manuf.fabricar()">🏭 Nueva OM de este producto</button>':'')+'</div><div class="cbz-card">'+
+    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px">'+(host?'':'<button class="chip" onclick="Manuf.setTab(\'bom\')">← Listas de materiales</button>')+(p&&!bom.nuevo?'<button class="chip" onclick="Manuf.fabricar()">🏭 Armar (nueva OM)</button><button class="chip" onclick="Manuf.faltan(\''+p.id+'\')">🔎 ¿Qué falta para armar?</button>':'')+'</div><div class="cbz-card">'+
       (p?'<div style="display:flex;gap:10px;align-items:center">'+th(p.img,60)+'<div><div class="cbz-card-name">'+esc(p.name)+'</div><div class="cbz-muted" style="font-size:11px">'+esc(p.sku)+' · costo actual '+money(p.costo,4)+(bom.armables!=null?' · 🔧 Armables en Bodega principal: <b style="color:#f0c040">'+bom.armables+'</b>':'')+'</div></div></div>':
         '<div class="cbz-muted">Producto terminado</div><input class="uinput" id="mf-bp" placeholder="Buscar producto…" oninput="Manuf.buscarBp(this.value)" style="width:100%"><div id="mf-bpres"></div>')+'</div>';
     h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">🧩 Componentes por 1 unidad ('+bom.lineas.length+')</div>'+bom.lineas.map(function(l,i){var q=l.prod||{};tot+=(q.costo||0)*l.quantity;
@@ -10004,7 +10043,7 @@ var Manuf=(function(){
   function buscarBp(q){clearTimeout(tmr);tmr=setTimeout(function(){if(q.trim().length<2)return;api({op:'productos',q:q,limit:20}).then(function(r){res=r.productos||[];var b=$('mf-bpres');if(b)b.innerHTML=res.slice(0,12).map(function(p,i){
     return '<div class="cbz-card" style="padding:6px 10px;margin:3px 0;cursor:pointer" onclick="Manuf.elegirBp('+i+')"><div style="display:flex;gap:8px;align-items:center">'+th(p.img,30)+'<div style="font-size:12px"><b>'+esc(p.name)+'</b><div class="cbz-muted" style="font-size:10.5px">'+esc(p.sku)+'</div></div></div></div>';}).join('');});},300);}
   function elegirBp(i){var p=res[i];abrirBom(p.id);}
-  function guardarBom(){if(!bom.producto){alert('Elige el producto terminado');return;}if(busy)return;busy=true;
+  function guardarBom(){if(!bom.producto){alert('Elige el producto terminado');return;}if(bom.lineas.some(function(l){return !(l.quantity>0);})){alert('Hay componentes con cantidad 0');return;}if(busy)return;busy=true;
     api({op:'bom_save',product_id:bom.producto.id,lineas:bom.lineas.map(function(l){return {child_product_id:l.child_product_id,quantity:l.quantity};})}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);alert('Lista de materiales guardada (inFlow: simulado).');abrirBom(bom.producto.id);}).catch(err);}
   function fabricar(){var p=bom.producto;tab='om';form={orden:{quantity:1,extra_costs:[],finished_product_id:p.id},prod:p,lineas:null};renderForm();reqty();}
   /* ---------- Conciliación ---------- */
@@ -10029,7 +10068,38 @@ var Manuf=(function(){
     y+=10;doc.setFont('helvetica','bold');doc.setFontSize(10);var ce=cur.costoEstimado||{};
     doc.text(o.estado==='completada'?'Costo unitario: '+money(o.unit_cost,4):'Costo unitario estimado: '+money(ce.unitario,4),40,y);
     try{mcDownloadBlob(doc.output('blob'),o.mo_number+'.pdf');}catch(e){doc.save(o.mo_number+'.pdf');}}
-  return {init:init,setTab:setTab,filtrar:filtrar,abrir:abrir,nueva:nueva,editar:editar,completar:completar,cancelar:cancelar,reqty:reqty,addEx:addEx,setEx:setEx,delEx:delEx,setLq:setLq,delL:delL,
+  /* ---------- b242: desde Inventario ---------- */
+  function bomDe(pid,ev){if(ev)ev.stopPropagation();if(!cat)api({op:'catalogos'}).then(function(r){if(r.ok)cat=r;}).catch(function(){});capa('🧩 Lista de materiales');abrirBom(pid);}
+  function armar(pid,ev){if(ev)ev.stopPropagation();capa('🏭 Armar');el().innerHTML='<div class="cbz-loading">Cargando…</div>';
+    var go=function(){api({op:'bom_get',product_id:pid}).then(function(r){if(!r.ok)throw new Error(r.error);
+      if(!r.lineas.length){el().innerHTML='<div class="cbz-card">Este producto no tiene lista de materiales. Créala primero.</div><button class="cbz-btn" onclick="Manuf.bomDe(\''+pid+'\')">🧩 Crear lista de materiales</button>';return;}
+      tab='om';form={orden:{quantity:1,extra_costs:[],finished_product_id:pid},prod:r.producto,lineas:null};renderForm();reqty();}).catch(err);};
+    if(cat)go();else api({op:'catalogos'}).then(function(r){if(r.ok)cat=r;go();}).catch(go);}
+  var fq=1,fdat=null;
+  function faltan(pid,ev){if(ev)ev.stopPropagation();if(!host)capa('🔎 ¿Qué falta para armar?');el().innerHTML='<div class="cbz-loading">Calculando…</div>';
+    api({op:'bom_get',product_id:pid}).then(function(r){if(!r.ok)throw new Error(r.error);fdat=r;renderFaltan();}).catch(err);}
+  function setFq(v){fq=Math.max(1,parseFloat(v)||1);renderFaltan();}
+  function renderFaltan(){var r=fdat,p=r.producto||{},nf=0;
+    var rows=r.lineas.map(function(l){var q=l.prod||{},nec=Math.round(l.quantity*fq*10000)/10000,st=q.stock||0,f=Math.max(0,nec-st);if(f>0)nf++;
+      var ped=q.enPedido?(function(){try{return MCpedTxt({enPedido:q.enPedido},true);}catch(e){return '📦 En pedido '+num(q.enPedido.q);}})():'<span class="cbz-muted">No pedido</span>';
+      return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #1c2a3a">'+th(q.img,40)+'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+esc(q.name||'')+'</div><div class="cbz-muted" style="font-size:11px">'+esc(q.sku||'')+'</div>'+
+        '<div style="font-size:11.5px">Necesario <b>'+num(nec)+'</b> · Bodega principal <b style="color:'+(f>0?'#e05c5c':'#6fd68f')+'">'+num(st)+'</b>'+(f>0?' · <b style="color:#e05c5c">Falta '+num(f)+'</b>':' · ✔')+'</div>'+(f>0?'<div style="font-size:11px">'+ped+'</div>':'')+'</div></div>';}).join('');
+    el().innerHTML='<div class="cbz-card"><div style="display:flex;gap:10px;align-items:center">'+th(p.img,56)+'<div style="flex:1"><div class="cbz-card-name">'+esc(p.name||'')+'</div><div class="cbz-muted" style="font-size:11px">'+esc(p.sku||'')+' · 🔧 Armables hoy en Bodega principal: <b style="color:#f0c040">'+r.armables+'</b></div></div></div>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><span>Cantidad a armar</span><input class="uinput" type="number" min="1" step="1" value="'+fq+'" style="width:80px;text-align:center" onchange="Manuf.setFq(this.value)">'+
+      [1,2,5,10].map(function(n){return '<button class="chip" onclick="Manuf.setFq('+n+')">'+n+'</button>';}).join('')+'</div>'+
+      '<div style="margin-top:6px;font-weight:700;color:'+(nf?'#e05c5c':'#6fd68f')+'">'+(r.lineas.length?(nf?'Faltan '+nf+' de '+r.lineas.length+' componentes':'✔ Hay todo para armar '+num(fq)):'Sin lista de materiales')+'</div></div>'+
+      '<div class="cbz-card">'+rows+'</div><div class="cbz-card-row" style="gap:6px"><button class="chip" onclick="Manuf.bomDe(\''+p.id+'\')">🧩 Lista de materiales</button>'+(r.lineas.length?'<button class="cbz-btn" onclick="Manuf.armar(\''+p.id+'\')">🏭 Armar</button>':'')+'</div>';}
+  /* ---------- Cola a inFlow (errores y reintentos) ---------- */
+  function cargarCola(){el().innerHTML=tabs()+'<div class="cbz-loading">Cargando cola…</div>';api({op:'outbox'}).then(function(r){if(!r.ok)throw new Error(r.error);
+    var h=tabs()+'<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px">Envío a inFlow (Minecore es el original; inFlow es espejo)</div><div class="cbz-muted" style="font-size:11px">Módulos en envío real: <b>'+esc(r.activos||'ninguno')+'</b></div>'+
+      '<table class="vt-table" style="width:100%;font-size:12px;margin-top:6px"><tr><th>Módulo</th><th>Estado</th><th style="text-align:right">Trabajos</th></tr>'+(r.resumen||[]).map(function(x){return '<tr><td>'+esc(x.modulo)+'</td><td>'+esc(x.status)+'</td><td style="text-align:right">'+x.n+'</td></tr>';}).join('')+'</table></div>';
+    var er=r.errores||[];
+    h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">Pendientes y errores ('+er.length+')</div>'+(er.length?er.map(function(x){var col=x.status==='fallido'||x.status==='error'?'#e05c5c':'#f0c040';
+      return '<div style="padding:6px 0;border-bottom:1px solid #1c2a3a;font-size:12px"><b>'+esc(x.modulo)+'</b> · '+esc(x.op)+' · '+esc(x.doc||'')+' · <b style="color:'+col+'">'+esc(x.status)+'</b> · intentos '+x.attempts+
+        (x.error?'<div class="cbz-muted" style="font-size:11px;word-break:break-word">'+esc(x.error)+'</div>':'')+((x.status==='error'||x.status==='fallido')?'<button class="chip" style="margin-top:4px" onclick="Manuf.reintentar(\''+x.modulo+'\','+x.id+')">↻ Reintentar ahora (admin)</button>':'')+'</div>';}).join(''):'<div class="cbz-muted">Sin pendientes ni errores ✔</div>')+'</div>';
+    el().innerHTML=h;}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  function reintentar(m,id){if(busy)return;busy=true;api({op:'emit',reintentar:{modulo:m,id:id}}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);cargarCola();}).catch(err);}
+  return {init:init,bomDe:bomDe,armar:armar,faltan:faltan,setFq:setFq,cerrarCapa:cerrarCapa,reintentar:reintentar,setTab:setTab,filtrar:filtrar,abrir:abrir,nueva:nueva,editar:editar,completar:completar,cancelar:cancelar,reqty:reqty,addEx:addEx,setEx:setEx,delEx:delEx,setLq:setLq,delL:delL,
     buscarFab:buscarFab,elegirFab:elegirFab,cambiarProd:cambiarProd,buscarComp:buscarComp,elegirComp:elegirComp,guardar:guardar,setBq:setBq,abrirBom:abrirBom,nuevoBom:nuevoBom,setBl:setBl,delBl:delBl,
     buscarBp:buscarBp,elegirBp:elegirBp,guardarBom:guardarBom,fabricar:fabricar,pdf:pdf};
 })();
