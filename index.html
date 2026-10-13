@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='245';
+  var MC_BUILD='246';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -8053,18 +8053,38 @@ var Compras=(function(){
   function pc(l){return '<div class="mc-pc">'+th(l.img,40)+'<div style="min-width:0"><b style="font-size:12.5px">'+esc(l.nombre||l.description||'')+'</b><div class="cbz-muted" style="font-size:11px">'+esc(l.sku||'')+'</div></div></div>';}
   function th(u,sz){sz=sz||40;return u?'<img src="'+esc(u)+'" loading="lazy" style="width:'+sz+'px;height:'+sz+'px;flex:none;object-fit:contain;background:#fff;border-radius:6px;cursor:zoom-in" onclick="MCfoto(this.src,event)" onerror="this.style.visibility=\'hidden\'">':'<div style="width:'+sz+'px;height:'+sz+'px;flex:none;border-radius:6px;background:#1c2a3a;display:flex;align-items:center;justify-content:center">📦</div>';}
   function setV(v){cv=v;renderDet();}
+
+  function adm(){try{return getProfile().rol==='admin';}catch(e){return false;}}
+  function facHtml(){var F=cur.facturas||[],A=adm();if(!F.length&&!A)return '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px"><span class="cbz-muted" style="font-size:11px">Facturas proveedor</span>'+
+      F.map(function(f){var t='🧾 '+esc(f.numero)+(f.fecha?' · '+d10(f.fecha):'')+(f.monto!=null?' · '+money(f.monto):'');
+        var u=f.link||f.adj_url;return u?'<a class="chip" style="text-decoration:none" target="_blank" rel="noopener" href="'+esc(u)+'" title="'+esc(f.fuente||'')+'">'+t+' 📎</a>':'<span class="chip" title="'+esc(f.fuente||'')+'">'+t+'</span>';}).join('')+
+      (!F.length?'<span class="cbz-muted" style="font-size:11px">— ninguna</span>':'')+(A?'<button class="chip" onclick="Compras.facEdit()">✏️</button>':'')+'</div>'+adjHtml(A)+'<div id="cf-fac"></div>';}
+  function adjHtml(A){var J=cur.adjuntos||[];if(!J.length&&!A)return '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px"><span class="cbz-muted" style="font-size:11px">Adjuntos</span>'+
+      J.map(function(a){return '<a class="chip" style="text-decoration:none" target="_blank" rel="noopener" href="'+esc(a.url)+'" title="'+esc((a.fuente||'')+' · '+d10(a.created_at))+'">📎 '+esc(a.nombre)+'</a>';}).join('')+
+      (A?'<label class="chip" style="cursor:pointer">＋ Subir<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.xml" style="display:none" onchange="Compras.adjSubir(this)"></label>':'')+'</div>';}
+  function adjSubir(inp){var f=inp.files&&inp.files[0];if(!f||busy)return;if(f.size>15*1024*1024){alert('Máximo 15 MB');return;}var rd=new FileReader();
+    rd.onload=function(){busy=true;api({op:'po_adjuntar',id:cur.orden.id,nombre:f.name,base64:String(rd.result).split(',')[1]}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);if(r.duplicado)alert('Ese archivo ya estaba adjunto');abrir(cur.orden.id);}).catch(err);};rd.readAsDataURL(f);}
+  function facEdit(){var b=$('cf-fac');if(!b)return;var F=(cur.facturas||[]).slice();while(F.length<5)F.push({});
+    b.innerHTML='<div class="cbz-card" style="margin-top:8px;padding:8px"><div class="cbz-muted" style="font-size:11px;margin-bottom:6px">Hasta 5 facturas (se copian a inFlow «Factura proveedor 1-5»)</div>'+
+      F.map(function(f,i){return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px"><input class="uinput" id="ff-n'+i+'" placeholder="N° factura" style="flex:2 1 150px" value="'+esc(f.numero||'')+'"><input class="uinput" type="date" id="ff-d'+i+'" style="flex:1 1 120px" value="'+d10(f.fecha)+'"><input class="uinput" id="ff-m'+i+'" inputmode="decimal" placeholder="Monto" style="flex:1 1 80px" value="'+(f.monto!=null?f.monto:'')+'"><input class="uinput" id="ff-l'+i+'" placeholder="Link adjunto (https://)" style="flex:3 1 180px" value="'+esc(f.link||'')+'"><input type="hidden" id="ff-f'+i+'" value="'+esc(f.fuente||'')+'"></div>';}).join('')+
+      '<div style="text-align:right;margin-top:6px"><button class="chip" onclick="document.getElementById(\'cf-fac\').innerHTML=\'\'">Cerrar</button> <button class="cbz-btn" onclick="Compras.facGuardar()">Guardar facturas</button></div></div>';}
+  function facGuardar(){if(busy)return;var L=[];for(var i=0;i<5;i++){var n=$('ff-n'+i).value.trim();if(!n)continue;var lk=$('ff-l'+i).value.trim();if(lk&&!/^https:\/\//.test(lk)){alert('El link debe empezar con https://');return;}
+      L.push({numero:n,fecha:$('ff-d'+i).value,monto:$('ff-m'+i).value.replace(',','.').trim(),link:lk,fuente:$('ff-f'+i).value||'Minecore'});}
+    busy=true;api({op:'po_facturas_save',id:cur.orden.id,facturas:L}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);abrir(cur.orden.id);}).catch(err);}
   function renderDet(){var o=cur.orden,v=cur.proveedor||{},ab=!o.is_cancelled&&!o.is_quote,pend=cur.lineas.some(function(l){return l.quantity>l.recibido;});
     var h=RT+tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Compras.init()">← Órdenes</button>'+
       (ab&&!cur.recepciones.length?'<button class="chip" onclick="Compras.editar()">✏️ Editar</button>':'')+(!o.is_cancelled?'<button class="chip" style="color:#e05c5c" onclick="Compras.cancelar()">✕ Cancelar OC</button>':'')+'</div>';
     h+='<div class="cbz-card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><div class="cbz-card-name" style="font-size:17px">'+esc(o.order_number)+'</div><b style="color:'+(EST_COL[o.estado]||'#9fc3e8')+'">'+esc(o.estado)+'</b></div>'+
-      '<div class="cbz-muted" style="font-size:12px;line-height:1.6">'+esc(v.name||'')+(o.vendor_order_number?' · N° proveedor '+esc(o.vendor_order_number):'')+'<br>Fecha '+d10(o.order_date)+(o.due_date?' · vence '+d10(o.due_date):'')+' · Bodega '+esc(cur.bodega||'')+' · inFlow: '+(SYNC[o.sync_status]||esc(o.sync_status||''))+(o.sync_error?' · '+esc(o.sync_error):'')+'</div></div>';
+      '<div class="cbz-muted" style="font-size:12px;line-height:1.6">'+esc(v.name||'')+(o.vendor_order_number?' · N° proveedor '+esc(o.vendor_order_number):'')+'<br>Fecha '+d10(o.order_date)+(o.due_date?' · vence '+d10(o.due_date):'')+' · Bodega '+esc(cur.bodega||'')+' · inFlow: '+(SYNC[o.sync_status]||esc(o.sync_status||''))+(o.sync_error?' · '+esc(o.sync_error):'')+'</div>'+facHtml()+'</div>';
     h+='<div class="cbz-card-row" style="gap:6px;margin:8px 0;flex-wrap:wrap">'+[['orden','🧾 Orden'],['recibir','📥 Recibir'+(cur.recepciones.length?' ('+cur.recepciones.length+')':'')]].map(function(t){return '<button class="chip" style="'+(cv===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Compras.setV(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
     if(cv==='orden'){
       h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">Pedido</div><table class="mc-rt"><thead><tr><th>Producto</th><th class="r">Pedido</th><th class="r">Recibido</th><th class="r">Costo unit.</th><th class="r">Subtotal</th></tr></thead><tbody>'+
         cur.lineas.map(function(l){return '<tr><td class="mc-p">'+pc(l)+'</td><td class="r" data-l="Pedido">'+num(l.quantity)+'</td><td class="r" data-l="Recibido" style="color:'+(l.recibido>=l.quantity?'#6fd68f':l.recibido>0?'#f0c040':'')+'">'+num(l.recibido)+'</td><td class="r" data-l="Costo unit.">'+money(l.unit_price)+(l.discount_pct>0?' −'+num(l.discount_pct)+'%':'')+'</td><td class="r" data-l="Subtotal"><b>'+money(l.subtotal)+'</b></td></tr>';}).join('')+
         '</tbody></table><div style="text-align:right;margin-top:8px;line-height:1.7">Subtotal <b>'+money(o.subtotal)+'</b> · Impuestos '+money(o.tax1)+'<br><span style="font-size:15px">Total <b>'+money(o.total)+'</b></span> · Pagado '+money(o.amount_paid)+' · <b style="color:'+(o.balance>0.005?'#f0c040':'#6fd68f')+'">Saldo '+money(o.balance)+'</b></div>'+
         (ab&&pend?'<div style="margin-top:8px"><button class="cbz-btn" onclick="Compras.setV(\'recibir\')">📥 Recibir →</button></div>':'')+'</div>';
-      h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:4px">Pagos</div>'+(cur.pagos.map(function(p){return '<div style="font-size:12px">'+d10(p.date_paid)+' · <b>'+money(p.amount)+'</b> · '+esc(p.payment_method||'')+(p.reference_number?' · ref '+esc(p.reference_number):'')+(p.remarks?'<span class="cbz-muted"> · '+esc(p.remarks)+'</span>':'')+'</div>';}).join('')||'<div class="cbz-muted" style="font-size:11px">Sin pagos</div>')+
+      h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:4px">Pagos</div>'+(cur.pagos.map(function(p){return '<div style="font-size:12px">'+d10(p.date_paid)+' · <b>'+money(p.amount)+'</b> · '+esc(p.payment_method||'')+(p.reference_number?' · ref '+esc(p.reference_number):'')+(p.factura?' · <span style="color:#9fc3e8">🧾 Fact. '+esc(p.factura)+'</span>':'')+(p.remarks?'<span class="cbz-muted"> · '+esc(p.remarks)+'</span>':'')+'</div>';}).join('')||'<div class="cbz-muted" style="font-size:11px">Sin pagos</div>')+
         (ab?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="uinput" id="cp-a" type="number" step="0.01" placeholder="Monto" value="'+(o.balance>0?o.balance:'')+'" style="width:110px"><input class="uinput" id="cp-m" placeholder="Método" style="width:130px"><input class="uinput" id="cp-r" placeholder="Referencia" style="width:130px"><button class="cbz-btn" onclick="Compras.pagar()">💵 Registrar pago</button></div><div class="cbz-muted" style="font-size:10.5px">Saldos de hasta $0.05 se cierran solos. Para devolver, monto negativo.</div>':'')+'</div>';
     } else {
       var dl='<datalist id="cr-subs">'+(cur.subsBodega||[]).map(function(x){return '<option value="'+esc(x)+'">';}).join('')+'</datalist>';
@@ -8116,7 +8136,7 @@ var Compras=(function(){
   function quitar(i){leer();form.lineas.splice(i,1);renderForm();}
   function guardar(){leer();if(busy)return;if(!form.orden.vendor_id){alert('Elige el proveedor');return;}if(!form.lineas.length){alert('Agrega productos');return;}
     busy=true;api({op:'po_save',orden:form.orden,lineas:form.lineas.map(function(l){return {product_id:l.product_id,quantity:l.quantity,unit_price:l.unit_price,discount_pct:l.discount_pct,description:l.description};})}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);abrir(r.id);}).catch(err);}
-  return {init:init,setV:setV,buscar:buscar,abrir:abrir,nueva:nueva,editar:editar,recibir:recibir,pagar:pagar,cancelar:cancelar,re:re,buscarVendor:buscarVendor,elegirVendor:elegirVendor,cambiarVendor:cambiarVendor,buscarProd:buscarProd,elegirProd:elegirProd,quitar:quitar,guardar:guardar};
+  return {adjSubir:adjSubir,facEdit:facEdit,facGuardar:facGuardar,init:init,setV:setV,buscar:buscar,abrir:abrir,nueva:nueva,editar:editar,recibir:recibir,pagar:pagar,cancelar:cancelar,re:re,buscarVendor:buscarVendor,elegirVendor:elegirVendor,cambiarVendor:cambiarVendor,buscarProd:buscarProd,elegirProd:elegirProd,quitar:quitar,guardar:guardar};
 })();
 
 /* ===================== MOVIMIENTOS DE STOCK (b243 · Supabase original, inFlow espejo) =====================
