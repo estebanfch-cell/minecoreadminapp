@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='237';
+  var MC_BUILD='238';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2925,6 +2925,12 @@ var Dash = (function(){
       window._dashBusy=false;
       if(det) det.querySelectorAll('button').forEach(function(b){b.disabled=false;b.style.opacity='';});
     }
+    /* b238: el pick list sale de Supabase (op doc, mismo generador del menú Print: ubicación = la de la orden, sububicación = la de inFlow). El armado viejo queda solo de respaldo. */
+    MCpost({action:'ventas',op:'doc',inflow_id:id,user:getUserName(),pin:getPin()}).then(function(r){
+      if(!r||!r.ok||!r.doc)return viejo();
+      return MCInflowDoc('pick',r.doc).then(function(blob){unlock();return mcDownloadBlob(blob, mcPdfFilename(null, r.doc.num||hint, 'PICK LIST'), 'application/pdf', pdfTab);});
+    }).catch(function(){return viejo();});
+    function viejo(){
     var ord=null;
     for(var i=0;i<(orders||[]).length;i++){if(String(orders[i].id)===String(id)){ord=orders[i];break;}}
     var pDet=MCpost({action:'getOrderDetail',orderId:id,user:getUserName(),pin:getPin()});
@@ -2970,6 +2976,8 @@ var Dash = (function(){
       mcClosePdfTab_(pdfTab);
       alert(MCerr(e)||'No se pudo generar el pick list');
     });
+    }
+
   }
   /* ---------- b233: panel CFO (FINANCE) + Operaciones (getCfo, CfoOps.gs). El período es el del Historial. ---------- */
   var cfo=null, opsAbierto='';
@@ -6762,7 +6770,10 @@ var Cot = (function(){
     var pDet=o.salesOrderId?api({action:'getOrderDetail',orderId:o.salesOrderId}).then(function(res){
       return (res&&res.ok&&res.lines)?res.lines:[];
     }).catch(function(){return [];}):Promise.resolve([]);
-    Promise.all([pCat,pCli,pDet]).then(function(r){
+    var pSb=o.salesOrderId?api({action:'ventas',op:'doc',inflow_id:o.salesOrderId}).catch(function(){return null;}):Promise.resolve(null);
+    Promise.all([pCat,pCli,pDet,pSb]).then(function(r){
+      /* b238: Supabase primero (misma regla de ubicación/sububicación que el menú Print) */
+      if(r[3]&&r[3].ok&&r[3].doc)return MCInflowDoc('pick',r[3].doc);
       return MCPickListPdf(mcPickCfg(o, r[1], r[0]||prodCat||[], r[2]||[]));
     }).then(function(blob){
       window._ioBusy=false;
@@ -9462,7 +9473,10 @@ var Ventas = (function(){
     el().innerHTML='<div class="cbz-loading">Cargando '+(tipo==='SQ'?'cotizaciones':'órdenes de venta')+'...</div>';
     api({op:'list',tipo:tipo,cliente:f.cliente||undefined,estado:(f.q&&f.estado==='cotizacion')?undefined:(f.estado||undefined),desde:f.desde||undefined,hasta:f.hasta||undefined,q:f.q||undefined,limit:400}).then(function(r){
       if(!r.ok){el().innerHTML='<div class="cbz-error">'+esc(r.error)+'</div>';return;}
-      lista=r.ordenes||[];renderLista();
+      /* b238: canceladas ocultas por defecto; se ven con el filtro «Canceladas» o buscando su número exacto */
+      var qx=String(f.q||'').trim().toUpperCase();
+      lista=(r.ordenes||[]).filter(function(o){if(f.estado==='cancelada')return true;if(o.estado!=='cancelada'&&!o.is_cancelled)return true;
+        return !!qx&&(String(o.order_number||'').toUpperCase()===qx||String(o.quote_number||'').toUpperCase()===qx);});renderLista();
     }).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
   }
   function leerFiltros(){f.cliente=$('vt-fc').value.trim();f.estado=$('vt-fe').value;f.desde=$('vt-fd').value;f.hasta=$('vt-fh').value;f.q=$('vt-fq').value.trim();}
@@ -9472,7 +9486,7 @@ var Ventas = (function(){
     var h='<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px">'+
       '<input class="uinput" id="vt-fq" placeholder="Nº, PO o factura" value="'+esc(f.q)+'" style="width:150px" onkeydown="if(event.key===\'Enter\')Ventas.filtrar()">'+
       '<input class="uinput" id="vt-fc" placeholder="Cliente" value="'+esc(f.cliente)+'" style="flex:1;min-width:140px" onkeydown="if(event.key===\'Enter\')Ventas.filtrar()">'+
-      '<select class="uinput" id="vt-fe" style="width:150px"><option value="">Todos los estados</option>'+ests.map(function(e){return '<option value="'+e+'"'+(f.estado===e?' selected':'')+'>'+EST_TXT[e]+'</option>';}).join('')+'</select>'+
+      '<select class="uinput" id="vt-fe" style="width:150px"><option value="">Todos (sin canceladas)</option>'+ests.map(function(e){return '<option value="'+e+'"'+(f.estado===e?' selected':'')+'>'+(e==='cancelada'?'Canceladas':EST_TXT[e])+'</option>';}).join('')+'</select>'+
       '<input class="uinput" type="date" id="vt-fd" value="'+esc(f.desde)+'" title="Desde" style="width:140px">'+
       '<input class="uinput" type="date" id="vt-fh" value="'+esc(f.hasta)+'" title="Hasta" style="width:140px">'+
       '<button class="chip" onclick="Ventas.filtrar()">🔎 Filtrar</button>'+
