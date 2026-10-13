@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='244';
+  var MC_BUILD='245';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -408,6 +408,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div id="prov-screen" style="display:none"></div>
   <div id="transf-screen" style="display:none"></div>
   <div id="stk-screen" style="display:none"></div>
+  <div id="bots-screen" style="display:none"></div>
   <div id="wa-screen" style="display:none"></div>
   <div id="ventas-screen" style="display:none"></div>
   <div id="caja-screen"></div>
@@ -8186,6 +8187,42 @@ var Stk=(function(){
   return {init:init,setTipo:setTipo,abrir:abrir,cancelar:cancelar,guardarConteo:guardarConteo,nuevo:nuevo,buscarProd:buscarProd,elegir:elegir,quitar:quitar,guardar:guardar};
 })();
 
+/* ===================== BOTS (b245 · solo admin) ===================== */
+var Bots=(function(){
+  var BOTS=[['155d5508-70d9-4d5a-95e4-619da13d5a44','MINECORE LAW','Legal: contratos, cumplimiento y documentos'],['3823e65f-b1cf-4561-ab73-8f0c00a5f0da','MINECORE SECRE','Secretaría: pagos, agenda y trámites'],
+    ['4c8dbbed-7889-4328-9121-d8a5883f2139','MINECORE FINANCE','Finanzas: flujo, cobranza y reportes'],['5ebf12eb-13d0-463b-85d0-2634b273de79','MINECORE MARKETING','Marketing: contenido, campañas y redes'],
+    ['865dd2df-e29f-40a4-9631-41ca5624e03e','MINECORE CHIEF','Coordinación general de los bots'],['a6cb20b6-70e6-429d-9737-cc2e1a5c4ae1','MANUELITO','Asistente personal'],
+    ['b9f678f9-a153-4cc0-9046-16125fb928fb','MINECORE STOCK PILOT','Inventario: reposición y alertas de stock'],['ca3b12a2-90aa-41c6-bdca-995384ed931d','MINECORE COTE','Cotizaciones a clientes'],
+    ['ecc7fc20-dd9d-49ed-83e3-43b94981a4ce','REDACTOR','Redacción de textos y correos'],['3411110b-4ab8-4687-8df2-831b21505adf','MINECORE DEVOPS','Sistemas: portal, Supabase e inFlow']];
+  var res={},cur=null,busy=false;
+  function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p);}
+  function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function el(){return document.getElementById('bots-screen');}
+  function fecha(s){if(!s)return '';var d=new Date(s);return isNaN(d)?'':d.toLocaleString('es-EC',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+  function link(id){return 'grokbot://app/v1/agent?id='+id;}
+  function init(){cur=null;render();api({op:'bot_inbox_resumen'}).then(function(r){if(r.ok){res={};(r.resumen||[]).forEach(function(x){res[x.bot_id]=x;});if(!cur)render();}}).catch(function(){});}
+  function render(){
+    var h='<div class="cbz-muted" style="font-size:11.5px;margin-bottom:10px">«Abrir chat» abre la app Grok Bot (solo funciona en equipos donde está instalada). El buzón deja mensajes que el bot lee y responde en su rutina.</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">'+BOTS.map(function(b){var r=res[b[0]]||{};
+        return '<div class="cbz-card" style="margin:0;display:flex;flex-direction:column;gap:6px"><div class="cbz-card-name">🤖 '+esc(b[1])+'</div><div class="cbz-muted" style="font-size:12px;flex:1">'+esc(b[2])+'</div>'+
+          '<div class="cbz-muted" style="font-size:11px">'+(r.pendientes?'<b style="color:#f0c040">'+r.pendientes+' sin leer</b> · ':'')+(r.ultimo?'último '+fecha(r.ultimo):'sin mensajes')+'</div>'+
+          '<div style="display:flex;gap:6px;flex-wrap:wrap"><a class="cbz-btn" style="text-decoration:none;text-align:center" href="'+link(b[0])+'">💬 Abrir chat</a><button class="chip" onclick="Bots.abrir(\''+b[0]+'\')">📮 Buzón</button></div></div>';}).join('')+'</div>';
+    el().innerHTML=h;}
+  function abrir(id){cur=BOTS.filter(function(b){return b[0]===id;})[0];el().innerHTML='<div class="cbz-loading">Cargando buzón…</div>';
+    api({op:'bot_inbox_list',bot_id:id}).then(function(r){if(!r.ok)throw new Error(r.error);renderHilo(r.mensajes||[]);}).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  function renderHilo(ms){var b=cur,ST={pendiente:['⏳ sin leer','#f0c040'],'leído':['👀 leído','#9fc3e8'],respondido:['✔ respondido','#6fd68f']};
+    var h='<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Bots.init()">← Bots</button><b style="align-self:center">📮 '+esc(b[1])+'</b><a class="chip" style="text-decoration:none" href="'+link(b[0])+'">💬 Abrir chat</a><button class="chip" onclick="Bots.abrir(\''+b[0]+'\')">⟳</button></div>'+
+      '<div class="cbz-card"><textarea id="bx-msg" class="uinput" rows="3" style="width:100%;box-sizing:border-box;resize:vertical" placeholder="Escribe un mensaje para '+esc(b[1])+'…"></textarea><div style="text-align:right;margin-top:6px"><button class="cbz-btn" onclick="Bots.enviar()">Enviar</button></div></div>';
+    h+=ms.map(function(m){var s=ST[m.status]||[m.status,'#9fc3e8'];
+      return '<div class="cbz-card"><div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;font-size:11px"><span class="cbz-muted">'+esc(m.from_user)+' · '+fecha(m.created_at)+'</span><b style="color:'+s[1]+'">'+s[0]+'</b></div>'+
+        '<div style="white-space:pre-wrap;word-break:break-word;margin-top:4px">'+esc(m.message)+'</div>'+
+        (m.reply?'<div style="margin-top:8px;padding:8px 10px;border-left:3px solid #6fd68f;background:#12233a;border-radius:6px"><div class="cbz-muted" style="font-size:11px">🤖 '+esc(b[1])+' · '+fecha(m.replied_at)+'</div><div style="white-space:pre-wrap;word-break:break-word">'+esc(m.reply)+'</div></div>':'')+'</div>';}).join('')||'<div class="cbz-muted">Sin mensajes todavía.</div>';
+    el().innerHTML=h;}
+  function enviar(){var t=(document.getElementById('bx-msg')||{}).value||'';if(!t.trim()||busy)return;busy=true;
+    api({op:'bot_inbox_send',bot_id:cur[0],message:t}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);abrir(cur[0]);}).catch(function(e){busy=false;alert('Error: '+MCerr(e));});}
+  return {init:init,abrir:abrir,enviar:enviar};
+})();
+
 /* ===================== PROVEEDORES + ÓRDENES DE COMPRA (espejo inFlow) ===================== */
 var Prov = (function(){
   var tab='vendors'; // vendors | ocs
@@ -10334,7 +10371,7 @@ function mcHomeVisible(){
   var home=document.getElementById('home');
   if(!home) return false;
   if(home.style.display==='none') return false;
-  var ids=['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','stk-screen'];
+  var ids=['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','stk-screen','bots-screen'];
   for(var i=0;i<ids.length;i++){
     var e=document.getElementById(ids[i]);
     if(!e) continue;
@@ -10378,6 +10415,7 @@ function renderHome(){
   if(p.rol!=='cliente'&&can('cobranza')) add('kyc','🗂','Base de clientes','Registros del formulario Conoce a tu Cliente');
   if(p.rol==='admin') add('mailcfg','⚙️','Correo del sistema','Remitente y copia oculta de los correos automáticos');
   if(p.rol!=='cliente'&&can('inventario')) add('inv','📦','Inventario','Stock por producto, agotados y valorización');
+  if(p.rol==='admin') add('bots','🤖','Bots','Chats y buzón de los bots de Minecore (solo admin)');
   if(p.rol!=='cliente'&&can('inventario')) add('stk','🔁','Movimientos de stock','Transferencias, ajustes y conteos (Minecore → inFlow)');
   if(p.rol!=='cliente'&&can('cotizaciones')) add('cot','📨','Solicitudes de cotización','Solicitudes de clientes, precios y creación en inFlow');
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard'))) add('vcot','🧾','Cotizaciones','Crear, editar, convertir en OV, dividir y PDF');
@@ -10506,7 +10544,7 @@ function openMod(m){
   if(m!=='wa'){try{WA.stop();}catch(e){}}
   mcHideNotifBar();
   try{Landing.hide();}catch(e){}
-  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','stk-screen'].forEach(function(id){
+  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','stk-screen','bots-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('backBtn').style.display='block';
@@ -10524,6 +10562,7 @@ function openMod(m){
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
   if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
+  if(m==='bots'){document.getElementById('bots-screen').style.display='block';document.getElementById('title').textContent='BOTS';Bots.init();}
   if(m==='stk'){document.getElementById('stk-screen').style.display='block';document.getElementById('title').textContent='MOVIMIENTOS DE STOCK';Stk.init();}
   if(m==='transf'){document.getElementById('transf-screen').style.display='block';document.getElementById('title').textContent='STOCK TRANSFERS';Transf.init();}
   if(m==='caja'){
@@ -10541,7 +10580,7 @@ function openMod(m){
 function goHome(){
   try{ document.body.classList.remove('mc-caja-open'); }catch(e){}
   try{ WA.stop(); }catch(e){}
-  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','stk-screen'].forEach(function(id){
+  ['dash-screen','liq-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','stk-screen','bots-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('home').style.display='grid';
