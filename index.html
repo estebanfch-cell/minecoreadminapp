@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='239';
+  var MC_BUILD='241';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -431,7 +431,7 @@ function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);localStorage.
 function getUserName(){try{return localStorage.getItem('mc_user_name')||'';}catch(e){return '';}}
 function getPin(){try{return localStorage.getItem('mc_pin')||window._pinSesion||'';}catch(e){return window._pinSesion||'';}}
 
-function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');}catch(e){}}
+function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');sessionStorage.removeItem('mc_sbt');}catch(e){}}
 function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
 function b64uToBuf(s){
   s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');
@@ -507,7 +507,48 @@ function MCrefrescarStock(){
     return MC_STK_PROM;
   }catch(e){return Promise.resolve(0);}
 }
+/* b240: portal → Supabase DIRECTO (Edge Function portal-api) para lecturas de Ventas e Inventario.
+   Sesión: token firmado de 15 min que emite AdminAPI tras validar usuario+PIN (ping / sbToken); no contiene secretos.
+   Si el token falta/vence/se revoca o Supabase falla ⇒ se usa el camino de siempre (Apps Script) sin que el usuario lo note. */
+var MC_SB_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api';
+var MC_SB_LECT=/^(meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones)$/;
+var MC_SB_DOWN=0,MC_SB_REF=null;
+function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
+function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
+function MCsbRefresh(){
+  if(MC_SB_REF||!getUserName()||!getPin())return;
+  MC_SB_REF=MCpostAS({action:'sbToken',user:getUserName(),pin:getPin(),_retries:1}).then(function(r){MC_SB_REF=null;if(r&&r.sbt)MCsbSet(r.sbt);},function(){MC_SB_REF=null;});
+}
+function MCsbEligible(c){
+  if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
+  return (c.action==='ventas'&&MC_SB_LECT.test(String(c.op||'')))||c.action==='getInventario';
+}
 function MCpost(p){
+  p=p||{};
+  var s=null;
+  if(MCsbEligible(p)){
+    s=MCsbGet();
+    if(!s||s.exp<Date.now()/1000+180)MCsbRefresh();
+  }
+  if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
+  var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
+  var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},Math.min(p._timeout||20000,20000)):null;
+  var t0=Date.now();
+  return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
+    .then(function(r){if(timer)clearTimeout(timer);
+      if(r.status===401){MCsbSet(null);MCsbRefresh();throw new Error('SB401');}
+      if(r.status!==200)throw new Error('SB'+r.status);
+      return r.json();})
+    .then(function(res){try{window.MC_SB_LAST={a:p.action,op:p.op||'',ms:Date.now()-t0};}catch(e){}return res;})
+    .catch(function(e){
+      if(timer)clearTimeout(timer);
+      if(!(e&&e.message==='SB401'))MC_SB_DOWN=Date.now()+60000;
+      try{console.warn('Supabase directo falló, uso Apps Script:',e&&e.message);}catch(e2){}
+      return MCpostAS(p);
+    });
+}
+function MCpostAS(p){
   p=p||{};
   var timeoutMs=75000; // v145: tope por defecto
   var maxRetry=3;
@@ -9825,6 +9866,174 @@ var Ventas = (function(){
     buscarCliente:buscarCliente,elegirCliente:elegirCliente,cambiarCliente:cambiarCliente,buscarProd:buscarProd,elegirProd:elegirProd,setL:setL,delL:delL,sync:sync,titulo:titulo};
 })();
 
+/* ===================== MANUFACTURA (b240, nativo Minecore · Supabase) =====================
+   Listas de materiales (BOM), órdenes de manufactura (OM), consumo de componentes y costo del armado igual que inFlow:
+   Σ(componentes consumidos × costo promedio) + costos extra, ÷ unidades. Stock en Supabase al instante; inFlow por cola (emisor SIMULADO). */
+var Manuf=(function(){
+  var tab='om',lista=[],cur=null,form=null,bom=null,cat=null,fEst='',fQ='',res=[],busy=false,tmr=null;
+  function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p);}
+  function el(){return document.getElementById('ventas-screen');}
+  function $(id){return document.getElementById(id);}
+  function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function money(n,d){var x=parseFloat(n);if(isNaN(x))return '—';return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:d||2});}
+  function num(n){var x=parseFloat(n)||0;return x%1?x.toLocaleString('en-US',{maximumFractionDigits:4}):String(Math.round(x));}
+  function th(url,sz){sz=sz||36;return url?'<img src="'+esc(url)+'" loading="lazy" style="width:'+sz+'px;height:'+sz+'px;flex:none;cursor:zoom-in;object-fit:contain;background:#fff;border-radius:6px" onclick="MCfoto(this.src,event)" onerror="this.style.visibility=\'hidden\'">':'<div style="width:'+sz+'px;height:'+sz+'px;flex:none;border-radius:6px;background:#1c2a3a;display:flex;align-items:center;justify-content:center;font-size:'+Math.round(sz/2)+'px">🔧</div>';}
+  function d10(s){return s?String(s).slice(0,10):'';}
+  function err(e){busy=false;alert('Error: '+(e&&e.message?e.message:MCerr(e)));}
+  var EST={abierta:['Abierta','#5cc8ff'],en_proceso:['En proceso','#f0c040'],completada:['Completada','#6fd68f'],cancelada:['Cancelada','#e05c5c']};
+  function chip(e){var x=EST[e]||[e,'#9aa4b2'];return '<span style="font-size:11px;font-weight:700;color:'+x[1]+'">'+x[0]+'</span>';}
+  function tabs(){return '<div class="cbz-card-row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap">'+[['om','🏭 Órdenes de manufactura'],['bom','🧩 Listas de materiales'],['rec','⚖️ Conciliación con inFlow']].map(function(t){return '<button class="'+(tab===t[0]?'cbz-btn':'chip')+'" onclick="Manuf.setTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';}
+  function init(){tab='om';cur=null;form=null;bom=null;if(!cat)api({op:'catalogos'}).then(function(r){if(r.ok)cat=r;}).catch(function(){});cargar();}
+  function setTab(t){tab=t;cur=null;form=null;bom=null;if(t==='om')cargar();else if(t==='bom')cargarBoms();else cargarRec();}
+  /* ---------- Órdenes ---------- */
+  function cargar(){el().innerHTML=tabs()+'<div class="cbz-loading">Cargando órdenes de manufactura…</div>';
+    api({op:'mo_list',estado:fEst,q:fQ}).then(function(r){if(!r.ok)throw new Error(r.error);lista=r.ordenes||[];renderLista();}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  function renderLista(){var h=tabs()+'<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="cbz-btn" onclick="Manuf.nueva()">➕ Nueva orden</button>'+
+      '<input class="uinput" id="mf-q" placeholder="Buscar OM, SKU o producto…" value="'+esc(fQ)+'" style="flex:1;min-width:160px" onkeydown="if(event.key===\'Enter\')Manuf.filtrar()">'+
+      '<select class="uinput" id="mf-e" style="width:auto" onchange="Manuf.filtrar()">'+[['','Activas y completadas (sin canceladas)'],['abierta','Abiertas'],['en_proceso','En proceso'],['completada','Completadas'],['cancelada','Canceladas'],['todas','Todas']].map(function(o){return '<option value="'+o[0]+'"'+(o[0]===fEst?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'+
+      '<button class="chip" onclick="Manuf.filtrar()">⟳</button></div>';
+    if(!lista.length)h+='<div class="cbz-card cbz-muted" style="text-align:center;padding:20px">Sin órdenes con este filtro.</div>';
+    h+=lista.map(function(o){return '<div class="cbz-card" style="cursor:pointer;padding:10px" onclick="Manuf.abrir(\''+o.id+'\')"><div style="display:flex;gap:10px;align-items:center">'+th(o.img,44)+
+      '<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>'+esc(o.mo_number)+'</b>'+chip(o.estado)+(o.source==='minecore'&&o.sync_status==='local'?'<span class="cbz-muted" style="font-size:10.5px">· pendiente en inFlow</span>':'')+'</div>'+
+      '<div style="font-size:12.5px">'+esc(o.name||'')+'</div><div class="cbz-muted" style="font-size:11px">'+esc(o.sku||'')+' · '+num(o.quantity)+' und. · '+o.n_comp+' componentes · '+esc(o.bodega||'')+' · '+d10(o.completed_date||o.order_date)+'</div></div>'+
+      '<div style="text-align:right;flex:none"><div class="cbz-muted" style="font-size:10.5px">Costo unit.</div><b>'+(o.unit_cost!=null?money(o.unit_cost,4):'—')+'</b></div></div></div>';}).join('');
+    el().innerHTML=h;}
+  function filtrar(){fQ=($('mf-q')||{}).value||'';fEst=($('mf-e')||{}).value||'';cargar();}
+  function abrir(id){cur=null;el().innerHTML=tabs()+'<div class="cbz-loading">Cargando orden…</div>';api({op:'mo_get',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);cur=r;renderDet();}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div><button class="chip" onclick="Manuf.setTab(\'om\')">← Órdenes</button>';});}
+  function renderDet(){var o=cur.orden,p=cur.producto||{},ab=o.estado==='abierta'||o.estado==='en_proceso',ce=cur.costoEstimado||{};
+    var falt=(cur.lineas||[]).filter(function(l){return l.falta>0;});
+    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Manuf.setTab(\'om\')">← Órdenes</button>'+
+      (ab?'<button class="chip" onclick="Manuf.editar()">✏️ Editar</button><button class="cbz-btn" onclick="Manuf.completar()">✅ Completar (consumir y producir)</button>':'')+
+      (o.estado!=='cancelada'&&o.source==='minecore'?'<button class="chip" style="color:#e05c5c" onclick="Manuf.cancelar()">✖ Cancelar orden</button>':'')+
+      '<button class="chip" onclick="Manuf.pdf()">🖨 Imprimir</button></div>'+
+      '<div class="cbz-card"><div style="display:flex;gap:12px;align-items:center">'+th(p.img,72)+'<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="cbz-card-name">'+esc(o.mo_number)+'</span>'+chip(o.estado)+'</div>'+
+      '<div style="font-weight:700">'+esc(p.name||'')+'</div><div class="cbz-muted" style="font-size:11.5px">'+esc(p.sku||'')+' · Fabricar <b>'+num(o.quantity)+'</b> und. en '+esc(o.bodega)+(o.put_sublocation?' / '+esc(o.put_sublocation):'')+'</div>'+
+      '<div class="cbz-muted" style="font-size:11px">Fecha '+d10(o.order_date)+(o.due_date?' · Para '+d10(o.due_date):'')+(o.completed_date?' · Completada '+d10(o.completed_date):'')+' · Origen '+(o.source==='inflow'?'inFlow':'Minecore'+(o.sync_status==='local'?' (pendiente en inFlow: emisor simulado)':''))+'</div>'+
+      (o.remarks?'<div style="font-size:12px;margin-top:4px">📝 '+esc(o.remarks)+'</div>':'')+'</div></div></div>';
+    h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">💲 Costo del armado</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12.5px">'+
+      (o.estado==='completada'?'<div>Componentes<br><b>'+money(o.cost_components)+'</b></div><div>Costos extra<br><b>'+money(o.cost_extra)+'</b></div><div>Costo unitario<br><b style="color:#c8f560">'+money(o.unit_cost,4)+'</b></div>'+(o.inflow_unit_cost!=null?'<div>inFlow<br><b>'+money(o.inflow_unit_cost,4)+'</b> '+(Math.abs((+o.unit_cost||0)-(+o.inflow_unit_cost||0))<=0.01?'<span style="color:#6fd68f">✔ cuadra</span>':'<span style="color:#e05c5c">≠</span>')+'</div>':'')
+        :'<div>Componentes (estimado al costo actual)<br><b>'+money(ce.componentes)+'</b></div><div>Costos extra<br><b>'+money(ce.extra)+'</b></div><div>Costo unitario estimado<br><b style="color:#c8f560">'+money(ce.unitario,4)+'</b></div>')+'</div>'+
+      ((o.extra_costs||[]).length?'<div class="cbz-muted" style="font-size:11px;margin-top:4px">Extras: '+o.extra_costs.map(function(x){return esc(x.name||'')+' '+money(x.cost||x.amount);}).join(' · ')+'</div>':'')+'</div>';
+    if(ab&&falt.length)h+='<div class="cbz-card" style="border-color:#e05c5c"><b style="color:#e05c5c">⚠ Faltan '+falt.length+' componente(s) en '+esc(o.bodega)+'</b><div class="cbz-muted" style="font-size:11.5px">'+falt.map(function(l){return esc((l.prod||{}).sku||'')+': faltan '+num(l.falta);}).join(' · ')+'</div></div>';
+    h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">🧩 Componentes ('+(cur.lineas||[]).length+')</div>'+(cur.lineas||[]).map(function(l){var q=l.prod||{};
+      return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1c2a3a">'+th(q.img,36)+'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+esc(q.name||l.description||'')+'</div><div class="cbz-muted" style="font-size:11px">'+esc(q.sku||'')+
+        (ab?' · Stock '+esc(o.bodega)+': <b style="color:'+(l.falta>0?'#e05c5c':'#6fd68f')+'">'+num(q.stock)+'</b>'+((q.subs||[]).length?' ('+q.subs.slice(0,3).map(function(s){return esc(s.sub||'s/sub')+' '+num(s.q);}).join(', ')+')':''):'')+' · Costo '+money(q.costo,4)+'</div></div><div style="text-align:right;flex:none"><b>'+num(l.quantity)+'</b><div class="cbz-muted" style="font-size:10.5px">'+money((q.costo||0)*l.quantity)+'</div></div></div>';}).join('')+'</div>';
+    if((cur.picks||[]).length)h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">📤 Consumido (pick)</div><table class="vt-table" style="width:100%;font-size:11.5px"><tr><th>Producto</th><th>Ubicación</th><th style="text-align:right">Cant.</th><th style="text-align:right">Costo</th></tr>'+
+      cur.picks.map(function(k){var q=k.prod||{};return '<tr><td><div style="display:flex;gap:6px;align-items:center">'+th(q.img,24)+esc(q.name||'')+'</div></td><td>'+esc(k.bodega||'')+(k.sublocation?' / '+esc(k.sublocation):'')+'</td><td style="text-align:right">'+num(k.q)+'</td><td style="text-align:right">'+money(k.uc,4)+'</td></tr>';}).join('')+'</table></div>';
+    if((cur.puts||[]).length)h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">📥 Producido (put away)</div>'+cur.puts.map(function(k){return '<div style="font-size:12px">'+num(k.q)+' und. → '+esc(k.bodega||'')+(k.sublocation?' / '+esc(k.sublocation):'')+' · costo '+money(k.uc,4)+'</div>';}).join('')+'</div>';
+    if((cur.outbox||[]).length)h+='<div class="cbz-card cbz-muted" style="font-size:11px">Cola a inFlow: '+cur.outbox.map(function(x){return esc(x.op)+' ('+esc(x.status)+')';}).join(' · ')+'</div>';
+    el().innerHTML=h;}
+  function completar(){var o=cur.orden;var falt=(cur.lineas||[]).filter(function(l){return l.falta>0;});
+    var neg=false;if(falt.length){if(!confirm('Faltan '+falt.length+' componente(s) en '+o.bodega+'. ¿Completar igual dejando stock negativo?'))return;neg=true;}
+    else if(!confirm('¿Completar '+o.mo_number+'? Se descuentan los componentes de '+o.bodega+' y entran '+num(o.quantity)+' und. del producto terminado.'))return;
+    if(busy)return;busy=true;api({op:'mo_complete',id:o.id,permitirNegativo:neg}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);
+      alert('Completada. Costo unitario '+money(r.costoUnitario,4)+' · nuevo costo promedio '+money(r.costoPromedioNuevo,4)+' (antes '+money(r.costoPromedioPrevio,4)+'). inFlow: simulado.');abrir(o.id);}).catch(err);}
+  function cancelar(){var o=cur.orden;if(!confirm('¿Cancelar '+o.mo_number+'?'+(o.estado==='completada'?' Se devuelve el stock de componentes, se retira lo producido y se revierte el costo.':'')))return;
+    if(busy)return;busy=true;api({op:'mo_cancel',id:o.id}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);abrir(o.id);}).catch(err);}
+  /* ---------- Nueva / editar ---------- */
+  function nueva(){form={orden:{quantity:1,extra_costs:[]},prod:null,lineas:null};renderForm();}
+  function editar(){var o=cur.orden;form={orden:{id:o.id,version:o.version,finished_product_id:o.finished_product_id,quantity:+o.quantity,location_id:o.location_id,put_sublocation:o.put_sublocation,due_date:d10(o.due_date),remarks:o.remarks,extra_costs:(o.extra_costs||[]).slice()},
+    prod:cur.producto,lineas:(cur.lineas||[]).map(function(l){return {product_id:l.product_id,quantity:l.quantity,prod:l.prod};}),manual:true};renderForm();}
+  function leer(){var o=form.orden;if(!$('mf-qty'))return;o.quantity=parseFloat($('mf-qty').value)||0;o.location_id=$('mf-loc').value||null;o.put_sublocation=$('mf-sub').value.trim();o.due_date=$('mf-due').value||null;o.remarks=$('mf-rem').value;}
+  function renderForm(){var o=form.orden,p=form.prod;var bods=(cat&&cat.bodegas)||[];
+    var h=tabs()+'<div class="cbz-card"><div class="cbz-card-name" style="margin-bottom:8px">'+(o.id?'Editar '+esc(cur.orden.mo_number):'Nueva orden de manufactura')+'</div>'+
+      '<div class="cbz-muted">Producto a fabricar</div>'+(p?'<div style="display:flex;gap:8px;align-items:center;margin:4px 0">'+th(p.img,48)+'<div style="flex:1"><b>'+esc(p.name)+'</b><div class="cbz-muted" style="font-size:11px">'+esc(p.sku)+'</div></div>'+(o.id?'':'<button class="chip" onclick="Manuf.cambiarProd()">Cambiar</button>')+'</div>':
+        '<input class="uinput" id="mf-pq" placeholder="Buscar producto con lista de materiales…" oninput="Manuf.buscarFab(this.value)" style="width:100%"><div id="mf-pres"></div>')+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px">'+
+      '<div><div class="cbz-muted">Cantidad a fabricar</div><input class="uinput" type="number" min="1" step="any" id="mf-qty" value="'+(o.quantity||1)+'" style="width:100%" onchange="Manuf.reqty()"></div>'+
+      '<div><div class="cbz-muted">Bodega (consume y produce)</div><select class="uinput" id="mf-loc" style="width:100%" onchange="Manuf.reqty()">'+bods.map(function(b){return '<option value="'+b.id+'"'+((o.location_id?b.id===o.location_id:/principal/i.test(b.name))?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')+'</select></div>'+
+      '<div><div class="cbz-muted">Sububicación del terminado</div><input class="uinput" id="mf-sub" value="'+esc(o.put_sublocation||'')+'" placeholder="la predeterminada" style="width:100%"></div>'+
+      '<div><div class="cbz-muted">Fecha requerida</div><input class="uinput" type="date" id="mf-due" value="'+esc(o.due_date||'')+'" style="width:100%"></div></div>'+
+      '<div style="margin-top:8px"><div class="cbz-muted">Notas</div><textarea class="uinput" id="mf-rem" style="width:100%;min-height:44px">'+esc(o.remarks||'')+'</textarea></div></div>';
+    h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">💲 Costos extra (mano de obra, maquinado…)</div>'+(o.extra_costs||[]).map(function(x,i){return '<div style="display:flex;gap:6px;margin:3px 0"><input class="uinput" value="'+esc(x.name)+'" placeholder="Concepto" style="flex:1" onchange="Manuf.setEx('+i+',\'name\',this.value)"><input class="uinput" type="number" step="0.01" value="'+(x.cost||'')+'" placeholder="$" style="width:100px" onchange="Manuf.setEx('+i+',\'cost\',this.value)"><button class="chip" onclick="Manuf.delEx('+i+')">✕</button></div>';}).join('')+
+      '<button class="chip" onclick="Manuf.addEx()">➕ Costo extra</button></div>';
+    if(form.lineas){var tot=0,q=parseFloat(o.quantity)||0;
+      h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">🧩 Componentes para '+num(q)+' und.</div>'+form.lineas.map(function(l,i){var pr=l.prod||{},c=(pr.costo||0)*l.quantity;tot+=c;var f=Math.max(0,l.quantity-(pr.stock||0));
+        return '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #1c2a3a">'+th(pr.img,34)+'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+esc(pr.name||'')+'</div><div class="cbz-muted" style="font-size:11px">'+esc(pr.sku||'')+' · Stock: <b style="color:'+(f>0?'#e05c5c':'#6fd68f')+'">'+num(pr.stock)+'</b>'+(f>0?' · faltan '+num(f):'')+' · '+money(pr.costo,4)+'</div></div>'+
+          '<input class="uinput" type="number" step="any" min="0" value="'+num(l.quantity)+'" style="width:80px;text-align:center" onchange="Manuf.setLq('+i+',this.value)"><button class="chip" onclick="Manuf.delL('+i+')">✕</button></div>';}).join('')+
+        '<div style="margin-top:6px"><input class="uinput" id="mf-cq" placeholder="➕ Agregar componente: SKU o nombre…" oninput="Manuf.buscarComp(this.value,\'form\')" style="width:100%"><div id="mf-cres"></div></div>'+
+        '<div style="text-align:right;margin-top:8px;font-size:12.5px">Componentes <b>'+money(tot)+'</b> + extras <b>'+money(exTot())+'</b> = <b>'+money(tot+exTot())+'</b> · Costo unitario estimado <b style="color:#c8f560">'+(q>0?money((tot+exTot())/q,4):'—')+'</b></div>'+
+        '<div class="cbz-muted" style="font-size:10.5px">Estimado al costo promedio actual. El costo real se fija al completar, con el costo de cada componente en ese momento (igual que inFlow).</div></div>';}
+    h+='<div class="cbz-card-row" style="gap:6px;margin-top:10px"><button class="chip" onclick="'+(o.id?'Manuf.abrir(\''+o.id+'\')':'Manuf.setTab(\'om\')')+'">Cancelar</button><button class="cbz-btn" onclick="Manuf.guardar()">💾 Guardar orden</button></div>';
+    el().innerHTML=h;}
+  function exTot(){return (form.orden.extra_costs||[]).reduce(function(s,x){return s+(parseFloat(x.cost)||0);},0);}
+  function addEx(){leer();form.orden.extra_costs.push({name:'Mano de obra',cost:0});renderForm();}
+  function setEx(i,k,v){form.orden.extra_costs[i][k]=k==='cost'?parseFloat(v)||0:v;leer();renderForm();}
+  function delEx(i){leer();form.orden.extra_costs.splice(i,1);renderForm();}
+  function setLq(i,v){leer();form.lineas[i].quantity=parseFloat(v)||0;form.manual=true;renderForm();}
+  function delL(i){leer();form.lineas.splice(i,1);form.manual=true;renderForm();}
+  function buscarFab(q){clearTimeout(tmr);tmr=setTimeout(function(){if(q.trim().length<2)return;api({op:'bom_productos',q:q}).then(function(r){res=r.productos||[];var b=$('mf-pres');if(b)b.innerHTML=res.slice(0,15).map(function(p,i){
+    return '<div class="cbz-card" style="padding:7px 10px;margin:3px 0;cursor:pointer" onclick="Manuf.elegirFab('+i+')"><div style="display:flex;gap:8px;align-items:center">'+th(p.img,34)+'<div style="flex:1"><div style="font-size:12.5px;font-weight:600">'+esc(p.name)+'</div><div class="cbz-muted" style="font-size:11px">'+esc(p.sku)+' · '+p.n_comp+' componentes · costo '+money(p.costo,4)+'</div></div></div></div>';}).join('')||'<div class="cbz-muted">Sin productos con lista de materiales. Créala en «Listas de materiales».</div>';});},300);}
+  function elegirFab(i){leer();var p=res[i];form.prod=p;form.orden.finished_product_id=p.id;form.manual=false;reqty();}
+  function cambiarProd(){leer();form.prod=null;form.lineas=null;form.orden.finished_product_id=null;renderForm();}
+  function reqty(){leer();var o=form.orden;if(!o.finished_product_id){renderForm();return;}
+    if(form.manual&&form.lineas){refrescarStock();return;}
+    api({op:'bom_get',product_id:o.finished_product_id,location_id:o.location_id}).then(function(r){if(!r.ok)throw new Error(r.error);var q=parseFloat(o.quantity)||0;
+      form.lineas=r.lineas.map(function(l){return {product_id:l.child_product_id,quantity:Math.round(l.quantity*q*10000)/10000,prod:l.prod};});if(r.producto&&!form.prod.img)form.prod.img=r.producto.img;renderForm();}).catch(err);}
+  function refrescarStock(){renderForm();}
+  function buscarComp(q,dest){clearTimeout(tmr);tmr=setTimeout(function(){if(q.trim().length<2)return;api({op:'productos',q:q,limit:20}).then(function(r){res=r.productos||[];var b=$('mf-cres');if(b)b.innerHTML=res.slice(0,12).map(function(p,i){
+    return '<div class="cbz-card" style="padding:6px 10px;margin:3px 0;cursor:pointer" onclick="Manuf.elegirComp('+i+',\''+dest+'\')"><div style="display:flex;gap:8px;align-items:center">'+th(p.img,30)+'<div style="flex:1;font-size:12px"><b>'+esc(p.name)+'</b><div class="cbz-muted" style="font-size:10.5px">'+esc(p.sku)+' · stock '+num(p.stock)+'</div></div></div></div>';}).join('');});},300);}
+  function elegirComp(i,dest){var p=res[i];var pr={id:p.id,sku:p.sku,name:p.name,img:p.img,stock:p.stock,costo:p.unit_cost!=null?p.unit_cost:null};
+    if(dest==='form'){leer();form.lineas.push({product_id:p.id,quantity:1,prod:pr});form.manual=true;renderForm();}
+    else{if(bom.lineas.some(function(l){return l.child_product_id===p.id;})){alert('Ya está en la lista');return;}bom.lineas.push({child_product_id:p.id,quantity:1,prod:pr});renderBom();}}
+  function guardar(){leer();var o=form.orden;if(!o.finished_product_id){alert('Elige el producto');return;}if(!(o.quantity>0)){alert('Cantidad inválida');return;}if(!form.lineas||!form.lineas.length){alert('Sin componentes');return;}
+    if(busy)return;busy=true;api({op:'mo_save',orden:o,lineas:form.lineas.map(function(l){return {product_id:l.product_id,quantity:l.quantity};})}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);form=null;abrir(r.id);}).catch(err);}
+  /* ---------- Listas de materiales ---------- */
+  var bq='';
+  function cargarBoms(){el().innerHTML=tabs()+'<div class="cbz-loading">Cargando listas de materiales…</div>';api({op:'bom_productos',q:bq}).then(function(r){if(!r.ok)throw new Error(r.error);res=r.productos||[];
+    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><input class="uinput" id="mf-bq" value="'+esc(bq)+'" placeholder="Buscar producto con BOM…" style="flex:1;min-width:160px" onkeydown="if(event.key===\'Enter\'){Manuf.setBq(this.value)}"><button class="chip" onclick="Manuf.setBq(document.getElementById(\'mf-bq\').value)">Buscar</button>'+
+      '<button class="cbz-btn" onclick="Manuf.nuevoBom()">➕ Nueva lista de materiales</button></div><div class="cbz-muted" style="font-size:11px;margin-bottom:6px">'+res.length+' producto(s) fabricables'+(res.length>=100?' (primeros 100; busca para filtrar)':'')+'</div>'+
+      res.map(function(p,i){return '<div class="cbz-card" style="padding:8px 10px;cursor:pointer" onclick="Manuf.abrirBom(\''+p.id+'\')"><div style="display:flex;gap:8px;align-items:center">'+th(p.img,40)+'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+esc(p.name)+'</div><div class="cbz-muted" style="font-size:11px">'+esc(p.sku)+' · '+p.n_comp+' componentes · costo actual '+money(p.costo,4)+'</div></div></div></div>';}).join('');
+    el().innerHTML=h;}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  function setBq(v){bq=v||'';cargarBoms();}
+  function abrirBom(pid){el().innerHTML=tabs()+'<div class="cbz-loading">Cargando…</div>';api({op:'bom_get',product_id:pid}).then(function(r){if(!r.ok)throw new Error(r.error);bom=r;renderBom();}).catch(err);}
+  function nuevoBom(){bom={producto:null,lineas:[],nuevo:true};renderBom();}
+  function renderBom(){var p=bom.producto,tot=0;
+    var h=tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px"><button class="chip" onclick="Manuf.setTab(\'bom\')">← Listas de materiales</button>'+(p&&!bom.nuevo?'<button class="chip" onclick="Manuf.fabricar()">🏭 Nueva OM de este producto</button>':'')+'</div><div class="cbz-card">'+
+      (p?'<div style="display:flex;gap:10px;align-items:center">'+th(p.img,60)+'<div><div class="cbz-card-name">'+esc(p.name)+'</div><div class="cbz-muted" style="font-size:11px">'+esc(p.sku)+' · costo actual '+money(p.costo,4)+(bom.armables!=null?' · 🔧 Armables en Bodega principal: <b style="color:#f0c040">'+bom.armables+'</b>':'')+'</div></div></div>':
+        '<div class="cbz-muted">Producto terminado</div><input class="uinput" id="mf-bp" placeholder="Buscar producto…" oninput="Manuf.buscarBp(this.value)" style="width:100%"><div id="mf-bpres"></div>')+'</div>';
+    h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">🧩 Componentes por 1 unidad ('+bom.lineas.length+')</div>'+bom.lineas.map(function(l,i){var q=l.prod||{};tot+=(q.costo||0)*l.quantity;
+      return '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #1c2a3a">'+th(q.img,34)+'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">'+esc(q.name||'')+'</div><div class="cbz-muted" style="font-size:11px">'+esc(q.sku||'')+' · stock '+num(q.stock)+' · '+money(q.costo,4)+'</div></div>'+
+        '<input class="uinput" type="number" step="any" min="0" value="'+num(l.quantity)+'" style="width:80px;text-align:center" onchange="Manuf.setBl('+i+',this.value)"><button class="chip" onclick="Manuf.delBl('+i+')">✕</button></div>';}).join('')+
+      '<div style="margin-top:6px"><input class="uinput" id="mf-cq" placeholder="➕ Agregar componente: SKU o nombre…" oninput="Manuf.buscarComp(this.value,\'bom\')" style="width:100%"><div id="mf-cres"></div></div>'+
+      '<div style="text-align:right;margin-top:8px">Costo estimado por unidad (componentes): <b style="color:#c8f560">'+money(tot,4)+'</b></div></div>'+
+      '<div class="cbz-card-row" style="gap:6px"><button class="cbz-btn" onclick="Manuf.guardarBom()">💾 Guardar lista de materiales</button><span class="cbz-muted" style="font-size:11px">Se guarda en Supabase y se encola a inFlow (simulado).</span></div>';
+    el().innerHTML=h;}
+  function setBl(i,v){bom.lineas[i].quantity=parseFloat(v)||0;renderBom();}
+  function delBl(i){bom.lineas.splice(i,1);renderBom();}
+  function buscarBp(q){clearTimeout(tmr);tmr=setTimeout(function(){if(q.trim().length<2)return;api({op:'productos',q:q,limit:20}).then(function(r){res=r.productos||[];var b=$('mf-bpres');if(b)b.innerHTML=res.slice(0,12).map(function(p,i){
+    return '<div class="cbz-card" style="padding:6px 10px;margin:3px 0;cursor:pointer" onclick="Manuf.elegirBp('+i+')"><div style="display:flex;gap:8px;align-items:center">'+th(p.img,30)+'<div style="font-size:12px"><b>'+esc(p.name)+'</b><div class="cbz-muted" style="font-size:10.5px">'+esc(p.sku)+'</div></div></div></div>';}).join('');});},300);}
+  function elegirBp(i){var p=res[i];abrirBom(p.id);}
+  function guardarBom(){if(!bom.producto){alert('Elige el producto terminado');return;}if(busy)return;busy=true;
+    api({op:'bom_save',product_id:bom.producto.id,lineas:bom.lineas.map(function(l){return {child_product_id:l.child_product_id,quantity:l.quantity};})}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);alert('Lista de materiales guardada (inFlow: simulado).');abrirBom(bom.producto.id);}).catch(err);}
+  function fabricar(){var p=bom.producto;tab='om';form={orden:{quantity:1,extra_costs:[],finished_product_id:p.id},prod:p,lineas:null};renderForm();reqty();}
+  /* ---------- Conciliación ---------- */
+  function cargarRec(){el().innerHTML=tabs()+'<div class="cbz-loading">Conciliando con inFlow…</div>';api({op:'mo_reconcile'}).then(function(r){if(!r.ok)throw new Error(r.error);
+    var h=tabs()+'<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">Órdenes de manufactura: Minecore vs inFlow</div><table class="vt-table" style="width:100%;font-size:12px"><tr><th>Estado</th><th style="text-align:right">OM</th><th style="text-align:right">Costo cuadra</th><th style="text-align:right">Cantidades cuadran</th><th style="text-align:right">Máx. dif.</th></tr>'+
+      r.resumen.map(function(x){return '<tr><td>'+chip(x.estado)+'</td><td style="text-align:right">'+x.n+'</td><td style="text-align:right">'+(x.estado==='completada'?x.costo_ok+' / '+x.n:'n/a')+'</td><td style="text-align:right">'+x.cantidades_ok+' / '+x.n+'</td><td style="text-align:right">'+(x.estado==='completada'?money(x.max_dif,4):'—')+'</td></tr>';}).join('')+'</table>'+
+      '<div class="cbz-muted" style="font-size:11px;margin-top:6px">Las canceladas no mueven stock ni costo (igual que inFlow).</div></div>'+
+      '<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px">Listas de materiales</div><div style="font-size:12px">Minecore '+r.bom.app+' líneas · inFlow '+r.bom.inflow+' · diferencias <b style="color:'+(r.bom.diferencias?'#f0c040':'#6fd68f')+'">'+r.bom.diferencias+'</b>'+(r.bom.diferencias?' (incluye cambios hechos aquí aún no enviados a inFlow)':'')+'</div></div>'+
+      '<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px">OM creadas en Minecore</div><div style="font-size:12px">'+r.locales.locales+' en total · '+r.locales.pendientes_inflow+' pendientes de reflejar en inFlow (emisor simulado)</div></div>'+
+      (r.diferencias.length?'<div class="cbz-card" style="border-color:#e05c5c"><b>Diferencias</b>'+r.diferencias.map(function(d){return '<div style="font-size:12px">'+esc(d.mo_number)+' '+esc(d.sku)+': '+money(d.unit_cost,4)+' vs '+money(d.inflow_unit_cost,4)+'</div>';}).join('')+'</div>':'');
+    el().innerHTML=h;}).catch(function(e){el().innerHTML=tabs()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  /* ---------- PDF de la OM (estilo Minecore: jsPDF, sin glow ni recuadros) ---------- */
+  function pdf(){var o=cur.orden,p=cur.producto||{};if(!window.jspdf){alert('PDF no disponible');return;}
+    var doc=new window.jspdf.jsPDF({unit:'pt',format:'letter'}),W=612,y=48;
+    doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(126,170,30);doc.text('ORDEN DE MANUFACTURA',40,y);doc.setTextColor(0);doc.setFontSize(12);doc.text(o.mo_number,W-40,y,{align:'right'});y+=22;
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text('Producto: '+(p.sku||'')+' · '+(p.name||''),40,y);y+=14;doc.text('Cantidad: '+num(o.quantity)+' und. · Bodega: '+(o.bodega||'')+(o.put_sublocation?' / '+o.put_sublocation:'')+' · Fecha: '+d10(o.order_date)+(o.due_date?' · Para: '+d10(o.due_date):''),40,y);y+=14;
+    if(o.remarks){doc.text('Notas: '+o.remarks,40,y);y+=14;}y+=8;
+    doc.setFont('helvetica','bold');doc.setTextColor(126,170,30);doc.text('Componentes',40,y);doc.setTextColor(0);y+=14;doc.setFontSize(9);
+    doc.text('SKU',40,y);doc.text('Descripción',120,y);doc.text('Ubicación',380,y);doc.text('Cant.',W-110,y,{align:'right'});doc.text('Pickeado',W-40,y,{align:'right'});y+=12;doc.setFont('helvetica','normal');
+    (cur.lineas||[]).forEach(function(l){var q=l.prod||{};if(y>740){doc.addPage();y=48;}var nm=doc.splitTextToSize(q.name||'',250);var sub=(q.subs||[]).slice(0,2).map(function(s){return s.sub;}).filter(Boolean).join(' ');
+      doc.text(q.sku||'',40,y);doc.text(nm,120,y);doc.text((o.bodega||'')+(sub?' / '+sub:''),380,y);doc.text(num(l.quantity),W-110,y,{align:'right'});doc.text('____',W-40,y,{align:'right'});y+=12*nm.length+4;});
+    y+=10;doc.setFont('helvetica','bold');doc.setFontSize(10);var ce=cur.costoEstimado||{};
+    doc.text(o.estado==='completada'?'Costo unitario: '+money(o.unit_cost,4):'Costo unitario estimado: '+money(ce.unitario,4),40,y);
+    try{mcDownloadBlob(doc.output('blob'),o.mo_number+'.pdf');}catch(e){doc.save(o.mo_number+'.pdf');}}
+  return {init:init,setTab:setTab,filtrar:filtrar,abrir:abrir,nueva:nueva,editar:editar,completar:completar,cancelar:cancelar,reqty:reqty,addEx:addEx,setEx:setEx,delEx:delEx,setLq:setLq,delL:delL,
+    buscarFab:buscarFab,elegirFab:elegirFab,cambiarProd:cambiarProd,buscarComp:buscarComp,elegirComp:elegirComp,guardar:guardar,setBq:setBq,abrirBom:abrirBom,nuevoBom:nuevoBom,setBl:setBl,delBl:delBl,
+    buscarBp:buscarBp,elegirBp:elegirBp,guardarBom:guardarBom,fabricar:fabricar,pdf:pdf};
+})();
+
 
 
 /* ===== b236: Ubicaciones por producto (Inventario): bodega/sububicación por defecto, stock por sububicación y reubicar. Supabase + cola a inFlow ===== */
@@ -9913,6 +10122,7 @@ function renderHome(){
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard'))) add('vcot','🧾','Cotizaciones','Crear, editar, convertir en OV, dividir y PDF');
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard'))) add('vov','📑','Órdenes de venta','Pick, pack, ship, factura, pagos y adjuntos');
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard')||can('inventario'))) add('vpick','📍','Para piquear','OV disponibles: pick por ubicación desde el celular');
+  if(p.rol!=='cliente'&&(can('inventario')||can('dashboard'))) add('vmanuf','🏭','Manufactura','Listas de materiales, órdenes de manufactura y costo del armado');
   if(p.rol==='cliente'&&p.vinculada===false) add('vinc','🔎','Confirma tu organización','Toca aquí para encontrar tu empresa y vincular tu cuenta',{border:'#f0c040'});
   if(p.rol==='cliente'){
     CMODS_REG.forEach(function(cm){
@@ -10063,6 +10273,7 @@ function openMod(m){
   if(m==='wa'){document.getElementById('wa-screen').style.display='block';document.getElementById('title').textContent='WHATSAPP';WA.init();}
   if(m==='vcot'||m==='vov'){document.getElementById('ventas-screen').style.display='block';document.getElementById('title').textContent=(m==='vcot'?'COTIZACIONES':'ÓRDENES DE VENTA');Ventas.init(m==='vcot'?'SQ':'SO');}
   if(m==='vpick'){document.getElementById('ventas-screen').style.display='block';document.getElementById('title').textContent='PARA PIQUEAR';Ventas.initPick();}
+  if(m==='vmanuf'){document.getElementById('ventas-screen').style.display='block';document.getElementById('title').textContent='MANUFACTURA';Manuf.init();}
   if(m==='miscot'){document.getElementById('inv-screen').style.display='block';document.getElementById('title').textContent='MIS COTIZACIONES';Inv.init('miscot');}
 }
 function goHome(){
