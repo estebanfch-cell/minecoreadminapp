@@ -456,7 +456,7 @@ body.mc-nav #backBtn{display:none!important}
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='286';
+  var MC_BUILD='288';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -11591,7 +11591,7 @@ function openMod(m){
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
   if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
   if(m==='bots'){document.getElementById('bots-screen').style.display='block';document.getElementById('title').textContent='BOTS';Bots.init();}
-  if(m==='rep'){document.getElementById('rep-screen').style.display='block';document.getElementById('title').textContent='REPORTES';Rep.init();}
+  if(m==='rep'){document.getElementById('rep-screen').style.display='block';document.getElementById('title').textContent='REPORTES';MCRep2.init(window.MC_REP_CAT||null);window.MC_REP_CAT=null;}
   if(m==='stk'){document.getElementById('stk-screen','rep-screen').style.display='block';document.getElementById('title').textContent='MOVIMIENTOS DE STOCK';Stk.init();}
   if(m==='transf'){m='stk';document.getElementById('stk-screen').style.display='block';document.getElementById('title').textContent='MOVIMIENTOS DE STOCK';Stk.setTipo('transfer');} /* b273: Stock Transfers viejo (escribía directo a inFlow) retirado */
   if(m==='caja'){
@@ -11671,14 +11671,14 @@ function MC_NAVCAT(){
       ['🗒','Cotizaciones de compra','pq',PR,function(){oc(true);},'proveedores'],
       ['🏭','Proveedores','prov',PR,function(){openMod('prov');},'proveedores']]},
     {k:'rep',ico:'bars',t:'Reportes',col:'#0f8f9c',items:[
-      ['⭐','Recientes y guardados','rec',DA,function(){openMod('rep');},'dashboard'],
-      ['📈','Ventas','ventas',D,function(){openMod('hist');},'dashboard'],
-      ['📦','Niveles de stock','stock',DA,function(){openMod('rep');},'dashboard'],
-      ['🛒','Compras','compras',DA,function(){openMod('rep');},'dashboard'],
+      ['⭐','Recientes y guardados','rec',DA,function(){window.MC_REP_CAT='rec';openMod('rep');},'dashboard'],
+      ['📈','Ventas','ventas',D,function(){window.MC_REP_CAT='sales';openMod('rep');},'dashboard'],
+      ['📦','Niveles de stock','stock',DA,function(){window.MC_REP_CAT='stock';openMod('rep');},'dashboard'],
+      ['🛒','Compras','compras',DA,function(){window.MC_REP_CAT='purch';openMod('rep');},'dashboard'],
       ['🔮','Reorden y pronóstico','reorden',I,function(){base('reorden');},'inventario'],
       ['🏭','Manufactura','manuf',ID,function(){openMod('vmanuf');},'inventario'],
       ['🐢','Stock quedado','quedado',D,function(){openMod('dash');af(function(){try{MCStockQ.abrir();}catch(e){}});},'dashboard'],
-      ['💰','CxC / Cobranza','cxc',CB,function(){openMod('cbz');},'cobranza'],
+      ['🧮','Pagos y contabilidad','pay',DA,function(){window.MC_REP_CAT='pay';openMod('rep');},'dashboard'],['💰','CxC / Cobranza','cxc',CB,function(){openMod('cbz');},'cobranza'],
       ['🧾','Registro de auditoría','audit',A,function(){base('auditoria');},'ADMIN']]},
     {sep:1},
     {k:'consig',ico:'truck',t:'Consignación',col:'#1f8a4c',items:[
@@ -11816,7 +11816,7 @@ var MCroute=(function(){var bloqueo=false,RE=/^#\/([a-z0-9_]+)(?:\/([^\/]*))?(?:
   function limpiar(){if(bloqueo)return;try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}}
   function restaurar(){var hh=MC_HASH_INI;MC_HASH_INI='';var m=RE.exec(hh||'');if(!m)return;try{history.replaceState(null,'',hh);}catch(e){}var mod=m[1],a=m[2]?decodeURIComponent(m[2]):'',b=m[3]?decodeURIComponent(m[3]):'';if(mod==='dash')return;window._mcRouteIni=1;
     bloqueo=true;try{openMod(mod);}catch(e){}bloqueo=false;
-    if(mod==='vprod'&&a){(function t(n){if(window.MCProd&&MCProd.abrirId)MCProd.abrirId(a);else if(n<40)setTimeout(function(){t(n+1);},150);})(0);}else if(mod==='vcli'&&a){(function t(n){if(window.MCCli&&MCCli.abrirId)MCCli.abrirId(a);else if(n<40)setTimeout(function(){t(n+1);},150);})(0);}else if(mod==='prov'&&a){if(window.MCVnd)MCVnd.abrirId(a);else window._mcVndIni=a;}else if((mod==='vov'||mod==='vcot')&&a){window._mcTabIni=b||'';setTimeout(function(){try{Ventas.abrirNum(a);}catch(e){}},400);}else set(mod);
+    if(mod==='rep'&&a){(function t(n){if(window.MCRep2)MCRep2.abrir(a);else if(n<40)setTimeout(function(){t(n+1);},150);})(0);}else if(mod==='vprod'&&a){(function t(n){if(window.MCProd&&MCProd.abrirId)MCProd.abrirId(a);else if(n<40)setTimeout(function(){t(n+1);},150);})(0);}else if(mod==='vcli'&&a){(function t(n){if(window.MCCli&&MCCli.abrirId)MCCli.abrirId(a);else if(n<40)setTimeout(function(){t(n+1);},150);})(0);}else if(mod==='prov'&&a){if(window.MCVnd)MCVnd.abrirId(a);else window._mcVndIni=a;}else if((mod==='vov'||mod==='vcot')&&a){window._mcTabIni=b||'';setTimeout(function(){try{Ventas.abrirNum(a);}catch(e){}},400);}else set(mod);
     setTimeout(MCdraft.restaurar,1500);}
   return {set:set,limpiar:limpiar,restaurar:restaurar,actual:function(){return location.hash||'';}};})();
 
@@ -12527,6 +12527,137 @@ window.MCArch=(function(){
   function ver(id){var w=window.open('','_blank');call({op:'attachmentUrl',file_id:id}).then(function(r){if(w)w.location=r.url;else location.href=r.url;}).catch(function(e){if(w)w.close();alert(MCerr(e));});}
   function cerrar(){var m=document.getElementById('mca-mod');if(m)m.remove();if(S.cambio&&S.cb)try{S.cb();}catch(e){}}
   return {abrir:abrir,cerrar:cerrar,subirFoto:subirFoto,subirArch:subirArch,principal:principal,ver:ver};
+})();
+</script>
+<script>
+/* b288: Reportes — catálogo estilo inFlow (mismas categorías). Filtros, columnas, Excel/PDF, recientes y guardados (en este dispositivo). Lee de Supabase (op rep). */
+window.MCRep2=(function(){
+  var R='rango',C='corte';
+  var CAT=[
+   ['rec','Recientes y guardados','⭐'],
+   ['sales','Ventas','📈'],['stock','Niveles de stock','📦'],['purch','Compras','🛒'],['reord','Reorden y pronóstico','🔮'],['pay','Pagos y contabilidad','💰'],['manuf','Manufactura','🏭'],['audit','Registro de auditoría','🧾']];
+  // [id, categorías, nombre, descripción, filtros]
+  var REP=[
+   ['historical',['stock'],'Inventario histórico','Cantidad y valor del inventario a una fecha de corte, al costo promedio de ese día. Para el contador.',[C,'agrupar:producto=Por producto|bodega=Por bodega','categoria','marca','q']],
+   ['product_sales',['sales'],'Ventas por producto','Unidades vendidas, ventas, costo y utilidad por producto, cliente, categoría, marca o mes.',[R,'fecha','agrupar:producto=Producto|cliente=Cliente|categoria=Categoría|marca=Marca|mes=Mes','clientes','vendedor','categoria','marca','q','facturadas','sinRumi']],
+   ['so_summary',['sales'],'Resumen de órdenes de venta','Lista de órdenes de venta con estado, factura, totales, pagos y saldo.',[R,'fecha','clientes','vendedor','estado','q','facturadas','sinRumi']],
+   ['so_profit',['sales','pay'],'Utilidad por orden de venta','Venta sin IVA, costo de lo despachado y margen de cada orden.',[R,'fecha','clientes','vendedor','q','facturadas','sinRumi']],
+   ['so_by_rep',['sales'],'Órdenes de venta por vendedor','Órdenes, clientes, ventas, saldo y utilidad por vendedor.',[R,'fecha','clientes','facturadas','sinRumi']],
+   ['operations',['sales'],'Operaciones','Órdenes de venta abiertas: fecha requerida, días de atraso, estado de inventario y de pago.',['clientes','estado']],
+   ['sales_tax',['sales'],'Impuesto sobre ventas','IVA cobrado por mes en las facturas emitidas.',[R]],
+   ['price_list',['sales'],'Lista de precios de productos','Precio de cada producto en uno o varios esquemas de precio.',['esquemas','categoria','marca','q']],
+   ['p_abandoned',['sales'],'Carritos abandonados (showroom)','Complemento de inFlow Showroom; no aplica en Minecore.',null],
+   ['p_returns',['sales'],'Devoluciones de venta','Productos devueltos por los clientes y montos reembolsados.',null],
+   ['inventory',['stock'],'Inventario','Existencias actuales por producto, bodega y sububicación, con costo y valor.',['agrupar:sububicacion=Por sububicación|bodega=Por bodega|producto=Por producto','bodegas','categoria','marca','q','conCero']],
+   ['aging',['stock','reord'],'Antigüedad del inventario','Cuánto tiempo lleva el stock actual en bodega (0–30, 31–60, 61–90, 90+ días), por capas FIFO.',['bodegas','categoria','marca','q','valor']],
+   ['p_lot',['stock'],'Vencimiento de lotes','Requiere lotes (no se usan en Minecore).',null],
+   ['stock_reorder',['stock','reord'],'Stock y reorden','Disponible, en pedido, punto y cantidad de reorden, y sugerido a pedir.',['categoria','marca','q','soloReorden']],
+   ['p_po_summary',['purch'],'Resumen de órdenes de compra','Lista de OC con estado, totales, pagos y saldo.',null],
+   ['p_po_product',['purch'],'Compras por producto','Unidades y costo comprados por producto.',null],
+   ['p_po_vendor',['purch'],'Compras por proveedor','Total comprado y saldo por proveedor.',null],
+   ['p_po_returns',['purch'],'Devoluciones a proveedor','Productos devueltos a proveedores.',null],
+   ['p_vendor_list',['purch'],'Productos por proveedor','Códigos y costos de cada producto por proveedor.',null],
+   ['p_po_receive',['purch'],'Recepciones pendientes','Cantidades pedidas aún no recibidas.',null],
+   ['p_duration',['reord'],'Duración estimada del inventario','Días que dura el stock según el ritmo de ventas.',null],
+   ['p_rop',['reord'],'Punto de reorden recomendado','Punto de reorden sugerido según ventas y tiempo de entrega.',null],
+   ['customer_payments',['pay'],'Pagos de clientes','Pagos recibidos en el período, o cuentas por cobrar a una fecha de corte.',['modo:pagos=Pagos recibidos|cxc=Cuentas por cobrar',R,'clientes','metodo','sinRumi']],
+   ['vendor_payments',['pay'],'Pagos a proveedores','Pagos hechos a proveedores en el período.',[R,'proveedores']],
+   ['taxes',['pay'],'Impuestos','IVA cobrado en ventas, IVA pagado en compras y neto por mes.',[R]],
+   ['p_mo_summary',['manuf'],'Resumen de órdenes de manufactura','',null],['p_mo_mat',['manuf'],'Materiales de OM','',null],['p_mo_fin',['manuf'],'Productos terminados de OM','',null],['p_mo_var',['manuf'],'Variación de materiales','',null],['p_wip',['manuf'],'Costo de trabajo en proceso','',null],['p_op_time',['manuf'],'Tiempos de operación','',null],['p_op_var',['manuf'],'Variación de operación','',null],
+   ['p_moves',['audit'],'Movimientos de inventario','Cada entrada y salida de stock con su documento.',null],['p_cost',['audit'],'Costo de producto','Historial del costo promedio por producto.',null],['p_totcost',['audit'],'Registro del costo total del inventario','',null],['p_count',['audit'],'Conteos de stock','',null],['p_transfer',['audit'],'Transferencias de stock','',null],['p_adjust',['audit'],'Ajustes de stock','',null],['p_team',['audit'],'Actividad del equipo','',null]];
+  var BY={};REP.forEach(function(r){BY[r[0]]=r;});
+  var st={cat:'stock',id:null,f:{},r:null,busy:false,op:null};
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function el(){return document.getElementById('rep-screen');}
+  function hoy(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+  function LS(k,d){try{return JSON.parse(localStorage.getItem(k))||d;}catch(e){return d;}}
+  function LSs(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function call(b){b.action='ventas';b.op='rep';b.user=getUserName();b.pin=getPin();return MCpost(b).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Error');return r;});}
+  function money(n){var x=parseFloat(n);if(isNaN(x))return '';return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function fmt(c,v){if(v==null||v==='')return '';if(c.t==='m')return money(v);if(c.t==='p')return (+v).toFixed(1)+'%';if(c.t==='n'){var x=+v;return x.toLocaleString('en-US',{maximumFractionDigits:2});}if(c.t==='i')return String(v);return esc(v);}
+  function css(){if(document.getElementById('rp2-css'))return;var s=document.createElement('style');s.id='rp2-css';s.textContent=
+   '.rp2-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.rp2-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.rp2-card{cursor:pointer}.rp2-card b{color:#E8FF00}.rp2-card.off{opacity:.45;cursor:default}.rp2-card .d{font-size:12px;color:#8fa3b8;margin-top:4px}'+
+   '.rp2-f{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}.rp2-f label{font-size:11px;color:#8fa3b8;flex:1 1 150px}.rp2-f label.ck{flex:0 0 auto;display:flex;gap:4px;align-items:center;font-size:12px;color:#cfd8e3}.rp2-f .uinput{width:100%}'+
+   '.rp2-t{width:100%;border-collapse:collapse;font-size:12px}.rp2-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:5px;border-bottom:1px solid #26405c;white-space:nowrap;cursor:pointer}.rp2-t td{padding:5px;border-bottom:1px solid #1c2a3a}.rp2-t .r{text-align:right;white-space:nowrap}.rp2-t tfoot td{font-weight:700;color:#E8FF00;border-top:1px solid #26405c}'+
+   '.rp2-cols{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:12px}'+
+   '@media(max-width:640px){.rp2-t thead,.rp2-t tfoot{display:none}.rp2-t tr{display:block;border-bottom:1px solid #26405c;padding:5px 0}.rp2-t td{display:flex;justify-content:space-between;gap:8px;border:0;padding:2px}.rp2-t td::before{content:attr(data-l);color:#8fa3b8;font-size:11px}.rp2-t td.m1{display:block;font-weight:700}.rp2-t td.m1::before{content:none}}';
+   document.head.appendChild(s);}
+  function init(cat){css();st.id=null;st.r=null;if(cat)st.cat=cat;try{MCroute.set('rep','');}catch(e){}catalogo();}
+  function catalogo(){var h='<div class="rp2-cats">'+CAT.map(function(c){var n=c[0]==='rec'?(LS('mc_rep_sav',[]).length+LS('mc_rep_rec',[]).length):REP.filter(function(r){return r[1].indexOf(c[0])>=0;}).length;
+      return '<button class="chip'+(st.cat===c[0]?' on':'')+'" onclick="MCRep2.cat(\''+c[0]+'\')">'+c[2]+' '+c[1]+' <span style="color:#8fa3b8">'+n+'</span></button>';}).join('')+'</div>';
+    if(st.cat==='rec'){var S=LS('mc_rep_sav',[]),Q=LS('mc_rep_rec',[]);
+      h+='<div class="cbz-card"><b>Guardados</b>'+(S.length?S.map(function(x,i){return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1c2a3a"><a href="#" style="flex:1;color:#cfd8e3;text-decoration:none" onclick="MCRep2.abrirSav('+i+');return false">⭐ '+esc(x.nombre)+' <span class="ms-sub">· '+esc((BY[x.id]||[])[2]||x.id)+'</span></a><button class="chip" onclick="MCRep2.borrarSav('+i+')">Quitar</button></div>';}).join(''):'<p class="ms-sub">Aún no guardas reportes. Abre uno, ajusta filtros y columnas y toca «⭐ Guardar».</p>')+'</div>'+
+        '<div class="cbz-card" style="margin-top:10px"><b>Recientes</b>'+(Q.length?Q.map(function(x,i){return '<div style="padding:6px 0;border-bottom:1px solid #1c2a3a"><a href="#" style="color:#cfd8e3;text-decoration:none" onclick="MCRep2.abrirRec('+i+');return false">'+esc((BY[x.id]||[])[2]||x.id)+'</a> <span class="ms-sub">· '+(resumenF(x.id,x.f)?esc(resumenF(x.id,x.f))+' · ':'')+esc(String(x.at).slice(0,16).replace('T',' '))+'</span></div>';}).join(''):'<p class="ms-sub">Sin reportes recientes.</p>')+'</div>'+
+        '<div class="ms-sub" style="margin-top:8px">Recientes y guardados se guardan en este dispositivo.</div>';}
+    else {h+='<div class="rp2-grid">'+REP.filter(function(r){return r[1].indexOf(st.cat)>=0;}).map(function(r){var on=!!r[4];return '<div class="cbz-card rp2-card'+(on?'':' off')+'"'+(on?' onclick="MCRep2.abrir(\''+r[0]+'\')"':'')+'><b>'+esc(r[2])+'</b>'+(on?'':' <span class="ms-sub">· próximamente</span>')+'<div class="d">'+esc(r[3]||'')+'</div></div>';}).join('')+'</div>';
+      if(st.cat==='pay'||st.cat==='stock')h+='<div class="ms-sub" style="margin-top:10px">CxC con «En proceso judicial», CxP y los cortes anteriores: <a href="#" style="color:#9fc3e8;text-decoration:none" onclick="MCRep2.clasico();return false">Reportes con fecha de corte (clásicos)</a></div>';}
+    el().innerHTML=h;}
+  function defF(id){var r=BY[id],f={},y=hoy();(r[4]||[]).forEach(function(k){if(k===R){f.desde=y.slice(0,5)+'01-01';f.hasta=y;}else if(k===C)f.hasta=y;else if(k.indexOf(':')>0){var o=k.split(':');f[o[0]]=o[1].split('|')[0].split('=')[0];}else if(k==='sinRumi')f.sinRumi=true;else if(k==='fecha')f.fecha='orden';});return f;}
+  function resumenF(id,f){var p=[];if(f.desde)p.push(f.desde+' → '+f.hasta);else if(f.hasta)p.push('al '+f.hasta);if(f.agrupar)p.push({producto:'por producto',bodega:'por bodega',sububicacion:'por sububicación',cliente:'por cliente',categoria:'por categoría',marca:'por marca',mes:'por mes'}[f.agrupar]||f.agrupar);if(f.modo)p.push(f.modo==='cxc'?'cuentas por cobrar':'pagos recibidos');if(f.q)p.push('«'+f.q+'»');return p.join(' · ');}
+  function abrir(id,f,cols){var r=BY[id];if(!r||!r[4])return;st.id=id;st.f=f?JSON.parse(JSON.stringify(f)):defF(id);st.r=null;if(cols)LSs('mc_rep_cols_'+id,cols);try{MCroute.set('rep',id);}catch(e){}
+    if(!st.op){call({tipo:'opciones'}).then(function(o){st.op=o;if(st.id===id)form();}).catch(function(){st.op={};form();});}form();}
+  function opts(L,v,todos){return '<option value="">'+(todos||'Todos')+'</option>'+(L||[]).map(function(x){var id=typeof x==='string'?x:x.id,n=typeof x==='string'?x:x.name;return '<option value="'+esc(id)+'"'+(String(v||'')===String(id)?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
+  function form(){var r=BY[st.id],f=st.f,o=st.op||{},h='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><button class="chip" onclick="MCRep2.volver()">← Reportes</button><b style="font-size:17px">'+esc(r[2])+'</b></div><div class="cbz-card"><div class="ms-sub" style="margin-bottom:8px">'+esc(r[3])+'</div><div class="rp2-f">';
+    r[4].forEach(function(k){
+      if(k===R)h+='<label>Desde<input class="uinput" type="date" value="'+esc(f.desde)+'" onchange="MCRep2.set(\'desde\',this.value)"></label><label>Hasta<input class="uinput" type="date" value="'+esc(f.hasta)+'" onchange="MCRep2.set(\'hasta\',this.value)"></label>';
+      else if(k===C)h+='<label>Fecha de corte<input class="uinput" type="date" value="'+esc(f.hasta)+'" onchange="MCRep2.set(\'hasta\',this.value)"></label>';
+      else if(k.indexOf(':')>0){var a=k.split(':'),L=a[1].split('|').map(function(x){var p=x.split('=');return {id:p[0],name:p[1]};});h+='<label>'+({agrupar:'Agrupar',modo:'Ver'})[a[0]]+'<select class="uinput" onchange="MCRep2.set(\''+a[0]+'\',this.value)">'+L.map(function(x){return '<option value="'+x.id+'"'+(f[a[0]]===x.id?' selected':'')+'>'+esc(x.name)+'</option>';}).join('')+'</select></label>';}
+      else if(k==='fecha')h+='<label>Fecha de<select class="uinput" onchange="MCRep2.set(\'fecha\',this.value)"><option value="orden"'+(f.fecha!=='factura'?' selected':'')+'>Orden</option><option value="factura"'+(f.fecha==='factura'?' selected':'')+'>Factura</option></select></label>';
+      else if(k==='clientes')h+='<label>Cliente<select class="uinput" onchange="MCRep2.set(\'clientes\',this.value?[this.value]:[])">'+opts(o.clientes,(f.clientes||[])[0])+'</select></label>';
+      else if(k==='proveedores')h+='<label>Proveedor<select class="uinput" onchange="MCRep2.set(\'proveedores\',this.value?[this.value]:[])">'+opts(o.proveedores,(f.proveedores||[])[0])+'</select></label>';
+      else if(k==='bodegas')h+='<label>Bodega<select class="uinput" onchange="MCRep2.set(\'bodegas\',this.value?[this.value]:[])">'+opts(o.bodegas,(f.bodegas||[])[0],'Todas')+'</select></label>';
+      else if(k==='esquemas')h+='<label>Esquema de precio<select class="uinput" onchange="MCRep2.set(\'esquemas\',this.value?[this.value]:[])">'+opts(o.esquemas,(f.esquemas||[])[0],'El predeterminado')+'</select></label>';
+      else if(k==='categoria')h+='<label>Categoría<select class="uinput" onchange="MCRep2.set(\'categoria\',this.value)">'+opts(o.categorias,f.categoria,'Todas')+'</select></label>';
+      else if(k==='marca')h+='<label>Marca<select class="uinput" onchange="MCRep2.set(\'marca\',this.value)">'+opts(o.marcas,f.marca,'Todas')+'</select></label>';
+      else if(k==='vendedor')h+='<label>Vendedor<select class="uinput" onchange="MCRep2.set(\'vendedor\',this.value)">'+opts(o.vendedores,f.vendedor)+'</select></label>';
+      else if(k==='estado')h+='<label>Estado<select class="uinput" onchange="MCRep2.set(\'estado\',this.value)">'+opts(o.estados,f.estado)+'</select></label>';
+      else if(k==='metodo')h+='<label>Forma de pago<select class="uinput" onchange="MCRep2.set(\'metodo\',this.value)">'+opts(o.metodos,f.metodo,'Todas')+'</select></label>';
+      else if(k==='q')h+='<label>Buscar<input class="uinput" placeholder="SKU, nombre, orden…" value="'+esc(f.q||'')+'" onchange="MCRep2.set(\'q\',this.value)"></label>';
+      else {var T={facturadas:'Solo facturadas',sinRumi:'Excluir Rumi',conCero:'Incluir en cero',soloReorden:'Solo lo que hay que pedir',valor:'Mostrar en $'}[k];h+='<label class="ck"><input type="checkbox"'+(f[k]?' checked':'')+' onchange="MCRep2.set(\''+k+'\',this.checked)"> '+T+'</label>';}
+    });
+    h+='<button class="cbz-btn" onclick="MCRep2.generar()">Generar</button></div></div><div id="rp2-out"></div>';el().innerHTML=h;if(st.r)out();}
+  function set(k,v){st.f[k]=v;if(k==='modo'){st.r=null;form();}}
+  function generar(){if(st.busy)return;st.busy=true;var o=document.getElementById('rp2-out');o.innerHTML='<div class="cbz-loading">Generando…</div>';var id=st.id;
+    var Q=LS('mc_rep_rec',[]).filter(function(x){return !(x.id===id&&JSON.stringify(x.f)===JSON.stringify(st.f));});Q.unshift({id:id,f:st.f,at:new Date().toISOString()});LSs('mc_rep_rec',Q.slice(0,12));
+    call({tipo:id,f:st.f}).then(function(x){st.busy=false;if(st.id!==id)return;st.r=x;st.sort=null;out();}).catch(function(e){st.busy=false;o.innerHTML='<div class="cbz-error">'+esc(typeof MCerr==='function'?MCerr(e):e.message)+'</div>';});}
+  function colsVis(){var all=st.r.cols,sel=LS('mc_rep_cols_'+st.id,null);if(!sel)return all;var v=all.filter(function(c){return sel.indexOf(c.k)>=0;});return v.length?v:all;}
+  function filas(){var F=st.r.filas.slice();if(st.sort){var k=st.sort.k,d=st.sort.d;F.sort(function(a,b){var x=a[k],y=b[k];if(x==null)return 1;if(y==null)return -1;return (typeof x==='number'&&typeof y==='number'?x-y:String(x).localeCompare(String(y)))*d;});}return F;}
+  function tot(c){var t=st.r.totales||{};if(c.t==='p'||/unit|Punto|Días/i.test(c.l))return c.t==='p'&&t[c.k]!=null?t[c.k]:null;return t[c.k];}
+  function out(){var o=document.getElementById('rp2-out');if(!o)return;var r=st.r,V=colsVis(),F=filas(),lim=500,sel=LS('mc_rep_cols_'+st.id,null);
+    var h='<div class="cbz-card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b>'+esc(BY[st.id][2])+'</b><div class="ms-sub">'+esc(resumenF(st.id,st.f))+' · '+r.n+' fila(s)</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" onclick="MCRep2.togCols()">☰ Columnas</button><button class="chip" onclick="MCRep2.xlsx()">⬇ Excel</button><button class="chip" onclick="MCRep2.pdf()">📄 PDF</button><button class="chip" onclick="MCRep2.guardar()">⭐ Guardar</button></div></div>'+
+      '<div id="rp2-cols" class="rp2-cols" style="display:none">'+r.cols.map(function(c){return '<label><input type="checkbox"'+(!sel||sel.indexOf(c.k)>=0?' checked':'')+' onchange="MCRep2.col(\''+c.k+'\',this.checked)"> '+esc(c.l)+'</label>';}).join('')+'</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+V.filter(function(c){return c.t!=='t'&&c.t!=='d'&&tot(c)!=null;}).map(function(c){return '<span class="chip">'+esc(c.l)+' <b>'+fmt(c,tot(c))+'</b></span>';}).join('')+'</div></div>';
+    var m1=V[0]&&V[0].t==='t'?0:-1;
+    h+='<div class="cbz-card" style="overflow-x:auto;margin-top:10px"><table class="rp2-t"><thead><tr>'+V.map(function(c){return '<th class="'+(c.t==='t'||c.t==='d'?'':'r')+'" onclick="MCRep2.ord(\''+c.k+'\')">'+esc(c.l)+(st.sort&&st.sort.k===c.k?(st.sort.d>0?' ▲':' ▼'):'')+'</th>';}).join('')+'</tr></thead><tbody>'+
+      F.slice(0,lim).map(function(x){return '<tr>'+V.map(function(c,i){return '<td class="'+(c.t==='t'||c.t==='d'?'':'r')+(i===m1?' m1':'')+'" data-l="'+esc(c.l)+'">'+fmt(c,x[c.k])+'</td>';}).join('')+'</tr>';}).join('')+'</tbody><tfoot><tr>'+V.map(function(c,i){var t=c.t==='t'||c.t==='d'?null:tot(c);return '<td class="'+(t==null?'':'r')+'">'+(i===0?'Total':t==null?'':fmt(c,t))+'</td>';}).join('')+'</tr></tfoot></table>'+
+      (r.n>lim?'<div class="ms-sub" style="margin-top:6px">Se muestran '+lim+' de '+r.n+'; Excel y PDF traen todas.</div>':'')+(r.n===0?'<p class="ms-sub">Sin datos para estos filtros.</p>':'')+'</div>';
+    o.innerHTML=h;}
+  function togCols(){var x=document.getElementById('rp2-cols');if(x)x.style.display=x.style.display==='none'?'flex':'none';}
+  function col(k,on){var sel=LS('mc_rep_cols_'+st.id,null)||st.r.cols.map(function(c){return c.k;});sel=sel.filter(function(x){return x!==k;});if(on)sel.push(k);sel=st.r.cols.map(function(c){return c.k;}).filter(function(x){return sel.indexOf(x)>=0;});LSs('mc_rep_cols_'+st.id,sel);out();togCols();}
+  function ord(k){st.sort=st.sort&&st.sort.k===k?{k:k,d:-st.sort.d}:{k:k,d:1};out();}
+  function nombre(ext){return 'Minecore_'+BY[st.id][2].replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_')+'_'+(st.f.desde?st.f.desde+'_a_':'')+(st.f.hasta||hoy())+'.'+ext;}
+  function bajar(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},800);}
+  function loadX(){if(window.XLSX)return Promise.resolve(window.XLSX);return new Promise(function(ok,ko){var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=function(){ok(window.XLSX);};s.onerror=function(){ko(new Error('No se pudo cargar Excel'));};document.head.appendChild(s);});}
+  function xlsx(){var V=colsVis(),F=filas();loadX().then(function(X){var aoa=[[BY[st.id][2]],[resumenF(st.id,st.f)],[],V.map(function(c){return c.l;})].concat(F.map(function(x){return V.map(function(c){var v=x[c.k];return (c.t==='t'||c.t==='d')?(v==null?'':String(v)):(v==null?null:+v);});}));
+      aoa.push(V.map(function(c,i){var t=c.t==='t'||c.t==='d'?null:tot(c);return i===0?'Total':(t==null?'':t);}));
+      var ws=X.utils.aoa_to_sheet(aoa);ws['!cols']=V.map(function(c){return {wch:c.t==='t'?Math.min(40,Math.max(10,c.l.length+4)):14};});
+      for(var R0=4;R0<aoa.length;R0++)V.forEach(function(c,i){var a=ws[X.utils.encode_cell({r:R0,c:i})];if(a&&typeof a.v==='number')a.z=c.t==='m'?'#,##0.00':c.t==='p'?'0.0':'#,##0.##';});
+      var wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,'Reporte');X.writeFile(wb,nombre('xlsx'));}).catch(function(e){alert(e.message);});}
+  function pdf(){var V=colsVis(),F=filas();mcPlanillaLoadJsPDF().then(function(jsPDF){var land=V.length>5,doc=new jsPDF({unit:'pt',format:'a4',orientation:land?'landscape':'portrait'}),W=land?842:595,HH=land?595:842,M=28,y=40,LIME=[132,180,20];
+      function tit(){doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(LIME[0],LIME[1],LIME[2]);doc.text('Minecore · '+BY[st.id][2],M,y);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,90,90);doc.text(resumenF(st.id,st.f)+' · '+F.length+' filas · generado '+hoy(),M,y+14);}
+      tit();y+=30;var cx=M;V.filter(function(c){return c.t!=='t'&&c.t!=='d'&&tot(c)!=null;}).forEach(function(c){var t=c.l+' '+(c.t==='m'?money(tot(c)):String(tot(c)));doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,73,118);if(cx+doc.getTextWidth(t)>W-M){cx=M;y+=12;}doc.text(t,cx,y);cx+=doc.getTextWidth(t)+16;});y+=18;
+      var wd=V.map(function(c){return c.t==='t'?(/producto|cliente|proveedor|grupo/i.test(c.k)?3:1.4):1;}),tw=wd.reduce(function(a,b){return a+b;},0),u=(W-2*M)/tw,xs=[],x=M;wd.forEach(function(w){xs.push(x);x+=w*u;});
+      function head(){doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(LIME[0],LIME[1],LIME[2]);V.forEach(function(c,i){var w=wd[i]*u,t=doc.splitTextToSize(c.l,w-4)[0];if(c.t==='t'||c.t==='d')doc.text(t,xs[i],y);else doc.text(t,xs[i]+w-3,y,{align:'right'});});y+=11;doc.setFont('helvetica','normal');doc.setFontSize(7.2);doc.setTextColor(20,20,20);}
+      head();var txt=function(c,v){return v==null?'':c.t==='m'?money(v):c.t==='p'?(+v).toFixed(1)+'%':c.t==='n'?(+v).toLocaleString('en-US',{maximumFractionDigits:2}):String(v);};
+      F.concat([null]).forEach(function(row){if(y>HH-36){doc.addPage();y=40;tit();y+=28;head();}
+        if(row===null){doc.setFont('helvetica','bold');V.forEach(function(c,i){var w=wd[i]*u,t=i===0?'Total':(c.t==='t'||c.t==='d'?'':txt(c,tot(c)));if(i===0||c.t==='t'||c.t==='d')doc.text(t,xs[i],y);else doc.text(t,xs[i]+w-3,y,{align:'right'});});return;}
+        V.forEach(function(c,i){var w=wd[i]*u,t=doc.splitTextToSize(txt(c,row[c.k]),w-4)[0]||'';if(c.t==='t'||c.t==='d')doc.text(t,xs[i],y);else doc.text(t,xs[i]+w-3,y,{align:'right'});});y+=10;});
+      bajar(doc.output('blob'),nombre('pdf'));}).catch(function(e){alert('PDF: '+(e.message||e));});}
+  function guardar(){var n=prompt('Nombre del reporte guardado',BY[st.id][2]+(st.f.hasta?' · '+st.f.hasta:''));if(!n)return;var S=LS('mc_rep_sav',[]);S.unshift({nombre:n,id:st.id,f:st.f,cols:LS('mc_rep_cols_'+st.id,null)});LSs('mc_rep_sav',S.slice(0,40));try{toast('Reporte guardado');}catch(e){}}
+  function abrirSav(i){var x=LS('mc_rep_sav',[])[i];if(x)abrir(x.id,x.f,x.cols);}
+  function abrirRec(i){var x=LS('mc_rep_rec',[])[i];if(x)abrir(x.id,x.f);}
+  function borrarSav(i){var S=LS('mc_rep_sav',[]);S.splice(i,1);LSs('mc_rep_sav',S);catalogo();}
+  return {init:init,cat:function(c){st.cat=c;catalogo();},abrir:abrir,volver:function(){init();},set:set,generar:generar,togCols:togCols,col:col,ord:ord,xlsx:xlsx,pdf:pdf,guardar:guardar,abrirSav:abrirSav,abrirRec:abrirRec,borrarSav:borrarSav,clasico:function(){Rep.init();}};
 })();
 </script>
 </body>
