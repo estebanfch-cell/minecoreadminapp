@@ -329,6 +329,16 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
 .dv-lt{min-width:0}.dv-lt span{color:#b8c6d4}.dv-lv{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .dv-g{color:#6fd68f;font-weight:700}.dv-r{color:#e05c5c;font-weight:700}
 #dash-kpi a,#dash-kpi button{text-decoration:none}
+
+/* b256: botón flotante del inicio (mismo estilo que Caja chica) */
+.hfab{position:fixed;bottom:88px;right:16px;width:58px;height:58px;border-radius:50%;background:#E8FF00;color:#161926;font-size:30px;font-weight:800;border:none;cursor:pointer;z-index:300;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.45);line-height:1;padding:0}
+.hfab-menu{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:290}
+.hfab-actions{position:absolute;bottom:158px;right:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.hfab-item{display:flex;align-items:center;gap:10px;background:#252B3B;border:none;border-radius:12px;padding:13px 18px;cursor:pointer}
+.hfab-item .hfab-lbl{color:#fff;font-size:14px;font-weight:700}
+.hfab-item.hfab-hi{background:#E8FF00}.hfab-item.hfab-hi .hfab-lbl{color:#161926}
+.hfab-res{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer}
+@media (max-width:600px){.hfab-res{flex-wrap:wrap}.hfab-res .pimg{width:56px;height:56px}}
 </style>
 </head>
 <body>
@@ -368,7 +378,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='255';
+  var MC_BUILD='256';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -10047,7 +10057,7 @@ var Ventas = (function(){
       /* b238: canceladas ocultas por defecto; se ven con el filtro «Canceladas» o buscando su número exacto */
       var qx=String(f.q||'').trim().toUpperCase();
       lista=(r.ordenes||[]).filter(function(o){if(f.estado==='cancelada')return true;if(o.estado!=='cancelada'&&!o.is_cancelled)return true;
-        return !!qx&&(String(o.order_number||'').toUpperCase()===qx||String(o.quote_number||'').toUpperCase()===qx);});renderLista();
+        return !!qx&&(String(o.order_number||'').toUpperCase()===qx||String(o.quote_number||'').toUpperCase()===qx);});if(!form&&!cur)renderLista();
     }).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});
   }
   function leerFiltros(){var g=function(i){var x=$(i);return x?x.value.trim():'';};f.pago=g('vt-fp');f.inv=g('vt-fi');f.vendedor=g('vt-fv');f.orden=g('vt-fo');f.cliente=$('vt-fc').value.trim();f.estado=$('vt-fe').value;f.desde=$('vt-fd').value;f.hasta=$('vt-fh').value;f.q=$('vt-fq').value.trim();}
@@ -10794,6 +10804,7 @@ function renderHome(){
     h+='<div'+attrs+'><div class="mod-head"><div class="ico">'+t.ico+'</div><h3>'+t.title+'</h3></div><p>'+t.desc+'</p></div>';
   }
   if(p.rol==='admin') h+='<div id="api-ver" class="cbz-muted" style="grid-column:1/-1;font-size:10px;text-align:right;opacity:.5;aspect-ratio:auto;min-height:0;padding:4px 2px;border:none;background:transparent;cursor:default"></div>';
+  setTimeout(function(){try{MCFab.sync();}catch(e){}},0);
   var homeEl=document.getElementById('home');
   homeEl.innerHTML=h||'<div class="cbz-error">Sin módulos asignados. Habla con el administrador.</div>';
   if(window._mcHomeEdit) homeEl.classList.add('home-edit'); else homeEl.classList.remove('home-edit');
@@ -10873,7 +10884,67 @@ function doSyncNow(){
     alert('El sync puede seguir corriendo en el servidor (tiempo de espera excedido). Revisa en 2-3 minutos con ⟳ Actualizar.');
   });
 }
+/* b256: botón flotante de acceso rápido en el inicio (mismo estilo/posición que Caja chica) */
+var MCFab=(function(){
+  var tmr=null,res=[];
+  function prof(){try{return getProfile()||{};}catch(e){return {};}}
+  function can(m){var p=prof(),ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;}
+  function canW(m){var p=prof(),ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m+'+')>=0;}
+  function opts(){var p=prof();if(!p||p.rol==='cliente'||!p.rol)return {};
+    return {cot:canW('cotizaciones'),ov:canW('cotizaciones'),prod:(can('cotizaciones')||can('dashboard'))};}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function ensure(){if(document.getElementById('mc-hfab'))return;
+    var d=document.createElement('div');d.id='mc-hfab-wrap';
+    d.innerHTML='<div id="mc-hfab-menu" class="hfab-menu" style="display:none" onclick="MCFab.toggle(false)"><div class="hfab-actions" id="mc-hfab-acts"></div></div>'+
+      '<button id="mc-hfab" class="hfab" type="button" aria-label="Acceso rápido" onclick="MCFab.toggle()">+</button>';
+    document.body.appendChild(d);}
+  function sync(){var o=opts(),n=(o.cot?1:0)+(o.ov?1:0)+(o.prod?1:0),h=document.getElementById('home'),lg=document.getElementById('login');
+    var enHome=h&&h.style.display!=='none'&&getComputedStyle(h).display!=='none'&&!(lg&&getComputedStyle(lg).display!=='none');
+    var b=document.getElementById('mc-hfab');
+    if(!n||!enHome){if(b){b.style.display='none';toggle(false);}return;}
+    ensure();b=document.getElementById('mc-hfab');b.style.display='flex';
+    document.getElementById('mc-hfab-acts').innerHTML=
+      (o.prod?'<button class="hfab-item" onclick="event.stopPropagation();MCFab.go(\'prod\')"><span class="hfab-lbl">🔍 Buscar producto</span></button>':'')+
+      (o.ov?'<button class="hfab-item" onclick="event.stopPropagation();MCFab.go(\'ov\')"><span class="hfab-lbl">📑 Nueva orden de venta</span></button>':'')+
+      (o.cot?'<button class="hfab-item hfab-hi" onclick="event.stopPropagation();MCFab.go(\'cot\')"><span class="hfab-lbl">🧾 Nueva cotización</span></button>':'');}
+  function toggle(force){var m=document.getElementById('mc-hfab-menu'),b=document.getElementById('mc-hfab');if(!m||!b)return;
+    var open=force!==undefined?force:(m.style.display==='none');m.style.display=open?'block':'none';b.textContent=open?'×':'+';}
+  function go(k){toggle(false);var o=opts();
+    if(k==='cot'&&o.cot){openMod('vcot');Ventas.nuevo();}
+    else if(k==='ov'&&o.ov){openMod('vov');Ventas.nuevo();}
+    else if(k==='prod'&&o.prod)buscar();
+    sync();}
+  function capa(html){var m=document.getElementById('mc-hfab-bp');if(!m){m=document.createElement('div');m.id='mc-hfab-bp';m.style.cssText='position:fixed;inset:0;z-index:320;background:#0e1520;overflow:auto;-webkit-overflow-scrolling:touch';document.body.appendChild(m);}
+    m.innerHTML='<div style="position:sticky;top:0;z-index:2;background:#0e1520;border-bottom:1px solid #223142;padding:10px 12px;display:flex;gap:8px;align-items:center"><button class="chip" onclick="MCFab.cerrar()">← Volver</button><b>Buscar producto</b></div>'+
+      '<div style="padding:12px;max-width:760px;margin:0 auto"><input class="cbz-search" id="mc-hfab-q" placeholder="🔍 Nombre, SKU, código, marca..." autocomplete="off" style="width:100%;box-sizing:border-box;font-size:16px" oninput="MCFab.q(this.value)"><div id="mc-hfab-res" style="margin-top:8px">'+(html||'<div class="cbz-muted">Escribe al menos 2 letras.</div>')+'</div></div>';}
+  function buscar(){capa();setTimeout(function(){var i=document.getElementById('mc-hfab-q');if(i)i.focus();},50);}
+  function cerrar(){var m=document.getElementById('mc-hfab-bp');if(m)m.remove();sync();}
+  function bp(p){var sp=p.stockPor||{};for(var k in sp){if(/^bodega principal/i.test(k))return parseFloat(sp[k])||0;}return 0;}
+  function q(v){clearTimeout(tmr);var box=document.getElementById('mc-hfab-res');if(String(v).trim().length<2){if(box)box.innerHTML='<div class="cbz-muted">Escribe al menos 2 letras.</div>';return;}
+    tmr=setTimeout(function(){if(box)box.innerHTML='<div class="cbz-loading">Buscando…</div>';
+      MCpost({action:'ventas',op:'productos',q:v,limit:40,user:getUserName(),pin:getPin()}).then(function(r){var b=document.getElementById('mc-hfab-res');if(!b)return;
+        if(!r.ok){b.innerHTML='<div class="cbz-error">'+esc(r.error)+'</div>';return;}
+        res=r.productos||[];
+        b.innerHTML=res.map(function(p,i){var st=bp(p),sub=p.subs_bp||p.sub_default||'';
+          return '<div class="cbz-card hfab-res" onclick="MCFab.ver('+i+')">'+
+            (p.img?'<img src="'+esc(p.img)+'" class="pimg" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
+            '<div style="flex:1;min-width:0"><div class="pname">'+esc(p.name)+'</div><div class="pmeta">SKU: '+esc(p.sku)+(p.codigo?' · Cód: '+esc(p.codigo):'')+'</div>'+
+            '<div class="pmeta" style="font-size:11.5px">Bodega principal: <b style="color:'+(st>0?'#6fd68f':'#e05c5c')+'">'+st+'</b>'+(sub?' · 📍 '+esc(sub):'')+'</div></div></div>';}).join('')||'<div class="cbz-muted">Sin resultados.</div>';
+      }).catch(function(e){var b=document.getElementById('mc-hfab-res');if(b)b.innerHTML='<div class="cbz-error">'+esc(typeof MCerr==='function'?MCerr(e):e)+'</div>';});},300);}
+  function ver(i){var p=res[i];if(!p)return;
+    if(can('inventario')){cerrar();openMod('inv');var n=0;(function esperar(){var l=document.getElementById('inv-list');
+        if(l&&l.querySelector('.cbz-card')){var s=document.querySelector('#inv-screen .cbz-search');if(s)s.value=p.sku;Inv.setQ(p.sku);Inv.abrir(p.sku);try{l.scrollIntoView();}catch(e){}return;}
+        if(++n<120)setTimeout(esperar,250);})();return;}
+    /* sin módulo Inventario: ficha breve aquí mismo */
+    var st=bp(p);capa('<div class="cbz-card"><img src="'+esc(p.img||'')+'" style="width:100%;max-height:260px;object-fit:contain;background:#fff;border-radius:8px'+(p.img?'':';display:none')+'" onclick="MCfoto(this.src,event)">'+
+      '<div class="pname" style="margin-top:8px">'+esc(p.name)+'</div><div class="pmeta">SKU: '+esc(p.sku)+(p.codigo?' · Cód: '+esc(p.codigo):'')+(p.marca?' · '+esc(p.marca):'')+'</div>'+
+      '<div class="pmeta">Bodega principal: <b>'+st+'</b>'+((p.subs_bp||p.sub_default)?' · 📍 '+esc(p.subs_bp||p.sub_default):'')+'</div></div>');
+    var qi=document.getElementById('mc-hfab-q');if(qi)qi.style.display='none';}
+  return {sync:sync,toggle:toggle,go:go,q:q,ver:ver,cerrar:cerrar};
+})();
+
 function openMod(m){
+  try{var _hf=document.getElementById('mc-hfab');if(_hf){_hf.style.display='none';MCFab.toggle(false);}}catch(e){}
   if(window._mcHomeEdit){window._mcHomeEdit=false;var _h=document.getElementById('home');if(_h)_h.classList.remove('home-edit');var _b=document.getElementById('editVistaBtn');if(_b)_b.textContent='✏️ Editar vista';var _r=document.getElementById('resetVistaBtn');if(_r)_r.style.display='none';}
   document.getElementById('home').style.display='none';
   var _eb=document.getElementById('home-edit-bar');if(_eb)_eb.style.display='none';
@@ -10927,6 +10998,7 @@ function goHome(){
   mcShowNotifBarIfHome();
   document.getElementById('backBtn').style.display='none';
   document.getElementById('title').textContent='';
+  try{MCFab.sync();}catch(e){}
 }
 
 /* ===================== LOGIN ===================== */
