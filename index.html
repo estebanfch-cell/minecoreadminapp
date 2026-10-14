@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='253';
+  var MC_BUILD='254';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2268,6 +2268,50 @@ function MCOvPdf(kind,cur){
     return doc.output('blob');});
 }
 
+/* b254: Cobranza — Cartera desde Supabase (solo lectura). Resumen por antigüedad, clientes ordenables, facturas, estado de cuenta en un toque. */
+var CxcSb=(function(){
+  var d=null,ord='vencido',solo=false,qc='',qv='',abierto={},busy=false;
+  var AG=[['por_vencer','Por vencer','#6fd68f'],['d1_30','1–30','#f0c040'],['d31_60','31–60','#f59e42'],['d61_90','61–90','#e07a5c'],['d90','+90','#e05c5c']];
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function money(n){var x=parseFloat(n)||0;return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function el(){return document.getElementById('cxc-sb');}
+  function chipA(a,v){return '<span class="chip" style="border-color:'+a[2]+';color:'+a[2]+';white-space:nowrap">'+a[1]+' <b>'+money(v)+'</b></span>';}
+  function diasCol(x){return x>90?'#e05c5c':x>60?'#e07a5c':x>30?'#f59e42':x>0?'#f0c040':'#6fd68f';}
+  function cargar(){var e=el();if(!e)return;e.innerHTML='<div class="cbz-loading">Cargando cartera…</div>';
+    MCpost({action:'ventas',op:'cxc_cartera',user:getUserName(),pin:getPin()}).then(function(r){if(!r.ok)throw new Error(r.error);d=r;render();}).catch(function(x){e.innerHTML='<div class="cbz-error">'+esc(typeof MCerr==='function'?MCerr(x):x.message)+'</div>';});}
+  function lista(){var C=(d.clientes||[]).filter(function(c){if(solo&&!(c.vencido>0))return false;if(qc&&c.cliente.toLowerCase().indexOf(qc.toLowerCase())<0&&String(c.ruc).indexOf(qc)<0)return false;if(qv&&!c.vendedores.some(function(v){return v.toLowerCase().indexOf(qv.toLowerCase())>=0;}))return false;return true;});
+    var S={vencido:function(a,b){return b.vencido-a.vencido||b.saldo-a.saldo;},saldo:function(a,b){return b.saldo-a.saldo;},dias:function(a,b){return b.max_dias-a.max_dias;},cliente:function(a,b){return a.cliente.localeCompare(b.cliente);}};return C.sort(S[ord]);}
+  function facturas(c){var F=c.facturas.filter(function(f){return !solo||f.dias>0;}).slice().sort(function(a,b){return b.dias-a.dias;});
+    return '<table class="cx-t"><thead><tr><th>Factura SRI</th><th>OV</th><th>Fecha</th><th class="r">Plazo</th><th>Vence</th><th class="r">Días vencido</th><th class="r">Total</th><th class="r">Retención</th><th class="r">Saldo</th></tr></thead><tbody>'+
+      F.map(function(f){return '<tr><td data-l="Factura"><b>'+esc(f.factura||'—')+'</b></td><td data-l="OV"><a href="#" style="color:#9fc3e8;text-decoration:none" onclick="CxcSb.irOV(\''+f.id+'\');return false;">'+esc(f.ov)+'</a></td><td data-l="Fecha">'+esc(f.fecha)+'</td><td class="r" data-l="Plazo">'+f.plazo+' d</td><td data-l="Vence">'+esc(f.vence)+'</td><td class="r" data-l="Días vencido" style="color:'+diasCol(f.dias)+';font-weight:700">'+(f.dias>0?f.dias:'al día')+'</td><td class="r" data-l="Total">'+money(f.total)+'</td><td class="r" data-l="Retención">'+(f.retencion?money(f.retencion):'—')+'</td><td class="r" data-l="Saldo"><b>'+money(f.saldo)+'</b></td></tr>';}).join('')+'</tbody></table>';}
+  function render(){var e=el();if(!e||!d)return;var T=d.totales,C=lista();
+    var h='<style>.cx-hd{display:flex;gap:6px;flex-wrap:wrap}.cx-t{width:100%;border-collapse:collapse;font-size:12px}.cx-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:5px;border-bottom:1px solid #26405c;white-space:nowrap}.cx-t td{padding:5px;border-bottom:1px solid #1c2a3a}.cx-t .r{text-align:right;white-space:nowrap}'+
+      '.cx-row{display:grid;grid-template-columns:minmax(180px,2fr) repeat(5,minmax(78px,1fr)) minmax(90px,1fr) auto;gap:6px;align-items:center;font-size:12.5px}.cx-row .r{text-align:right;justify-self:end}.cx-h{font-size:11px;color:#8fa3b8}'+
+      '@media(max-width:760px){.cx-row{display:block}.cx-row .cx-n{font-weight:700;font-size:14px}.cx-row .cx-b{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}.cx-row .cx-act{display:flex;gap:6px;flex-wrap:wrap}.cx-hrow{display:none}.cx-t thead{display:none}.cx-t tr{display:block;border-bottom:1px solid #26405c;padding:5px 0}.cx-t td{display:flex;justify-content:space-between;gap:8px;border:0;padding:2px}.cx-t td::before{content:attr(data-l);color:#8fa3b8;font-size:11px}}@media(min-width:761px){.cx-b{display:contents}.cx-act{display:flex;gap:6px;justify-content:flex-end}.cx-m{display:none}}</style>';
+    h+='<div class="cbz-card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><div><div class="cbz-muted" style="font-size:11px">Cartera total al '+esc(d.hoy)+' · '+T.facturas+' facturas</div><div style="font-size:22px;font-weight:800">'+money(T.saldo)+'</div></div><div style="text-align:right"><div class="cbz-muted" style="font-size:11px">Vencido</div><div style="font-size:18px;font-weight:800;color:#e05c5c">'+money(T.vencido)+'</div></div></div>'+
+      '<div class="cx-hd" style="margin-top:8px">'+AG.map(function(a){return chipA(a,T[a[0]]);}).join('')+'</div></div>';
+    h+='<div class="cbz-card"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input class="uinput" placeholder="Cliente o RUC" value="'+esc(qc)+'" style="flex:2 1 160px" oninput="CxcSb.set(\'qc\',this.value)"><input class="uinput" placeholder="Vendedor" value="'+esc(qv)+'" style="flex:1 1 110px" oninput="CxcSb.set(\'qv\',this.value)">'+
+      '<select class="uinput" style="flex:1 1 140px" onchange="CxcSb.set(\'ord\',this.value)">'+[['vencido','Más vencido'],['saldo','Mayor saldo'],['dias','Más días vencido'],['cliente','Cliente A→Z']].map(function(o){return '<option value="'+o[0]+'"'+(ord===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'+
+      '<label class="chip" style="cursor:pointer;'+(solo?'background:#5a1f1f;color:#fff':'')+'"><input type="checkbox" style="display:none" '+(solo?'checked':'')+' onchange="CxcSb.set(\'solo\',this.checked)">⚠ Solo vencidos</label><button class="chip" onclick="CxcSb.cargar()">⟳</button></div></div>';
+    h+='<div class="cbz-card"><div class="cx-row cx-hrow cx-h" style="padding-bottom:6px;border-bottom:1px solid #26405c"><span>Cliente</span>'+AG.map(function(a){return '<span class="r" style="color:'+a[2]+'">'+a[1]+'</span>';}).join('')+'<span class="r">Saldo</span><span></span></div>'+
+      (C.map(function(c,i){var k=c.customer_id,op=abierto[k];
+        return '<div style="border-bottom:1px solid #1c2a3a;padding:8px 0"><div class="cx-row"><div class="cx-n" style="cursor:pointer" onclick="CxcSb.tog(\''+k+'\')">'+(op?'▾ ':'▸ ')+esc(c.cliente)+'<div class="cbz-muted" style="font-size:11px;font-weight:400">'+esc(c.ruc)+' · '+c.facturas.length+' fact.'+(c.max_dias>0?' · <span style="color:'+diasCol(c.max_dias)+'">'+c.max_dias+' días máx.</span>':'')+(c.vendedores.length?' · '+esc(c.vendedores.join(', ')):'')+'</div></div>'+
+          '<div class="cx-b">'+AG.map(function(a){var v=c[a[0]];return '<span class="r" style="color:'+(v?a[2]:'#4a5a6a')+'"><span class="cx-m">'+(v?a[1]+' ':'')+'</span>'+(v?money(v):'<span class="cx-d">—</span>')+'</span>';}).join('').replace(/<span class="r" style="color:#4a5a6a"><span class="cx-m"><\/span><span class="cx-d">—<\/span><\/span>/g,function(m){return window.innerWidth>760?m:'';})+'</div>'+
+          '<b class="r" style="font-size:13.5px"><span class="cx-m cbz-muted" style="font-weight:400;font-size:11px">Saldo </span>'+money(c.saldo)+'</b>'+
+          '<div class="cx-act" style="margin-top:4px"><button class="chip" onclick="CxcSb.tog(\''+k+'\')">🧾 Facturas</button><button class="cbz-btn" onclick="CxcSb.ec(\''+k+'\',this)">⬇️ Estado de cuenta</button></div></div>'+
+          (op?'<div style="margin-top:8px;overflow-x:auto">'+facturas(c)+'</div>':'')+'</div>';}).join('')||'<div class="cbz-muted" style="padding:10px">Sin clientes con estos filtros.</div>')+'</div>';
+    e.innerHTML=h;}
+  var tmr=null;
+  function set(k,v){if(k==='qc')qc=v;else if(k==='qv')qv=v;else if(k==='ord')ord=v;else if(k==='solo')solo=!!v;clearTimeout(tmr);tmr=setTimeout(render,k==='qc'||k==='qv'?250:0);}
+  function tog(k){abierto[k]=!abierto[k];render();}
+  function ec(k,btn){var c=(d.clientes||[]).filter(function(x){return x.customer_id===k;})[0];if(!c||busy)return;busy=true;var lbl=btn.textContent;btn.disabled=true;btn.textContent='Generando…';var tab=mcArmPdfTab();
+    api0({action:'getStatementPdf',cliente:c.cliente}).then(function(res){busy=false;btn.disabled=false;btn.textContent=lbl;if(!res.ok){mcClosePdfTab_(tab);alert('Error: '+res.error);return;}
+      return mcDownloadBlob(res.b64,res.filename||('Estado_de_cuenta_'+String(c.cliente).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf'),'application/pdf',tab);}).catch(function(e){busy=false;btn.disabled=false;btn.textContent=lbl;mcClosePdfTab_(tab);alert(typeof MCerr==='function'?MCerr(e):e);});}
+  function api0(p){p.user=getUserName();p.pin=getPin();return MCpost(p);}
+  function irOV(id){try{openMod('vov');setTimeout(function(){Ventas.abrir(id);},300);}catch(e){}}
+  return {cargar:cargar,set:set,tog:tog,ec:ec,irOV:irOV,render:render};
+})();
+
 var Cobranza = (function () {
   function puedeInteractuar(){
     var p=getProfile();var ms=p.modulos||[];
@@ -2277,7 +2321,7 @@ var Cobranza = (function () {
   var expanded = {};
   var chooser = null;
   var waTemplate = '';
-  var vista = 'dash';      // 'dash' | 'config'
+  var vista = 'cartera'; // b254: 'cartera' (Supabase) | 'dash' (recordatorios) | 'config'      // 'dash' | 'config'
   var actaOpen = null;     // idx con formulario de acta abierto
   var q = '';              // texto de búsqueda
   var fMora = 'todos';     // todos | mora | aldia
@@ -2321,12 +2365,13 @@ var Cobranza = (function () {
   /** Render de página: arma la cáscara (KPIs + buscador) una vez y la lista aparte */
   function render() {
     var el = document.getElementById('cobranza-screen');
+    if (vista === 'cartera') { el.innerHTML = '<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">'+[['cartera','📊 Cartera y vencidos'],['dash','🔔 Recordatorios'],['config','⚙️ Configuración']].map(function(t){return '<button class="chip" style="'+(vista===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Cobranza.setVista(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>'+'<div id="cxc-sb"></div>'; CxcSb.cargar(); return; }
     var totalVencido = clientes.reduce(function (s, c) { return s + c.vencido; }, 0);
     var totalPorVencer = clientes.reduce(function (s, c) { return s + c.porVencer; }, 0);
     var enMora = clientes.filter(function (c) { return c.vencido > 0; }).length;
     var alDia = clientes.length - enMora;
     var activos = clientes.filter(function (c) { return c.activo; }).length;
-    var h = '';
+    var h = '<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">'+[['cartera','📊 Cartera y vencidos'],['dash','🔔 Recordatorios'],['config','⚙️ Configuración']].map(function(t){return '<button class="chip" style="'+(vista===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Cobranza.setVista(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
     if (vista === 'dash') {
       h += '<div class="cbz-card-row" style="justify-content:space-between">'+
         '<h2 style="margin:0">Cartera</h2>'+
