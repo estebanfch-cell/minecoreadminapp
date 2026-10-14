@@ -367,6 +367,16 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
 .dx-im{width:40px;height:40px;object-fit:contain;background:#fff;border-radius:6px;flex:none}.dx-ph{display:flex;align-items:center;justify-content:center;background:#1c2a3a}
 .dx-mid{flex:1;min-width:0}.dx-nm{font-size:12.5px;font-weight:600}.dx-v{white-space:nowrap}
 .dx-det{background:#0f1722;border:1px solid #223142;border-radius:8px;padding:6px 10px;margin:4px 0 8px}.dx-kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0}.dx-kv span{color:#9fb0c3}
+.dz-exp{font-size:12px;color:#9fb0c3;line-height:1.45;margin:2px 0 10px}
+.dz-row{display:block;width:100%;background:none;border:none;border-bottom:1px solid #1c2a3a;padding:12px 2px;color:#e8eef6;text-align:left;cursor:pointer;font:inherit}
+.dz-in{padding:12px 0 12px 4px}.dz-sub{margin:0 0 6px 10px;border-left:2px solid #223142;padding-left:10px}
+.dz-nm{font-size:13.5px;font-weight:700;line-height:1.35;white-space:normal;word-break:break-word;flex:1;min-width:0}.dz-ar{color:#8fa3b8;font-weight:400}
+.dz-n{color:#E8FF00;font-weight:800;margin-right:8px}.dz-cl{font-size:11.5px;font-weight:800;border:1px solid;border-radius:999px;padding:2px 9px;margin-right:6px}
+.dz-top{display:flex;gap:10px;align-items:flex-start}
+.dz-g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 14px;margin-top:8px;font-size:11px;color:#8fa3b8}.dz-g b{display:block;color:#e8eef6;font-size:14px;margin-top:1px;white-space:nowrap}
+.dz-bar{height:6px;background:#1c2a3a;border-radius:3px;margin-top:8px;overflow:hidden}.dz-bar i{display:block;height:100%;border-radius:3px}
+.dz-kv{margin-top:8px;padding-top:4px;border-top:1px solid #1c2a3a}
+@media (max-width:600px){.dz-g{grid-template-columns:1fr 1fr}.dz-sub{margin-left:0;padding-left:8px}}
 .dx-tg{margin-bottom:6px}
 @media (max-width:600px){.dx-k3{grid-template-columns:1fr}.dx-row{flex-wrap:wrap}.dx-row .dx-mid{flex-basis:calc(100% - 52px)}.dx-row .dx-v{margin-left:50px}}
 </style>
@@ -408,7 +418,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='264';
+  var MC_BUILD='265';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -3010,8 +3020,20 @@ var MCDashX=(function(){var R=null,X=null,rk='facturacion',ab={},vt='';
     var A=P.abc,pa=P.pareto||[],W=Math.max(320,pa.length*16),Hh=130,mx=1;pa.forEach(function(x){mx=Math.max(mx,x.utilidad);});
     var g='';pa.forEach(function(x,i){var bh=Math.max(0,x.utilidad)/mx*(Hh-26);g+='<rect x="'+(4+i*16)+'" y="'+(Hh-14-bh).toFixed(1)+'" width="12" height="'+Math.max(1,bh).toFixed(1)+'" fill="'+LIME+'" rx="2"><title>'+e(x.sku)+': '+f$(x.utilidad)+' · acumulado '+x.acumPct+'%</title></rect>';});
     var ln=pa.map(function(x,i){return (10+i*16)+','+(Hh-14-x.acumPct/100*(Hh-26)).toFixed(1);}).join(' ');
-    h+=card('Aporte al margen total','<div class="dx-k3">'+['A','B','C'].map(function(k){return '<button class="dx-k" onclick="MCDashX.tog(\'abc'+k+'\')"><span>Clase '+k+(k==='A'?' (80% venta)':k==='B'?' (siguiente 15%)':' (último 5%)')+'</span><b>'+A[k].n+' prod.</b><em>'+f$(A[k].utilidad)+' margen</em></button>';}).join('')+'</div>'+
-      ['A','B','C'].map(function(k){if(!ab['abc'+k])return '';var it=(P.ranks.facturacion||[]).filter(function(x){return x.abc===k;});return '<div class="dx-det">'+kv('Venta',f$(A[k].venta))+kv('Margen',f$(A[k].utilidad))+(it.length?it.map(function(x){return kv(e(x.nombre).slice(0,48),pc(x.partMargenPct)+' del margen');}).join(''):'<div class="dv-ax">Fuera del top 20 por facturación</div>')+'</div>';}).join('')+
+    /* b265: Aporte al margen rediseñado: nombre completo a ancho completo, cifras en grilla, barras de proporción, filas tocables */
+    var CL={A:LIME,B:AZUL,C:AMAR},UT=P.totalUtilidad||0,VT=P.totalVenta||0;
+    h+=card('Aporte al margen total','<div class="dz-exp">Clases por facturación sin IVA del período: <b style="color:'+LIME+'">A</b> = los productos que juntos suman el primer ~80% de la venta · <b style="color:'+AZUL+'">B</b> = el siguiente 15% · <b style="color:'+AMAR+'">C</b> = el último 5%. Toca una clase para ver sus productos.</div>'+
+      ['A','B','C'].map(function(k){var a=A[k],pm=UT?Math.round(a.utilidad/UT*1000)/10:0,pv=VT?Math.round(a.venta/VT*1000)/10:0,on=ab['abc'+k];
+        var it=(P.ranks.facturacion||[]).filter(function(x){return x.abc===k;}),mxp=1;it.forEach(function(x){mxp=Math.max(mxp,x.partMargenPct||0);});
+        return '<button class="dz-row" onclick="MCDashX.tog(\'abc'+k+'\')"><div class="dz-nm"><span class="dz-cl" style="color:'+CL[k]+';border-color:'+CL[k]+'">Clase '+k+'</span> '+a.n+' productos <span class="dz-ar">'+(on?'▾':'▸')+'</span></div>'+
+          '<div class="dz-g"><span>Venta<b>'+f$(a.venta)+'</b></span><span>% de la venta<b>'+pv+'%</b></span><span>Margen $<b>'+f$(a.utilidad)+'</b></span><span>% del margen<b>'+pm+'%</b></span></div>'+
+          '<div class="dz-bar"><i style="width:'+Math.max(0,Math.min(100,pm))+'%;background:'+CL[k]+'"></i></div></button>'+
+          (on?'<div class="dz-sub">'+(it.length?it.map(function(x,i){var kk='abc'+k+i,o2=ab[kk];return '<button class="dz-row dz-in" onclick="MCDashX.tog(\''+kk+'\')"><div class="dz-top">'+img(x.img)+'<div class="dz-nm">'+e(x.nombre)+'<div class="dv-ax">'+e(x.sku)+'</div></div></div>'+
+            '<div class="dz-g"><span>Venta<b>'+f$(x.subtotal)+'</b></span><span>Margen $<b>'+f$(x.utilidad)+'</b></span><span>% del margen<b>'+pc(x.partMargenPct)+'</b></span><span>Margen %<b>'+pc(x.margenPct)+'</b></span></div>'+
+            '<div class="dz-bar"><i style="width:'+Math.max(0,(x.partMargenPct||0)/mxp*100)+'%;background:'+CL[k]+'"></i></div>'+
+            (o2?'<div class="dz-kv">'+kv('Cantidad',x.cantidad)+kv('Aporte a la venta',pc(x.partVentaPct))+kv('Aporte al margen total',pc(x.partMargenPct))+'</div>':'')+'</button>';}).join('')+
+            (it.length<a.n?'<div class="dv-ax" style="padding:6px 0">Se listan los de esta clase que están en el top 20 por facturación ('+it.length+' de '+a.n+').</div>':''):'<div class="dv-ax" style="padding:6px 0">Ninguno de esta clase está en el top 20 por facturación ('+a.n+' productos en la clase).</div>')+'</div>':'');}).join('')+
+      '<div class="dz-exp" style="margin-top:12px">Pareto: barras = margen $ de cada producto (de mayor a menor) · línea = % acumulado del margen.</div>'+
       '<div class="dv-scroll"><svg width="'+W+'" height="'+Hh+'">'+g+'<polyline fill="none" stroke="'+AZUL+'" stroke-width="2" points="'+ln+'"/></svg></div><div class="dv-leg"><span><i style="background:'+LIME+'"></i>Margen $ por producto</span><span><i style="background:'+AZUL+';height:2px"></i>% acumulado (Pareto)</span></div>',f$(P.totalUtilidad)+' de margen');
     // Tendencia de margen
     h+=card('Tendencia del margen %',linea(H,'margenPct',VERDE),R.historia.gran==='dia'?'por día':R.historia.gran==='semana'?'por semana':R.historia.gran==='mes'?'por mes':'por año');
@@ -3019,11 +3041,17 @@ var MCDashX=(function(){var R=null,X=null,rk='facturacion',ab={},vt='';
     var HV=H.slice(-24);
     h+=card('Ventas vs compras',bars(HV,['facturado','compras'],[LIME,AZUL])+'<div class="dv-leg"><span><i style="background:'+LIME+'"></i>Facturado sin IVA</span><span><i style="background:'+AZUL+'"></i>Compras (OC, sin IVA)</span></div>'+
       '<div class="dx-k3" style="margin-top:6px"><div class="dx-k"><span>Compras del período</span><b>'+f$(X.proveedores.total)+'</b>'+vs(X.proveedores.total,X.proveedores.anterior)+'</div><div class="dx-k"><span>Ventas del período</span><b>'+f$(R.facturado.actual.subtotal)+'</b></div><div class="dx-k"><span>Ventas − compras</span><b>'+f$(R.facturado.actual.subtotal-X.proveedores.total)+'</b></div></div>');
-    // Top clientes
-    h+=card('Top clientes',(X.clientes.length?X.clientes.map(function(x,i){var k='c'+i;return '<button class="dx-row" onclick="MCDashX.tog(\''+k+'\')"><div class="dx-mid"><div class="dx-nm">'+e(x.cliente)+'</div><div class="dv-ax">'+pc(x.participacionPct)+' de la venta · margen '+pc(x.margenPct)+'</div></div><b class="dx-v">'+f$(x.subtotal)+'</b></button>'+
-      (ab[k]?'<div class="dx-det">'+kv('Facturas',x.facturas)+kv('Margen $',f$(x.utilidad))+kv('Margen %',pc(x.margenPct))+'</div>':'');}).join(''):'<div class="dv-muted">Sin ventas en el período</div>'));
-    // Top proveedores
-    h+=card('Top proveedores',(X.proveedores.items.length?X.proveedores.items.map(function(x){return '<div class="dx-row"><div class="dx-mid"><div class="dx-nm">'+e(x.proveedor)+'</div><div class="dv-ax">'+x.ocs+' OC · '+pc(x.participacionPct)+' de lo comprado</div></div><b class="dx-v">'+f$(x.subtotal)+'</b></div>';}).join(''):'<div class="dv-muted">Sin compras en el período</div>'),'compras del período');
+    // Top clientes / proveedores (b265: nombre completo arriba, cifras en grilla, barra de participación, toque = detalle)
+    var mxc=1;X.clientes.forEach(function(x){mxc=Math.max(mxc,x.participacionPct||0);});
+    h+=card('Top clientes',(X.clientes.length?X.clientes.map(function(x,i){var k='c'+i,o=ab[k];return '<button class="dz-row" onclick="MCDashX.tog(\''+k+'\')"><div class="dz-nm"><span class="dz-n">'+(i+1)+'</span>'+e(x.cliente)+' <span class="dz-ar">'+(o?'▾':'▸')+'</span></div>'+
+      '<div class="dz-g"><span>Venta sin IVA<b>'+f$(x.subtotal)+'</b></span><span>% de la venta<b>'+pc(x.participacionPct)+'</b></span><span>Margen %<b style="color:'+((x.margenPct||0)>=25?VERDE:AMAR)+'">'+pc(x.margenPct)+'</b></span></div>'+
+      '<div class="dz-bar"><i style="width:'+Math.max(0,(x.participacionPct||0)/mxc*100)+'%;background:'+LIME+'"></i></div>'+
+      (o?'<div class="dz-kv">'+kv('Facturas',x.facturas)+kv('Margen $',f$(x.utilidad))+kv('Ticket promedio',x.facturas?f$(x.subtotal/x.facturas):'—')+'</div>':'')+'</button>';}).join(''):'<div class="dv-muted">Sin ventas en el período</div>'));
+    var PV=X.proveedores.items,mxv=1;PV.forEach(function(x){mxv=Math.max(mxv,x.participacionPct||0);});
+    h+=card('Top proveedores',(PV.length?PV.map(function(x,i){var k='v'+i,o=ab[k];return '<button class="dz-row" onclick="MCDashX.tog(\''+k+'\')"><div class="dz-nm"><span class="dz-n">'+(i+1)+'</span>'+e(x.proveedor)+' <span class="dz-ar">'+(o?'▾':'▸')+'</span></div>'+
+      '<div class="dz-g"><span>Comprado sin IVA<b>'+f$(x.subtotal)+'</b></span><span>% de lo comprado<b>'+pc(x.participacionPct)+'</b></span><span>Órdenes de compra<b>'+x.ocs+'</b></span></div>'+
+      '<div class="dz-bar"><i style="width:'+Math.max(0,(x.participacionPct||0)/mxv*100)+'%;background:'+AZUL+'"></i></div>'+
+      (o?'<div class="dz-kv">'+kv('Promedio por OC',x.ocs?f$(x.subtotal/x.ocs):'—')+kv('Total compras del período',f$(X.proveedores.total))+'</div>':'')+'</button>';}).join(''):'<div class="dv-muted">Sin compras en el período</div>'),'compras del período');
     // Inventario
     h+=card('Inventario: rotación y stock bajo','<div class="dx-k3"><div class="dx-k"><span>Rotación anual</span><b>'+(I.rotacion===null?'—':I.rotacion+'×')+'</b><em>costo vendido 12 m '+f$(I.cogs365)+'</em></div>'+
       '<div class="dx-k"><span>Días de inventario</span><b>'+(I.diasInventario===null?'—':I.diasInventario)+'</b><em>valor '+f$(I.valor)+'</em></div>'+
