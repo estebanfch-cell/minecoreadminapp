@@ -463,7 +463,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='298';
+  var MC_BUILD='299';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -8960,11 +8960,14 @@ var Stk=(function(){
   function err(e){busy=false;alert('Error: '+(e&&e.message?e.message:MCerr(e)));}
   var TT={transfer:'🔁 Transferencia',ajuste:'± Ajuste',conteo:'📋 Conteo'};
   var SYNC={synced:'✔ inFlow',pendiente:'⏳ en cola',error:'⚠ error',local:'solo Minecore'};
-  function tabs(){return '<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">'+[['','Todos'],['transfer','🔁 Transferencias'],['ajuste','± Ajustes'],['conteo','📋 Conteos']].map(function(t){return '<button class="chip'+(tipo===t[0]?' on':'')+'" style="'+(tipo===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Stk.setTipo(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';}
+  /* b299: navegación como inFlow — cada tipo es su propia pantalla (Stock transfers / Stock adjustments / Conteos); sin hub con pestañas */
+  var TIT={transfer:'STOCK TRANSFERS',ajuste:'STOCK ADJUSTMENTS',conteo:'CONTEOS DE STOCK'},NV={transfer:['🔁 Nueva transferencia','transfer'],ajuste:['± Nuevo ajuste','ajuste'],conteo:['📋 Nuevo conteo','conteo']};
+  function tabs(){return '';}
+  function tabs0(){return '<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">'+[['','Todos'],['transfer','🔁 Transferencias'],['ajuste','± Ajustes'],['conteo','📋 Conteos']].map(function(t){return '<button class="chip'+(tipo===t[0]?' on':'')+'" style="'+(tipo===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Stk.setTipo(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';}
   function ensure(cb){if(cat)return cb();api({op:'stk_reasons'}).then(function(r){if(!r.ok)throw new Error(r.error);cat=r;cb();}).catch(err);}
   function locSel(id,sel){return '<select class="uinput" id="'+id+'" style="width:100%">'+cat.bodegas.map(function(b){return '<option value="'+b.id+'"'+((sel?b.id===sel:/principal/i.test(b.name))?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')+'</select>';}
-  function init(){cur=null;form=null;cargar();}
-  function setTipo(t){tipo=t;init();}
+  function init(){if(!tipo)tipo='transfer';cur=null;form=null;cargar();}
+  function setTipo(t){tipo=t||'transfer';try{document.getElementById('title').textContent=TIT[tipo];}catch(e){}init();}
   /* b298 hotfix: lista completa (Minecore + historial inFlow), filtro de estado y búsqueda recordados por usuario */
   var SF=(function(){try{return JSON.parse(localStorage.getItem('mc_lst_filt_STK')||'null')||{estado:'',q:''};}catch(e){return {estado:'',q:''};}})(),sTmr=null;
   function sfSave(){try{localStorage.setItem('mc_lst_filt_STK',JSON.stringify(SF));}catch(e){}}
@@ -8973,7 +8976,7 @@ var Stk=(function(){
   function barra(){return '<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><input class="uinput" id="stk-q" style="flex:1;min-width:160px" placeholder="Buscar número, cliente, bodega o nota…" value="'+esc(SF.q||'')+'" oninput="Stk.buscarL(this.value)">'+
     '<select class="uinput" style="width:200px" onchange="Stk.setEst(this.value)">'+[['','Todos (sin cancelados)'],['completado','Completados'],['aplicado','Aplicados'],['en_transito','En tránsito'],['borrador','Borradores / abiertos'],['cancelado','Cancelados'],['todos','Todos (con cancelados)']].map(function(o){return '<option value="'+o[0]+'"'+((SF.estado||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>';}
   function cargar(){var fo=document.activeElement&&document.activeElement.id==='stk-q';if(!document.getElementById('stk-q'))el().innerHTML=tabs()+barra()+'<div class="cbz-loading">Cargando…</div>';api({op:'stk_list',tipo:tipo||undefined,estado:SF.estado||undefined,q:SF.q||undefined}).then(function(r){if(!r.ok)throw new Error(r.error);lista=r.docs;
-    var h=tabs()+barra()+'<div class="cbz-muted" style="font-size:12px;margin:-2px 0 6px">'+lista.length+' movimiento'+(lista.length===1?'':'s')+'</div><div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="cbz-btn" onclick="Stk.nuevo(\'transfer\')">🔁 Nueva transferencia</button><button class="cbz-btn" onclick="Stk.nuevo(\'ajuste\')">± Nuevo ajuste</button><button class="cbz-btn" onclick="Stk.nuevo(\'conteo\')">📋 Nuevo conteo</button></div>';
+    var h=tabs()+barra()+'<div class="cbz-muted" style="font-size:12px;margin:-2px 0 6px">'+lista.length+' '+({transfer:'transferencia',ajuste:'ajuste',conteo:'conteo'}[tipo])+(lista.length===1?'':'s')+'</div><div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px"><button class="cbz-btn" onclick="Stk.nuevo(\''+NV[tipo][1]+'\')">'+NV[tipo][0]+'</button></div>';
     /* b273: lista movimientos — desktop tabla; móvil tarjetas */
     var chS=function(d){if(d.tipo==='conteo')return '';if(d.origen==='inflow')return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap;color:#8fa3b8">historial inFlow</span>';var e=d.sync_status==='error';return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap'+(e?';color:#e05c5c;border-color:#e05c5c':'')+'">'+(e?'Error inFlow':(SYNC[d.sync_status]||esc(d.sync_status||'')))+'</span>';};
     var chE=function(d){var c={aplicado:'#6fd68f',completado:'#6fd68f',borrador:'#f0c040',cancelado:'#e05c5c',en_transito:'#5cc8ff'}[d.estado]||'#9fc3e8';return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap;color:'+c+';border-color:'+c+'">'+esc(d.estado)+'</span>';};
@@ -8986,7 +8989,7 @@ var Stk=(function(){
     el().innerHTML=h;if(fo){var qq=document.getElementById('stk-q');if(qq){qq.focus();try{qq.setSelectionRange(qq.value.length,qq.value.length);}catch(e){}}}}).catch(function(e){el().innerHTML=tabs()+barra()+'<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
   function abrir(id){el().innerHTML='<div class="cbz-loading">Cargando…</div>';ensure(function(){api({op:'stk_get',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);cur=r;renderDet();}).catch(err);});}
   function renderDet(){var d=cur.doc,cont=d.tipo==='conteo'&&d.estado==='borrador';
-    var h='<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Stk.init()">← Movimientos</button>'+(d.solo_inflow?'<span class="chip" style="color:#8fa3b8">Historial de inFlow · solo lectura</span>':'')+(!d.solo_inflow&&d.estado!=='cancelado'&&!(d.tipo==='conteo'&&d.estado!=='borrador')?'<button class="chip" style="color:#e05c5c" onclick="Stk.cancelar()">✕ Cancelar</button>':'')+'</div>';
+    var h='<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Stk.init()">← '+({transfer:'Stock transfers',ajuste:'Stock adjustments',conteo:'Conteos'}[tipo]||'Volver')+'</button>'+(d.solo_inflow?'<span class="chip" style="color:#8fa3b8">Historial de inFlow · solo lectura</span>':'')+(!d.solo_inflow&&d.estado!=='cancelado'&&!(d.tipo==='conteo'&&d.estado!=='borrador')?'<button class="chip" style="color:#e05c5c" onclick="Stk.cancelar()">✕ Cancelar</button>':'')+'</div>';
     h+='<div class="cbz-card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap"><div class="cbz-card-name">'+esc(d.number)+'</div><b>'+TT[d.tipo]+' · '+esc(d.estado==='en_transito'?'en tránsito':d.estado)+'</b></div><div class="cbz-muted" style="font-size:12px">'+esc(d.bodega||'')+(d.destino&&d.destino!==d.bodega?' → '+esc(d.destino):'')+(d.remarks?' · '+esc(d.remarks):'')+'</div>'+
       (d.tipo!=='conteo'?'<div class="cbz-muted" style="font-size:11px">inFlow: '+(SYNC[d.sync_status]||esc(d.sync_status||''))+(d.sync_error?' · '+esc(d.sync_error):'')+'</div>':'')+(d.ajuste_id?'<button class="chip" style="margin-top:4px" onclick="Stk.abrir(\''+d.ajuste_id+'\')">Ver ajuste generado</button>':'')+
       (d.tipo==='transfer'?'<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(d.cliente?'<span style="font-size:12.5px">📄 '+esc(d.tipo_documento||'Acta de entrega-recepción')+' · <b>'+esc(d.cliente)+'</b>'+(d.ruc?' · RUC '+esc(d.ruc):'')+'</span>':'')+'<button class="chip" onclick="Stk.actaPdf()">📄 '+(d.cliente?'Acta PDF':'PDF transferencia')+'</button>'+(d.estado==='en_transito'&&!d.solo_inflow?'<button class="cbz-btn" style="padding:6px 12px" onclick="Stk.recibir()">📥 Recibir en '+esc(d.destino||'destino')+'</button>':'')+'</div>'+(d.estado==='en_transito'?'<div class="cbz-muted" style="font-size:11.5px;margin-top:4px">🚚 En tránsito: ya salió de '+esc(d.bodega||'origen')+'; se suma a '+esc(d.destino||'destino')+' al recibir. Puedes corregir «Hacia sub.» abajo antes de recibir.</div>':''):'')+'</div>';
@@ -9030,7 +9033,7 @@ var Stk=(function(){
     busy=true;api({op:'stk_count_save',id:cur.doc.id,lineas:ls,asignado:cur.doc.asignado_a||''}).then(function(r){if(!r.ok)throw new Error(r.error);return fin?api({op:'stk_count_complete',id:cur.doc.id}):r;}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);if(fin&&r.nota)alert(r.nota);abrir(cur.doc.id);}).catch(err);}
   function cancelar(){if(busy||!confirm('¿Cancelar '+cur.doc.number+'? El stock vuelve a como estaba.'))return;busy=true;api({op:'stk_cancel',id:cur.doc.id}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);abrir(cur.doc.id);}).catch(err);}
   /* ---------- nuevo ---------- */
-  function nuevo(t){ensure(function(){form={tipo:t,lineas:[]};if(t==='transfer'){stCargaClis();api({op:'productoUbicaciones',sku:'__warm__',lite:1}).catch(function(){});}renderForm();});}
+  function nuevo(t){tipo=t;try{document.getElementById('title').textContent=TIT[t];}catch(e){}ensure(function(){form={tipo:t,lineas:[]};if(t==='transfer'){stCargaClis();api({op:'productoUbicaciones',sku:'__warm__',lite:1}).catch(function(){});}renderForm();});}
   function leer(){form.lineas.forEach(function(l,i){var g=function(k){var x=$('sf-'+k+i);return x?x.value:undefined;};var q=g('q');if(q!==undefined)l.quantity=q;var a=g('a');if(a!==undefined)l.from_sub=a;var b=g('b');if(b!==undefined)l.to_sub=b;});
     ['loc','to','rs','rem','pre','cli','asg'].forEach(function(k){var x=$('sf-'+k);if(x)form[k]=x.value;});}
   /* b294 t431u: transferencia como «Acta de entrega-recepción» (cliente opcional, disclaimer, sub. de consignación, fotos, PDF) */
@@ -11523,7 +11526,8 @@ function renderHome(){
   if(p.rol!=='cliente'&&can('inventario')) add('inv','📦','Inventario','Stock por producto, agotados y valorización');
   if(p.rol==='admin') add('bots','🤖','Bots','Chats y buzón de los bots de Minecore (solo admin)');
   if(p.rol!=='cliente'&&(can('dashboard')||p.rol==='admin')) add('rep','📋','Reportes con fecha de corte','Ventas, compras, CxC, CxP e inventario valorizado · CSV y PDF');
-  if(p.rol!=='cliente'&&can('inventario')) add('stk','🔁','Movimientos de stock','Transferencias, ajustes y conteos (Minecore → inFlow)');
+  if(p.rol!=='cliente'&&(can('inventario')||can('transfers'))) add('transf','🔁','Stock transfers','Transferencias entre bodegas y actas de entrega-recepción');
+  if(p.rol!=='cliente'&&can('inventario')) add('ajustes','±','Stock adjustments','Ajustes de inventario con motivo');
   /* b271: módulo Precotizaciones retirado (las solicitudes de clientes llegan como cotizaciones en Cotizaciones y se envían solas a inFlow) */
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard'))) add('vcot','🧾','Cotizaciones','Crear, editar, convertir en OV, dividir y PDF');
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard'))) add('vov','📑','Órdenes de venta','Preparar orden, pack, ship, factura, pagos y adjuntos');
@@ -11735,8 +11739,8 @@ function openMod(m){
   if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
   if(m==='bots'){document.getElementById('bots-screen').style.display='block';document.getElementById('title').textContent='BOTS';Bots.init();}
   if(m==='rep'){document.getElementById('rep-screen').style.display='block';document.getElementById('title').textContent='REPORTES';MCRep2.init(window.MC_REP_CAT||null);window.MC_REP_CAT=null;}
-  if(m==='stk'){document.getElementById('stk-screen','rep-screen').style.display='block';document.getElementById('title').textContent='MOVIMIENTOS DE STOCK';Stk.init();}
-  if(m==='transf'){m='stk';document.getElementById('stk-screen').style.display='block';document.getElementById('title').textContent='MOVIMIENTOS DE STOCK';Stk.setTipo('transfer');} /* b273: Stock Transfers viejo (escribía directo a inFlow) retirado */
+  if(m==='stk'){document.getElementById('stk-screen').style.display='block';Stk.setTipo('transfer');}
+  if(m==='transf'||m==='ajustes'||m==='conteos'){var tt={transf:'transfer',ajustes:'ajuste',conteos:'conteo'}[m];m='stk';document.getElementById('stk-screen').style.display='block';Stk.setTipo(tt);} /* b299: pantallas propias como inFlow */ /* b273: Stock Transfers viejo (escribía directo a inFlow) retirado */
   if(m==='caja'){
     var cs=document.getElementById('caja-screen');
     cs.style.display='flex';cs.classList.add('on');
@@ -11788,9 +11792,9 @@ function MC_NAVCAT(){
       ['👤','Cliente','cli',A,function(){openMod('vcli');af(function(){MCCli.nuevo();});},'ADMIN'],
       ['🏭','Orden de manufactura','mo',A,function(){openMod('vmanuf');af(function(){Manuf.nueva();});},'ADMIN'],
       ['📦','Producto','prod',A,function(){openMod('vprod');af(function(){MCProd.nuevo();});},'ADMIN'],
-      ['🔁','Transferencia','tr',A,function(){openMod('stk');af(function(){Stk.nuevo('transfer');});},'ADMIN'],
-      ['±','Ajuste','aj',A,function(){openMod('stk');af(function(){Stk.nuevo('ajuste');});},'ADMIN'],
-      ['📋','Conteo','co',A,function(){openMod('stk');af(function(){Stk.nuevo('conteo');});},'ADMIN'],
+      ['🔁','Transferencia','tr',A,function(){openMod('transf');af(function(){Stk.nuevo('transfer');});},'ADMIN'],
+      ['±','Ajuste','aj',A,function(){openMod('ajustes');af(function(){Stk.nuevo('ajuste');});},'ADMIN'],
+      ['📋','Conteo','co',A,function(){openMod('conteos');af(function(){Stk.nuevo('conteo');});},'ADMIN'],
       ['🛒','Orden de compra','oc',A,function(){oc(null,function(){Compras.nueva();});},'ADMIN'],
       ['🗒','Cotización de compra','pq',A,function(){oc(null,function(){Compras.nueva(true);});},'ADMIN'],
       ['🏭','Proveedor','prov',A,function(){openMod('prov');af(function(){MCVnd.nuevo();});},'ADMIN']]},
@@ -11807,9 +11811,9 @@ function MC_NAVCAT(){
       ['📦','Productos','prod',I,function(){openMod('vprod');},'inventario'],
       ['🔔','Reorden','reorden',I,function(){base('reorden');},'inventario'],
       ['📊','Stock actual','stock',I,function(){openMod('inv');},'inventario'],
-      ['🔁','Transferencias','tr',function(H){return I(H)||H.can('transfers');},function(){openMod('stk');af(function(){Stk.setTipo('transfer');});},'transfers'],
-      ['±','Ajustes','aj',I,function(){openMod('stk');af(function(){Stk.setTipo('ajuste');});},'inventario'],
-      ['📋','Conteos','co',I,function(){openMod('stk');af(function(){Stk.setTipo('conteo');});},'inventario']]},
+      ['📋','Conteos','co',I,function(){openMod('conteos');},'inventario']]},
+    {k:'trf',ico:'swap',t:'Stock transfers',col:'#1e6fd9',directo:1,legacy:'inv.tr',items:[['🔁','Stock transfers','tr',function(H){return I(H)||H.can('transfers');},function(){openMod('transf');},'transfers']]},
+    {k:'aju',ico:'adjust',t:'Stock adjustments',col:'#1e6fd9',directo:1,legacy:'inv.aj',items:[['±','Stock adjustments','aj',I,function(){openMod('ajustes');},'inventario']]},
     {k:'compras',ico:'clip',t:'Compras',col:'#c46a00',items:[
       ['🛒','Órdenes de compra','oc',PR,function(){oc(false);},'proveedores'],
       ['🗒','Cotizaciones de compra','pq',PR,function(){oc(true);},'proveedores'],
@@ -11844,9 +11848,9 @@ function MCnavMaster(p){p=p||getProfile();return !!p&&p.rol==='admin'&&MC_NAV_MA
 function MCnavH(p){var ms=p.modulos||[];if(typeof ms==='string')ms=ms.split(',').map(function(x){return x.trim();});
   return {adm:p.rol==='admin',ms:ms,can:function(m){return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;}};}
 function MCnavOk(p,g,it){if(!p||p.rol==='cliente')return false;var H=MCnavH(p);if(!it[3](H))return false;
-  if(MCnavMaster(p))return true;return H.ms.indexOf('-'+g.k)<0&&H.ms.indexOf('-'+g.k+'.'+it[2])<0;}
+  if(MCnavMaster(p))return true;return H.ms.indexOf('-'+g.k)<0&&H.ms.indexOf('-'+g.k+'.'+it[2])<0&&!(g.legacy&&H.ms.indexOf('-'+g.legacy)>=0);}
 var MC_NAV_RUTAS={banco:['fin.banco'],vov:['ventas.ov','crear.ov','prep.orden','dash.home'],vcot:['ventas.cot','crear.cot'],vcli:['ventas.cli','crear.cli'],kyc:['ventas.cli','crear.cli','fin.cbz'],liq:['ventas.liq'],
-  vmanuf:['manuf.mo','manuf.ops','crear.mo','rep.manuf'],vprod:['inv.prod','crear.prod'],inv:['inv.stock','inv.prod','crear.prod'],stk:['inv.tr','inv.aj','inv.co','crear.tr','crear.aj','crear.co'],vpick:['prep.orden'],
+  vmanuf:['manuf.mo','manuf.ops','crear.mo','rep.manuf'],vprod:['inv.prod','crear.prod'],inv:['inv.stock','inv.prod','crear.prod'],stk:['inv.tr','inv.aj','inv.co','trf.tr','aju.aj','crear.tr','crear.aj','crear.co'],transf:['trf.tr','inv.tr','crear.tr'],ajustes:['aju.aj','inv.aj','crear.aj'],conteos:['inv.co','crear.co'],vpick:['prep.orden'],
   prov:['compras.oc','compras.pq','compras.prov','crear.oc','crear.pq','crear.prov'],rep:['rep.rec','rep.stock','rep.compras'],hist:['rep.ventas'],dash:['dash.home','rep.quedado'],
   cbz:['fin.cbz','rep.cxc'],consig:['consig.consig','consig.actas','alq.alq'],edc:['fin.edc'],caja:['fin.caja'],wa:['admin.wa'],bots:['admin.bots'],users:['admin.users'],sols:['admin.sols'],mailcfg:['admin.mail']};
 function MCnavRutaOk(m){var p=getProfile();if(!p||p.rol==='cliente'||MCnavMaster(p))return true;var L=MC_NAV_RUTAS[m];if(!L)return true;var ms=p.modulos||[];
@@ -11865,6 +11869,8 @@ var MCNav=(function(){
     gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
     home:'<path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/>',
+    swap:'<path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/>',
+    adjust:'<path d="M6 4v16M12 4v16M18 4v16"/><circle cx="6" cy="9" r="2"/><circle cx="12" cy="15" r="2"/><circle cx="18" cy="8" r="2"/>',
     pbox:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="m8.5 15.5 2 2 4-4"/>'
   };
   function ic(k,sz){return '<svg viewBox="0 0 24 24" width="'+(sz||22)+'" height="'+(sz||22)+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+SV[k]+'</svg>';}
@@ -11875,7 +11881,7 @@ var MCNav=(function(){
   function after(fn){setTimeout(fn,350);}
   function armar(){ /* b276: desde el catálogo único + interruptores por usuario (MCnavOk) */
     var G=MC_NAVCAT().filter(function(g){return !g.solo;}).map(function(g){if(g.sep)return g;
-      return {k:g.k,ico:g.ico,t:g.t,col:g.col,amar:g.amar,items:g.items.filter(function(it){return MCnavOk(P,g,it);}).map(function(it){return [it[0],it[1],it[4]];})};});
+      return {k:g.k,ico:g.ico,t:g.t,col:g.col,amar:g.amar,directo:g.directo,items:g.items.filter(function(it){return MCnavOk(P,g,it);}).map(function(it){return [it[0],it[1],it[4]];})};});
     return G.filter(function(g){return g.sep||g.items.length;});
   }
   function abrirCompras(q,then){openMod('prov');after(function(){Prov.setTab('mc');setTimeout(function(){if(q!==null&&q!==undefined)Compras.filtroQ(q);if(then)then();},300);});}
@@ -11887,7 +11893,7 @@ var MCNav=(function(){
     document.body.classList.add('mc-nav');
     var lg=(document.getElementById('hdrLogo')||{}).src||'';
     var h='<div id="mc-rail"><button class="mr-i mr-logo" title="Dashboard" onclick="MCNav.inicio()">'+(lg?'<img src="'+lg+'" alt="Minecore">':ic('home'))+'</button>';
-    grupos.forEach(function(g,i){h+=g.sep?(i<grupos.length-1?'<div class="mr-sep"></div>':''):'<button class="mr-i'+(g.amar?' mr-plus':'')+'" data-g="'+i+'" title="'+g.t+'" onmouseenter="MCNav.hover('+i+',this)" onclick="MCNav.toggle('+i+',this)">'+ic(g.ico)+'</button>';});
+    grupos.forEach(function(g,i){h+=g.sep?(i<grupos.length-1?'<div class="mr-sep"></div>':''):'<button class="mr-i'+(g.amar?' mr-plus':'')+'" data-g="'+i+'" title="'+g.t+'" '+(g.directo?'onclick="MCNav.go(\''+g.k+'\',0)"':'onmouseenter="MCNav.hover('+i+',this)" onclick="MCNav.toggle('+i+',this)"')+'>'+ic(g.ico)+'</button>';});
     h+='</div><div id="mc-fly" onmouseleave="MCNav.leave()"></div>';
     // móvil: Dashboard, +, Ventas, Inventario, Compras, Más (resto)
     var prin=['crear','prep','ventas','inv'],mas=gs.filter(function(g){return prin.indexOf(g.k)<0;});
