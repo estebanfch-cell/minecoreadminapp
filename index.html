@@ -418,7 +418,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='267';
+  var MC_BUILD='268';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -576,7 +576,7 @@ function MCsbRefresh(){
 }
 function MCsbEligible(c){
   if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
-  return (c.action==='ventas'&&MC_SB_LECT.test(String(c.op||'')))||c.action==='getInventario'||c.action==='team_list';
+  return (c.action==='ventas'&&MC_SB_LECT.test(String(c.op||'')))||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado';
 }
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
@@ -7901,7 +7901,7 @@ var Edc = (function(){
       return;
     }
     el.innerHTML='<div class="cbz-loading">Cargando tu estado de cuenta...</div>';
-    api({action:'getEstadoCuenta'}).then(function(res){
+    MCsbOr({action:'cli_estado'},{action:'getEstadoCuenta'}).then(function(res){ /* b268: Supabase primero, hoja de respaldo */
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       data=res;vistaE='cartera';detalle=null;q='';render();
     }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
