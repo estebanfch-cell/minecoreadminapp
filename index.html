@@ -395,7 +395,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='259';
+  var MC_BUILD='261';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -541,7 +541,7 @@ function MCrefrescarStock(){
    Sesión: token firmado de 15 min que emite AdminAPI tras validar usuario+PIN (ping / sbToken); no contiene secretos.
    Si el token falta/vence/se revoca o Supabase falla ⇒ se usa el camino de siempre (Apps Script) sin que el usuario lo note. */
 var MC_SB_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api';
-var MC_SB_LECT=/^(meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo)$/;
+var MC_SB_LECT=/^(meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo|dash_home|dash_hist)$/;
 var MC_SB_DOWN=0,MC_SB_REF=null;
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
 function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
@@ -555,6 +555,11 @@ function MCsbEligible(c){
   if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
   return (c.action==='ventas'&&MC_SB_LECT.test(String(c.op||'')))||c.action==='getInventario';
 }
+/* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
+function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
+  return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
+    .catch(function(e){try{console.warn('Supabase falló ('+sb.op+'), uso Google:',e&&e.message);}catch(x){}return MCpost(gas);});}
+
 function MCpost(p){
   p=p||{};
   var s=null;
@@ -2980,21 +2985,97 @@ var MCDashX=(function(){var R=null,X=null,rk='facturacion',ab={},vt='';
     el.innerHTML=h;}
   return {mount:function(r){R=r;X=r&&r.extras;if(!X){var el=document.getElementById('dvx');if(el)el.innerHTML='';return;}draw();},tog:tog,rank:function(k){rk=k;ab={};draw();}};})();
 
-/* b259: Descuentos sugeridos (revisión; no cambia precios ni envía nada) */
-var MCDesc=(function(){var L=[],ord='valor';
+/* b261: Descuentos sugeridos + Propuesta a cliente (PDF interactivo). Solo genera el PDF: no cambia precios ni envía nada. */
+var MCDesc=(function(){var L=[],ord='valor',sel={},cli='',dias=15,clis=null;
+  var WA='16173720787';
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function f$(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
-  function abrir(items){if(items)L=items;var m=document.getElementById('mc-desc');if(!m){m=document.createElement('div');m.id='mc-desc';m.style.cssText='position:fixed;inset:0;z-index:330;background:#0e1520;overflow:auto;-webkit-overflow-scrolling:touch';document.body.appendChild(m);}
-    var A=L.filter(function(x){return x.descuento;}).slice().sort(function(a,b){return ord==='desc'?b.descuento.descPct-a.descuento.descPct:ord==='dias'?(b.dias||99999)-(a.dias||99999):b.valor-a.valor;});
+  function lista(){return L.filter(function(x){return x.descuento;}).slice().sort(function(a,b){return ord==='desc'?b.descuento.descPct-a.descuento.descPct:ord==='dias'?(b.dias||99999)-(a.dias||99999):b.valor-a.valor;});}
+  function elegidos(){return lista().filter(function(x){return sel[x.sku];});}
+  function sugeridos(){var m={};elegidos().forEach(function(x){(x.compradores||[]).forEach(function(c){var k=c.cliente;if(!k||/rumi/i.test(k))return;m[k]=m[k]||{cliente:k,n:0,f:''};m[k].n++;if(c.fecha>m[k].f)m[k].f=c.fecha;});});
+    return Object.keys(m).map(function(k){return m[k];}).sort(function(a,b){return b.n-a.n||(a.f<b.f?1:-1);});}
+  function auto(){sel={};lista().filter(function(x){return x.descuento.descPct>0&&x.descuento.precioSugerido>0;}).slice(0,12).forEach(function(x){sel[x.sku]=1;});}
+  function abrir(items){if(items){L=items;auto();}var m=document.getElementById('mc-desc');if(!m){m=document.createElement('div');m.id='mc-desc';m.style.cssText='position:fixed;inset:0;z-index:330;background:#0e1520;overflow:auto;-webkit-overflow-scrolling:touch';document.body.appendChild(m);}
+    var A=lista(),E=elegidos(),S=sugeridos();
     var ahorro=A.reduce(function(s,x){return s+(x.descuento.precio-x.descuento.precioSugerido)*x.stock;},0),venta=A.reduce(function(s,x){return s+x.descuento.precioSugerido*x.stock;},0);
     m.innerHTML='<div style="position:sticky;top:0;z-index:2;background:#0e1520;border-bottom:1px solid #223142;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="chip" onclick="MCDesc.cerrar()">← Volver</button><b>Descuentos sugeridos</b>'+
       [['valor','Mayor valor'],['dias','Más días'],['desc','Mayor descuento']].map(function(o){return '<button class="chip" style="'+(ord===o[0]?'background:#E8FF00;color:#161926':'')+'" onclick="MCDesc.orden(\''+o[0]+'\')">'+o[1]+'</button>';}).join('')+'</div>'+
-      '<div style="padding:10px 12px;max-width:860px;margin:0 auto"><div class="cbz-muted" style="margin-bottom:8px">Solo para revisar: no cambia precios en Minecore ni en inFlow y no envía nada. Regla: 10% (90-180 d), 20% (180-365 d), 30% (365+ d, +5% por año extra, tope 50%); +5% si el margen es ≥50%, −5% si es <25%; nunca bajo el costo (+2%).<br>'+A.length+' productos · si se vende todo al precio sugerido: '+f$(venta)+' (descuento total '+f$(ahorro)+').</div>'+
-      A.map(function(x){var d=x.descuento;return '<div class="cbz-card" style="padding:9px 10px;margin:5px 0"><div class="sq-top">'+(x.img?'<img src="'+e(x.img)+'" class="pimg" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
+      '<div style="padding:10px 12px 120px;max-width:860px;margin:0 auto"><div class="cbz-muted" style="margin-bottom:8px">Solo para revisar: no cambia precios en Minecore ni en inFlow y no envía nada. Regla: 10% (90-180 d), 20% (180-365 d), 30% (365+ d, +5% por año extra, tope 50%); +5% si el margen es ≥50%, −5% si es <25%; nunca bajo el costo (+2%).<br>'+A.length+' productos · si se vende todo al precio sugerido: '+f$(venta)+' (descuento total '+f$(ahorro)+').</div>'+
+      /* propuesta */
+      '<div class="cbz-card" style="border-color:#E8FF00"><div class="pname" style="color:#E8FF00">📄 Proponer a un cliente</div>'+
+      '<div class="cbz-muted" style="font-size:12px;margin:2px 0 8px">Marca los productos (ya van marcados los 12 de más valor con descuento), elige el cliente y genera el PDF interactivo. Tú decides si lo compartes: no se envía nada.</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button class="chip" onclick="MCDesc.auto()">Auto-seleccionar</button><button class="chip" onclick="MCDesc.ninguno()">Quitar todos</button><span class="cbz-muted" style="align-self:center">'+E.length+' seleccionados</span></div>'+
+      '<input class="uinput" id="mc-desc-cli" list="mc-desc-dl" placeholder="Cliente (escribe o elige)" value="'+e(cli)+'" oninput="MCDesc.cli(this.value)" style="width:100%;font-size:16px;box-sizing:border-box"><datalist id="mc-desc-dl">'+S.concat((clis||[]).map(function(n){return {cliente:n};})).map(function(c){return '<option value="'+e(c.cliente)+'">';}).join('')+'</datalist>'+
+      (S.length?'<div class="cbz-muted" style="font-size:11.5px;margin:6px 0 2px">Compraron estos productos antes:</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+S.slice(0,8).map(function(c){return '<button class="chip" style="'+(cli===c.cliente?'background:#E8FF00;color:#161926':'')+'" onclick="MCDesc.cli(\''+e(c.cliente).replace(/'/g,"\\'")+'\',1)">'+e(c.cliente)+' · '+c.n+'</button>';}).join('')+'</div>':'')+
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><span class="cbz-muted">Válida por</span><input class="uinput" type="number" min="1" max="90" id="mc-desc-dias" value="'+dias+'" style="width:70px;font-size:16px" onchange="MCDesc.dias(this.value)"><span class="cbz-muted">días</span></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="cbz-btn" style="background:#E8FF00;color:#161926" onclick="MCDesc.pdf(this)">📄 Generar PDF propuesta</button>'+
+      '<button class="cbz-btn" onclick="MCDesc.liq()">🏷️ Abrir liquidación del cliente</button></div></div>'+
+      A.map(function(x){var d=x.descuento,on=!!sel[x.sku];return '<div class="cbz-card" style="padding:9px 10px;margin:5px 0'+(on?';border-color:#5E9E0A':'')+'"><div class="sq-top"><input type="checkbox" '+(on?'checked':'')+' onchange="MCDesc.tg(\''+e(x.sku)+'\')" style="width:22px;height:22px;flex:none">'+(x.img?'<img src="'+e(x.img)+'" class="pimg" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph">📦</div>')+
         '<div style="flex:1;min-width:0"><div class="pname">'+e(x.nombre)+'</div><div class="pmeta">SKU '+e(x.sku)+' · '+(x.dias===null?'nunca vendido':x.dias+' días')+' · '+x.stock+' und</div></div></div>'+
         '<div class="sq-dat"><span>Costo <b>'+f$(x.costo)+'</b></span><span>Precio <b>'+(d.precio?f$(d.precio):'—')+'</b></span><span>Descuento <b style="color:#E8FF00">'+d.descPct+'%</b></span><span>Precio sugerido <b>'+(d.precioSugerido?f$(d.precioSugerido):'—')+'</b></span><span>Margen <b>'+(d.margenActualPct===null?'—':d.margenActualPct+'%')+' → '+(d.margenTrasPct===null?'—':d.margenTrasPct+'%')+'</b></span></div>'+
-        (d.nota?'<div class="pmeta" style="margin-top:4px">'+e(d.nota)+'</div>':'')+'</div>';}).join('')+'</div>';}
-  return {abrir:abrir,orden:function(o){ord=o;abrir();},cerrar:function(){var m=document.getElementById('mc-desc');if(m)m.remove();}};})();
+        (d.nota?'<div class="pmeta" style="margin-top:4px">'+e(d.nota)+'</div>':'')+'</div>';}).join('')+'</div>';
+    if(!clis){clis=[];try{MCpost({action:'ventas',op:'clientes',q:'',user:getUserName(),pin:getPin()}).then(function(r){if(r&&r.ok){clis=(r.clientes||[]).map(function(c){return c.name;}).filter(function(n){return n&&!/rumi/i.test(n);});var dl=document.getElementById('mc-desc-dl');if(dl)dl.innerHTML+=clis.map(function(n){return '<option value="'+e(n)+'">';}).join('');}}).catch(function(){});}catch(x){}}}
+  function imgData(url){if(!url)return Promise.resolve(null);
+    return new Promise(function(res){var t=setTimeout(function(){res(null);},8000);
+      fetch(url).then(function(r){return r.blob();}).then(function(b){var u=URL.createObjectURL(b),im=new Image();im.onload=function(){try{var c=document.createElement('canvas'),k=Math.min(1,360/Math.max(im.width,im.height));c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+        var g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);clearTimeout(t);res({d:c.toDataURL('image/jpeg',.82),w:c.width,h:c.height});}catch(x){clearTimeout(t);res(null);}URL.revokeObjectURL(u);};im.onerror=function(){clearTimeout(t);res(null);};im.src=u;}).catch(function(){clearTimeout(t);res(null);});});}
+  function pdf(btn){var E=elegidos().filter(function(x){return x.descuento.precioSugerido>0;});cli=(document.getElementById('mc-desc-cli')||{}).value||cli;
+    if(!E.length){alert('Marca al menos un producto con precio.');return;}if(!cli.trim()){alert('Elige el cliente.');return;}if(/rumi/i.test(cli)){alert('Cliente no disponible.');return;}
+    var lbl=btn.textContent;btn.disabled=true;btn.textContent='Generando…';var tab=mcArmPdfTab();
+    Promise.all(E.map(function(x){return imgData(x.img);})).then(function(IM){return MCPropPdf({cliente:cli.trim(),dias:dias,items:E,imgs:IM});})
+      .then(function(o){btn.disabled=false;btn.textContent=lbl;return mcDownloadBlob(o.blob,o.nombre,'application/pdf',tab);})
+      .catch(function(x){btn.disabled=false;btn.textContent=lbl;mcClosePdfTab_(tab);alert('No se pudo generar: '+(x&&x.message||x));});}
+  return {abrir:abrir,orden:function(o){ord=o;abrir();},cerrar:function(){var m=document.getElementById('mc-desc');if(m)m.remove();},
+    tg:function(k){if(sel[k])delete sel[k];else sel[k]=1;abrir();},auto:function(){auto();abrir();},ninguno:function(){sel={};abrir();},
+    cli:function(v,re){cli=v;if(re)abrir();},dias:function(v){dias=Math.max(1,Math.min(90,parseInt(v,10)||15));},pdf:pdf,
+    liq:function(){cerrar2();try{openMod('liq');}catch(x){}}};
+  function cerrar2(){var m=document.getElementById('mc-desc');if(m)m.remove();try{MCStockQ.cerrar();}catch(x){}}
+})();
+
+/* b261: PDF interactivo de propuesta (estilo Minecore: títulos lima, chips de color, foto + nombre, precio antes/después, % de descuento, vigencia,
+   enlaces tocables a WhatsApp para pedir/cotizar). Sin brillos, sin cajas detrás del texto, sin subrayados. */
+function MCPropPdf(o){
+  var LIME=[94,158,10],DARK=[14,17,22],GREY=[107,114,128],BODY=[34,38,46],RED=[185,28,28],BLUE=[29,78,216],HAIR=[209,213,219],WAG=[22,163,74];
+  var M=14,W=210,H=297,WA='16173720787';
+  function f$(n){n=parseFloat(n)||0;var p=n.toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
+  var hoy=new Date(Date.now()-5*3600e3),hoyS=hoy.toISOString().slice(0,10),vence=new Date(hoy.getTime()+o.dias*86400e3).toISOString().slice(0,10);
+  function ds(s){return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);}
+  function wa(t){return 'https://wa.me/'+WA+'?text='+encodeURIComponent(t);}
+  return mcPlanillaLoadJsPDF().then(function(jsPDF){var doc=new jsPDF({unit:'mm',format:'a4'}),y=M;
+    function col(k,f){doc[f||'setTextColor'](k[0],k[1],k[2]);}
+    function T(s,x,yy,pt,b,k,al){doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(pt);col(k||BODY);doc.text(String(s),x,yy,al?{align:al}:undefined);}
+    function chip(s,x,yy,k,pt,url){doc.setFont('helvetica','bold');doc.setFontSize(pt||7.5);var w=doc.getTextWidth(s)+4,h=(pt||7.5)*0.42+2;col(k,'setFillColor');doc.roundedRect(x,yy-h+1.1,w,h,1,1,'F');col([255,255,255]);doc.text(s,x+2,yy);if(url)doc.link(x,yy-h+1.1,w,h,{url:url});return w;}
+    function header(){try{doc.addImage(MC_EC_LOGO,'PNG',M,y,22,13.7);}catch(x){}
+      T('Propuesta de liquidación',M+27,y+6,17,true,LIME);T(o.cliente,M+27,y+11.5,10,true,DARK);
+      T('Emitida: '+ds(hoyS)+' · Válida hasta: '+ds(vence)+' · Precios en USD sin IVA',M+27,y+15.5,7.5,false,GREY);
+      ['MINECORE S.A.S.','RUC 1793194965001','Quito, Ecuador','WhatsApp +1 617 372 0787'].forEach(function(l,i){T(l,W-M,y+3+i*3.2,6.5,false,GREY,'right');});
+      y+=19;col(LIME,'setDrawColor');doc.setLineWidth(0.4);doc.line(M,y,W-M,y);y+=6;}
+    header();
+    var tot0=0,tot1=0;o.items.forEach(function(x){tot0+=x.descuento.precio;tot1+=x.descuento.precioSugerido;});
+    var cx=M;cx+=chip(o.items.length+' PRODUCTOS',cx,y,DARK)+2;cx+=chip('HASTA '+Math.max.apply(null,o.items.map(function(x){return x.descuento.descPct;}))+'% DE DESCUENTO',cx,y,LIME)+2;chip('VÁLIDA '+o.dias+' DÍAS',cx,y,BLUE);
+    y+=6;T('Productos disponibles en stock para entrega inmediata, con precio especial por tiempo limitado.',M,y,8,false,BODY);y+=6;
+    o.items.forEach(function(x,i){var d=x.descuento,rowH=30;
+      if(y+rowH>H-22){doc.addPage();y=M;header();}
+      var im=o.imgs[i];if(im){var k=Math.min(26/im.w,26/im.h),iw=im.w*k,ih=im.h*k;try{doc.addImage(im.d,'JPEG',M+(26-iw)/2,y+(26-ih)/2,iw,ih);}catch(z){}}
+      var tx=M+31,lines=doc.setFont('helvetica','bold').setFontSize(9.5).splitTextToSize(x.nombre,W-M-tx-46).slice(0,2);
+      col(DARK);doc.text(lines,tx,y+4.5);var yy=y+4.5+lines.length*4;
+      T('SKU '+x.sku+' · '+x.stock+' und disponibles',tx,yy,7,false,GREY);yy+=5;
+      var c2=tx;c2+=chip('-'+d.descPct+'%',c2,yy,RED,8)+2;
+      c2+=chip('Pedir por WhatsApp',c2,yy,WAG,7.5,wa('Hola Minecore, quiero pedir '+x.sku+' ('+x.nombre+') al precio de liquidación '+f$(d.precioSugerido)+' (propuesta '+o.cliente+', válida hasta '+ds(vence)+').'))+2;
+      chip('Solicitar cotización',c2,yy,BLUE,7.5,wa('Hola Minecore, por favor envíenme la cotización de '+x.sku+' ('+x.nombre+') con el precio de liquidación '+f$(d.precioSugerido)+'. Cliente: '+o.cliente+'.'));
+      // precios (antes tachado en gris; después en lima)
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);col(GREY);var a=f$(d.precio),wa0=doc.getTextWidth(a);doc.text(a,W-M,y+6,{align:'right'});col(GREY,'setDrawColor');doc.setLineWidth(0.25);doc.line(W-M-wa0,y+5.1,W-M,y+5.1);
+      T(f$(d.precioSugerido),W-M,y+13,15,true,LIME,'right');T('precio unitario sin IVA',W-M,y+17,6.5,false,GREY,'right');
+      y+=rowH;col(HAIR,'setDrawColor');doc.setLineWidth(0.2);doc.line(M,y-2,W-M,y-2);});
+    if(y+26>H-M){doc.addPage();y=M;header();}
+    y+=4;T('¿Te interesa todo el lote?',M,y,11,true,LIME);y+=5;
+    chip('Pedir todo por WhatsApp',M,y,WAG,8.5,wa('Hola Minecore, quiero los productos de la propuesta de liquidación del '+ds(hoyS)+' ('+o.cliente+'): '+o.items.map(function(x){return x.sku;}).join(', ')+'.'));
+    y+=8;doc.setFont('helvetica','normal');doc.setFontSize(6.8);col(GREY);
+    doc.text(doc.splitTextToSize('Precios unitarios en USD, sin IVA, válidos hasta el '+ds(vence)+' o hasta agotar stock. Sujetos a confirmación de disponibilidad al momento del pedido. Toca los botones verdes o azules para escribirnos por WhatsApp. Documento generado por Minecore S.A.S.',W-2*M),M,y);
+    try{doc.setProperties({title:'Propuesta de liquidación '+o.cliente,author:'Minecore S.A.S.'});}catch(z){}
+    return {blob:doc.output('blob'),nombre:'Propuesta_liquidacion_'+String(o.cliente).replace(/[^A-Za-z0-9]+/g,'_')+'_'+hoyS+'.pdf'};});
+}
+
 
 var DashV2=(function(){
   var LIME='#c8e632',VERDE='#6fd68f',ROJO='#e05c5c',AMAR='#f0c040',AZUL='#5cc8ff',GRIS='#8fa3b8',LINEA='#223142';
@@ -3175,7 +3256,7 @@ var Dash = (function(){
     var body=document.getElementById('dash-body');
     body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
     openId=null;
-    MCpost({action:'getDashboard',fromDate:from,toDate:to,user:getUserName(),pin:getPin()})
+    MCsbOr({action:'ventas',op:'dash_hist',fromDate:from,toDate:to},{action:'getDashboard',fromDate:from,toDate:to})
     .then(function(res){
       if(!res.ok){body.innerHTML='<div class="cbz-error">Error del servidor: '+(res.error||'desconocido')+'</div>';return;}
       if(!res.agg){body.innerHTML='<div class="cbz-error">El AdminAPI desplegado es una versión antigua (sin agg). Pega AdminAPI_v3 y crea Nueva versión de la implementación.</div>';return;}
@@ -9514,7 +9595,7 @@ var Landing = (function(){
       return;
     }
     node.innerHTML='<div class="cbz-loading">Cargando KPIs...</div>';
-    MCpost({action:'getLandingHome',customersWindow:custWin,user:getUserName(),pin:getPin()})
+    MCsbOr({action:'ventas',op:'dash_home',customersWindow:custWin},{action:'getLandingHome',customersWindow:custWin})
     .then(function(res){
       if(!res.ok){node.innerHTML='<div class="cbz-error">KPIs: '+(res.error||'error')+'</div>';return;}
       data=res; render();
