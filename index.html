@@ -463,7 +463,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='308';
+  var MC_BUILD='309';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -12666,9 +12666,10 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
       '<div class="pf-kv">'+kvx('SKU',p.sku)+kvx('Tipo',TIPO2[p.item_type]||p.item_type)+kvx('Categoría',p.categoria_nombre)+kvx(mcCfP('marca','Marca'),p.marca)+kvx('Unidad',p.uom)+kvx(mcCfP('codigo_contable','Código contable'),p.codigo_contable)+kvx(mcCfP('categoria_contable','Categoría contable'),p.categoria_contable)+
       kvx(mcCfP('linea_n','Línea N'),p.linea_n)+kvx(mcCfP('linea_h','Línea H'),p.linea_h)+kvx(mcCfP('linea_p','Línea P'),p.linea_p)+kvx(mcCfP('linea_b','Línea B'),p.linea_b)+kvx(mcCfP('mm','MM'),p.mm)+kvx(mcCfP('descarga_agua','Descarga lateral'),p.descarga_agua)+kvx('Bodega por defecto',(p.bodega_nombre||'')+(p.default_sublocation?' · '+p.default_sublocation:''))+kvx('Controla series',p.track_serials?'Sí':'No')+
       (p.custom_extra&&typeof p.custom_extra==='object'?Object.keys(p.custom_extra).map(function(k){return kvx(k,p.custom_extra[k]);}).join(''):'')+'</div>'+(p.description?'<div class="ms-sub" style="margin-top:10px">'+esc(p.description)+'</div>':'')+'</div></div></div>'+
-      '<div class="fx-tabs" style="margin-top:10px">'+[['ov','Resumen'],['bom','Manufactura'],['prv','Proveedores'],['ord','Historial de órdenes'],['mov','Movimientos']].map(function(t){return '<button class="chip'+(PF.tab===t[0]?' on':'')+'" onclick="MCProd.tab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div><div id="pf-pane"></div>';
+      '<div class="fx-tabs" style="margin-top:10px">'+[['ov','Resumen'],['bom','Manufactura'],['prv','Proveedores'],['ord','Historial de órdenes'],['mov','Movimientos'],['bc','Códigos de barras']].map(function(t){return '<button class="chip'+(PF.tab===t[0]?' on':'')+'" onclick="MCProd.tab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div><div id="pf-pane"></div>';
     el().innerHTML=h;pfPane();}
   function pfPane(){var r=PF.cur,p=r.producto,b=document.getElementById('pf-pane');if(!b)return;var h='';
+    if(PF.tab==='bc'){return MCBarras.pane(b,p);}
     if(PF.tab==='ov'){var S=r.stock||[],tot=S.reduce(function(a,s){return a+(+s.q||0);},0),porB={};S.forEach(function(s){(porB[s.bodega]=porB[s.bodega]||{q:0,subs:[]}).q+=s.q;porB[s.bodega].subs.push(s);});
       var mx=Math.max.apply(null,Object.keys(porB).map(function(k){return porB[k].q;}).concat([1]));
       h='<div class="pf-ov"><div class="cbz-card" id="pf-stk"><div style="display:flex;align-items:center;gap:8px"><div class="ms-sub" style="flex:1">Cantidad disponible · todas las bodegas</div>'+(PF.stk?'':'<button class="chip" onclick="MCStkEd.abrir()">✏️ Editar</button>')+'</div><div class="pf-big">'+tot+'</div>'+(PF.stk?'<div id="pf-stked"></div>':'')+
@@ -12753,6 +12754,33 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     volver:function(){PF.cur=null;try{MCroute.set('vprod');}catch(e){}if(document.getElementById('pf-res')&&PF.l.length&&PF.v===MC_STK_V)return;pfShell();pfApi();},
     editar:function(){pfEditar();},copiar:function(){pfEditar(true);},nuevo:function(){addCss3();PF.cur=null;pfEditar();},cancelar:function(){if(PF.cur&&PF.cur.producto&&PF.cur.producto.id)pfFicha();else MCProd.volver();},
     guardar:pfGuardar,activo:pfActivo,adjuntos:pfAdjuntos,vender:pfVender,imprimir:pfImprimir};
+  /* ---------- b309: Códigos de barras por producto (varios, ordenados; el 1º es el principal) + revisión de calidad ---------- */
+  window.MCBarras=(function(){var B={p:null,l:[],orig:'',box:null};
+    function ok13(c){if(!/^\d{13}$/.test(c))return false;var s=0;for(var i=0;i<12;i++)s+=(+c[i])*(i%2?3:1);return (10-s%10)%10===+c[12];}
+    function nota(c){if(/e\+/i.test(c))return '⚠ dañado por Excel';if(/^\d{12}$/.test(c)&&ok13('0'+c))return '⚠ le falta el 0 inicial';if(/^\d{13}$/.test(c))return ok13(c)?'EAN-13 ✓':'⚠ dígito verificador inválido';if(B.p&&B.p.sku&&c.toUpperCase()===String(B.p.sku).toUpperCase())return 'es el SKU';return 'interno';}
+    function pinta(msg){var b=B.box;if(!b)return;var dirty=B.l.join('|')!==B.orig;
+      b.innerHTML='<div class="cbz-card"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><b style="margin-right:auto">Códigos de barras</b><button class="chip" onclick="MCBarras.calidad()">🔎 Revisar todos</button></div>'+
+      '<p class="ms-sub" style="margin:0 0 8px">El primero es el principal (el que se imprime en etiquetas). Puedes escanear directo en la casilla: Enter agrega.</p>'+
+      (B.l.length?B.l.map(function(c,i){return '<div style="display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #eef2f6;flex-wrap:wrap"><code style="font-size:14px;min-width:150px">'+esc(c)+'</code>'+(i===0?'<span class="chip on" style="font-size:11px">principal</span>':'')+'<span class="ms-sub" style="font-size:12px">'+esc(nota(c))+'</span><span style="margin-left:auto"></span>'+
+        (i>0?'<button class="chip" title="Subir" onclick="MCBarras.mover('+i+',-1)">↑</button>':'')+(i<B.l.length-1?'<button class="chip" title="Bajar" onclick="MCBarras.mover('+i+',1)">↓</button>':'')+'<button class="chip" title="Quitar" onclick="MCBarras.quitar('+i+')">✕</button></div>';}).join(''):'<div class="ms-sub">Sin códigos de barras.</div>')+
+      '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><input id="bc-in" class="cbz-in" placeholder="Escanear o escribir código" style="flex:1;min-width:180px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();MCBarras.agregar();}"><button class="chip" onclick="MCBarras.agregar()">＋ Agregar</button><button class="chip" onclick="MCBarras.generar()">⚙ Generar EAN-13 interno</button></div>'+
+      '<div id="bc-msg" class="ms-sub" style="margin-top:8px;color:'+(msg&&msg[0]==='⚠'?'#b42318':'#067647')+'">'+esc(msg||'')+'</div>'+
+      (dirty?'<div style="display:flex;gap:8px;margin-top:10px"><button class="cbz-btn" onclick="MCBarras.guardar()">Guardar códigos</button><button class="chip" onclick="MCBarras.deshacer()">Deshacer</button></div>':'')+'</div><div id="bc-cal"></div>';}
+    function chk(c){return api({op:'prod_catalogos',bc:'buscar',codigo:c}).then(function(r){var o=(r.productos||[]).filter(function(x){return x.id!==B.p.id;});if(o.length)throw new Error('Ese código ya es de '+o[0].sku+' · '+o[0].name);});}
+    return {
+      pane:function(box,p){B.box=box;B.p=p;box.innerHTML='<div class="cbz-loading">Cargando…</div>';api({op:'prod_catalogos',bc:'producto',product_id:p.id}).then(function(r){B.l=r.lista||[];B.orig=B.l.join('|');pinta();}).catch(function(e){box.innerHTML='<div class="cbz-error">'+esc(e.message||e)+'</div>';});},
+      agregar:function(){var i=document.getElementById('bc-in'),c=String(i&&i.value||'').trim();if(!c)return;
+        if(/e\+/i.test(c))return pinta('⚠ Ese código está dañado (notación científica de Excel).');if(!/^[A-Za-z0-9\-.]{3,60}$/.test(c))return pinta('⚠ Solo letras, números, guion o punto (3 a 60).');
+        if(B.l.indexOf(c)>=0)return pinta('⚠ Ya está en la lista.');if(/^\d{13}$/.test(c)&&!ok13(c)&&!confirm('El dígito verificador EAN-13 no cuadra. ¿Agregar igual?'))return;
+        chk(c).then(function(){B.l.push(c);pinta('Agregado (falta guardar).');setTimeout(function(){var x=document.getElementById('bc-in');if(x)x.focus();},0);}).catch(function(e){pinta('⚠ '+(e.message||e));});},
+      generar:function(){api({op:'prod_catalogos',bc:'siguiente'}).then(function(r){var c=r.codigo;if(B.l.indexOf(c)<0)B.l.push(c);pinta('Generado '+c+' (falta guardar).');}).catch(function(e){pinta('⚠ '+(e.message||e));});},
+      mover:function(i,d){var j=i+d;if(j<0||j>=B.l.length)return;var t=B.l[i];B.l[i]=B.l[j];B.l[j]=t;pinta();},
+      quitar:function(i){B.l.splice(i,1);pinta();},deshacer:function(){B.l=B.orig?B.orig.split('|'):[];pinta();},
+      guardar:function(){pinta('Guardando…');api({op:'prod_save',barcodes:{product_id:B.p.id,lista:B.l}}).then(function(r){B.l=r.lista||B.l;B.orig=B.l.join('|');try{B.p.barcode=B.l[0]||null;MC_STK_V=(window.MC_STK_V||0)+1;}catch(e){}pinta('✓ Guardado. Se sincroniza con inFlow.');}).catch(function(e){pinta('⚠ '+(e.message||e));});},
+      calidad:function(){var c=document.getElementById('bc-cal');if(!c)return;c.innerHTML='<div class="cbz-loading">Revisando…</div>';api({op:'prod_catalogos',bc:'calidad'}).then(function(r){var g={};(r.problemas||[]).forEach(function(x){x.problemas.forEach(function(m){(g[m]=g[m]||[]).push(x);});});
+        c.innerHTML='<div class="cbz-card" style="margin-top:10px"><b>Revisión de códigos</b><div class="ms-sub" style="margin:6px 0">'+r.total+' códigos · '+r.productos_sin+' productos activos sin código · siguiente interno: <code>'+esc(r.siguiente)+'</code></div>'+
+        (Object.keys(g).length?Object.keys(g).map(function(m){return '<details style="margin-top:6px"><summary><b>'+esc(m)+'</b> ('+g[m].length+')</summary><div style="max-height:260px;overflow:auto">'+g[m].slice(0,200).map(function(x){return '<div style="display:flex;gap:6px;padding:4px 0;border-bottom:1px solid #eef2f6;flex-wrap:wrap"><a href="#" onclick="MCProd.abrirId(\''+x.product_id+'\');return false">'+esc(x.sku)+'</a><span style="flex:1;min-width:120px">'+esc(x.name)+'</span><code>'+esc(x.barcode)+'</code>'+(x.sugerido?'<span class="ms-sub">→ '+esc(x.sugerido)+'</span>':'')+'</div>';}).join('')+(g[m].length>200?'<div class="ms-sub">… y '+(g[m].length-200)+' más</div>':'')+'</div></details>';}).join(''):'<div>Sin problemas ✓</div>')+'</div>';}).catch(function(e){c.innerHTML='<div class="cbz-error">'+esc(e.message||e)+'</div>';});}
+    };})();
   /* ---------- b283: Esquemas de precio = costo × (1 + markup). Markup global por esquema; excepción por producto (markup o precio fijo). Solo Supabase. ---------- */
   var ES={l:[]};
   function esInit(){addCss3();try{MCroute.set('vprecios');}catch(e){}el().innerHTML='<div class="cbz-loading">Cargando esquemas…</div>';P.cat=null;api({op:'prod_catalogos'}).then(function(r){P.cat=r;ES.l=r.esquemas||[];esPinta();}).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
