@@ -368,7 +368,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='246';
+  var MC_BUILD='247';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -9826,10 +9826,28 @@ var Ventas = (function(){
         (ab&&st.ship_estado!=='enviado'?'<div style="margin-top:8px"><button class="cbz-btn" onclick="Ventas.enviar()">🚚 Registrar envío</button></div>':''));}
     return h;}
   function seccion(t,body){return '<div class="cbz-card" style="margin-top:10px"><div class="cbz-card-name" style="margin-bottom:6px">'+t+'</div>'+body+'</div>';}
+  /* b247: OV tipo inFlow — encabezado en dos bloques, pestañas Orden|Pick|Pack|Ship|Factura|Pagos, facturas y adjuntos como chips */
+  var VCSS='<style>.ov-hd{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}.ov-kv{display:grid;grid-template-columns:110px 1fr;gap:3px 8px;font-size:12.5px;align-content:start}.ov-kv span{color:#8fa3b8;font-size:11.5px}.ov-tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0 0;padding-bottom:2px}.ov-tabs .chip{white-space:nowrap;flex:none}.ov-tot{display:grid;grid-template-columns:auto auto;gap:3px 14px;justify-content:end;margin-top:8px;font-size:12.5px}.ov-tot .r{text-align:right}.ov-pc{display:flex;gap:8px;align-items:center;min-width:0}@media(max-width:640px){.mc-rt td.ov-n{display:none}.ov-hd{grid-template-columns:1fr}.ov-kv{grid-template-columns:95px 1fr}}</style>';
+  function kv(k,v){return '<span>'+k+'</span><div>'+(v||'—')+'</div>';}
+  function lineasTabla(o){return VRT+'<table class="mc-rt"><thead><tr><th>#</th><th>Producto</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Desc.</th><th class="r">Subtotal</th><th>Plazo</th></tr></thead><tbody>'+
+      (cur.lineas||[]).map(function(l,i){return '<tr><td class="ov-n">'+(i+1)+'</td><td class="mc-p">'+prodCell(l)+'</td><td class="r" data-l="Cant.">'+l.quantity+'</td><td class="r" data-l="Precio">'+money(l.unit_price)+'</td><td class="r" data-l="Desc.">'+(l.discount_pct?l.discount_pct+'%':'—')+'</td><td class="r" data-l="Subtotal"><b>'+money(l.subtotal)+'</b></td><td data-l="Plazo">'+esc(l.plazo_entrega||'—')+'</td></tr>';}).join('')+'</tbody></table>'+
+      '<div class="ov-tot"><span>Subtotal</span><b class="r">'+money(o.subtotal)+'</b>'+(parseFloat(o.discount_total)>0?'<span>Descuento</span><span class="r">'+money(o.discount_total)+'</span>':'')+'<span>IVA '+(parseFloat(o.tax1_rate)||15)+'%</span><span class="r">'+money(o.tax1)+'</span>'+(parseFloat(o.freight)>0?'<span>Flete</span><span class="r">'+money(o.freight)+'</span>':'')+
+      '<span style="font-size:15px">Total</span><b class="r" style="font-size:15px">'+money(o.total)+'</b>'+(!o.is_quote?'<span>Pagado</span><span class="r">'+money(o.amount_paid)+'</span><span>Saldo</span><b class="r" style="color:'+(parseFloat(o.balance)>0.005?'#f0c040':'#6fd68f')+'">'+money(o.balance)+'</b>':'')+'</div>';}
+  function facChips(){var F=cur.facturas||[];if(cur.orden.is_quote)return '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px"><span class="cbz-muted" style="font-size:11px">Facturas</span>'+
+      (F.map(function(f){return '<span class="chip" style="cursor:pointer" onclick="Ventas.setDv(\'factura\')">🧾 '+esc(f.numero||'sin N° SRI')+(f.fecha?' · '+d10(f.fecha):'')+' · '+money(f.monto)+(f.vence?' · vence '+d10(f.vence):'')+'</span>';}).join('')||'<span class="cbz-muted" style="font-size:11px">— ninguna</span>')+
+      (esAdmin()&&F.length?'<button class="chip" onclick="Ventas.setDv(\'factura\')">✏️</button>':'')+'</div>';}
+  function adjChips(w){var J=cur.adjuntos_doc||[],K=cur.adjuntos||[];
+    return '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px"><span class="cbz-muted" style="font-size:11px">Adjuntos</span>'+
+      J.map(function(a){return '<a class="chip" style="text-decoration:none" target="_blank" rel="noopener" href="'+esc(a.url)+'" title="'+esc((a.fuente||'')+' · '+d10(a.created_at))+'">📎 '+esc(a.nombre)+'</a>';}).join('')+
+      K.map(function(a){return '<span class="chip" style="cursor:pointer" title="inFlow" onclick="Ventas.verAdjunto('+a.id+')">📎 '+esc(a.file_name)+'</span>';}).join('')+
+      (!J.length&&!K.length?'<span class="cbz-muted" style="font-size:11px">— ninguno</span>':'')+
+      (w?'<label class="chip" style="cursor:pointer">＋ Subir<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.xml" style="display:none" onchange="Ventas.adjuntar(this)"></label>':'')+'</div>';}
   function renderDetalle(){
     var o=cur.orden,c=cur.cliente||{},st=cur.estados||{},esQ=o.is_quote,w=canW('cotizaciones'),wb=canW('cotizaciones')||canW('dashboard'),wc=canW('cotizaciones')||canW('cobranza');
     var abierta=!o.is_cancelled&&!(o.is_invoiced&&!esQ);
-    var h='<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px"><button class="chip" onclick="Ventas.volver()">← Lista</button>'+
+    if(esQ)dv='orden';
+    var h=VCSS+'<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px"><button class="chip" onclick="Ventas.volver()">← Lista</button>'+
       (w&&abierta?'<button class="chip" onclick="Ventas.editar()">✏️ Editar</button>':'')+
       (w&&esQ&&!o.is_cancelled?'<button class="cbz-btn" onclick="Ventas.convertir()">➜ Convertir en OV</button>':'')+
       (w&&abierta&&!(cur.picks||[]).length?'<button class="chip" onclick="Ventas.dividir()">✂️ Dividir</button>':'')+
@@ -9837,45 +9855,31 @@ var Ventas = (function(){
         (esQ?[['planilla','Planilla con plazos y fotos (Cotizador)'],['sq','Cotización de ventas'],['sq_noprice','Cotización sin precio'],['sq_nocat','Cotización sin categoría']]:[['so','Orden de venta'],['planilla','Planilla con plazos y fotos (Cotizador)'],['receipt','Recibo'],['pick','Pick list'],['packing','Packing list'],['boxlabel','Box label'],['boxcontent','Box content list'],['invoice','Factura'],['labels','Labels (DYMO 19×51 mm)']]).map(function(x){return '<div class="chip" style="display:block;margin:2px 0;border:none;text-align:left" onclick="Ventas.imprimir(\''+x[0]+'\')">'+x[1]+'</div>';}).join('')+'</div></span>'+
       (esAdmin()&&!o.is_cancelled&&!(o.is_invoiced&&!esQ)?'<button class="chip" style="color:#e05c5c" onclick="Ventas.cancelar()">✕ Cancelar</button>':'')+
       '<button class="chip" onclick="Ventas.recargar()">⟳</button></div>';
+    var fa=cur.factura;
     h+='<div class="cbz-card"><div class="cbz-card-top"><div class="cbz-card-name" style="font-size:17px">'+esc(o.order_number)+(o.quote_number&&!esQ?'<div style="font-size:12px;font-weight:400;margin-top:2px">Viene de cotización <a href="#" style="color:#9fc3e8;text-decoration:none" onclick="Ventas.irCot(\''+esc(o.quote_number)+'\');return false;">'+esc(o.quote_number)+'</a></div>':'')+'</div><div>'+estChip(o.estado)+' '+syncChip(o.sync_status)+'</div></div>'+
-      '<div class="pmeta" style="line-height:1.7">'+esc(c.name||'—')+(c.ruc?' · RUC '+esc(c.ruc):'')+'<br>'+
-      'Fecha '+d10(o.order_date)+' · Bodega '+esc(o.bodega||'—')+' · Entrega '+esc(o.entrega||'—')+(o.requested_ship_date?' · requerida '+d10(o.requested_ship_date):'')+'<br>'+
-      'Contacto '+esc(o.contact_name||'—')+(o.email?' · '+esc(o.email):'')+(o.po_number?' · PO '+esc(o.po_number):'')+
-      ' · Crédito '+(c.credit_days||0)+' días'+(o.sync_error?'<br><span style="color:#e05c5c">inFlow: '+esc(o.sync_error)+'</span>':'')+'</div></div>';
-    if(!esQ)h+='<div class="cbz-card-row" style="gap:6px;margin:10px 0 0;flex-wrap:wrap">'+[['orden','🧾 Orden'],['pick','📍 Pick · '+(st.pick_estado||'')],['pack','📦 Pack · '+(st.cajas||0)+' caja(s)'],['ship','🚚 Ship · '+(st.ship_estado||'')]].map(function(t){return '<button class="chip" style="'+(dv===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Ventas.setDv(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
-    var lt='<div style="overflow-x:auto"><table class="vt-table" style="width:100%;font-size:12px"><tr><th>#</th><th>Producto</th><th style="text-align:right">Cant.</th><th style="text-align:right">Precio</th><th style="text-align:right">Desc.</th><th style="text-align:right">Subtotal</th><th>Plazo</th></tr>'+
-      (cur.lineas||[]).map(function(l,i){return '<tr><td>'+(i+1)+'</td><td>'+prodCell(l)+'</td><td style="text-align:right">'+l.quantity+'</td><td style="text-align:right">'+money(l.unit_price)+'</td><td style="text-align:right">'+(l.discount_pct?l.discount_pct+'%':'')+'</td><td style="text-align:right">'+money(l.subtotal)+'</td><td>'+esc(l.plazo_entrega||'')+'</td></tr>';}).join('')+
-      '</table></div><div style="text-align:right;margin-top:8px;line-height:1.6">Subtotal <b>'+money(o.subtotal)+'</b>'+(parseFloat(o.discount_total)>0?' · descuento '+money(o.discount_total):'')+'<br>IVA '+(parseFloat(o.tax1_rate)||15)+'% '+money(o.tax1)+(parseFloat(o.freight)>0?' · flete '+money(o.freight):'')+'<br><span style="font-size:16px">Total <b>'+money(o.total)+'</b></span></div>';
-    if(esQ||dv==='orden')h+=seccion('Líneas',lt+(!esQ&&wb&&!o.is_cancelled&&st.pick_estado!=='completo'&&st.pick_estado!=='n/a'?'<div style="margin-top:8px"><button class="cbz-btn" onclick="Ventas.setDv(\'pick\')">📍 Pick →</button></div>':''));
-    if((cur.partes||[]).length) h+=seccion('Partes de '+esc(o.root_number),cur.partes.map(function(p){return '<span class="chip" style="margin:2px;display:inline-block" onclick="Ventas.abrir(\''+p.id+'\')">'+esc(p.order_number)+' · '+money(p.total)+'</span>';}).join(''));
-    if(!esQ){
-      var pps='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+ppsChip('Pick',st.pick_estado)+ppsChip('Pack',st.pack_estado)+ppsChip('Ship',st.ship_estado)+chip((st.cajas||0)+' caja(s)','#9fc3e8')+'</div>';
-      pps+=(cur.picks||[]).length?'<div class="cbz-muted">Pick: '+cur.picks.map(function(k){return esc(k.nombre||k.sku||k.description)+' ×'+k.quantity+(k.sublocation?' ('+esc(k.sublocation)+')':'');}).join(' · ')+'</div>':'';
-      pps+=(cur.envios||[]).map(function(s){return '<div class="cbz-muted">Envío '+d10(s.shipped_date)+(s.carrier?' · '+esc(s.carrier):'')+(s.tracking_number?' · guía '+esc(s.tracking_number):'')+'</div>';}).join('');
-      if(wb&&!o.is_cancelled) pps+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+
-        (st.pick_estado!=='completo'&&st.pick_estado!=='n/a'?'<button class="chip" onclick="Ventas.pickTodo()">✔ Pick de lo pendiente</button>':'')+
-        (st.pick_estado!=='completo'&&st.pick_estado!=='n/a'?'<button class="chip" onclick="Ventas.irPiquear()">📍 Piquear por ubicación</button>':'')+
-        (st.pick_estado!=='pendiente'&&st.pick_estado!=='n/a'?'<button class="chip" onclick="Ventas.empacar()">📦 Empacar (cajas)</button>':'')+
-        (st.ship_estado!=='enviado'?'<button class="chip" onclick="Ventas.enviar()">🚚 Registrar envío</button>':'')+'</div>';
-      if(dv!=='orden')h+=ppsVista(st,wb,o);
-      var fa=cur.factura;
-      var fb=fa?'<div>Factura <b>'+esc(fa.numero_sri||'—')+'</b> · '+d10(fa.invoiced_date)+' · crédito '+fa.credit_days+' días · <b>vence '+d10(fa.due_date)+'</b></div>':'<div class="cbz-muted">Sin factura.</div>';
-      if(wc&&!o.is_cancelled) fb+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="uinput" id="vt-fsri" placeholder="Nº SRI 001-001-000000123" value="'+esc(fa?fa.numero_sri||'':'')+'" style="width:200px">'+
-        '<input class="uinput" type="date" id="vt-ffec" value="'+(fa?d10(fa.invoiced_date):hoy())+'" style="width:140px" oninput="Ventas.vencePrev()">'+
-        '<input class="uinput" type="number" id="vt-fcd" value="'+(fa?fa.credit_days:(c.credit_days||0))+'" style="width:80px" title="Días de crédito" oninput="Ventas.vencePrev()">'+
-        '<span class="cbz-muted" id="vt-fven"></span><button class="cbz-btn" onclick="Ventas.facturar()">'+(fa?'Actualizar factura':'Facturar')+'</button></div>';
-      if(dv==='orden')h+=seccion('Factura',fb);
-      var pb=(cur.pagos||[]).map(function(p){return '<div class="pmeta">'+d10(p.date_paid)+' · <b>'+money(p.amount)+'</b>'+(p.payment_method?' · '+esc(p.payment_method):'')+(p.reference_number?' · ref '+esc(p.reference_number):'')+'</div>';}).join('')||'<div class="cbz-muted">Sin pagos.</div>';
-      pb+='<div style="margin-top:6px">Pagado <b>'+money(o.amount_paid)+'</b> · Saldo <b style="color:'+(parseFloat(o.balance)>0.005?'#f0c040':'#6fd68f')+'">'+money(o.balance)+'</b> · '+esc(o.payment_status||'')+'</div>';
+      '<div class="ov-hd" style="margin-top:6px"><div class="ov-kv">'+kv('Cliente','<b>'+esc(c.name||'—')+'</b>')+kv('RUC',esc(c.ruc||''))+kv('Contacto',esc(o.contact_name||''))+kv('Email',esc(o.email||c.email||''))+kv('Teléfono',esc(o.phone||c.phone||''))+kv('PO cliente',esc(o.po_number||''))+'</div>'+
+      '<div class="ov-kv">'+kv('Fecha',d10(o.order_date))+kv('Ubicación',esc(o.bodega||''))+kv('Términos','Crédito '+(fa?fa.credit_days:(o.credit_days!=null?o.credit_days:(c.credit_days||0)))+' días')+kv('Entrega',esc(o.entrega||''))+kv('Requerida',o.requested_ship_date?d10(o.requested_ship_date):'')+(!esQ?kv('Vence',o.due_date&&o.is_invoiced?'<b>'+d10(o.due_date)+'</b>':''):'')+'</div></div>'+
+      (o.sync_error?'<div style="color:#e05c5c;font-size:12px;margin-top:4px">inFlow: '+esc(o.sync_error)+'</div>':'')+facChips()+adjChips(w)+'</div>';
+    if(!esQ)h+='<div class="ov-tabs">'+[['orden','🧾 Orden'],['pick','📍 Pick · '+(st.pick_estado||'')],['pack','📦 Pack · '+(st.cajas||0)],['ship','🚚 Ship · '+(st.ship_estado||'')],['factura','🧾 Factura'+(o.is_invoiced?' ✔':'')],['pagos','💵 Pagos · '+esc(({invoiced:'por cobrar',paid:'pagada',partial:'parcial',uninvoiced:'sin factura',owing:'por cobrar'})[o.payment_status]||o.payment_status||'')]].map(function(t){return '<button class="chip" style="'+(dv===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Ventas.setDv(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
+    if(dv==='orden'){h+=seccion('Líneas',lineasTabla(o)+(!esQ&&wb&&!o.is_cancelled&&st.pick_estado!=='completo'&&st.pick_estado!=='n/a'?'<div style="margin-top:8px"><button class="cbz-btn" onclick="Ventas.setDv(\'pick\')">📍 Pick →</button></div>':''));
+      if((cur.partes||[]).length) h+=seccion('Partes de '+esc(o.root_number),cur.partes.map(function(p){return '<span class="chip" style="margin:2px;display:inline-block" onclick="Ventas.abrir(\''+p.id+'\')">'+esc(p.order_number)+' · '+money(p.total)+'</span>';}).join(''));}
+    else if(dv==='pick'||dv==='pack'||dv==='ship')h+=ppsVista(st,wb,o);
+    else if(dv==='factura'){
+      var fb=fa?'<div style="display:flex;flex-wrap:wrap;gap:6px"><span class="chip">🧾 '+esc(fa.numero_sri||'sin N° SRI')+'</span><span class="chip">'+d10(fa.invoiced_date)+'</span><span class="chip">crédito '+fa.credit_days+' días</span><span class="chip" style="color:#f0c040">vence '+d10(fa.due_date)+'</span><span class="chip">'+money(fa.total)+'</span></div>':'<div class="cbz-muted">Sin factura.</div>';
+      var puede=fa?esAdmin():(wc&&!o.is_cancelled);
+      if(puede) fb+='<div class="cbz-muted" style="font-size:11px;margin-top:8px">Vence = fecha de la factura + días de crédito del cliente (como en el RIDE).</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><input class="uinput" id="vt-fsri" placeholder="Nº SRI 001-001-000000123" value="'+esc(fa?fa.numero_sri||'':'')+'" style="flex:2 1 190px">'+
+        '<input class="uinput" type="date" id="vt-ffec" value="'+(fa?d10(fa.invoiced_date):hoy())+'" style="flex:1 1 130px" oninput="Ventas.vencePrev()">'+
+        '<input class="uinput" type="number" id="vt-fcd" value="'+(fa?fa.credit_days:(c.credit_days||0))+'" style="flex:0 1 80px" title="Días de crédito" oninput="Ventas.vencePrev()">'+
+        '<span class="cbz-muted" id="vt-fven" style="align-self:center"></span><button class="cbz-btn" onclick="Ventas.facturar()">'+(fa?'💾 Guardar cambios':'Facturar')+'</button></div>';
+      h+=seccion('Factura',fb+facChips()+adjChips(w));}
+    else {
+      var pb=VRT+'<table class="mc-rt"><thead><tr><th>Fecha</th><th class="r">Monto</th><th>Método</th><th>Referencia</th></tr></thead><tbody>'+((cur.pagos||[]).map(function(p){return '<tr><td data-l="Fecha">'+d10(p.date_paid)+'</td><td class="r" data-l="Monto"><b>'+money(p.amount)+'</b></td><td data-l="Método">'+esc(p.payment_method||'—')+'</td><td data-l="Ref.">'+esc(p.reference_number||'—')+'</td></tr>';}).join('')||'<tr><td colspan="4" class="cbz-muted">Sin pagos.</td></tr>')+'</tbody></table>';
+      pb+='<div class="ov-tot"><span>Total</span><span class="r">'+money(o.total)+'</span><span>Pagado</span><b class="r">'+money(o.amount_paid)+'</b><span>Saldo</span><b class="r" style="color:'+(parseFloat(o.balance)>0.005?'#f0c040':'#6fd68f')+'">'+money(o.balance)+'</b></div>';
       if((cur.plan||[]).length) pb+='<div class="cbz-muted" style="margin-top:4px">Plan de pagos: '+cur.plan[0].items.map(function(i){return i.kind+' '+money(i.amount)+(i.due_date?' ('+d10(i.due_date)+')':'');}).join(' · ')+'</div>';
-      if(wc&&!o.is_cancelled) pb+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="uinput" type="number" step="0.01" id="vt-pm" placeholder="Monto" style="width:110px">'+
-        '<input class="uinput" type="date" id="vt-pf" value="'+hoy()+'" style="width:140px"><select class="uinput" id="vt-pmet" style="width:140px"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Retención</option><option>Tarjeta</option></select>'+
-        '<input class="uinput" id="vt-pref" placeholder="Referencia" style="width:130px"><button class="cbz-btn" onclick="Ventas.pagar()">＋ Pago</button></div>';
-      if(dv==='orden')h+=seccion('Pagos',pb);
-    }
-    var ab=(cur.adjuntos||[]).map(function(a){return '<span class="chip" style="margin:2px;display:inline-block" onclick="Ventas.verAdjunto('+a.id+')">📎 '+esc(a.file_name)+'</span>';}).join('')||'<div class="cbz-muted">Sin adjuntos.</div>';
-    if(w) ab+='<div style="margin-top:8px"><input type="file" id="vt-file" onchange="Ventas.adjuntar(this)"></div>';
-    if(esQ||dv==='orden')h+=seccion('Adjuntos',ab);
+      if(wc&&!o.is_cancelled) pb+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="uinput" type="number" step="0.01" id="vt-pm" placeholder="Monto" style="flex:1 1 100px">'+
+        '<input class="uinput" type="date" id="vt-pf" value="'+hoy()+'" style="flex:1 1 130px"><select class="uinput" id="vt-pmet" style="flex:1 1 130px"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option><option>Retención</option><option>Tarjeta</option></select>'+
+        '<input class="uinput" id="vt-pref" placeholder="Referencia" style="flex:1 1 120px"><button class="cbz-btn" onclick="Ventas.pagar()">＋ Pago</button></div>';
+      h+=seccion('Pagos',pb);}
     if((cur.outbox||[]).length) h+='<div class="cbz-muted" style="margin-top:8px;font-size:11px">Espejo inFlow: '+cur.outbox.slice(0,5).map(function(x){return x.op+' '+x.status;}).join(' · ')+'</div>';
     el().innerHTML=h;vencePrev();
   }
@@ -9911,10 +9915,10 @@ var Ventas = (function(){
     cajas=cajas.filter(function(k){return k.lineas.length;});if(!cajas.length){alert('Asigna al menos una unidad');return;}
     run({op:'pack',id:cur.orden.id,cajas:cajas},'Empacado',function(){cerrarOv();recargar();if(confirm('¿Imprimir box labels?'))imprimir('boxlabel');});}
   function enviar(){var t=prompt('Transportista (Servientrega, retiro cliente, propio…)','');if(t===null)return;var g=prompt('Nº de guía (opcional)','')||'';run({op:'ship',id:cur.orden.id,transportista:t,guia:g},'Envío registrado');}
-  function facturar(){run({op:'invoice',id:cur.orden.id,numero_sri:$('vt-fsri').value.trim(),fecha:$('vt-ffec').value,credit_days:parseInt($('vt-fcd').value,10)||0},'Factura registrada');}
+  function facturar(){if(cur.factura&&cur.orden.is_invoiced){run({op:'so_factura_save',id:cur.orden.id,numero_sri:$('vt-fsri').value.trim(),fecha:$('vt-ffec').value,credit_days:parseInt($('vt-fcd').value,10)||0},'Factura actualizada');return;}run({op:'invoice',id:cur.orden.id,numero_sri:$('vt-fsri').value.trim(),fecha:$('vt-ffec').value,credit_days:parseInt($('vt-fcd').value,10)||0},'Factura registrada');}
   function pagar(){var m=parseFloat($('vt-pm').value);if(!m){alert('Monto');return;}run({op:'payment',id:cur.orden.id,amount:m,fecha:$('vt-pf').value,metodo:$('vt-pmet').value,referencia:$('vt-pref').value.trim()},'Pago registrado');}
   function verAdjunto(id){var w=window.open('','_blank');api({op:'attachmentUrl',file_id:id}).then(function(r){if(!r.ok){w&&w.close();err(r.error);return;}if(w)w.location=r.url;else location.href=r.url;}).catch(function(e){w&&w.close();err(e);});}
-  function adjuntar(inp){var fl=inp.files&&inp.files[0];if(!fl)return;if(fl.size>15e6){alert('Máximo 15 MB');return;}var rd=new FileReader();rd.onload=function(){var b64=String(rd.result).split(',')[1];run({op:'attach',id:cur.orden.id,file_name:fl.name,mime:fl.type||'application/octet-stream',b64:b64},'Adjunto subido');};rd.readAsDataURL(fl);}
+  function adjuntar(inp){var fl=inp.files&&inp.files[0];if(!fl||busy)return;if(fl.size>15*1024*1024){alert('Máximo 15 MB');return;}var rd=new FileReader();rd.onload=function(){run({op:'so_adjuntar',id:cur.orden.id,nombre:fl.name,base64:String(rd.result).split(',')[1]},'Adjunto subido',function(r){if(r.duplicado)alert('Ese archivo ya estaba adjunto');recargar();});};rd.readAsDataURL(fl);}
   /* ---------- dividir ---------- */
   function dividir(){
     var o=cur.orden,ls=cur.lineas||[];
