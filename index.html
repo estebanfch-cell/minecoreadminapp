@@ -418,7 +418,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='265';
+  var MC_BUILD='266';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -3024,7 +3024,7 @@ var MCDashX=(function(){var R=null,X=null,rk='facturacion',ab={},vt='';
     var CL={A:LIME,B:AZUL,C:AMAR},UT=P.totalUtilidad||0,VT=P.totalVenta||0;
     h+=card('Aporte al margen total','<div class="dz-exp">Clases por facturación sin IVA del período: <b style="color:'+LIME+'">A</b> = los productos que juntos suman el primer ~80% de la venta · <b style="color:'+AZUL+'">B</b> = el siguiente 15% · <b style="color:'+AMAR+'">C</b> = el último 5%. Toca una clase para ver sus productos.</div>'+
       ['A','B','C'].map(function(k){var a=A[k],pm=UT?Math.round(a.utilidad/UT*1000)/10:0,pv=VT?Math.round(a.venta/VT*1000)/10:0,on=ab['abc'+k];
-        var it=(P.ranks.facturacion||[]).filter(function(x){return x.abc===k;}),mxp=1;it.forEach(function(x){mxp=Math.max(mxp,x.partMargenPct||0);});
+        var it=(P.abcItems&&P.abcItems[k])||(P.ranks.facturacion||[]).filter(function(x){return x.abc===k;}),mxp=1;it.forEach(function(x){mxp=Math.max(mxp,x.partMargenPct||0);});
         return '<button class="dz-row" onclick="MCDashX.tog(\'abc'+k+'\')"><div class="dz-nm"><span class="dz-cl" style="color:'+CL[k]+';border-color:'+CL[k]+'">Clase '+k+'</span> '+a.n+' productos <span class="dz-ar">'+(on?'▾':'▸')+'</span></div>'+
           '<div class="dz-g"><span>Venta<b>'+f$(a.venta)+'</b></span><span>% de la venta<b>'+pv+'%</b></span><span>Margen $<b>'+f$(a.utilidad)+'</b></span><span>% del margen<b>'+pm+'%</b></span></div>'+
           '<div class="dz-bar"><i style="width:'+Math.max(0,Math.min(100,pm))+'%;background:'+CL[k]+'"></i></div></button>'+
@@ -3032,7 +3032,7 @@ var MCDashX=(function(){var R=null,X=null,rk='facturacion',ab={},vt='';
             '<div class="dz-g"><span>Venta<b>'+f$(x.subtotal)+'</b></span><span>Margen $<b>'+f$(x.utilidad)+'</b></span><span>% del margen<b>'+pc(x.partMargenPct)+'</b></span><span>Margen %<b>'+pc(x.margenPct)+'</b></span></div>'+
             '<div class="dz-bar"><i style="width:'+Math.max(0,(x.partMargenPct||0)/mxp*100)+'%;background:'+CL[k]+'"></i></div>'+
             (o2?'<div class="dz-kv">'+kv('Cantidad',x.cantidad)+kv('Aporte a la venta',pc(x.partVentaPct))+kv('Aporte al margen total',pc(x.partMargenPct))+'</div>':'')+'</button>';}).join('')+
-            (it.length<a.n?'<div class="dv-ax" style="padding:6px 0">Se listan los de esta clase que están en el top 20 por facturación ('+it.length+' de '+a.n+').</div>':''):'<div class="dv-ax" style="padding:6px 0">Ninguno de esta clase está en el top 20 por facturación ('+a.n+' productos en la clase).</div>')+'</div>':'');}).join('')+
+            (it.length<a.n?'<div class="dv-ax" style="padding:6px 0">'+it.length+' de '+a.n+' productos.</div>':''):'<div class="dv-ax" style="padding:6px 0">Ninguno de esta clase está en el top 20 por facturación ('+a.n+' productos en la clase).</div>')+'</div>':'');}).join('')+
       '<div class="dz-exp" style="margin-top:12px">Pareto: barras = margen $ de cada producto (de mayor a menor) · línea = % acumulado del margen.</div>'+
       '<div class="dv-scroll"><svg width="'+W+'" height="'+Hh+'">'+g+'<polyline fill="none" stroke="'+AZUL+'" stroke-width="2" points="'+ln+'"/></svg></div><div class="dv-leg"><span><i style="background:'+LIME+'"></i>Margen $ por producto</span><span><i style="background:'+AZUL+';height:2px"></i>% acumulado (Pareto)</span></div>',f$(P.totalUtilidad)+' de margen');
     // Tendencia de margen
