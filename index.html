@@ -378,7 +378,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='256';
+  var MC_BUILD='257';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -10890,7 +10890,7 @@ var MCFab=(function(){
   function prof(){try{return getProfile()||{};}catch(e){return {};}}
   function can(m){var p=prof(),ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m)>=0||ms.indexOf(m+'+')>=0;}
   function canW(m){var p=prof(),ms=p.modulos||[];return p.rol==='admin'||ms.indexOf(m+'+')>=0;}
-  function opts(){var p=prof();if(!p||p.rol==='cliente'||!p.rol)return {};
+  function opts(){var p=prof();if(!p||p.rol!=='admin')return {}; /* b257: solo admin */
     return {cot:canW('cotizaciones'),ov:canW('cotizaciones'),prod:(can('cotizaciones')||can('dashboard'))};}
   function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function ensure(){if(document.getElementById('mc-hfab'))return;
