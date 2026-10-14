@@ -456,7 +456,7 @@ body.mc-nav #backBtn{display:none!important}
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='284';
+  var MC_BUILD='285';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -8463,7 +8463,7 @@ var Consig = (function(){
     var pedida=window.MC_CONSIG_V;window.MC_CONSIG_V=null;
     MCsbOr({action:'consig_data'},{action:'getConsignacion'}).then(function(res){ /* b276: Supabase primero; la hoja solo de respaldo */
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
-      data=res;cliSel=0;abiertos={};cliQ='';esClienteC=!res.admin;actaSel=null;actaQ='';
+      data=res;cliSel=0;modo='resumen';abiertos={};cliQ='';esClienteC=!res.admin;actaSel=null;actaQ='';
       if(pedida){vistaC=pedida;}
       else if(data.admin){vistaC='consig';}
       else{vistaC=data.consignacion.length||!data.alquiler.length?'consig':'alq';}
@@ -8581,8 +8581,9 @@ var Consig = (function(){
     if(data.admin&&cliSel>=data.clientes.length)cliSel=0;
     var cli=data.admin?data.clientes[cliSel]:data;
     try{document.getElementById('title').textContent=vistaC==='alq'?'ALQUILER':(vistaC==='actas'?'ACTAS':'CONSIGNACIÓN');}catch(e){}
-    if(vistaC==='actas'){el.innerHTML=extBanner+actasHtml(cli);return;}
-    var h=clientPickerHtml();
+    if(vistaC==='actas'){el.innerHTML=extBanner+(data.admin?'<div class="cbz-card-row" style="gap:6px;margin-bottom:10px"><button class="chip" onclick="Consig.rsVolver()">← Resumen</button></div>':'')+actasHtml(cli);return;}
+    if(data.admin&&modo==='resumen'){el.innerHTML=extBanner+resumenHtml();return;}
+    var h=(data.admin?'<div class="cbz-card-row" style="gap:6px;margin-bottom:10px"><button class="chip" onclick="Consig.rsVolver()">← Resumen de todos los clientes</button></div>':'')+clientPickerHtml();
     h+=(vistaC==='consig'?'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">Plazo: '+data.limiteDias+' días · con autorización aprobada: '+data.limiteExtendido+' · pasado el plazo, se factura.</div>':'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">El alquiler se factura mensualmente — aquí ves cuánto tiempo lleva cada equipo (mismo semáforo: verde / tomate / rojo).</div>')+
       kpisHtml(itemsActuales(),vistaC)+
       '<div class="cbz-card-row" style="margin-bottom:10px">'+
@@ -8663,10 +8664,52 @@ var Consig = (function(){
   function verActa(i){actaSel=i;render();try{window.scrollTo(0,0);}catch(e){}}
   function qActa(v){actaQ=v;render();}
   function todos(){actaTodos=!actaTodos;render();}
+  /* ===== b285: Resumen (admin) — KPIs y una sola tabla con todos los clientes; filtro de varios clientes (se recuerda). Clic en el cliente → vista por cliente. ===== */
+  var modo='resumen',rsQ='',rsEst='',rsCli=(function(){try{return JSON.parse(localStorage.getItem('mc_consig_cli')||'[]');}catch(e){return [];}})(),rsDrop=false,rsOrd='dias';
+  function rsFilas(){var out=[];(data.clientes||[]).forEach(function(c,ci){
+      if(vistaC==='alq'){(c.alquiler||[]).forEach(function(p){p.items.forEach(function(it){it.lotes.forEach(function(l){out.push({ci:ci,cliente:c.cliente,proyecto:p.proyecto,it:it,l:l});});});});}
+      else (c.consignacion||[]).forEach(function(it){it.lotes.forEach(function(l){out.push({ci:ci,cliente:c.cliente,proyecto:'',it:it,l:l});});});});
+    return out;}
+  function rsNivel(l){if(l.ext==='APROBADA'&&l.dias<=data.limiteExtendido)return 'ok';return nivelDe(l.dias,data.limiteDias,data.limiteExtendido);}
+  function resumenHtml(){var F=rsFilas(),qn=normQ(rsQ);
+    var V=F.filter(function(f){if(rsCli.length&&rsCli.indexOf(f.cliente)<0)return false;if(rsEst&&rsNivel(f.l)!==rsEst)return false;if(qn&&normQ(f.it.nombre+' '+f.it.sku+' '+f.l.acta+' '+f.proyecto+' '+f.cliente).indexOf(qn)<0)return false;return true;});
+    V.sort(rsOrd==='cliente'?function(a,b){return a.cliente.localeCompare(b.cliente)||b.l.dias-a.l.dias;}:rsOrd==='producto'?function(a,b){return a.it.nombre.localeCompare(b.it.nombre);}:function(a,b){return b.l.dias-a.l.dias;});
+    var und=0,at=0,fa=0,ok=0,cls={},mx=0;V.forEach(function(f){und+=+f.l.qty||0;cls[f.cliente]=1;var n=rsNivel(f.l);if(n==='red')fa+=+f.l.qty||0;else if(n==='tom')at+=+f.l.qty||0;else ok+=+f.l.qty||0;if(f.l.dias>mx)mx=f.l.dias;});
+    var alq=vistaC==='alq',todos=(data.clientes||[]).filter(function(c){return alq?(c.alquiler||[]).length:(c.consignacion||[]).length;}).map(function(c){return c.cliente;});
+    var h='<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><button class="chip'+(!alq?' on':'')+'" onclick="Consig.setV(\'consig\')">📦 Consignación</button><button class="chip'+(alq?' on':'')+'" onclick="Consig.setV(\'alq\')">📡 Alquiler</button><button class="chip" onclick="Consig.setV(\'actas\')">📄 Actas</button></div>'+
+      '<div class="cbz-kpis" style="margin-bottom:10px">'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+Object.keys(cls).length+'</span><span class="cbz-kpi-lbl">Clientes</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num">'+fmtQty(und)+'</span><span class="cbz-kpi-lbl">Unidades '+(alq?'en alquiler':'en consignación')+'</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#3ecf8e">'+fmtQty(ok)+'</span><span class="cbz-kpi-lbl">🟢 Al día</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#ff6347">'+fmtQty(at)+'</span><span class="cbz-kpi-lbl">🟠 Atención</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#e05c5c">'+fmtQty(fa)+'</span><span class="cbz-kpi-lbl">🔴 '+(alq?'Más de '+data.limiteExtendido+' días':'A facturar')+'</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="font-size:13px;color:'+colorNivel(nivelDe(mx,data.limiteDias,data.limiteExtendido))+'">'+(V.length?(alq?durTxt(mx):mx+' días'):'—')+'</span><span class="cbz-kpi-lbl">⏱ Más antiguo</span></div></div>'+
+      '<div class="cbz-card"><div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;align-items:center">'+
+        '<div style="position:relative;flex:1 1 220px"><button class="chip" style="width:100%;text-align:left" onclick="Consig.rsTogDrop()">👥 '+(rsCli.length?rsCli.length+' cliente'+(rsCli.length===1?'':'s'):'Todos los clientes')+' ▾</button>'+
+          (rsDrop?'<div style="position:absolute;z-index:20;left:0;right:0;top:100%;margin-top:4px;background:#111a26;border:1px solid #223142;border-radius:10px;padding:8px;max-height:300px;overflow:auto">'+
+            '<div style="display:flex;gap:6px;margin-bottom:6px"><button class="chip" onclick="Consig.rsCliTodos(1)">Todos</button><button class="chip" onclick="Consig.rsCliTodos(0)">Ninguno</button></div>'+
+            todos.map(function(n){return '<label style="display:block;padding:4px 2px;font-size:13px;cursor:pointer"><input type="checkbox" '+(rsCli.indexOf(n)>=0?'checked':'')+' onchange="Consig.rsCli(\''+escH(n).replace(/'/g,"\\'")+'\',this.checked)"> '+escH(n)+'</label>';}).join('')+'</div>':'')+'</div>'+
+        '<input class="cbz-search" placeholder="🔍 Producto, SKU, acta o proyecto" value="'+escH(rsQ)+'" oninput="Consig.rsQ(this.value)" id="rs-q" style="flex:2 1 200px;margin:0">'+
+        '<select class="uinput" style="flex:0 1 150px;margin:0" onchange="Consig.rsEst(this.value)">'+[['','Todos los estados'],['ok','🟢 Al día'],['tom','🟠 Atención'],['red','🔴 '+(alq?'+'+data.limiteExtendido+' días':'A facturar')]].map(function(o){return '<option value="'+o[0]+'"'+(rsEst===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'+
+        '<select class="uinput" style="flex:0 1 150px;margin:0" onchange="Consig.rsOrd(this.value)">'+[['dias','Más antiguo'],['cliente','Cliente A→Z'],['producto','Producto A→Z']].map(function(o){return '<option value="'+o[0]+'"'+(rsOrd===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div></div>'+
+      '<div class="cbz-card" id="rs-res">'+rsTabla(V,alq)+'</div>';
+    return h;}
+  function rsTabla(V,alq){if(!V.length)return '<div class="cbz-muted" style="padding:12px;text-align:center">Sin '+(alq?'equipos en alquiler':'productos en consignación')+' con estos filtros.</div>';
+    var est=function(f){var n=rsNivel(f.l);var t=alq?durTxt(f.l.dias):f.l.dias+' días';return '<span style="color:'+colorNivel(n)+';white-space:nowrap">'+(n==='red'?'🔴':n==='tom'?'🟠':'🟢')+' '+t+'</span>'+(f.l.ext==='APROBADA'?' <span class="pmeta">· extensión</span>':f.l.ext==='SOLICITADA'?' <span class="pmeta" style="color:#5cc8ff">· ext. solicitada</span>':'');};
+    return '<style>.rs-t{width:100%;border-collapse:collapse;font-size:12.5px}.rs-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px;border-bottom:1px solid #26405c;white-space:nowrap}.rs-t td{padding:6px;border-bottom:1px solid #1c2a3a;vertical-align:middle}.rs-t .n{text-align:right}'+
+      '@media(max-width:760px){.rs-t thead{display:none}.rs-t tr{display:block;border-bottom:1px solid #26405c;padding:8px 0}.rs-t td{display:flex;justify-content:space-between;gap:8px;border:0;padding:2px 0}.rs-t td:before{content:attr(data-l);color:#8fa3b8;font-size:11px}.rs-t td.pr:before{content:none}}</style>'+
+      '<table class="rs-t"><thead><tr><th>Cliente</th>'+(alq?'<th>Proyecto</th>':'')+'<th>Producto</th><th class="n">Cant.</th><th>Acta</th><th>Entregado</th><th>Tiempo</th></tr></thead><tbody>'+
+      V.map(function(f){return '<tr><td data-l="Cliente"><a href="#" style="color:#9fc3e8;text-decoration:none" onclick="Consig.rsAbrir('+f.ci+');return false;">'+escH(f.cliente)+'</a></td>'+(alq?'<td data-l="Proyecto">'+escH(f.proyecto)+'</td>':'')+
+        '<td class="pr"><div style="display:flex;gap:8px;align-items:center">'+(f.it.img?'<img src="'+f.it.img+'" class="pimg" loading="lazy" style="width:36px;height:36px" onerror="this.style.display=\'none\'">':'')+'<div><div style="font-weight:600">'+escH(f.it.nombre)+'</div><div class="pmeta">'+escH(f.it.sku)+'</div></div></div></td>'+
+        '<td class="n" data-l="Cant.">'+fmtQty(f.l.qty)+'</td><td data-l="Acta">'+escH(f.l.acta)+'</td><td data-l="Entregado">'+escH(f.l.fecha||'—')+'</td><td data-l="Tiempo">'+est(f)+'</td></tr>';}).join('')+'</tbody></table>';}
+  var rsT=null;
+  function rsQset(v){rsQ=v;clearTimeout(rsT);rsT=setTimeout(function(){render();var q=document.getElementById('rs-q');if(q){q.focus();try{q.setSelectionRange(q.value.length,q.value.length);}catch(e){}}},250);}
+  function rsCliSet(n,on){var i=rsCli.indexOf(n);if(on&&i<0)rsCli.push(n);if(!on&&i>=0)rsCli.splice(i,1);try{localStorage.setItem('mc_consig_cli',JSON.stringify(rsCli));}catch(e){}render();}
   function toggle(k){abiertos[k]=!abiertos[k];render();}
   function setCli(i){cliSel=i;abiertos={};render();}
   function setV(v){vistaC=v;abiertos={};actaSel=null;render();}
-  return {init:init,setV:setV,setCli:setCli,filterCli:filterCli,toggle:toggle,descargar:descargar,pedirExt:pedirExt,resolverExt:resolverExt,asignar:asignar,verActa:verActa,qActa:qActa,todos:todos};
+  return {rsTogDrop:function(){rsDrop=!rsDrop;render();},rsCliTodos:function(on){rsCli=on?[]:['__ninguno__'];try{localStorage.setItem('mc_consig_cli',JSON.stringify(rsCli));}catch(e){}render();},rsCli:function(n,on){rsCli=rsCli.filter(function(x){return x!=='__ninguno__';});rsCliSet(n,on);},rsQ:rsQset,rsEst:function(v){rsEst=v;render();},rsOrd:function(v){rsOrd=v;render();},
+    rsAbrir:function(ci){modo='cliente';cliSel=ci;abiertos={};render();},rsVolver:function(){modo='resumen';if(vistaC==='actas')vistaC='consig';render();},init:init,setV:setV,setCli:setCli,filterCli:filterCli,toggle:toggle,descargar:descargar,pedirExt:pedirExt,resolverExt:resolverExt,asignar:asignar,verActa:verActa,qActa:qActa,todos:todos};
 
 })();
 
