@@ -456,7 +456,7 @@ body.mc-nav #backBtn{display:none!important}
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='285';
+  var MC_BUILD='286';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -12179,7 +12179,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
   function cFicha(r){addCss2();FXel=null;var c=r.cliente,R=r.resumen||{},K=r.catalogos||{},a=(r.direcciones&&r.direcciones[0]&&r.direcciones[0].address)||{};FC=c;CT=(r.contactos||[]).map(function(x){return Object.assign({},x);});
     try{MCroute.set('vcli',c.id);}catch(e){}
     var T=(K.terminos||[]).map(function(t){return [t.id,t.name];});
-    var h='<div class="fx-hd"><button class="chip" onclick="MCCli.volver()">← Clientes</button><b class="nm">'+esc(c.name)+'</b>'+act(c.is_active)+syncMini(c.sync_status)+'</div>'+
+    var h='<div class="fx-hd"><button class="chip" onclick="MCCli.volver()">← Clientes</button><b class="nm">'+esc(c.name)+'</b>'+act(c.is_active)+syncMini(c.sync_status)+'<button class="chip" style="margin-left:auto" onclick="MCArch.abrir(\'cli\',\''+esc(c.id)+'\',\''+esc(String(c.name||'').replace(/'/g,''))+'\')">📎 Archivos</button></div>'+
      '<div class="fx-kpi">'+chipK('Saldo',money2(R.saldo),'#E8FF00')+chipK('Vencido',money2(R.vencido),R.vencido>0?'#e05c5c':'#6fd68f')+chipK('Ventas '+new Date().getFullYear(),money2(R.ventas_anio),'#a3e635')+chipK('Ventas total',money2(R.ventas_total))+chipK('OV',R.ovs||0)+chipK('Cotizaciones',R.cots||0)+chipK('Última venta',d10(R.ultima))+'</div>'+
      tabs([['gen','General'],['com','Términos y ventas'],['dir','Dirección y contactos'],['his','Historial'],['not','Notas']])+'<div class="cbz-card">'+
      pane('gen','<div class="ms-g">'+inp('mc-n','Nombre *',c.name)+inp('mc-r','Cédula / RUC',c.ruc,'inputmode="numeric"')+inp('mc-ct','Contacto principal',c.contact_name)+inp('mc-e','Email',c.email,'type="email"')+inp('mc-p','Teléfono',c.phone,'inputmode="tel"')+inp('mc-fx','Fax',c.fax)+inp('mc-w','Website',c.website)+chk('mc-a','Activo',c.is_active!==false)+'</div>')+
@@ -12213,7 +12213,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
   function vFicha(r){addCss2();FXel=vHost();var c=r.proveedor,R=r.resumen||{},K=r.catalogos||{};CU=Array.isArray(c.cuentas)&&c.cuentas.length?c.cuentas.map(function(x){return Object.assign({},x);}):((c.banco||c.numero_cuenta)?[{banco:c.banco,numero:c.numero_cuenta,tipo:c.tipo_cuenta,swift:c.swift}]:[]);
     try{MCroute.set('prov',c.id);}catch(e){}
     var T=(K.terminos||[]).map(function(t){return [t.id,t.name];});
-    var h=(VP.pre?VP.pre():'')+'<div class="fx-hd"><button class="chip" onclick="MCVnd.volver()">← Proveedores</button><b class="nm">'+esc(c.name)+'</b>'+act(c.is_active)+(c.tipo?'<span class="chip">'+(c.tipo==='exterior'?'🌎 Exterior':'🇪🇨 Local')+'</span>':'')+syncMini(c.sync_status)+'</div>'+
+    var h=(VP.pre?VP.pre():'')+'<div class="fx-hd"><button class="chip" onclick="MCVnd.volver()">← Proveedores</button><b class="nm">'+esc(c.name)+'</b>'+act(c.is_active)+(c.tipo?'<span class="chip">'+(c.tipo==='exterior'?'🌎 Exterior':'🇪🇨 Local')+'</span>':'')+syncMini(c.sync_status)+'<button class="chip" style="margin-left:auto" onclick="MCArch.abrir(\'vnd\',\''+esc(c.id)+'\',\''+esc(String(c.name||'').replace(/'/g,''))+'\')">📎 Archivos</button></div>'+
      '<div class="fx-kpi">'+chipK('Por pagar',money2(R.por_pagar),'#E8FF00')+chipK('Compras '+new Date().getFullYear(),money2(R.compras_anio),'#a3e635')+chipK('Compras total',money2(R.compras_total))+chipK('OC',R.ocs||0)+chipK('Última OC',d10(R.ultima))+'</div>'+
      tabs([['gen','General'],['com','Compra e impuestos'],['ban','Banco'],['his','Historial'],['not','Notas']])+'<div class="cbz-card">'+
      pane('gen','<div class="ms-g">'+inp('mv-n','Nombre *',c.name)+inp('mv-r','RUC / Tax ID',c.ruc)+selO('mv-tp','Tipo',[['local','Local'],['exterior','Exterior']],c.tipo)+inp('mv-ct','Contacto',c.contact_name)+inp('mv-e','Email',c.email,'type="email"')+inp('mv-p','Teléfono',c.phone,'inputmode="tel"')+inp('mv-fx','Fax',c.fax)+inp('mv-w','Website',c.website)+chk('mv-a','Activo',c.is_active!==false)+'</div>')+
@@ -12315,8 +12315,8 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     var S=r.stock||[],tot=S.reduce(function(a,s){return a+(+s.q||0);},0),porB={};S.forEach(function(s){(porB[s.bodega]=porB[s.bodega]||{q:0,subs:[]}).q+=s.q;porB[s.bodega].subs.push(s);});
     var mx=Math.max.apply(null,Object.keys(porB).map(function(k){return porB[k].q;}).concat([1]));
     var h='<div class="pf-act"><button class="chip" onclick="MCProd.volver()" style="margin-right:auto">← Productos</button>'+
-      '<button class="chip" onclick="MCProd.editar()">✏️ Editar</button><button class="chip" onclick="MCProd.activo('+(p.is_active===false?'true':'false')+')">'+(p.is_active===false?'✅ Activar':'⛔ Desactivar')+'</button><button class="chip" onclick="MCProd.adjuntos()">📎 Adjuntos</button><button class="chip" onclick="MCProd.copiar()">📄 Copiar</button><button class="chip" onclick="MCProd.vender()">＋ Vender</button><button class="chip" onclick="MCProd.imprimir()">🖨 Imprimir etiqueta</button></div>'+
-      '<div class="cbz-card"><div class="pf-hd">'+(p.img?'<img class="pf-ph" src="'+esc(p.img)+'" alt="">':'<div class="pf-ph"></div>')+'<div><div class="pf-nm">'+esc(p.name)+' '+act(p.is_active)+' '+syncMini(p.sync_status)+'</div>'+
+      '<button class="chip" onclick="MCProd.editar()">✏️ Editar</button><button class="chip" onclick="MCProd.activo('+(p.is_active===false?'true':'false')+')">'+(p.is_active===false?'✅ Activar':'⛔ Desactivar')+'</button><button class="chip" onclick="MCProd.adjuntos()">📷 Fotos y archivos</button><button class="chip" onclick="MCProd.copiar()">📄 Copiar</button><button class="chip" onclick="MCProd.vender()">＋ Vender</button><button class="chip" onclick="MCProd.imprimir()">🖨 Imprimir etiqueta</button></div>'+
+      '<div class="cbz-card"><div class="pf-hd">'+(p.img?'<img class="pf-ph" src="'+esc(p.img)+'" alt="" style="cursor:pointer" onclick="MCProd.adjuntos()">':'<div class="pf-ph" style="cursor:pointer;display:flex;align-items:center;justify-content:center;color:#8fa3b8;font-size:12px" onclick="MCProd.adjuntos()">＋ Foto</div>')+'<div><div class="pf-nm">'+esc(p.name)+' '+act(p.is_active)+' '+syncMini(p.sync_status)+'</div>'+
       '<div class="pf-kv">'+kvx('SKU',p.sku)+kvx('Tipo',TIPO2[p.item_type]||p.item_type)+kvx('Categoría',p.categoria_nombre)+kvx('Marca',p.marca)+kvx('Unidad',p.uom)+kvx('Código contable',p.codigo_contable)+kvx('Categoría contable',p.categoria_contable)+
       kvx('Línea N',p.linea_n)+kvx('Línea H',p.linea_h)+kvx('Línea P',p.linea_p)+kvx('Línea B',p.linea_b)+kvx('MM',p.mm)+kvx('Descarga lateral',p.descarga_agua)+kvx('Bodega por defecto',(p.bodega_nombre||'')+(p.default_sublocation?' · '+p.default_sublocation:''))+kvx('Controla series',p.track_serials?'Sí':'No')+
       (p.custom_extra&&typeof p.custom_extra==='object'?Object.keys(p.custom_extra).map(function(k){return kvx(k,p.custom_extra[k]);}).join(''):'')+'</div>'+(p.description?'<div class="ms-sub" style="margin-top:10px">'+esc(p.description)+'</div>':'')+'</div></div></div>'+
@@ -12349,13 +12349,14 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     sel('mp-b','Bodega por defecto',K.bodegas.map(function(b){return[b.id,b.name];}),p.default_location_id)+inp('mp-sb','Sububicación por defecto',p.default_sublocation)+
     '<label>✏️ Descripción<textarea class="uinput" id="mp-d" rows="3">'+esc(p.description||'')+'</textarea></label><label>✏️ Observaciones<textarea class="uinput" id="mp-rm" rows="3">'+esc(p.remarks||'')+'</textarea></label>'+
     '<label style="align-self:end"><input type="checkbox" id="mp-a" '+(p.is_active!==false?'checked':'')+'> Activo</label><label style="align-self:end"><input type="checkbox" id="mp-ts" '+(p.track_serials?'checked':'')+'> Controla series</label></div>'+
-    '<div class="fx-bar"><button class="cbz-btn" id="mp-g" onclick="MCProd.guardar(\''+esc(p.id||'')+'\')">Guardar</button><button class="chip" onclick="MCProd.cancelar()">Cancelar</button><span class="ms-sub">La foto se sube desde Inventario.</span></div></div>';});}
+    '<div class="fx-bar"><button class="cbz-btn" id="mp-g" onclick="MCProd.guardar(\''+esc(p.id||'')+'\')">Guardar</button><button class="chip" onclick="MCProd.cancelar()">Cancelar</button><span class="ms-sub">Las fotos y archivos se suben desde la ficha (📷 Fotos y archivos).</span></div></div>';});}
   function pfGuardar(id){var b={op:'prod_save',id:id||null,name:v('mp-n'),sku:v('mp-s'),item_type:v('mp-t'),category_id:v('mp-c')||null,uom:v('mp-u'),marca:v('mp-m'),codigo_contable:v('mp-cc'),categoria_contable:v('mp-ca'),linea_n:v('mp-ln'),linea_h:v('mp-lh'),linea_p:v('mp-lp'),linea_b:v('mp-lb'),mm:v('mp-mm'),descarga_agua:v('mp-da'),
       default_location_id:v('mp-b')||null,default_sublocation:v('mp-sb'),description:v('mp-d'),remarks:v('mp-rm'),is_active:v('mp-a'),track_serials:v('mp-ts')};
     if(!b.name){alert('El nombre es obligatorio');return;}guardarCon(document.getElementById('mp-g'),b,function(r){try{MCdraft.borrar();}catch(e){}pfAbrirId(r.id);});}
   function pfActivo(on){var p=PF.cur.producto;if(!on&&!confirm('¿Desactivar '+p.name+'? No se borra; deja de aparecer en búsquedas de venta.'))return;
     api({op:'prod_save',id:p.id,name:p.name,is_active:on}).then(function(){toast(on?'Producto activado':'Producto desactivado');try{MCpost({action:'ventas',op:'emit',user:getUserName(),pin:getPin()});}catch(e){}pfAbrirId(p.id);}).catch(function(e){alert(MCerr(e));});}
-  function pfAdjuntos(){var p=PF.cur.producto;var m=document.createElement('div');m.className='fx-mod';m.innerHTML='<div><b>Adjuntos de '+esc(p.name)+'</b><div style="margin:12px 0">'+(p.img?'<a href="'+esc(p.img)+'" target="_blank" rel="noopener"><img src="'+esc(p.img)+'" style="max-width:100%;max-height:260px;border-radius:8px"></a><div class="ms-sub">Foto del producto</div>':'<p class="ms-sub">Sin adjuntos. La foto se sube desde Inventario.</p>')+'</div><div style="text-align:right"><button class="chip" onclick="this.closest(\'.fx-mod\').remove()">Cerrar</button></div></div>';document.body.appendChild(m);}
+  function pfAdjuntos(){var p=PF.cur.producto;MCArch.abrir('prod',p.id,p.name,function(){pfAbrirId(p.id);});}
+  function pfAdjuntosViejo(){var p=PF.cur.producto;var m=document.createElement('div');m.className='fx-mod';m.innerHTML='<div><b>Adjuntos de '+esc(p.name)+'</b><div style="margin:12px 0">'+(p.img?'<a href="'+esc(p.img)+'" target="_blank" rel="noopener"><img src="'+esc(p.img)+'" style="max-width:100%;max-height:260px;border-radius:8px"></a><div class="ms-sub">Foto del producto</div>':'<p class="ms-sub">Sin adjuntos. La foto se sube desde Inventario.</p>')+'</div><div style="text-align:right"><button class="chip" onclick="this.closest(\'.fx-mod\').remove()">Cerrar</button></div></div>';document.body.appendChild(m);}
   function pfVender(){var p=PF.cur.producto;try{openMod('vcot');setTimeout(function(){try{Ventas.nuevo();setTimeout(function(){try{Ventas.buscarProd(p.sku||p.name);setTimeout(function(){try{Ventas.elegirProd(0);toast('Producto agregado. Elige el cliente.');}catch(e){}},1800);}catch(e){}},700);}catch(e){}},500);}catch(e){}}
   function pfImprimir(){var p=PF.cur.producto;var w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para imprimir');return;}
     w.document.write('<html><head><title>Etiqueta '+esc(p.sku||'')+'</title><style>@page{size:62mm 29mm;margin:2mm}body{font-family:Arial,sans-serif;margin:0}.l{width:58mm;height:25mm;display:flex;flex-direction:column;justify-content:center}.s{font-size:16pt;font-weight:800;letter-spacing:1px}.n{font-size:7.5pt;line-height:1.15;max-height:3.5em;overflow:hidden}</style></head><body><div class="l"><div class="s">'+esc(p.sku||'')+'</div><div class="n">'+esc(p.name)+'</div></div><script>setTimeout(function(){print()},300)<\/script></body></html>');w.document.close();}
@@ -12489,6 +12490,44 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
   window.MCBanco={open:mount};
 })();
 
+</script>
+<script>
+/* b286: Fotos y archivos — producto (foto nueva = principal), cliente, proveedor. Supabase Storage; nada va a inFlow. */
+window.MCArch=(function(){
+  var S={};
+  function tt(t){try{if(typeof toast==='function')return toast(t);}catch(e){}var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#14202c;color:#a3e635;padding:8px 14px;border-radius:18px;z-index:99999;font-size:13px';document.body.appendChild(d);setTimeout(function(){d.remove();},2200);}
+  function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function call(b){b.action='ventas';b.user=getUserName();b.pin=getPin();return MCpost(b).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Error');return r;});}
+  function kb(n){n=+n||0;return n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
+  function leer(fl){return new Promise(function(ok,ko){var rd=new FileReader();rd.onload=function(){ok(String(rd.result));};rd.onerror=ko;rd.readAsDataURL(fl);});}
+  function achicar(fl){return leer(fl).then(function(u){if(!/^image\/(jpeg|png|webp)$/.test(fl.type))return {b64:u.split(',')[1],nombre:fl.name};
+    return new Promise(function(ok){var im=new Image();im.onload=function(){var M=1600,w=im.naturalWidth,h=im.naturalHeight;if(Math.max(w,h)<=M&&fl.size<1.5e6){ok({b64:u.split(',')[1],nombre:fl.name});return;}
+      var k=Math.min(1,M/Math.max(w,h)),c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
+      ok({b64:c.toDataURL('image/jpeg',0.86).split(',')[1],nombre:fl.name.replace(/\.[^.]+$/,'')+'.jpg'});};im.onerror=function(){ok({b64:u.split(',')[1],nombre:fl.name});};im.src=u;});});}
+  function abrir(ent,id,nombre,onCambio){S={ent:ent,id:id,nombre:nombre,cb:onCambio,cambio:false,busy:false};
+    var m=document.getElementById('mca-mod');if(m)m.remove();m=document.createElement('div');m.id='mca-mod';m.className='fx-mod';
+    m.innerHTML='<div style="max-width:640px;width:100%;max-height:88vh;overflow:auto"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">'+(ent==='prod'?'📷 Fotos y archivos':'📎 Archivos')+' · '+esc(nombre)+'</b><button class="chip" onclick="MCArch.cerrar()">Cerrar</button></div><div id="mca-b" style="margin-top:10px"><div class="cbz-loading">Cargando…</div></div></div>';
+    document.body.appendChild(m);cargar();}
+  function cargar(){call({op:S.ent+'_get',id:S.id,solo_archivos:true}).then(function(r){S.r=r;pintar();}).catch(function(e){var b=document.getElementById('mca-b');if(b)b.innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  function pintar(){var b=document.getElementById('mca-b');if(!b)return;var r=S.r,h='';
+    if(S.ent==='prod'){h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>Fotos</b><span class="ms-sub" style="flex:1">La foto que subas queda como principal.</span><label class="chip" style="cursor:pointer">＋ Subir foto<input type="file" accept="image/*" style="display:none" onchange="MCArch.subirFoto(this)"></label></div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:10px 0 16px">'+((r.fotos||[]).length?r.fotos.map(function(f){return '<div style="text-align:center"><a href="'+esc(f.url)+'" target="_blank" rel="noopener"><img src="'+esc(f.url)+'" alt="" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border-radius:8px'+(f.principal?';outline:2px solid #a3e635':'')+'"></a>'+
+        (f.principal?'<div style="color:#a3e635;font-size:12px;margin-top:4px">★ Principal</div>':'<button class="chip" style="margin-top:4px;font-size:11px" onclick="MCArch.principal('+f.id+')">Hacer principal</button>')+'</div>';}).join(''):'<p class="ms-sub">Sin fotos.</p>')+'</div>';}
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="flex:1">Archivos</b><label class="chip" style="cursor:pointer">＋ Subir archivo<input type="file" multiple style="display:none" onchange="MCArch.subirArch(this)"></label></div>'+
+      ((r.archivos||[]).length?'<div style="margin-top:8px">'+r.archivos.map(function(a){return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #1c2a3a"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 '+esc(a.nombre)+'</span><span class="ms-sub" style="white-space:nowrap">'+kb(a.bytes)+(a.fecha?' · '+String(a.fecha).slice(0,10):'')+'</span><button class="chip" onclick="MCArch.ver('+a.id+')">Abrir</button></div>';}).join('')+'</div>':'<p class="ms-sub" style="margin-top:8px">Sin archivos. PDF, imágenes, Excel, Word, XML, ZIP · máx. 15 MB.</p>')+
+      '<div id="mca-st" class="ms-sub" style="margin-top:8px"></div>';
+    b.innerHTML=h;}
+  function st(t){var x=document.getElementById('mca-st');if(x)x.textContent=t;}
+  function subirFoto(inp){var fl=inp.files&&inp.files[0];if(!fl||S.busy)return;if(fl.size>25e6){alert('Máximo 25 MB');return;}S.busy=true;st('Subiendo foto…');
+    achicar(fl).then(function(x){return call({op:'prod_save',id:S.id,foto:{accion:'subir',nombre:x.nombre,base64:x.b64}});}).then(function(){S.busy=false;S.cambio=true;tt('Foto subida como principal');cargar();}).catch(function(e){S.busy=false;st('');alert(MCerr(e));});}
+  function subirArch(inp){var fs=[].slice.call(inp.files||[]);if(!fs.length||S.busy)return;S.busy=true;var i=0;
+    (function sig(){if(i>=fs.length){S.busy=false;tt(fs.length>1?fs.length+' archivos subidos':'Archivo subido');cargar();return;}var fl=fs[i++];if(fl.size>15*1024*1024){alert(fl.name+': máximo 15 MB');sig();return;}st('Subiendo '+fl.name+'…');
+      leer(fl).then(function(u){return call({op:S.ent+'_save',id:S.id,archivo:{nombre:fl.name,base64:u.split(',')[1]}});}).then(sig).catch(function(e){alert(fl.name+': '+MCerr(e));sig();});})();}
+  function principal(fid){if(S.busy)return;S.busy=true;call({op:'prod_save',id:S.id,foto:{accion:'principal',foto_id:fid}}).then(function(){S.busy=false;S.cambio=true;toast('Foto principal actualizada');cargar();}).catch(function(e){S.busy=false;alert(MCerr(e));});}
+  function ver(id){var w=window.open('','_blank');call({op:'attachmentUrl',file_id:id}).then(function(r){if(w)w.location=r.url;else location.href=r.url;}).catch(function(e){if(w)w.close();alert(MCerr(e));});}
+  function cerrar(){var m=document.getElementById('mca-mod');if(m)m.remove();if(S.cambio&&S.cb)try{S.cb();}catch(e){}}
+  return {abrir:abrir,cerrar:cerrar,subirFoto:subirFoto,subirArch:subirArch,principal:principal,ver:ver};
+})();
 </script>
 </body>
 </html>
