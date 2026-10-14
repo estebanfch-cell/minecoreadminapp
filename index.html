@@ -395,7 +395,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>
-  var MC_BUILD='259';
+  var MC_BUILD='260';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -541,7 +541,7 @@ function MCrefrescarStock(){
    Sesión: token firmado de 15 min que emite AdminAPI tras validar usuario+PIN (ping / sbToken); no contiene secretos.
    Si el token falta/vence/se revoca o Supabase falla ⇒ se usa el camino de siempre (Apps Script) sin que el usuario lo note. */
 var MC_SB_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api';
-var MC_SB_LECT=/^(meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo)$/;
+var MC_SB_LECT=/^(meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo|dash_home|dash_hist)$/;
 var MC_SB_DOWN=0,MC_SB_REF=null;
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
 function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
@@ -555,6 +555,11 @@ function MCsbEligible(c){
   if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
   return (c.action==='ventas'&&MC_SB_LECT.test(String(c.op||'')))||c.action==='getInventario';
 }
+/* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
+function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
+  return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
+    .catch(function(e){try{console.warn('Supabase falló ('+sb.op+'), uso Google:',e&&e.message);}catch(x){}return MCpost(gas);});}
+
 function MCpost(p){
   p=p||{};
   var s=null;
@@ -3175,7 +3180,7 @@ var Dash = (function(){
     var body=document.getElementById('dash-body');
     body.innerHTML='<div class="cbz-loading">Cargando '+from+' → '+to+'...</div>';
     openId=null;
-    MCpost({action:'getDashboard',fromDate:from,toDate:to,user:getUserName(),pin:getPin()})
+    MCsbOr({action:'ventas',op:'dash_hist',fromDate:from,toDate:to},{action:'getDashboard',fromDate:from,toDate:to})
     .then(function(res){
       if(!res.ok){body.innerHTML='<div class="cbz-error">Error del servidor: '+(res.error||'desconocido')+'</div>';return;}
       if(!res.agg){body.innerHTML='<div class="cbz-error">El AdminAPI desplegado es una versión antigua (sin agg). Pega AdminAPI_v3 y crea Nueva versión de la implementación.</div>';return;}
@@ -9514,7 +9519,7 @@ var Landing = (function(){
       return;
     }
     node.innerHTML='<div class="cbz-loading">Cargando KPIs...</div>';
-    MCpost({action:'getLandingHome',customersWindow:custWin,user:getUserName(),pin:getPin()})
+    MCsbOr({action:'ventas',op:'dash_home',customersWindow:custWin},{action:'getLandingHome',customersWindow:custWin})
     .then(function(res){
       if(!res.ok){node.innerHTML='<div class="cbz-error">KPIs: '+(res.error||'error')+'</div>';return;}
       data=res; render();
