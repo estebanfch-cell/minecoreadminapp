@@ -316,3 +316,26 @@ body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
 #caja-screen .pfolder-body{padding:0 12px 12px;border-top:.5px solid var(--border)}
 #caja-screen .pf-mini{font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:12px 4px 8px}
 
+
+/* ===== b329: Caja con el estilo del sistema (paleta oscura del portal, chips, tarjetas cbz). Solo CSS: la lógica y el mapa no cambian. ===== */
+#caja-screen{
+  --brand:#3d7ec9;--brand-dark:#9fc3e8;--brand-light:#13263a;
+  --gold:#f0c040;--gold-light:#2a2410;
+  --bg:#0b1219;--surface:#0f1720;--surface2:#13202e;
+  --text:#dce6f0;--text2:#8fa3b8;--text3:#6b7f94;
+  --border:#223142;--border2:#2c4a66;
+  --ok-bg:#12301f;--ok-tx:#6fd68f;
+  --warn-bg:#2a2410;--warn-tx:#f0c040;
+  --err-bg:#3a1616;--err-tx:#ff8a8a;
+  --radius:8px;--radius-lg:12px;
+  --mc-dark:#0f1720;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;background:var(--bg)
+}
+#caja-screen .page-title{font-size:17px;font-weight:700;letter-spacing:.2px;color:#e8eef6}
+#caja-screen .card{background:#0f1720;border:1px solid #223142;border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:none}
+#caja-screen .tab{border-radius:16px;padding:5px 12px;font-size:12.5px;background:transparent;border:1px solid #26405c;color:#9fc3e8}
+#caja-screen .tab.active,#caja-screen .tab.on,#caja-screen .tab.sel{background:#16324a;border-color:#5cc8ff;color:#e8eef6}
+#caja-screen .field-input,#caja-screen select,#caja-screen textarea{background:#0b1219;border:1px solid #2c4a66;color:#dce6f0;border-radius:8px;font-size:14px}
+#caja-screen .field-label{color:#8fa3b8;font-size:11px;letter-spacing:.4px}
+#caja-screen button{font-family:inherit}
+#caja-screen .bottom-nav,#caja-screen .home-bar{background:#0f1720;border-color:#223142}
