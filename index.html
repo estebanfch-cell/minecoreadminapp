@@ -2904,7 +2904,7 @@ var Cobranza = (function () {
       conActa = confirm('¿Adjuntar el acta transaccional' + (c.actaAprobada ? ' APROBADA del ' + c.actaAprobada : ' (modelo)') + '?\nAceptar = con acta · Cancelar = solo estado de cuenta');
     }
     chooser = null;
-    ((esN5&&conActa)?api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined, conActa: conActa }):mcCobPost('enviar_ahora',{cliente:c.cliente,nivel:nivel||undefined}).catch(function(e){return {ok:false,error:(e&&(e.error||e.message))||'Sin conexión'};})).then(function (res) {
+    (mcCobPost('enviar_ahora',{cliente:c.cliente,nivel:nivel||undefined,conActa:conActa}).catch(function(e){return {ok:false,error:(e&&(e.error||e.message))||'Sin conexión'};})).then(function (res) {
       alert(res.ok ? res.resultado : 'Error: ' + (res.error || res.resultado));
       init();
     });
