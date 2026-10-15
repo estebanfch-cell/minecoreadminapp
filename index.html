@@ -647,6 +647,9 @@ function MCsbEligible(c){
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
 
 /* b345-cxc: configuración de cobranza en Supabase (app.cxc_config); copia a Google sin esperar */
+function MCcxcSet(el,campo,valor){var cli=decodeURIComponent(el.getAttribute('data-c')||'');el.disabled=true;
+  MCpost({action:'ventas',op:'cxc_update',cliente:cli,campo:campo,valor:valor,user:getUserName(),pin:getPin()}).then(function(r){el.disabled=false;if(!r||!r.ok)throw new Error((r&&r.error)||'No se guardó');})
+  .catch(function(e){el.disabled=false;alert(MCerr(e));});}
 function MCcxcUpd(p){p.user=getUserName();p.pin=getPin();var g=Object.assign({},p);try{MCpost0(g).catch(function(){});}catch(e){}
   return MCpost({action:'ventas',op:'cxc_update',cliente:p.cliente,campo:p.campo,valor:p.valor,user:p.user,pin:p.pin});}
 /* b345-cxc: estado del formulario «Conoce a tu cliente» (pendiente/enviado/completo) + «Enviar formulario» */
@@ -2820,8 +2823,11 @@ var Cobranza = (function () {
       'onkeydown="Cobranza.waKey(event,' + idx + ', this)" onblur="Cobranza.waBlur(' + idx + ', this)">' +
       '</div>' : '') +
       '<div class="cbz-card-row cbz-controls">' +
-      '<span class="cbz-freq">Frecuencia: <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',-1)">−</button>' +
-      '<b>' + c.frecuencia + '</b> días <button class="cbz-btn-mini" onclick="Cobranza.freq(' + idx + ',1)">+</button></span>' +
+      '<span class="cbz-freq" title="Solo clientes con facturas vencidas, lunes 09:00, contado desde el último envío automático">Recordatorio automático: lunes 09:00 · ' +
+      '<select class="cbz-btn-mini" data-c="' + encodeURIComponent(c.cliente) + '" onchange="MCcxcSet(this,\'frecuencia\',this.value)">' +
+      '<option value="7"' + (c.frecuencia === 14 ? '' : ' selected') + '>cada 7 días</option><option value="14"' + (c.frecuencia === 14 ? ' selected' : '') + '>cada 14 días</option></select></span>' +
+      '<label class="cbz-esc" title="Sin recordatorios automáticos; el envío manual sigue disponible"><input type="checkbox" data-c="' + encodeURIComponent(c.cliente) + '" ' + (c.noMolestar ? 'checked' : '') +
+      ' onchange="MCcxcSet(this,\'no_molestar\',this.checked?\'SI\':\'NO\')"> No molestar</label>' +
       '<label class="cbz-esc"><input type="checkbox" ' + (c.escalamiento ? 'checked' : '') +
       ' onchange="Cobranza.escala(' + idx + ', this.checked)"> Escalamiento</label>' +
       '<label class="cbz-esc" style="color:#ff8080"><input type="checkbox" ' + (c.procesoLegal ? 'checked' : '') +
