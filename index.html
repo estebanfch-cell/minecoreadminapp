@@ -463,7 +463,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='324';
+  var MC_BUILD='325';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -12099,17 +12099,20 @@ function MC_NAVCAT(){
 /* b314: pago — la retención sola NO hace «Parcial»; insignia «Ret» sutil. Columna inventario plegable (3 puntos) guardada por usuario. */
 function mcM(n){return (typeof money==='function'?money(n):'$'+(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));}
 /* b319: agrupar visualmente órdenes divididas por número base (root_number). Solo vista; estado por usuario (mc_lst_filt_grp*). */
-function mcGrpSt(){try{return JSON.parse(localStorage.getItem('mc_lst_filt_grp')||'{}');}catch(e){return {};}}
+/* b325: estado abierto/cerrado de grupos solo durante la sesión (clave nueva: lo guardado antes ya no aplica) */
+function mcGrpSt(){try{return JSON.parse(sessionStorage.getItem('mc_grp_v2')||'{}');}catch(e){return {};}}
+try{localStorage.removeItem('mc_lst_filt_grp');}catch(e){}
 function mcGrpOn(){try{return localStorage.getItem('mc_lst_filt_grpoff')!=='1';}catch(e){return true;}}
-function mcRootN(o){if(o.root_number)return o.root_number;var m=String(o.order_number||'').match(/^([A-Z]+-[A-Z]+-\d+)-/i);return m?m[1].toUpperCase():(/^[A-Z]+-[A-Z]+-\d+$/i.test(o.order_number||'')?String(o.order_number).toUpperCase():'');}
+/* b325: la raíz SIEMPRE sale del número (sin espacios/saltos), a cualquier profundidad (-4-4-1 → MCOR-SO-001044); root_number guardado solo como respaldo */
+function mcRootN(o){var n=String(o.order_number||'').trim().toUpperCase(),m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)*$/);if(m)return m[1];return String(o.root_number||'').trim().toUpperCase();}
 /* b322: grupo en la posición normal de la orden madre (no arriba); colapsado SOLO si todas las partes están cerradas; sin parpadeo (sin recarga al alternar) */
-function mcGrp(L,ctx){if(!mcGrpOn())return L;var cnt={},anc={};L.forEach(function(o,i){o.root_number=o.root_number||mcRootN(o);var k=o.root_number||'';if(k){cnt[k]=(cnt[k]||0)+1;if(String(o.order_number||'').toUpperCase()===k)anc[k]=i;}});
+function mcGrp(L,ctx){if(!mcGrpOn())return L;var cnt={},anc={};L.forEach(function(o,i){o.root_number=mcRootN(o);var k=o.root_number||'';if(k){cnt[k]=(cnt[k]||0)+1;if(String(o.order_number||'').trim().toUpperCase()===k)anc[k]=i;}});
   L.forEach(function(o,i){var k=o.root_number||'';if(k&&anc[k]==null)anc['~'+k]=i;});/* sin madre en la lista: la parte más antigua (última en el orden actual) */
   var st=mcGrpSt(),out=[];
   L.forEach(function(o,i){var k=o.root_number||'';if(!k||cnt[k]<2){out.push(o);return;}var a=anc[k]!=null?anc[k]:anc['~'+k];if(i!==a)return;
     var M=L.filter(function(x){return x.root_number===k;}).sort(function(x,y){return String(x.order_number).localeCompare(String(y.order_number),'es',{numeric:true});});
     var cerr=M.every(function(x){return x.estado==='cerrada'||x.estado==='cancelada';}),col=cerr?st[k]!=='e':false,tot=M.reduce(function(a,x){return a+(+x.total||0);},0);
-    var P=M.filter(function(x){return String(x.order_number||'').toUpperCase()===k;})[0]||M[0],sum=function(f){return Math.round(M.reduce(function(a,x){return a+(+x[f]||0);},0)*100)/100;};var ps=M.map(function(x){return x.payment_status;}),pay=ps.every(function(v){return v==='paid';})?'paid':ps.some(function(v){return v==='paid'||v==='partial';})?'partial':ps.some(function(v){return v==='invoiced'||v==='owing';})?'invoiced':'uninvoiced';
+    var P=M.filter(function(x){return String(x.order_number||'').trim().toUpperCase()===k;})[0]||M[0],sum=function(f){return Math.round(M.reduce(function(a,x){return a+(+x[f]||0);},0)*100)/100;};var ps=M.map(function(x){return x.payment_status;}),pay=ps.every(function(v){return v==='paid';})?'paid':ps.some(function(v){return v==='paid'||v==='partial';})?'partial':ps.some(function(v){return v==='invoiced'||v==='owing';})?'invoiced':'uninvoiced';
     var one=function(f,bad){var v=M.map(function(x){return x[f];}).filter(function(x){return x&&x!=='n/a';});if(!v.length)return 'n/a';return v.every(function(x){return x===v[0];})?v[0]:(v.filter(function(x){return x===bad;})[0]||bad);};
     var fs=[];M.forEach(function(x){if(x.factura_sri&&fs.indexOf(x.factura_sri)<0)fs.push(x.factura_sri);});var rets=M.filter(function(x){return x.ret&&+x.ret.m;});
     out.push(Object.assign({},P,{_g:k,_n:M.length,_tot:tot,_col:col,_cerr:cerr,_ctx:ctx,total:tot,subtotal:sum('subtotal'),balance:sum('balance'),amount_paid:sum('amount_paid'),pagado_sin_ret:sum('pagado_sin_ret'),payment_status:pay,is_invoiced:M.some(function(x){return x.is_invoiced;}),
@@ -12117,7 +12120,7 @@ function mcGrp(L,ctx){if(!mcGrpOn())return L;var cnt={},anc={};L.forEach(functio
       pick_estado:one('pick_estado','pendiente'),pack_estado:one('pack_estado','pendiente'),ship_estado:one('ship_estado','pendiente'),inventory_status:one('inventory_status','unfulfilled'),estado:cerr?'cerrada':P.estado}));if(!col)M.forEach(function(x){if(x!==P)out.push(Object.assign({},x,{_gm:k}));});});return out;}
 var _mcGrpT={};
 function mcGrpTog(k,ctx,ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var now=Date.now();if(_mcGrpT[k]&&now-_mcGrpT[k]<250)return;_mcGrpT[k]=now;
-  var st=mcGrpSt();st[k]=st[k]==='e'?'c':'e';try{localStorage.setItem('mc_lst_filt_grp',JSON.stringify(st));}catch(e){}var W=window[ctx||'Ventas'];try{if(W.relista)W.relista();else W.lista();}catch(e){try{W.init();}catch(_){}}}
+  var st=mcGrpSt();st[k]=st[k]==='e'?'c':'e';try{sessionStorage.setItem('mc_grp_v2',JSON.stringify(st));}catch(e){}var W=window[ctx||'Ventas'];try{if(W.relista)W.relista();else W.lista();}catch(e){try{W.init();}catch(_){}}}
 /* b324: la fila del grupo es una fila normal (cliente, fecha, Cerrada, total del grupo) para que el ordenador de tablas la ponga en su lugar; las partes la siguen */
 function mcGrpWrap(html,o,tr){var k=String(o._g||o._gm).replace(/["'<>]/g,'');
   if(o._gm)return html.replace(/^<(tr|div)\b/,'<$1 data-gm="'+k+'"').replace(/<b>/,'<span style="display:inline-block;width:18px"></span><span class="cbz-muted">└ </span><b>');
