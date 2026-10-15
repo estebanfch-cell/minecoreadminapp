@@ -463,7 +463,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='334';
+  var MC_BUILD='335';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -13705,5 +13705,6 @@ window.MCNotif=(function(){
   return {pfacCard:pfacCard,irFac:irFac,irOV:irOV,abrir:abrir,cerrar:cerrar,cargar:cargar,ir:ir,vistos:vistos,semVisto:semVisto,setBod:setBod,setCli:setCli,buscarCli:buscarCli,defBod:defBod,defCli:defCli,semana:semana,_st:st};
 })();
 </script>
+<script src="assistant_patch.js?v=1"></script>
 </body>
 </html>
