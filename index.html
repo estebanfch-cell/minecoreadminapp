@@ -464,7 +464,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='341';
+  var MC_BUILD='342';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2202,7 +2202,7 @@ function MCInflowDoc(kind, d, opt){
         ['RUC 1793194965001','Alpallana y Diego de Almagro','Quito, Pichincha','170518 Ecuador','www.minecore.ec'].forEach(function(a,i){txt(a,160.9,41.2+i*10.5,8.9,0);});
         var tl=wrap(so?'INFORME DE PENDIENTES POR ENTREGAR':'INFORME DE PENDIENTES POR RECIBIR',230,14.8,1),ty=29;tl.forEach(function(t){txt(t,RIGHT,ty,14.8,1,OLIVE,'right');ty+=16;});
         if(d.socio){txt((so?'Cliente: ':'Proveedor: ')+d.socio,RIGHT,ty,12,1,OLIVE,'right');ty+=16;}
-        txt('Fecha: '+fmtD(d.fecha),RIGHT,ty,8.9,0,QTYC,'right');ty+=12;txt((so?'OVs':'OCs')+' con pendiente: '+ord.length+' · Líneas: '+lineas.length,RIGHT,ty,8.9,0,QTYC,'right');}
+        txt('Fecha: '+MCStd.fecha(d.fecha),RIGHT,ty,8.9,0,QTYC,'right');ty+=12;txt((so?'OVs':'OCs')+' con pendiente: '+ord.length+' · Líneas: '+lineas.length,RIGHT,ty,8.9,0,QTYC,'right');}
       cab();var y=118,base=0;
       ord.forEach(function(k){var g=G[k],st=g.ls.reduce(function(a,l){return a+(+l.valor||0);},0),gu=g.ls.filter(function(l){return l.urgente;}).length;
         if(y+90>BOTTOM){doc.addPage();y=40;}
@@ -2382,7 +2382,7 @@ var Rep=(function(){
   function generar(){if(busy)return;busy=true;var o=document.getElementById('rp-out');o.innerHTML='<div class="cbz-loading">Generando…</div>';
     MCpost({action:'ventas',op:'rep',tipo:f.tipo,desde:f.desde,corte:f.corte,user:getUserName(),pin:getPin()}).then(function(x){busy=false;if(!x.ok)throw new Error(x.error);r=x;out();}).catch(function(e){busy=false;o.innerHTML='<div class="cbz-error">'+esc(typeof MCerr==='function'?MCerr(e):e.message)+'</div>';});}
   function out(){var o=document.getElementById('rp-out');if(!o)return;var t=r.totales||{};
-    var h='<div class="cbz-card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b>'+T[r.tipo]+'</b><div class="cbz-muted" style="font-size:11.5px">'+(r.desde?r.desde+' → ':'al ')+r.corte+' · '+r.n+' fila(s)</div></div><div style="display:flex;gap:6px"><button class="chip" onclick="Rep.csv()">⬇ CSV</button><button class="chip" onclick="Rep.pdf()">📄 PDF</button></div></div>'+
+    var h='<div class="cbz-card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b>'+T[r.tipo]+'</b><div class="cbz-muted" style="font-size:11.5px">'+(r.desde?r.desde+' → ':'al ')+r.corte+' · '+r.n+' fila(s)</div></div><div style="display:flex;gap:6px"><button class="chip" onclick="Rep.csv()">⬇ Excel</button><button class="chip" onclick="Rep.pdf()">📄 PDF</button></div></div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+['subtotal','iva','total','saldo','valor'].filter(function(k){return t[k]!=null;}).map(function(k){return '<span class="chip">'+H[k]+' <b>'+money(t[k])+'</b></span>';}).join('')+(t.cantidad!=null?'<span class="chip">Unidades <b>'+t.cantidad+'</b></span>':'')+'</div>'+
       (t.saldo_judicial!=null?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><span class="chip" style="border-color:#6fd68f;color:#6fd68f">Cartera normal <b>'+money(t.saldo_normal)+'</b></span><span class="chip" style="border-color:#b48cff;color:#b48cff">En proceso judicial <b>'+money(t.saldo_judicial)+'</b></span><span class="chip" style="border-color:#E8FF00;color:#E8FF00">Total <b>'+money(t.saldo)+'</b></span></div><div class="cbz-muted" style="font-size:11px;margin-top:4px">Antigüedad: solo cartera normal.</div>':'')+
       (t.aging?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+AG.map(function(a){return '<span class="chip" style="border-color:'+a[2]+';color:'+a[2]+'">'+a[1]+' '+money(t.aging[a[0]])+'</span>';}).join('')+'</div>':'')+'</div>';
@@ -2391,9 +2391,17 @@ var Rep=(function(){
     o.innerHTML=h;}
   function nombre(ext){return 'Reporte_'+r.tipo+'_'+(r.desde?r.desde+'_a_':'corte_')+r.corte+'.'+ext;}
   function bajar(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},800);}
-  function csv(){var q=function(v){v=v==null?'':String(v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-    var s='\ufeff'+r.cols.map(function(k){return q(H[k]);}).join(',')+'\n'+r.filas.map(function(x){return r.cols.map(function(k){return q(x[k]);}).join(',');}).join('\n');bajar(new Blob([s],{type:'text/csv;charset=utf-8'}),nombre('csv'));}
-  function pdf(){mcPlanillaLoadJsPDF().then(function(jsPDF){var doc=new jsPDF({unit:'pt',format:'a4',orientation:'landscape'}),W=842,M=28,y=40,t=r.totales||{};
+  /* b342: Excel/PDF con el formato estándar Minecore (MCStd) */
+  function stdO(){var t=r.totales||{},ty=function(k){if(!NUM[k])return 't';var f=String(fmt(k,1));return /\$/.test(f)?'m':'n';};
+    var ch=[];['subtotal','iva','total','saldo','valor'].forEach(function(k){if(t[k]!=null)ch.push([H[k],money(t[k])]);});if(t.cantidad!=null)ch.push(['Unidades',t.cantidad]);
+    if(t.saldo_judicial!=null){ch.push(['Cartera normal',money(t.saldo_normal)]);ch.push(['En proceso judicial',money(t.saldo_judicial)]);}
+    if(t.aging)AG.forEach(function(a){ch.push([a[1],money(t.aging[a[0]])]);});
+    var wide={nombre:3,cliente:3,proveedor:3,factura:2,ov:1.7,oc:1.7};
+    return {titulo:T[r.tipo],sub:(r.desde?'Del '+r.desde+' al ':'Fecha de corte ')+r.corte,fecha:r.corte,n:r.n,chips:ch,hoja:T[r.tipo],
+      cols:r.cols.map(function(k){return {l:H[k],t:ty(k),w:wide[k]||1};}),filas:r.filas.map(function(x){return r.cols.map(function(k){return x[k];});})};}
+  function csv(){MCStd.xlsx(stdO()).then(function(b){MCStd.bajar(b,MCStd.nombre(T[r.tipo],r.desde?r.desde+' a '+r.corte:'corte '+r.corte,'xlsx'),b.type);}).catch(function(e){alert('Excel: '+(e.message||e));});}
+  function pdf(){MCStd.tabla(stdO()).then(function(b){MCStd.bajar(b,MCStd.nombre(T[r.tipo],r.desde?r.desde+' a '+r.corte:'corte '+r.corte,'pdf'));}).catch(function(e){alert('PDF: '+(e.message||e));});}
+  function pdfOld(){mcPlanillaLoadJsPDF().then(function(jsPDF){var doc=new jsPDF({unit:'pt',format:'a4',orientation:'landscape'}),W=842,M=28,y=40,t=r.totales||{};
     var LIME=[132,180,20];function tit(){doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(LIME[0],LIME[1],LIME[2]);doc.text('Minecore · '+T[r.tipo],M,y);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,90,90);doc.text((r.desde?'Del '+r.desde+' al ':'Fecha de corte ')+r.corte+'  ·  '+r.n+' filas',M,y+14);}
     tit();y+=32;var cx=M;function chipT(txt,c){doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(c[0],c[1],c[2]);doc.text(txt,cx,y);cx+=doc.getTextWidth(txt)+18;}
     ['subtotal','iva','total','saldo','valor'].forEach(function(k){if(t[k]!=null)chipT(H[k]+' '+money(t[k]),[30,73,118]);});
@@ -3306,15 +3314,13 @@ function MCPropPdf(o){
   var hoy=new Date(Date.now()-5*3600e3),hoyS=hoy.toISOString().slice(0,10),vence=new Date(hoy.getTime()+o.dias*86400e3).toISOString().slice(0,10);
   function ds(s){return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);}
   function wa(t){return 'https://wa.me/'+WA+'?text='+encodeURIComponent(t);}
-  return mcPlanillaLoadJsPDF().then(function(jsPDF){var doc=new jsPDF({unit:'mm',format:'a4'}),y=M;
+  LIME=MCStd.OLIVE;
+  return MCStd.load().then(function(pk){var jsPDF=pk[0];var doc=new jsPDF({unit:'mm',format:'a4'}),y=M,SC=MCStd.ctx(doc,pk[1]);
     function col(k,f){doc[f||'setTextColor'](k[0],k[1],k[2]);}
-    function T(s,x,yy,pt,b,k,al){doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(pt);col(k||BODY);doc.text(String(s),x,yy,al?{align:al}:undefined);}
-    function chip(s,x,yy,k,pt,url){doc.setFont('helvetica','bold');doc.setFontSize(pt||7.5);var w=doc.getTextWidth(s)+4,h=(pt||7.5)*0.42+2;col(k,'setFillColor');doc.roundedRect(x,yy-h+1.1,w,h,1,1,'F');col([255,255,255]);doc.text(s,x+2,yy);if(url)doc.link(x,yy-h+1.1,w,h,{url:url});return w;}
-    function header(){try{doc.addImage(MC_EC_LOGO,'PNG',M,y,22,13.7);}catch(x){}
-      T('Propuesta de liquidación',M+27,y+6,17,true,LIME);T(o.cliente,M+27,y+11.5,10,true,DARK);
-      T('Emitida: '+ds(hoyS)+' · Válida hasta: '+ds(vence)+' · Precios en USD sin IVA',M+27,y+15.5,7.5,false,GREY);
-      ['MINECORE S.A.S.','RUC 1793194965001','Quito, Ecuador','WhatsApp +1 617 372 0787'].forEach(function(l,i){T(l,W-M,y+3+i*3.2,6.5,false,GREY,'right');});
-      y+=19;col(LIME,'setDrawColor');doc.setLineWidth(0.4);doc.line(M,y,W-M,y);y+=6;}
+    function T(s,x,yy,pt,b,k,al){SC.font(b);doc.setFontSize(pt);col(k||BODY);doc.text(String(s),x,yy,al?{align:al}:undefined);}
+    function chip(s,x,yy,k,pt,url){SC.font(1);doc.setFontSize(pt||7.5);var w=doc.getTextWidth(s)+4,h=(pt||7.5)*0.42+2;col(k,'setFillColor');doc.roundedRect(x,yy-h+1.1,w,h,1,1,'F');col([255,255,255]);doc.text(s,x+2,yy);if(url)doc.link(x,yy-h+1.1,w,h,{url:url});return w;}
+    /* b342: membrete estándar Minecore */
+    function header(){y=SC.letterhead('PROPUESTA DE LIQUIDACIÓN',[[o.cliente],'Emitida: '+MCStd.fecha(hoyS)+' · Válida hasta: '+MCStd.fecha(vence),'Precios en USD sin IVA · WhatsApp +1 617 372 0787'])+4;}
     header();
     var tot0=0,tot1=0;o.items.forEach(function(x){tot0+=x.descuento.precio;tot1+=x.descuento.precioSugerido;});
     var cx=M;cx+=chip(o.items.length+' PRODUCTOS',cx,y,DARK)+2;cx+=chip('HASTA '+Math.max.apply(null,o.items.map(function(x){return x.descuento.descPct;}))+'% DE DESCUENTO',cx,y,LIME)+2;chip('VÁLIDA '+o.dias+' DÍAS',cx,y,BLUE);
@@ -3322,7 +3328,7 @@ function MCPropPdf(o){
     o.items.forEach(function(x,i){var d=x.descuento,rowH=30;
       if(y+rowH>H-22){doc.addPage();y=M;header();}
       var im=o.imgs[i];if(im){var k=Math.min(26/im.w,26/im.h),iw=im.w*k,ih=im.h*k;try{doc.addImage(im.d,'JPEG',M+(26-iw)/2,y+(26-ih)/2,iw,ih);}catch(z){}}
-      var tx=M+31,lines=doc.setFont('helvetica','bold').setFontSize(9.5).splitTextToSize(x.nombre,W-M-tx-46).slice(0,2);
+      var tx=M+31,lines=(SC.font(1),doc).setFontSize(9.5).splitTextToSize(x.nombre,W-M-tx-46).slice(0,2);
       col(DARK);doc.text(lines,tx,y+4.5);var yy=y+4.5+lines.length*4;
       T('SKU '+x.sku+' · '+x.stock+' und disponibles',tx,yy,7,false,GREY);yy+=5;
       var c2=tx;c2+=chip('-'+d.descPct+'%',c2,yy,RED,8)+2;
@@ -3337,8 +3343,8 @@ function MCPropPdf(o){
     chip('Pedir todo por WhatsApp',M,y,WAG,8.5,wa('Hola Minecore, quiero los productos de la propuesta de liquidación del '+ds(hoyS)+' ('+o.cliente+'): '+o.items.map(function(x){return x.sku;}).join(', ')+'.'));
     y+=8;doc.setFont('helvetica','normal');doc.setFontSize(6.8);col(GREY);
     doc.text(doc.splitTextToSize('Precios unitarios en USD, sin IVA, válidos hasta el '+ds(vence)+' o hasta agotar stock. Sujetos a confirmación de disponibilidad al momento del pedido. Toca los botones verdes o azules para escribirnos por WhatsApp. Documento generado por Minecore S.A.S.',W-2*M),M,y);
-    try{doc.setProperties({title:'Propuesta de liquidación '+o.cliente,author:'Minecore S.A.S.'});}catch(z){}
-    return {blob:doc.output('blob'),nombre:'Propuesta_liquidacion_'+String(o.cliente).replace(/[^A-Za-z0-9]+/g,'_')+'_'+hoyS+'.pdf'};});
+    SC.footer('Propuesta de liquidación');try{doc.setProperties({title:'Propuesta de liquidación '+o.cliente,author:'Minecore S.A.S.'});}catch(z){}
+    return {blob:doc.output('blob'),nombre:MCStd.nombre('Propuesta de liquidación',o.cliente,'pdf')};});
 }
 
 
@@ -5509,7 +5515,21 @@ function mcPlanillaRenderPdf(idoc, filename){
   }).then(function(out){restore();return out;}, function(err){restore();throw err;});
 }
 /* ===== Planilla de cotización (compartida admin/cliente) — réplica del formato inFlow ===== */
-function MCPlanillaCot(cfg){
+/* b342: la Planilla del Cotizador / Mis cotizaciones / Importar OV salen con el PDF estándar (MCInflowDoc) + página 2 de tiempos de entrega */
+function MCPlanillaCot(cfg){try{var cli=cfg.cliente||{},L=cfg.lineas||[],q=!/ORDEN/i.test(cfg.titulo||'COTIZ');
+    var sub=+cfg.subtotal||L.reduce(function(a,l){return a+(parseFloat(l.precioFinal)||0)*(parseFloat(l.cantidad)||0);},0),iva=Math.round(sub*0.15*100)/100;
+    var D={num:cfg.num||'',fecha:String(cfg.fecha||MCStd.hoy()).slice(0,10),cliente:cli.nombre||cli.name||'',ruc:cli.ruc||'',direccion:cli.direccion?[cli.direccion]:[],contacto:cfg.contacto||cli.contacto||'',telefono:cli.telefono||'',email:cli.email||'',terminos:cli.terminos||'',representante:cfg.representante||'',
+      subtotal:sub,iva:iva,iva_pct:15,total:Math.round((sub+iva)*100)/100,
+      lineas:L.map(function(l,i){var c=parseFloat(l.cantidad)||0,pf=parseFloat(l.precioFinal)||0;return {line_id:'p'+i,nombre:l.nombre,codigo:l.codigo||'',sku:l.sku,categoria:l.categoria||'',cantidad:c,precio:parseFloat(l.precioLista)||pf,descuento:parseFloat(l.descuento)||0,subtotal:Math.round(pf*c*100)/100,img:l.img||'',product_id:l.sku||('x'+i)};})};
+    var E=L.some(function(l){return l.ent;})?L.map(function(l,i){var e=l.ent||{},cant=parseFloat(l.cantidad)||0,P=(e.partes||[]).filter(function(p){return p&&p.cantidad>0;}),filas=[],ah=0,pz=e.plazo||'Por confirmar';
+        var fr=function(n,p){return /^inmediat/i.test(p)?n+' inmediata':n+' en '+p;};
+        if(P.length>=2){P.forEach(function(p){if(/^inmediat/i.test(p.plazo||''))ah+=+p.cantidad;filas.push(fr(p.cantidad,p.plazo||'Por confirmar'));});}
+        else{ah=e.ahora!=null&&e.manual?Math.min(cant,+e.ahora||0):(/^inmediat/i.test(pz)?cant:Math.min(cant,+e.ahora||0));if(ah>=cant&&cant>0)filas.push('Inmediata');else if(ah>0){filas.push(ah+' inmediata');filas.push(fr(cant-ah,pz));}else filas.push(/confirmar/i.test(pz)?'Por confirmar':pz);}
+        var st=ah>=cant&&cant>0?'Sí':ah>0?'Parcial':'No';return {line_id:'p'+i,sku:l.sku,nombre:l.nombre,codigo:l.codigo||'',cant:cant,stock:st,stockSub:st==='Parcial'?ah+'/'+cant:'',filas:filas};}):null;
+    var kind=q?'sq':'so';
+    return MCInflowDoc(kind,D,E&&q?{entregas:E}:{}).then(function(b){MCStd.bajar(b,mcSanitizeFilename((q?'Cotización ':'Orden de venta ')+(D.num||D.cliente||'')+'.pdf'));return b;}).catch(function(e){alert('No se pudo generar el PDF: '+(e&&e.message||e));});
+  }catch(e){return MCPlanillaCotOld(cfg);}}
+function MCPlanillaCotOld(cfg){
   function esc(x){return String(x===undefined||x===null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function f2(n){var p=(parseFloat(n)||0).toFixed(2).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');return '$'+p.join('.');}
   function fMes(f){var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];var p=String(f||'').slice(0,10).split('-');if(p.length<3)return String(f||'');return M[parseInt(p[1],10)-1]+' '+parseInt(p[2],10)+', '+p[0];}
@@ -8971,13 +8991,13 @@ var Compras=(function(){
     var fo=document.activeElement&&document.activeElement.id==='po-q',pos=fo?document.activeElement.selectionStart:0,nF=(fQ!==null?1:0)+(pF.estado?1:0)+(pF.pago?1:0);
     var sl=function(k,L){return '<label class="cbz-muted" style="font-size:11px;display:flex;flex-direction:column;gap:2px;flex:1 1 150px">'+L[0]+'<select class="uinput" style="width:100%" onchange="'+(k==='tipo'?'Compras.filtroQ(this.value===\'\'?null:this.value===\'1\')':'Compras.setPF(\''+k+'\',this.value)')+'">'+L[1].map(function(o){var cv=k==='tipo'?(fQ===null?'':fQ?'1':'0'):(pF[k]||'');return '<option value="'+o[0]+'"'+(cv===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></label>';};
     var h=tabs()+'<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input class="uinput" id="po-q" type="search" autocomplete="off" style="flex:1;min-width:0" placeholder="Buscar nº, proveedor, N° proveedor, factura, SKU…" value="'+esc(q)+'" oninput="Compras.buscar(this.value)">'+
-      '<button class="chip" style="white-space:nowrap'+(nF?';border-color:#a3e635;color:#a3e635':'')+'" onclick="Compras.togPF()">Filtros'+(nF?' ('+nF+')':'')+' ▾</button><button class="chip vt-colb" style="white-space:nowrap" onclick="mcColsPanel(\'po\',POCOLS,\'Compras\')">Columnas</button><button class="chip vt-colb" style="white-space:nowrap'+(mcGrpOn()?';border-color:#5cc8ff;color:#5cc8ff':'')+'" onclick="mcGrpAll(\'Compras\')">Agrupar</button><button class="chip" style="white-space:nowrap" title="Informe de pendientes por recibir (PDF)" onclick="MCPendientes(\'po\')">⬇ Pendientes</button><style>@media(max-width:899px){.vt-colb{display:none}}</style><button class="cbz-btn" style="white-space:nowrap;padding:8px 12px" onclick="Compras.nueva()">＋<span class="vt-nl"> Nueva OC</span></button></div><style>@media(max-width:600px){.vt-nl{display:none}}</style>'+
+      '<button class="chip" style="white-space:nowrap'+(nF?';border-color:#a3e635;color:#a3e635':'')+'" onclick="Compras.togPF()">Filtros'+(nF?' ('+nF+')':'')+' ▾</button><button class="chip vt-colb" style="white-space:nowrap" onclick="mcColsPanel(\'po\',POCOLS,\'Compras\')">Columnas</button><button class="chip vt-colb" style="white-space:nowrap'+(mcGrpOn()?';border-color:#5cc8ff;color:#5cc8ff':'')+'" onclick="mcGrpAll(\'Compras\')">Agrupar</button><button class="chip" style="white-space:nowrap" title="Informe de pendientes por recibir (PDF)" onclick="MCPendientes(\'po\',null,null,(document.getElementById(\'po-q\')||{}).value)">⬇ Pendientes</button><style>@media(max-width:899px){.vt-colb{display:none}}</style><button class="cbz-btn" style="white-space:nowrap;padding:8px 12px" onclick="Compras.nueva()">＋<span class="vt-nl"> Nueva OC</span></button></div><style>@media(max-width:600px){.vt-nl{display:none}}</style>'+
       '<div id="po-fpan" class="cbz-card" style="display:'+(pOpen?'block':'none')+';margin-bottom:8px;padding:10px"><div style="display:flex;flex-wrap:wrap;gap:8px">'+
       sl('tipo',['Tipo',[['','OC y cotizaciones'],['0','Solo OC'],['1','Solo cotizaciones de compra']]])+sl('estado',['Estado',[['','Todos (sin canceladas)'],['abierta','Abiertas'],['parcial','Recibidas parcial'],['cerrada','Cerradas'],['cotizacion','Cotizaciones'],['cancelada','Canceladas'],['todas','Todas']]])+sl('pago',['Pago',[['','Todos'],['unpaid','Sin pagar'],['partial','Pago parcial'],['paid','Pagadas']]])+
       '</div><div style="display:flex;gap:6px;margin-top:8px"><button class="chip" onclick="Compras.resetF()">↺ Restablecer filtros</button><button class="chip" onclick="Compras.cargarL()">⟳ Recargar</button><span style="flex:1"></span><button class="chip" onclick="Compras.togPF()">Cerrar ▴</button></div></div>';
     /* b273: lista OC — desktop tabla a ancho completo; móvil tarjetas (Nº + estado, proveedor, grid 2 columnas) */
     var toks=nrm(q).split(/\s+/).filter(Boolean);
-    var listaF=lista.filter(function(o){if(fQ!==null&&!!o.is_quote!==fQ)return false;var es=pF.estado||'';if(es===''&&o.estado==='cancelada'&&!toks.length)return false;if(es&&es!=='todas'&&o.estado!==es)return false;if(pF.pago&&o.payment_status!==pF.pago)return false;
+    var listaF=lista.filter(function(o){if(window.MC_RECIB&&(o.is_quote||o.is_cancelled||!(o.estado==='abierta'||o.estado==='parcial')))return false;if(fQ!==null&&!!o.is_quote!==fQ)return false;var es=pF.estado||'';if(es===''&&o.estado==='cancelada'&&!toks.length)return false;if(es&&es!=='todas'&&o.estado!==es)return false;if(pF.pago&&o.payment_status!==pF.pago)return false;
       if(toks.length){var t=o._b||(o._b=nrm([o.order_number,o.proveedor,o.vendor_order_number,o.busca].join(' ')));for(var i=0;i<toks.length;i++)if(t.indexOf(toks[i])<0)return false;}return true;});var lista0=lista;lista=listaF;
     var chipE=function(o){return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap;color:'+(EST_COL[o.estado]||'#9fc3e8')+';border-color:'+(EST_COL[o.estado]||'#9fc3e8')+'">'+esc(o.estado)+'</span>';};
     var chipS=function(o){var e=o.sync_status==='error';return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap'+(e?';color:#e05c5c;border-color:#e05c5c':'')+'">'+(e?'Error inFlow':(SYNC[o.sync_status]||esc(o.sync_status||'')))+'</span>';};
@@ -8992,7 +9012,7 @@ var Compras=(function(){
   var cv='orden';
   var RT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-rt th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px;border-bottom:1px solid #26405c}.mc-rt td{padding:6px;border-bottom:1px solid #1c2a3a;vertical-align:middle}.mc-rt .r{text-align:right;white-space:nowrap}'+
     '.mc-pc{display:flex;gap:8px;align-items:center;min-width:0}.mc-pc b{word-break:break-word}@media(max-width:640px){.mc-rt thead{display:none}.mc-rt tr{display:block;border-bottom:1px solid #26405c;padding:6px 0}.mc-rt td{display:flex;justify-content:space-between;gap:8px;border:0;padding:3px 2px}.mc-rt td[data-l]::before{content:attr(data-l);color:#8fa3b8;font-size:11px}.mc-rt td.mc-p{display:block}.mc-rt .r{text-align:right}}</style>';
-  function pc(l){return '<div class="mc-pc">'+th(l.img,40)+'<div style="min-width:0"><b style="font-size:12.5px">'+esc(l.nombre||l.description||'')+'</b><div class="cbz-muted" style="font-size:11px">'+esc(l.sku||'')+mcIrBtn(l.product_id)+'</div></div></div>';}
+  function pc(l){return '<div class="mc-pc">'+th(l.img,40)+'<div style="min-width:0"><b style="font-size:12.5px">'+esc(l.nombre||l.description||'')+(!l.product_id?'<span style="color:#e05c5c">⚠ Producto no vinculado (avisar a soporte)</span>':'')+'</b><div class="cbz-muted" style="font-size:11px">'+esc(l.sku||'')+mcIrBtn(l.product_id)+'</div></div></div>';}
   function th(u,sz){sz=sz||40;return u?'<img src="'+esc(u)+'" loading="lazy" style="width:'+sz+'px;height:'+sz+'px;flex:none;object-fit:contain;background:#fff;border-radius:6px;cursor:zoom-in" onclick="MCfoto(this.src,event)" onerror="this.style.visibility=\'hidden\'">':'<div style="width:'+sz+'px;height:'+sz+'px;flex:none;border-radius:6px;background:#1c2a3a;display:flex;align-items:center;justify-content:center">📦</div>';}
   function setV(v){cv=v;renderDet();}
 
@@ -9059,7 +9079,7 @@ var Compras=(function(){
     }
     if(cur.cola&&cur.cola.length)h+='<div class="cbz-muted" style="font-size:11px;margin-top:6px">Envíos a inFlow: '+cur.cola.slice(0,5).map(function(c){return '#'+c.id+' '+esc(c.op)+' '+esc(c.status)+(c.error?' ('+esc(c.error).slice(0,80)+')':'');}).join(' · ')+'</div>';
     el().innerHTML=h;}
-  function recibir(){if(busy)return;var ls=[];cur.lineas.forEach(function(l,i){var x=$('cr-q'+i);if(!x)return;var q=parseFloat(x.value)||0;if(q>0)ls.push({product_id:l.product_id,quantity:q,location_id:($('cr-l'+i)||{}).value||undefined,sublocation:String(($('cr-s'+i)||{}).value||'').trim().toUpperCase()});});
+  function recibir(){if(busy)return;if(cur.lineas.some(function(l,i){var x=$('cr-q'+i);return x&&parseFloat(x.value)>0&&!l.product_id;})){alert('Hay una línea sin producto vinculado; no se puede recibir hasta corregirla.');return;}var ls=[];cur.lineas.forEach(function(l,i){var x=$('cr-q'+i);if(!x)return;var q=parseFloat(x.value)||0;if(q>0)ls.push({product_id:l.product_id,quantity:q,location_id:($('cr-l'+i)||{}).value||undefined,sublocation:String(($('cr-s'+i)||{}).value||'').trim().toUpperCase()});});
     if(!ls.length){alert('Indica cantidades a recibir');return;}if(!confirm('¿Recibir '+ls.length+' línea(s) en '+(cur.bodega||'Bodega principal')+'? El stock entra al instante.'))return;
     busy=true;api({op:'po_receive',id:cur.orden.id,lineas:ls}).then(function(r){busy=false;if(!r.ok)throw new Error(r.error);abrir(cur.orden.id);}).catch(err);}
   function pagar(){if(busy)return;var a=parseFloat(($('cp-a')||{}).value);if(!a){alert('Monto');return;}
@@ -9374,17 +9394,18 @@ var Prov = (function(){
   function el(){return document.getElementById('prov-screen');}
   function money(n){var x=parseFloat(n);if(isNaN(x))return esc(n||'—');return x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
   function tabsHtml(){
+    if(window.MC_RECIB)return '<div class="cbz-card-row" style="margin-bottom:10px;gap:6px;align-items:center"><b style="font-size:14px">📥 Órdenes de compra por recibir</b><span class="cbz-muted" style="font-size:11px">abiertas y recibidas parcialmente</span></div>'; /* b342 */
     return '<div class="cbz-card-row" style="margin-bottom:12px;flex-wrap:wrap;gap:6px">'+
       '<button class="chip" style="'+(tab==='vendors'?'background:#1e4976;color:#fff':'')+'" onclick="Prov.setTab(\'vendors\')">🏭 Proveedores</button>'+
       '<button class="chip" style="'+(tab==='mc'?'background:#1e4976;color:#fff':'')+'" onclick="Prov.setTab(\'mc\')">🛒 Órdenes de compra</button></div>'; /* b274: pestaña vieja «Órdenes de compra (inFlow)» retirada: todo nace en Supabase */
   }
   function setTab(t){
-    tab=t||'vendors';
+    tab=t||'vendors';if(tab==='vendors')window.MC_RECIB=0;
     if(tab==='vendors'){vista='list';cur=null;cargarVendors();}
     else if(tab==='mc'){Compras.init();}
     else {tab='mc';Compras.init();} /* b274: OC vieja (directo a inFlow) retirada */
   }
-  function init(){tab='vendors';vista='list';cur=null;q='';ocVista='list';ocCur=null;ocQ='';cargarVendors();}
+  function init(){window.MC_RECIB=0;tab='vendors';vista='list';cur=null;q='';ocVista='list';ocCur=null;ocQ='';cargarVendors();}
 
   /* ---------- Proveedores (existente) ---------- */
   function cargarVendors(){
@@ -10932,7 +10953,7 @@ var Ventas = (function(){
   function pintaRes(){var r=$('vt-res');if(r)r.innerHTML=resHtml(vis());}
   function barra(){var ests=ESTADOS[tipo],n=nFil(),lab=function(t,x){return '<label class="cbz-muted" style="font-size:11px;display:flex;flex-direction:column;gap:2px;flex:1 1 150px">'+t+x+'</label>';},sel=function(id,L,v){return '<select class="uinput" id="'+id+'" style="width:100%" onchange="Ventas.selF()">'+L.map(function(o){return '<option value="'+o[0]+'"'+((v||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';};
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input class="uinput" id="vt-fq" type="search" autocomplete="off" placeholder="Buscar nº, PO, factura, cliente, vendedor, SKU…" value="'+esc(f.q)+'" style="flex:1;min-width:0" oninput="Ventas.qLive(this.value)">'+
-      '<button class="chip" style="white-space:nowrap'+(n?';border-color:#a3e635;color:#a3e635':'')+'" onclick="Ventas.togF()">Filtros'+(n?' ('+n+')':'')+' ▾</button>'+'<button class="chip vt-colb" style="white-space:nowrap" onclick="Ventas.cols()">Columnas</button><button class="chip vt-colb" style="white-space:nowrap'+(mcGrpOn()?';border-color:#5cc8ff;color:#5cc8ff':'')+'" title="Agrupar órdenes divididas por número base" onclick="mcGrpAll(\'Ventas\')">Agrupar</button>'+(tipo!=='SQ'?'<button class="chip" style="white-space:nowrap" title="Informe de pendientes por entregar (PDF)" onclick="MCPendientes(\'so\')">⬇ Pendientes</button>':'')+'<style>@media(max-width:899px){.vt-colb{display:none}}</style>'+
+      '<button class="chip" style="white-space:nowrap'+(n?';border-color:#a3e635;color:#a3e635':'')+'" onclick="Ventas.togF()">Filtros'+(n?' ('+n+')':'')+' ▾</button>'+'<button class="chip vt-colb" style="white-space:nowrap" onclick="Ventas.cols()">Columnas</button><button class="chip vt-colb" style="white-space:nowrap'+(mcGrpOn()?';border-color:#5cc8ff;color:#5cc8ff':'')+'" title="Agrupar órdenes divididas por número base" onclick="mcGrpAll(\'Ventas\')">Agrupar</button>'+(tipo!=='SQ'?'<button class="chip" style="white-space:nowrap" title="Informe de pendientes por entregar (PDF)" onclick="MCPendientes(\'so\',null,null,(document.getElementById(\'vt-fq\')||{}).value)">⬇ Pendientes</button>':'')+'<style>@media(max-width:899px){.vt-colb{display:none}}</style>'+
       (canW('cotizaciones')?'<button class="cbz-btn" style="white-space:nowrap;padding:8px 12px" onclick="Ventas.nuevo()" title="'+(tipo==='SQ'?'Nueva cotización':'Nueva OV')+'">＋<span class="vt-nl"> '+(tipo==='SQ'?'Nueva cotización':'Nueva OV')+'</span></button>':'')+'</div>'+
       '<style>@media(max-width:600px){.vt-nl{display:none}}</style>'+
       '<div id="vt-fpan" class="cbz-card" style="display:'+(fOpen?'block':'none')+';margin-bottom:8px;padding:10px"><div style="display:flex;flex-wrap:wrap;gap:8px">'+
@@ -11238,16 +11259,16 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function facturar(){if(cur.factura&&cur.orden.is_invoiced){run({op:'so_factura_save',id:cur.orden.id,numero_sri:$('vt-fsri').value.trim(),fecha:$('vt-ffec').value,credit_days:parseInt($('vt-fcd').value,10)||0},'Factura actualizada');return;}run({op:'invoice',id:cur.orden.id,numero_sri:$('vt-fsri').value.trim(),fecha:$('vt-ffec').value,credit_days:parseInt($('vt-fcd').value,10)||0},'Factura registrada');}
   /* b296 #7: recibo de pago PDF, nota de crédito interna (se registra como pago «NOTA DE CREDITO») y saldo a favor */
   function recibo(id){var p=(cur.pagos||[]).filter(function(x){return x.id===id;})[0];if(!p)return;var o=cur.orden,c=cur.cliente||{},nc=/nota de cr/i.test(p.payment_method||'');
-    return mcPlanillaLoadJsPDF().then(function(jsPDF){var doc=new jsPDF({unit:'mm',format:'a5',orientation:'landscape'}),W=210,M=12,y=14,LIME=[132,180,20],GR=[110,110,110],NG=[20,20,20];
-      function t(s2,x,yy,sz,b,col,al){doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(sz);var k=col||NG;doc.setTextColor(k[0],k[1],k[2]);doc.text(Array.isArray(s2)?s2:String(s2==null?'':s2),x,yy,al?{align:al}:undefined);}
-      t('MINECORE',M,y,9,true,GR);t(nc?'NOTA DE CRÉDITO (INTERNA)':'RECIBO DE PAGO',M,y+8,16,true,LIME);t(p.reference_number||'',W-M,y+8,11,true,NG,'right');y+=18;
+    return MCStd.load().then(function(pk){var jsPDF=pk[0];var doc=new jsPDF({unit:'mm',format:'a5',orientation:'landscape'}),W=210,M=12,y=14,LIME=MCStd.OLIVE,GR=[96,96,96],NG=[0,0,0],SC=MCStd.ctx(doc,pk[1]);
+      function t(s2,x,yy,sz,b,col,al){SC.font(b);doc.setFontSize(sz);var k=col||NG;doc.setTextColor(k[0],k[1],k[2]);doc.text(Array.isArray(s2)?s2:String(s2==null?'':s2),x,yy,al?{align:al}:undefined);}
+      y=SC.letterhead(nc?'NOTA DE CRÉDITO (INTERNA)':'RECIBO DE PAGO',[p.reference_number?[p.reference_number]:null],true)+4;
       var cli=c.name||o.cliente||o.customer_name||'';var K=[['Cliente',cli],['RUC',c.ruc||o.ruc],['Orden',o.order_number],['Factura',o.factura_sri||o.invoice_number],['Fecha',d10(p.date_paid)],['Método',p.payment_method],['Referencia',p.reference_number],['Nota',p.remarks]];
       K.forEach(function(r){if(!r[1])return;t(r[0],M,y,8,false,GR);t(doc.splitTextToSize(String(r[1]),120)[0],M+28,y,10,r[0]==='Cliente');y+=6;});
-      t(nc?'Valor acreditado':'Valor recibido',W-M,40,9,false,GR,'right');t(money(Math.abs(p.amount)),W-M,50,22,true,NG,'right');
+      t(nc?'Valor acreditado':'Valor recibido',W-M,y+2,9,false,GR,'right');t(money(Math.abs(p.amount)),W-M,y+12,22,true,LIME,'right');
       var sp=mcPagSplit(o,cur.pagos);t('Total orden '+money(o.total)+(Math.abs(sp.ret)>0.005?'  ·  Retención '+money(sp.ret):'')+'  ·  Pagado '+money(sp.pag)+'  ·  '+(parseFloat(o.balance)<-0.005?'Saldo a favor ':'Saldo ')+money(Math.abs(parseFloat(o.balance)||0)),M,y+4,9,true);
-      var yy=128;doc.setDrawColor(120,120,120);doc.line(M,yy,M+70,yy);t('Recibido por · MINECORE',M,yy+5,8.5,true);doc.line(W-M-70,yy,W-M,yy);t(cli||'Cliente',W-M-70,yy+5,8.5,true);
+      var yy=124;doc.setDrawColor(74,74,74);doc.line(M,yy,M+70,yy);t('Recibido por · MINECORE',M,yy+5,8.5,true,LIME);doc.line(W-M-70,yy,W-M,yy);t(cli||'Cliente',W-M-70,yy+5,8.5,true,LIME);
       t('Documento interno de Minecore. '+(nc?'No reemplaza la nota de crédito electrónica del SRI.':'No es factura.'),W/2,143,7,false,GR,'center');
-      var b=doc.output('blob');var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=(nc?'Nota de crédito':'Recibo')+' - '+o.order_number+' - '+d10(p.date_paid)+'.pdf';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},500);return b;}).catch(function(e){alert('No se pudo generar el PDF: '+MCerr(e));});}
+      var b=doc.output('blob');MCStd.bajar(b,mcSanitizeFilename((nc?'Nota de crédito':'Recibo')+' - '+o.order_number+' - '+d10(p.date_paid)+'.pdf'));return b;}).catch(function(e){alert('No se pudo generar el PDF: '+MCerr(e));});}
   function notaCredito(){var o=cur.orden;var m=prompt('Nota de crédito para '+o.order_number+'\nMonto a acreditar ($):','');if(m==null)return;m=parseFloat(String(m).replace(',','.'));if(!(m>0)){alert('Monto inválido');return;}
     var mot=prompt('Motivo (devolución, descuento, error de facturación…)','')||'';var n=(cur.pagos||[]).filter(function(x){return /nota de cr/i.test(x.payment_method||'');}).length+1;var ref='NC-'+String(o.order_number||'').replace(/^MCOR-/,'')+'-'+n;
     if(!confirm('¿Registrar nota de crédito '+ref+' por '+money(m)+'? Se aplica como pago con método NOTA DE CREDITO.'))return;
@@ -12303,7 +12324,7 @@ function MC_NAVCAT(){
       ['🔔','Aprobaciones','sols',A,function(){openMod('sols');},'ADMIN'],['⚙️','Correo del sistema','mail',A,function(){openMod('mailcfg');},'ADMIN'],['⚙️','Configuración','cfg',A,function(){openMod('vcfg');},'ADMIN'],['🏷️','Esquemas de precio','precios',A,function(){openMod('vprecios');},'ADMIN']]},
     {sep:1},
     {k:'prep',ico:'pbox',t:'Preparar orden',col:'#b86e00',directo:1,items:[['📦','Preparar orden','orden',function(H){return CV(H)||I(H);},function(){openMod('vpick');},'inventario']]},
-    {k:'recib',ico:'inbox',t:'Recibir orden',col:'#c46a00',directo:1,items:[['📥','Recibir orden','orden',PR,function(){oc(false,function(){try{Compras.setPF('estado','abierta');}catch(e){}});},'proveedores']]}
+    {k:'recib',ico:'inbox',t:'Recibir orden',col:'#c46a00',directo:1,items:[['📥','Recibir orden','orden',PR,function(){openMod('prov');setTimeout(function(){window.MC_RECIB=1;try{Compras.setPF('estado','');}catch(e){}try{document.getElementById('title').textContent='RECIBIR ORDEN';}catch(e){}Prov.setTab('mc');},350);},'proveedores']]} /* b342: directo a OC pendientes de recibir */
   ];
 }
 /* b314: pago — la retención sola NO hace «Parcial»; insignia «Ret» sutil. Columna inventario plegable (3 puntos) guardada por usuario. */
@@ -13505,21 +13526,14 @@ window.MCRep2=(function(){
   function nombre(ext){return 'Minecore_'+BY[st.id][2].replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g,'_')+'_'+(st.f.desde?st.f.desde+'_a_':'')+(st.f.hasta||hoy())+'.'+ext;}
   function bajar(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},800);}
   function loadX(){if(window.XLSX)return Promise.resolve(window.XLSX);return new Promise(function(ok,ko){var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=function(){ok(window.XLSX);};s.onerror=function(){ko(new Error('No se pudo cargar Excel'));};document.head.appendChild(s);});}
-  function xlsx(){var V=colsVis(),F=filas();loadX().then(function(X){var aoa=[[BY[st.id][2]],[resumenF(st.id,st.f)],[],V.map(function(c){return c.l;})].concat(F.map(function(x){return V.map(function(c){var v=x[c.k];return (c.t==='t'||c.t==='d')?(v==null?'':String(v)):(v==null?null:+v);});}));
-      aoa.push(V.map(function(c,i){var t=c.t==='t'||c.t==='d'?null:tot(c);return i===0?'Total':(t==null?'':t);}));
-      var ws=X.utils.aoa_to_sheet(aoa);ws['!cols']=V.map(function(c){return {wch:c.t==='t'?Math.min(40,Math.max(10,c.l.length+4)):14};});
-      for(var R0=4;R0<aoa.length;R0++)V.forEach(function(c,i){var a=ws[X.utils.encode_cell({r:R0,c:i})];if(a&&typeof a.v==='number')a.z=c.t==='m'?'#,##0.00':c.t==='p'?'0.0':'#,##0.##';});
-      var wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,'Reporte');X.writeFile(wb,nombre('xlsx'));}).catch(function(e){alert(e.message);});}
-  function pdf(){var V=colsVis(),F=filas();mcPlanillaLoadJsPDF().then(function(jsPDF){var land=V.length>5,doc=new jsPDF({unit:'pt',format:'a4',orientation:land?'landscape':'portrait'}),W=land?842:595,HH=land?595:842,M=28,y=40,LIME=[132,180,20];
-      function tit(){doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(LIME[0],LIME[1],LIME[2]);doc.text('Minecore · '+BY[st.id][2],M,y);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,90,90);doc.text(resumenF(st.id,st.f)+' · '+F.length+' filas · generado '+hoy(),M,y+14);}
-      tit();y+=30;var cx=M;V.filter(function(c){return c.t!=='t'&&c.t!=='d'&&tot(c)!=null;}).forEach(function(c){var t=c.l+' '+(c.t==='m'?money(tot(c)):String(tot(c)));doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,73,118);if(cx+doc.getTextWidth(t)>W-M){cx=M;y+=12;}doc.text(t,cx,y);cx+=doc.getTextWidth(t)+16;});y+=18;
-      var wd=V.map(function(c){return c.t==='t'?(/producto|cliente|proveedor|grupo/i.test(c.k)?3:1.4):1;}),tw=wd.reduce(function(a,b){return a+b;},0),u=(W-2*M)/tw,xs=[],x=M;wd.forEach(function(w){xs.push(x);x+=w*u;});
-      function head(){doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(LIME[0],LIME[1],LIME[2]);V.forEach(function(c,i){var w=wd[i]*u,t=doc.splitTextToSize(c.l,w-4)[0];if(c.t==='t'||c.t==='d')doc.text(t,xs[i],y);else doc.text(t,xs[i]+w-3,y,{align:'right'});});y+=11;doc.setFont('helvetica','normal');doc.setFontSize(7.2);doc.setTextColor(20,20,20);}
-      head();var txt=function(c,v){return v==null?'':c.t==='m'?money(v):c.t==='p'?(+v).toFixed(1)+'%':c.t==='n'?(+v).toLocaleString('en-US',{maximumFractionDigits:2}):String(v);};
-      F.concat([null]).forEach(function(row){if(y>HH-36){doc.addPage();y=40;tit();y+=28;head();}
-        if(row===null){doc.setFont('helvetica','bold');V.forEach(function(c,i){var w=wd[i]*u,t=i===0?'Total':(c.t==='t'||c.t==='d'?'':txt(c,tot(c)));if(i===0||c.t==='t'||c.t==='d')doc.text(t,xs[i],y);else doc.text(t,xs[i]+w-3,y,{align:'right'});});return;}
-        V.forEach(function(c,i){var w=wd[i]*u,t=doc.splitTextToSize(txt(c,row[c.k]),w-4)[0]||'';if(c.t==='t'||c.t==='d')doc.text(t,xs[i],y);else doc.text(t,xs[i]+w-3,y,{align:'right'});});y+=10;});
-      bajar(doc.output('blob'),nombre('pdf'));}).catch(function(e){alert('PDF: '+(e.message||e));});}
+  /* b342: Excel/PDF estándar Minecore (MCStd) */
+  function stdO2(){var V=colsVis(),F=filas(),ch=V.filter(function(c){return c.t!=='t'&&c.t!=='d'&&tot(c)!=null;}).map(function(c){return [c.l,MCStd.fmt(c.t,tot(c))];});
+    return {titulo:BY[st.id][2],sub:resumenF(st.id,st.f),fecha:st.f.hasta||hoy(),n:F.length,chips:ch,hoja:BY[st.id][2],
+      cols:V.map(function(c){return {l:c.l,t:c.t==='d'?'t':c.t,w:c.t==='t'?(/producto|cliente|proveedor|grupo/i.test(c.k)?3:1.4):1};}),
+      filas:F.map(function(x){return V.map(function(c){return x[c.k];});}),total:V.map(function(c){return c.t==='t'||c.t==='d'?null:tot(c);})};}
+  function nom2(ext){return MCStd.nombre(BY[st.id][2],(st.f.desde?st.f.desde+' a ':'')+(st.f.hasta||hoy()),ext);}
+  function xlsx(){MCStd.xlsx(stdO2()).then(function(b){MCStd.bajar(b,nom2('xlsx'),b.type);}).catch(function(e){alert(e.message||e);});}
+  function pdf(){MCStd.tabla(stdO2()).then(function(b){MCStd.bajar(b,nom2('pdf'));}).catch(function(e){alert('PDF: '+(e.message||e));});}
   function guardar(){var n=prompt('Nombre del reporte guardado',BY[st.id][2]+(st.f.hasta?' · '+st.f.hasta:''));if(!n)return;var S=LS('mc_rep_sav',[]);S.unshift({nombre:n,id:st.id,f:st.f,cols:LS('mc_rep_cols_'+st.id,null)});LSs('mc_rep_sav',S.slice(0,40));try{toast('Reporte guardado');}catch(e){}}
   function abrirSav(i){var x=LS('mc_rep_sav',[])[i];if(x)abrir(x.id,x.f,x.cols);}
   function abrirRec(i){var x=LS('mc_rep_rec',[])[i];if(x)abrir(x.id,x.f);}
@@ -13688,9 +13702,13 @@ var MCTbl=(function(){
 /* b293: PDF de orden de compra / cotización de compra (Supabase, estilo Minecore). conPrecio=false ⇒ versión para bodega. */
 
 /* b341: «Pendientes» en listas de OV y OC (tipo 'so'|'po'; partner opcional) */
-function MCPendientes(tipo,partnerId,partnerName){var tt=(typeof toast==='function')?toast:function(){};tt('Generando informe de pendientes…');
+function MCPendientes(tipo,partnerId,partnerName,filtro){filtro=String(filtro||'').trim();var tt=(typeof toast==='function')?toast:function(){};tt('Generando informe de pendientes…');
   return MCpost({action:'ventas',op:'po_pendientes',tipo:tipo,partner_id:partnerId||undefined,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Error');
     var L=(r.lineas||[]).map(function(l){var f=new Date(l.fecha);l.fecha=isNaN(f)?String(l.fecha||'').slice(0,10):f.toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'});return l;});
+    /* b342: si la lista tiene un filtro escrito (proveedor/cliente o nº), el informe sale solo para eso */
+    if(filtro){var nq=filtro.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),nz=function(x){return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');};
+      var F2=L.filter(function(l){return nz(l.socio).indexOf(nq)>=0||nz(l.num).indexOf(nq)>=0||nz(l.sku)===nq;});
+      if(!F2.length){alert('Ninguna '+(tipo==='so'?'OV':'OC')+' con pendientes coincide con el filtro «'+filtro+'».');return null;}L=F2;}
     if(!L.length){alert('No hay '+(tipo==='so'?'OV':'OC')+' con pendientes.');return null;}
     var socios=L.map(function(l){return l.socio;}).filter(function(x,i,a){return x&&a.indexOf(x)===i;});
     var g=new Date(r.generado||Date.now()),hoy=g.toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'}),hm=g.toLocaleTimeString('en-GB',{timeZone:'America/Guayaquil',hour:'2-digit',minute:'2-digit'});
@@ -13854,6 +13872,67 @@ function mcIrProd(pid,ev){if(ev){ev.stopPropagation();ev.preventDefault();}if(!p
   b.onclick=function(){b.remove();if(back.v){openMod(back.v.q?'vcot':'vov');(function t(n){try{Ventas.abrir(back.v.id);}catch(e){if(n<30)setTimeout(function(){t(n+1);},150);}})(0);return;}[].forEach.call(document.querySelectorAll('[id$="-screen"]'),function(e){e.style.display=back.ids.indexOf(e.id)>=0?'':'none';});back.ids.forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='block';});if(ti)ti.textContent=back.title;setTimeout(function(){window.scrollTo(0,back.y);},30);};
   document.body.appendChild(b);setTimeout(function(){var f=function(){var x=document.getElementById('mc-irp-back');var pv=document.getElementById('vprod-screen')||document.getElementById('prod-screen');if(x&&pv&&pv.style.display==='none'){x.remove();document.removeEventListener('click',f,true);}};document.addEventListener('click',function(){setTimeout(f,500);},true);},800);return false;}
 function mcIrBtn(pid){return pid?'<a href="#" class="mc-irp" title="Ir al producto" onclick="return mcIrProd(\''+String(pid).replace(/[^0-9a-f-]/gi,'')+'\',event)" style="flex:none;margin-left:6px;padding:1px 6px;border:1px solid #2c4058;border-radius:7px;font-size:11px;color:#9fc3e8;text-decoration:none;white-space:nowrap">↗</a>':'';}
+</script>
+<script>/* b342: MCStd — formato estándar Minecore para TODOS los descargables (mismo membrete/fuentes/títulos oliva/pie que cotización y OV).
+   tabla(): informes tabulares en PDF; xlsx(): Excel con el mismo encabezado; nombre(): «Título - ref - AAAA-MM-DD.ext». */
+var MCStd=(function(){
+  var OLIVE=[68,72,36],INK=[0,0,0],MUT=[96,96,96],RULE=[74,74,74],HAIR=[225,225,225],ALT=[243,243,243];
+  function hoy(){return new Date().toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'});}
+  function fechaTxt(f){var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];var p=String(f||hoy()).slice(0,10).split('-');return p.length<3?String(f||''):(('0'+parseInt(p[2],10)).slice(-2)+' '+M[parseInt(p[1],10)-1]+' '+p[0]);}
+  function nombre(t,ref,ext){var r=String(ref||'');return mcSanitizeFilename([t,r].filter(Boolean).join(' - ')+(/\d{4}-\d{2}-\d{2}\s*$/.test(r)?'':' - '+hoy())+'.'+(ext||'pdf'));}
+  function load(){return Promise.all([(typeof loadJsPDF==='function'?loadJsPDF():mcPlanillaLoadJsPDF()),(typeof mcPickFonts==='function'?mcPickFonts().catch(function(){return null;}):null)]);}
+  /* ctx en cualquier unidad: k = unidades del doc por punto */
+  function ctx(doc,fonts){var u=doc.internal.scaleFactor||1,k=1/u,rob=false;
+    if(fonts&&fonts.reg&&fonts.bold){try{doc.addFileToVFS('Roboto-Regular.ttf',fonts.reg);doc.addFont('Roboto-Regular.ttf','Roboto','normal');doc.addFileToVFS('Roboto-Bold.ttf',fonts.bold);doc.addFont('Roboto-Bold.ttf','Roboto','bold');rob=true;}catch(e){}}
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+    var c={doc:doc,k:k,W:W,H:H,M:28.5*k,rob:rob,OLIVE:OLIVE,INK:INK,MUT:MUT};
+    c.font=function(b){doc.setFont(rob?'Roboto':'helvetica',b?'bold':'normal');};
+    c.txt=function(t,x,y,sz,b,col,al){c.font(b);doc.setFontSize(sz);var q=col||INK;doc.setTextColor(q[0],q[1],q[2]);doc.text(Array.isArray(t)?t:String(t==null?'':t),x,y+sz*0.93*k,al?{align:al}:undefined);};
+    c.tw=function(t,sz,b){c.font(b);doc.setFontSize(sz);return doc.getTextWidth(String(t||''));};
+    c.rect=function(x,y,w,h,col){doc.setFillColor(col[0],col[1],col[2]);doc.rect(x,y,w,h,'F');};
+    c.split=function(t,w,sz,b){c.font(b);doc.setFontSize(sz);return doc.splitTextToSize(String(t==null?'':t),w);};
+    /* membrete: logo + MINECORE S.A.S + dirección a la izquierda; título oliva y líneas a la derecha. Devuelve y libre. */
+    c.letterhead=function(title,lines,compact){var M=c.M,R=W-M,y0=M*0.9;
+      var lw=(compact?70:100.6)*k,lh=lw*62.7/100.6;try{if(typeof MC_PICK_LOGO!=='undefined')doc.addImage(MC_PICK_LOGO,'PNG',M,y0,lw,lh);}catch(e){}
+      var ax=M+lw+(compact?10:30)*k;c.txt('MINECORE S.A.S',ax,y0,compact?9:10.3,1,OLIVE);
+      (compact?['RUC 1793194965001','www.minecore.ec']:['RUC 1793194965001','Alpallana y Diego de Almagro','Quito, Pichincha','170518 Ecuador','www.minecore.ec']).forEach(function(a,i){c.txt(a,ax,y0+(12+i*10.5)*k,compact?8:8.9,0);});
+      var tl=c.split(title,R-ax-150*k>200*k?260*k:(R-ax-20*k),compact?13:14.8,1),ty=y0;tl.forEach(function(t){c.txt(t,R,ty,compact?13:14.8,1,OLIVE,'right');ty+=(compact?14:16.5)*k;});
+      (lines||[]).filter(Boolean).forEach(function(l){var b=Array.isArray(l);c.txt(b?l[0]:l,R,ty,b?10.3:8.9,b?1:0,b?OLIVE:MUT,'right');ty+=(b?14:11.5)*k;});
+      return Math.max(y0+lh+(compact?6:14)*k,ty+8*k);};
+    c.footer=function(txt){var n=doc.getNumberOfPages();for(var p=1;p<=n;p++){doc.setPage(p);c.txt('Minecore S.A.S'+(txt?' · '+txt:'')+' · pág. '+p+'/'+n,W/2,H-22*k,7.6,0,MUT,'center');}};
+    return c;}
+  /* cols: [{l,t:'t'|'d'|'m'|'n'|'p',w}] filas: arrays de valores crudos; total: array o null; chips: [[etiqueta,valor]] */
+  function fmt(t,v){if(v==null||v==='')return '';if(t==='m'){var x=parseFloat(v)||0;return (x<0?'-':'')+'$'+Math.abs(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+    if(t==='p')return (+v).toFixed(1)+'%';if(t==='n')return (+v).toLocaleString('en-US',{maximumFractionDigits:2});return String(v);}
+  function tabla(o){return load().then(function(pk){var jsPDF=pk[0],land=o.land!=null?o.land:o.cols.length>6;
+    var doc=new jsPDF({unit:'pt',format:'a4',orientation:land?'landscape':'portrait',compress:true}),c=ctx(doc,pk[1]),M=c.M,R=c.W-M,BOT=c.H-40;
+    var y=c.letterhead(o.titulo,[o.sub,'Fecha: '+fechaTxt(o.fecha),o.n!=null?(o.n+' fila(s)'):null]);
+    if(o.chips&&o.chips.length){var cx=M;o.chips.forEach(function(ch){var a=ch[0]+' ',b=String(ch[1]);var w=c.tw(a,8.9,0)+c.tw(b,8.9,1)+18;if(cx+w>R){cx=M;y+=14;}c.txt(a,cx,y,8.9,0,MUT);c.txt(b,cx+c.tw(a,8.9,0),y,8.9,1,ch[2]||INK);cx+=w;});y+=22;}
+    var wd=o.cols.map(function(k){return k.w||(k.t==='t'?1.6:1);}),tw=wd.reduce(function(a,b){return a+b;},0),u=(R-M)/tw,xs=[],x=M;wd.forEach(function(w){xs.push(x);x+=w*u;});
+    var num=function(t){return t==='m'||t==='n'||t==='p';};
+    function head(){o.cols.forEach(function(k,i){var w=wd[i]*u,t=c.split(k.l,w-6,8.3,1)[0];c.txt(t,num(k.t)?xs[i]+w-3:xs[i]+2,y,8.3,1,OLIVE,num(k.t)?'right':undefined);});y+=13;c.rect(M,y,R-M,0.8,RULE);y+=4;}
+    head();var fs=o.cols.length>9?7.2:8;
+    o.filas.forEach(function(row,ri){var cells=o.cols.map(function(k,i){return c.split(fmt(k.t,row[i]),wd[i]*u-6,fs,0).slice(0,2);}),h=Math.max.apply(null,cells.map(function(z){return z.length;}))*(fs+2.4)+6;
+      if(y+h>BOT){doc.addPage();y=M;head();}
+      if(ri%2)c.rect(M,y,R-M,h,ALT);
+      o.cols.forEach(function(k,i){var w=wd[i]*u,col=(o.color&&o.color(i,row))||INK;c.txt(cells[i],num(k.t)?xs[i]+w-3:xs[i]+2,y+3,fs,0,col,num(k.t)?'right':undefined);});y+=h;});
+    if(o.total){if(y+20>BOT){doc.addPage();y=M;head();}c.rect(M,y+1,R-M,0.8,RULE);y+=6;o.cols.forEach(function(k,i){var w=wd[i]*u,v=i===0?'Total':fmt(k.t,o.total[i]);c.txt(v,num(k.t)?xs[i]+w-3:xs[i]+2,y,fs+0.5,1,INK,num(k.t)?'right':undefined);});y+=18;}
+    if(o.nota){c.split(o.nota,R-M,7.6,0).forEach(function(l){if(y+10>BOT){doc.addPage();y=M;}c.txt(l,M,y,7.6,0,MUT);y+=10;});}
+    c.footer(o.titulo);try{doc.setProperties({title:o.titulo,author:'Minecore S.A.S'});}catch(e){}
+    return doc.output('blob');});}
+  function loadX(){if(window.XLSX)return Promise.resolve(window.XLSX);return new Promise(function(ok,ko){var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=function(){ok(window.XLSX);};s.onerror=function(){ko(new Error('No se pudo cargar Excel'));};document.head.appendChild(s);});}
+  /* Excel con el mismo encabezado: MINECORE S.A.S / RUC / título / filtro y fecha, fila en blanco, tabla, total */
+  function xlsx(o){return loadX().then(function(X){var top=[['MINECORE S.A.S'],['RUC 1793194965001 · Alpallana y Diego de Almagro, Quito · www.minecore.ec'],[o.titulo],[(o.sub?o.sub+' · ':'')+'Fecha: '+fechaTxt(o.fecha)],[]],H0=top.length;
+      var aoa=top.concat([o.cols.map(function(k){return k.l;})]).concat(o.filas.map(function(r){return o.cols.map(function(k,i){var v=r[i];return (k.t==='t'||k.t==='d')?(v==null?'':String(v)):(v==null||v===''?null:+v);});}));
+      if(o.total)aoa.push(o.cols.map(function(k,i){return i===0?'Total':(o.total[i]==null?'':o.total[i]);}));
+      var ws=X.utils.aoa_to_sheet(aoa);ws['!cols']=o.cols.map(function(k){return {wch:k.t==='t'?Math.min(46,Math.max(12,String(k.l).length+6)):14};});
+      ws['!merges']=[0,1,2,3].map(function(r){return {s:{r:r,c:0},e:{r:r,c:Math.max(0,o.cols.length-1)}};});
+      for(var R0=H0+1;R0<aoa.length;R0++)o.cols.forEach(function(k,i){var a=ws[X.utils.encode_cell({r:R0,c:i})];if(a&&typeof a.v==='number')a.z=k.t==='m'?'#,##0.00':k.t==='p'?'0.0':'#,##0.##';});
+      ws['!autofilter']={ref:X.utils.encode_range({s:{r:H0,c:0},e:{r:aoa.length-1,c:o.cols.length-1}})};
+      var wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,String(o.hoja||'Reporte').slice(0,31));wb.Props={Title:o.titulo,Author:'Minecore S.A.S'};
+      var out=X.write(wb,{bookType:'xlsx',type:'array'});return new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});});}
+  function bajar(b,n,mime){if(typeof mcDownloadBlob==='function')return mcDownloadBlob(b,n,mime);var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},800);}
+  return {ctx:ctx,load:load,tabla:tabla,xlsx:xlsx,nombre:nombre,fecha:fechaTxt,hoy:hoy,bajar:bajar,fmt:fmt,OLIVE:OLIVE};})();
 </script>
 <script>
 /* b336: MCUpload — TODOS los botones de subir del portal abren el mismo cuadro «Suelta aquí…» (como Banco) en vez del selector nativo.
