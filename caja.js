@@ -2031,7 +2031,7 @@ async function vMisEntregas(c){
 function entregasH(ent, canDelete){
   if(!ent.length)return empty('Sin entregas');
   return ent.map(e=>{
-    const fotoUrl=e['Foto URL']||e['FotoURL']||'';
+    const fotoUrl=e['Foto Storage']||e['Foto URL']||e['FotoURL']||''; /* b326: foto en Supabase Storage; si no hay, Drive */
     const fotoOk=fotoUrl&&fotoUrl!=='undefined'&&fotoUrl.startsWith('http');
     const del=canDelete?cajaDeleteBtn('entrega', e['ID']):'';
     return `<div class="caja-item">
@@ -2048,7 +2048,7 @@ function gastoH(g,isAdmin,canDelete){
   const est=g['Estado']||'Pendiente', bc=badgeClass(est==='Aprobado'?'Aprobada':est==='Rechazado'?'Rechazada':est);
   const acc=isAdmin&&est==='Pendiente'?`<div class="action-row"><button class="btn-reject" onclick="rejG('${g['ID']}')">Rechazar</button><button class="btn-approve" onclick="aprG('${g['ID']}')">✓ Aprobar</button></div>`:'';
   const del=canDelete?cajaDeleteBtn('gasto', g['ID']):'';
-  const fotoUrl=g['Foto Factura URL']||g['Foto URL']||g['FotoURL']||'';
+  const fotoUrl=g['Foto Storage']||g['Foto Factura URL']||g['Foto URL']||g['FotoURL']||''; /* b326: Storage primero, Drive de respaldo */
   const fotoOk=fotoUrl&&fotoUrl!=='undefined'&&fotoUrl.startsWith('http');
   return `<div class="caja-item">
     <div class="caja-hdr"><div class="caja-desc">${String(g['Descripción']||g['Descripcion']||'Sin descripción').replace(/^\[SIN RESPALDO:[^\]]*\]\s*/,'')}</div><span class="badge ${bc}">${est}</span></div>
@@ -2105,7 +2105,7 @@ async function cajaFotoSubir(urlId){
   try{
     for(let i=1;i<=CAJA_FOTO_INTENTOS;i++){
       if(_cajaFoto[urlId]!==st) return; // eligió otra foto mientras tanto
-      cajaFotoStatus(st, i===1?'Subiendo foto a Drive...':('Reintentando subida ('+i+'/'+CAJA_FOTO_INTENTOS+')... no cierres esta pantalla'));
+      cajaFotoStatus(st, i===1?'Subiendo foto...':('Reintentando subida ('+i+'/'+CAJA_FOTO_INTENTOS+')... no cierres esta pantalla'));
       try{
         r=await api({action:'savePhoto',base64:st.b64,mimeType:st.mime,nombre:st.name,clientReqId:st.reqId,_timeout:90000});
       }catch(e){ r={ok:false,_transport:true,error:(e&&e.message)||'Error de conexión'}; }
