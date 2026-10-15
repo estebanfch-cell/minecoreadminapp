@@ -463,7 +463,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='335';
+  var MC_BUILD='336';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -11463,7 +11463,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
           if(k==='c'){Ventas.ieCli(c);}
           else{var L={};L[lid]={product_id:c.id,sku:c.sku,nombre:c.name,description:c.name,img:c.img||'',unit_price:c.precio||0};ieSave({},L);}};});});},300);};},
     ieG:function(){ieGuardar();},solFac:function(){if(!cur)return;var o=cur.orden,b=document.getElementById('vt-solfac');if(!confirm('¿Enviar el PDF de '+o.order_number+' a tu WhatsApp para reenviarlo a Conta?'))return;if(b){b.disabled=true;b.textContent='Enviando…';}var _tt=function(t,bad){var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;padding:9px 16px;border-radius:20px;font-size:13px;color:#fff;background:'+(bad?'#8a2a2a':'#1f4d2e');document.body.appendChild(d);setTimeout(function(){d.remove();},3500);};
-      Promise.resolve(MCOvPdf('mc_so',cur)).then(function(bl){return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(String(fr.result));};fr.onerror=rej;fr.readAsDataURL(bl);});})
+      /* b336: el PDF que va a Conta es el IMPRIMIBLE (menú Imprimir → Orden de venta: op doc + MCInflowDoc('so')), no el simple MCOvPdf */api({op:'doc',id:o.id}).then(function(r){if(!r||!r.ok||!r.doc)throw new Error((r&&r.error)||'No se pudo armar el PDF');return MCInflowDoc('so',r.doc);}).then(function(bl){return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(String(fr.result));};fr.onerror=rej;fr.readAsDataURL(bl);});})
       .then(function(b64){return api({op:'save',sol_factura:true,id:o.id,pdf_b64:b64});}).then(function(r){if(!r.ok)throw new Error(r.error);abrir(o.id);}).catch(function(e){_tt('⚠ No se pudo enviar: '+(e&&e.message||e),1);if(b){b.disabled=false;b.textContent='🧾 Solicitar factura';}});},ieD:function(){ieDescartar();},ieDirty:function(){return !!DIRTY;},
     idel:function(id){var l=(cur.lineas||[]).filter(function(x){return x.id===id;})[0];if(!l||!confirm('¿Quitar la línea '+(l.sku||l.description||'')+'? Si estaba preparada, el stock vuelve a su ubicación.'))return;var L={};L[id]=null;ieSave({},L);},cols:function(){mcColsPanel('v'+tipo,VCOLS(),'Ventas');},renombrar:function(){var o=cur&&cur.orden;if(!o)return;var nv=prompt('Nuevo número para '+o.order_number+' (debe ser único):',o.order_number);if(!nv)return;nv=nv.trim().toUpperCase();if(nv===o.order_number)return;
     api({op:'save',renombrar:true,id:o.id,nuevo:nv}).then(function(r){if(!r.ok)throw new Error(r.error);lista.forEach(function(x){if(x.id===o.id)x.order_number=r.order_number;});o.order_number=r.order_number;alert('Número cambiado: '+r.antes+' → '+r.order_number+' (se sincroniza con inFlow)');abrir(o.id);}).catch(function(e){alert(e.message||e);});},lista:function(){if(DIRTY){var _a=arguments,_t=this;return mcDirtyAsk(function(){ieGuardar(function(){DIRTY=null;Ventas.lista();});},function(){DIRTY=null;Ventas.lista();});}MD=false;cur=null;form=null;if(lista&&lista.length){renderLista();cargar(true);}else cargar();},abrirNum:abrirNum,email:email,_numEd:function(v){if(form&&form.orden){form.orden.order_number=String(v||'').trim().toUpperCase();form.orden._numAuto=false;}},reembolso:reembolso,aplicarSaldo:aplicarSaldo,resetF:resetF,qLive:qLive,togF:togF,selF:selF,nuevaDesde:nuevaDesde,revisada:revisada,fulfill:fulfill,fulfillOk:fulfillOk,edCerrar:edCerrar,pickEd:pickEd,pickEdOk:pickEdOk,pickUndo:pickUndo,packUndo:packUndo,shipEd:shipEd,shipEdOk:shipEdOk,shipUndo:shipUndo,payEd:payEd,payEdOk:payEdOk,payDel:payDel,abrirNum:abrirNum,restockPrueba:restockPrueba,restockSim:restockSim,duplicar:duplicar,etiquetas:etiquetas,init:init,setDv:setDv,agregarSku:agregarSku,agregarConsulta:agregarConsulta,despieces:despieces,volverForm:volverForm,re:re,togHist:togHist,togCampos:togCampos,setCampo:setCampo,setEnt:setEnt,dividirEnt:dividirEnt,setParte:setParte,quitarPartes:quitarPartes,otraLinea:otraLinea,moverA:moverA,printMenu:printMenu,imprimir:imprimir,irCot:irCot,initPick:initPick,pqAbrir:pqAbrir,pqSub:pqSub,pqCant:pqCant,pqMarcar:pqMarcar,pqTodos:pqTodos,pqConfirmar:pqConfirmar,pqBuscar:pqBuscar,pqSplit:pqSplit,pqPickList:pqPickList,irPiquear:irPiquear,cerrarOv:cerrarOv,packCajas:packCajas,packSet:packSet,packPeso:packPeso,packOk:packOk,cargar:cargar,filtrar:filtrar,abrir:abrir,recargar:recargar,volver:volver,nuevo:nuevo,editar:editar,guardar:guardar,convertir:convertir,cancelar:cancelar,dividir:dividir,dividirOk:dividirOk,
@@ -13704,6 +13704,39 @@ window.MCNotif=(function(){
   (function(){var e0=window.entrar;if(typeof e0==='function')window.entrar=function(){var r=e0.apply(this,arguments);arrancar();return r;};})();
   return {pfacCard:pfacCard,irFac:irFac,irOV:irOV,abrir:abrir,cerrar:cerrar,cargar:cargar,ir:ir,vistos:vistos,semVisto:semVisto,setBod:setBod,setCli:setCli,buscarCli:buscarCli,defBod:defBod,defCli:defCli,semana:semana,_st:st};
 })();
+</script>
+<script>
+/* b336: MCUpload — TODOS los botones de subir del portal abren el mismo cuadro «Suelta aquí…» (como Banco) en vez del selector nativo.
+   Sirve para cualquier <input type=file> (también los creados después): se intercepta su clic; al soltar/elegir, los archivos van a ese
+   mismo input y se dispara su «change» de siempre (la lógica de cada módulo no cambia). Banco (#bk-file) conserva su recuadro propio. */
+var MCUpload=(function(){var cur=null,M=null;
+  function css(){if(document.getElementById('mcu-css'))return;var st=document.createElement('style');st.id='mcu-css';st.textContent='#mcu-ov{position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px}#mcu-box{width:min(560px,100%);background:#0f1720;border:1px solid #223142;border-radius:16px;padding:14px;color:#e8eef6}#mcu-dz{border:3px dashed #a3e635;border-radius:14px;padding:34px 16px;text-align:center;background:#0f1a12;cursor:pointer}#mcu-dz.on{background:#1a2e17}#mcu-dz .t{font-size:17px;font-weight:800;color:#a3e635;margin:6px 0}#mcu-box .mcu-b{background:#a3e635;color:#0b121c;border:0;border-radius:10px;padding:9px 14px;font-weight:800;cursor:pointer}#mcu-box .mcu-s{background:#1c2a3a;color:#cfe3f7;border:1px solid #2c4058;border-radius:10px;padding:6px 10px;cursor:pointer}#mcu-err{color:#e05c5c;font-size:12px;margin-top:8px;min-height:14px}';document.head.appendChild(st);}
+  function ext(inp){var a=(inp.getAttribute('accept')||'').trim();if(!a)return 'cualquier archivo';return a.split(',').map(function(x){x=x.trim();return x==='image/*'?'fotos':x==='application/pdf'?'.pdf':x;}).join(' ');}
+  function okTipo(inp,f){var a=(inp.getAttribute('accept')||'').trim();if(!a)return true;var n=f.name.toLowerCase(),t=(f.type||'').toLowerCase();return a.split(',').some(function(x){x=x.trim().toLowerCase();if(!x)return false;if(x[0]==='.')return n.slice(-x.length)===x;if(/\/\*$/.test(x))return t.indexOf(x.slice(0,-1))===0;return t===x;});}
+  function esc(x){return String(x).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
+  function titulo(inp){var l=inp.closest('label,button,.chip');var t=l?(l.innerText||'').trim():'';return t||inp.getAttribute('data-titulo')||'Subir archivo';}
+  function cerrar(){if(M){M.remove();M=null;}cur=null;}
+  function err(t){var e=document.getElementById('mcu-err');if(e)e.textContent=t;}
+  function entregar(fs){var inp=cur;if(!inp)return false;fs=[].slice.call(fs||[]);if(!fs.length)return false;var malos=fs.filter(function(f){return !okTipo(inp,f);});
+    if(malos.length){err('Tipo no permitido: '+malos.map(function(f){return f.name;}).join(', ')+' (se acepta '+ext(inp)+')');return false;}
+    if(!inp.multiple)fs=fs.slice(0,1);try{var dt=new DataTransfer();fs.forEach(function(f){dt.items.add(f);});inp.files=dt.files;}catch(e){err('Tu navegador no permite soltar aquí: usa «Elegir archivo».');return false;}
+    cerrar();inp.dispatchEvent(new Event('change',{bubbles:true}));return true;}
+  function abrir(inp){css();cerrar();cur=inp;M=document.createElement('div');M.id='mcu-ov';
+    M.innerHTML='<div id="mcu-box" role="dialog" aria-label="Subir archivo"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><b style="flex:1;font-size:15px">'+esc(titulo(inp))+'</b><button class="mcu-s" id="mcu-x" type="button">✕</button></div>'+
+      '<div id="mcu-dz"><div style="font-size:34px">📥</div><div class="t">Suelta aquí '+(inp.multiple?'tus archivos':'tu archivo')+' ('+esc(ext(inp))+')</div><div style="color:#8fa3b8;font-size:12px;margin-bottom:10px">o</div><button class="mcu-b" id="mcu-pick" type="button">📂 Elegir archivo…</button></div><div id="mcu-err"></div></div>';
+    document.body.appendChild(M);var dz=document.getElementById('mcu-dz');
+    M.addEventListener('click',function(e){if(e.target===M)cerrar();});document.getElementById('mcu-x').onclick=cerrar;
+    var pick=function(e){if(e)e.stopPropagation();var i=cur;if(!i)return;i._mcuNative=1;cerrar();i.click();};document.getElementById('mcu-pick').onclick=pick;dz.onclick=pick;
+    ['dragenter','dragover'].forEach(function(ev){dz.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();dz.classList.add('on');});});
+    dz.addEventListener('dragleave',function(){dz.classList.remove('on');});
+    dz.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();dz.classList.remove('on');entregar(e.dataTransfer&&e.dataTransfer.files);});
+    M.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation();});M.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();entregar(e.dataTransfer&&e.dataTransfer.files);});}
+  function excluido(i){return i.id==='bk-file'||!!i.closest('[data-native-file]');}
+  document.addEventListener('click',function(e){var i=e.target;if(!(i&&i.tagName==='INPUT'&&i.type==='file'))return;if(i._mcuNative){i._mcuNative=0;return;}if(excluido(i)||i.disabled)return;e.preventDefault();e.stopPropagation();abrir(i);},true);
+  /* inputs creados por código y no puestos en la página (input.click() sin DOM): el clic no llega a document ⇒ se intercepta click() */
+  var nClick=HTMLInputElement.prototype.click;HTMLInputElement.prototype.click=function(){if(this.type==='file'&&!this.isConnected&&!this._mcuNative&&!excluido(this)&&!this.disabled){abrir(this);return;}if(this.type==='file'&&!this.isConnected)this._mcuNative=0;return nClick.apply(this,arguments);};
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&M)cerrar();});
+  return {abrir:abrir,cerrar:cerrar,entregar:entregar,_cur:function(){return cur;}};})();
 </script>
 <script src="assistant_patch.js?v=1"></script>
 </body>
