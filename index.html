@@ -464,7 +464,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='345.1';
+  var MC_BUILD='346';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -604,7 +604,7 @@ function MCrefrescarStock(){
     if(Date.now()-last<60000)return Promise.resolve(0);
     if(MC_STK_PROM)return MC_STK_PROM;
     localStorage.setItem('mc_stk_at',String(Date.now()));
-    MC_STK_PROM=MCpost({action:'refrescarStock',user:getUserName(),pin:getPin(),_timeout:90000,_retries:0}).then(function(r){
+    MC_STK_PROM=Promise.resolve({ok:true,productos:(Date.now()-last>300000)?1:0}).then(function(r){ /* b346: sin Apps Script */
       MC_STK_PROM=null;var n=(r&&r.ok&&r.productos)||0;
       if(n>0){try{MCWarm.loadProductos(true).catch(function(){});}catch(e){}}
       return n;
@@ -626,7 +626,7 @@ var MC_CAJA_RX=/^(getRutas|getGastos|getEntregas|getBalanceCaja|getConfig|update
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
 function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
 /* b334: token de sesión desde portal-api (sbToken con NOMBRE+PIN); si falla, Apps Script (AdminAPI ya no trae sbToken) */
-function MCsbTok(){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'sbToken',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){return MCpostAS({action:'sbToken',user:getUserName(),pin:getPin(),_retries:1}).then(function(r){if(r&&r.sbt)return r;return {ok:false,error:(e1&&e1.error)||(r&&r.error)||'sin token'};});});}
+function MCsbTok(){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'sbToken',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){if(!(e1&&e1.name==='TypeError'))return {ok:false,error:(e1&&e1.error)||'sin token'};return MCpostAS({action:'sbToken',user:getUserName(),pin:getPin(),_retries:1}).then(function(r){if(r&&r.sbt)return r;return {ok:false,error:(e1&&e1.error)||(r&&r.error)||'sin token'};});});}
 /* b340: escalera de cobranza — clientes Bloqueados (compromiso incumplido). Fuente: webhook cobranza (Supabase app.customers.bloqueado). */
 var MC_BLOQ={},MC_BLOQ_T=0,MC_COB_URL='https://uniformly-rockband-uncapped.ngrok-free.dev/cobranza/';
 function mcCobPost(path,body){return MCsbTok().then(function(tk){if(!tk||!tk.sbt)throw {error:'Sin sesión'};body=body||{};body.t=tk.sbt;return fetch(MC_COB_URL+path,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},body:JSON.stringify(body)}).then(function(r){return r.json();});});}
@@ -642,7 +642,7 @@ function MCsbRefresh(){
 }
 function MCsbEligible(c){
   if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
-  return c.action==='ventas'||c.action==='cli_nombres'||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
+  return c.action==='ventas'||c.action==='cli_nombres'||c.action==='despieces'||c.action==='notificaciones'||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
 }
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
 
@@ -685,6 +685,7 @@ function MCpost0(p){
     s=MCsbGet();
     if(!s||s.exp<Date.now()/1000+180)MCsbRefresh();
   }
+  if(!s&&MCsbEligible(p)&&!p._sbw&&MC_SB_REF){p._sbw=1;return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});} /* b346 */
   if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -12090,7 +12091,7 @@ function renderHome(){
   mcBindHomeTiles();
   var nb=document.getElementById('notif-bar');
   if(nb){nb.className='';nb.style.display='none';nb.innerHTML='';nb.removeAttribute('data-has');}
-  MCpost({action:'getNotificaciones',user:getUserName(),pin:getPin()}).then(function(nres){
+  MCsbOr({action:'notificaciones'},{action:'getNotificaciones'}).then(function(nres){ /* b346: Supabase */
     var bar=document.getElementById('notif-bar');
     if(!bar)return;
     if(!nres.ok||!(nres.items||[]).length){bar.className='';bar.style.display='none';bar.innerHTML='';bar.removeAttribute('data-has');return;}
@@ -12108,7 +12109,7 @@ function renderHome(){
   }).catch(function(){});
   document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
   if(p.rol==='admin'){
-    fetch(API_URL).then(function(r){return r.json();}).then(function(d){
+    Promise.resolve({version:'Supabase (portal-api)',cajaNative:true}).then(function(d){ /* b346: sin GET a Apps Script */
       var e=document.getElementById('api-ver');
       window._motorVer=d.version||'?';
       var mv=parseInt(String(d.version||'').replace(/\D/g,''),10)||0;
@@ -12590,7 +12591,7 @@ function base(v){openMod('base');MCBase.abrir(v);}
 function mcAutoEntrar(){var x=mcSess(),pf=null;try{pf=JSON.parse(localStorage.getItem('mc_profile')||'null');}catch(e){}
   if(!x||!pf||!pf.nombre)return false;
   try{window._pinSesion=x.p;mcSessSet(x.u,x.p);document.getElementById('login').style.display='none';document.getElementById('shell').style.display='block';renderHome();MCroute.restaurar();}catch(e){return false;}
-  MCpost({action:'ping',user:x.u,pin:x.p}).then(function(res){ // revalida en segundo plano; solo cierra si el servidor rechaza el PIN
+  MCping(x.u,x.p).then(function(res){ /* b346 */ // revalida en segundo plano; solo cierra si el servidor rechaza el PIN
     if(res&&res.ok===false&&/pin|usuario|inv[aá]lid|desactiv|no autorizado/i.test(String(res.error||''))){clearCreds();alert('Tu sesión ya no es válida. Ingresa de nuevo.');location.reload();return;}
     if(res&&res.ok&&res.auth===true&&res.rol){try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||x.u,rol:res.rol||'usuario',modulos:res.modulos||[],empresa:res.empresa||'',master:!!res.master,aprobado:!!res.aprobado,vinculada:res.vinculada!==false}));}catch(e){}if(res.sbt)try{MCsbSet(res.sbt);}catch(e){}}
   }).catch(function(){});
@@ -12654,7 +12655,22 @@ function entrar(res,usr,pin,recordarPin){
 }
 /* b262: login sin Google por piloto. El servidor decide (PORTAL_LOGIN_ALT / PORTAL_LOGIN_ALT_USERS); con todo apagado no cambia nada:
    se usa ping de Apps Script como siempre. Si el login de Supabase falla por cualquier motivo, se vuelve a Apps Script. */
-function MCloginAlt(usr,pin){
+/* b346: MCping = «ping» de Apps Script pero en Supabase. Devuelve la misma forma {ok,auth,user,rol,modulos,...} y deja el token de sesión listo.
+   Apps Script solo: (a) si Supabase no responde, (b) para confirmar un rechazo de PIN (por si el PIN se cambió y aún no se copió). */
+function MCping(usr,pin){
+  var as=function(){return MCpostAS({action:'ping',user:usr,pin:pin,_retries:1}).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});};
+  if(location.protocol==='file:'||localStorage.getItem('mc_sb_off')==='1')return as();
+  return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'login',v2:true,user:usr,pin:pin})})
+    .then(function(r){return r.json().then(function(j){return {st:r.status,j:j};});})
+    .then(function(x){var r=x.j||{};
+      if(r.ok&&r.t){MCsbSet(r.t);try{window.MC_LOGIN_VIA='supabase';}catch(e){}var pf=r.perfil||{};
+        return {ok:true,auth:true,user:pf.nombre||usr,rol:pf.rol||'usuario',modulos:pf.modulos||[],empresa:pf.empresa||'',master:!!pf.master,aprobado:pf.aprobado!==false,vinculada:pf.vinculada!==false,via:'supabase'};}
+      if(x.st===401||x.st===429)return as().then(function(g){return (g&&g.ok)?g:(x.st===429?{ok:false,error:r.error||'Demasiados intentos. Espera unos minutos.'}:g);});
+      return as();})
+    .catch(function(){return as();});
+}
+function MCloginAlt(usr,pin){return MCping(usr,pin);} /* b346 */
+function MCloginAltOld(usr,pin){
   var as=function(){return MCpost({action:'ping',user:usr,pin:pin});};
   if(location.protocol==='file:'||localStorage.getItem('mc_sb_off')==='1')return as();
   var P=function(b){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json();});};
@@ -12747,7 +12763,7 @@ function doBioLogin(){
       document.getElementById('shell').style.display='block';
       renderHome();
       // Revalidación en segundo plano (por si el PIN cambió o el usuario fue desactivado)
-      MCpost({action:'ping',user:u,pin:pin}).then(function(res){
+      MCping(u,pin).then(function(res){ /* b346 */
         if(!res.ok){clearCreds();alert('Tu sesión ya no es válida. Ingresa de nuevo.');location.reload();}
         else if(res.auth!==true||!res.rol){/* b223: respuesta sin perfil (p.ej. tarjeta del doGet): no pisar mc_profile */}
         else{try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||u,rol:res.rol||'usuario',modulos:res.modulos||[],empresa:res.empresa||'',master:!!res.master,aprobado:!!res.aprobado,vinculada:res.vinculada!==false}));}catch(e){}}
@@ -12755,7 +12771,7 @@ function doBioLogin(){
     } else {
       // sin perfil guardado: valida contra el servidor con aviso visible
       err.textContent='Conectando...';
-      MCpost({action:'ping',user:u,pin:pin}).then(function(res){
+      MCping(u,pin).then(function(res){ /* b346 */
         err.textContent='';
         if(res.ok){entrar(res,u,pin,true);}
         else{err.style.color='';err.textContent='Sesión inválida: entra con tu PIN.';}
