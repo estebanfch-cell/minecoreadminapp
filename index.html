@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='346';
+  var MC_BUILD='347';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -9252,6 +9252,138 @@ var Compras=(function(){
 
 /* ===================== MOVIMIENTOS DE STOCK (b243 · Supabase original, inFlow espejo) =====================
    Transferencias (entre bodegas o sububicaciones), ajustes con motivo y conteos (el conteo genera un ajuste por diferencias). */
+/* MCCC-BEGIN b346 */
+/* b346 · EFCH t608/t609: Conteo físico GENERAL por secciones (todo el inventario). El contador elige la sección; al iniciarla se toma el
+   stock del sistema (inventario vivo); al cerrarla queda en revisión; EFCH aprueba sección por sección y se ajusta Supabase (+ espejo inFlow). */
+var MCCC=(function(){
+  var S={list:null,cur:null,sec:null,selSec:null,vista:'main',admin:false,dirty:{},busy:false,zonas:null,usuarios:null,q:'',zEdit:{},nuevo:null};
+  function esc(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function el(){return document.getElementById('stk-screen');}
+  function $(i){return document.getElementById(i);}
+  function num(n){if(n==null||n==='')return '—';var x=+n||0;return x%1===0?String(x):x.toFixed(2);}
+  function hoy(){var d=new Date(Date.now()-5*3600e3);return d.toISOString().slice(0,10);}
+  function fch(t){return t?new Date(t).toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'}):'—';}
+  function fhm(t){return t?new Date(t).toLocaleString('sv-SE',{timeZone:'America/Guayaquil'}).slice(0,16):'';}
+  function api(p){p.action='ventas';var s=null;try{s=MCsbGet();}catch(e){}
+    var go=function(s){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({t:s.t},p))}).then(function(r){if(r.status===401)throw new Error('Sesión vencida, vuelve a entrar');return r.json();}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'Sin respuesta');try{MC_STK_V++;}catch(e){}return r;});};
+    if(s&&s.t)return go(s);try{MCsbRefresh();}catch(e){}return Promise.resolve(MC_SB_REF).then(function(){var s2=MCsbGet();if(!s2)throw new Error('Sin sesión Supabase');return go(s2);});}
+  function err(e){S.busy=false;alert(e&&e.message?e.message:String(e));}
+  var EST={pendiente:['Pendiente','#8fa3b8'],en_conteo:['Contando','#f0c040'],en_revision:['En revisión','#5cc8ff'],aprobada:['Aprobada','#6fd68f']};
+  function chip(e){var x=EST[e]||[e,'#9fc3e8'];return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap;color:'+x[1]+';border-color:'+x[1]+'">'+x[0]+'</span>';}
+  function css(){return '<style>#cc .cc-t{width:100%;border-collapse:collapse;font-size:12.5px}#cc .cc-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px 7px;border-bottom:1px solid #26405c;white-space:nowrap}#cc .cc-t td{padding:6px 7px;border-bottom:1px solid #1c2a3a;white-space:nowrap;vertical-align:middle}#cc .cc-t td.nm{width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis}#cc .cc-t td.r,#cc .cc-t th.r{text-align:right}#cc tr.x{cursor:pointer}#cc tr.x:hover,#cc tr.sel{background:#13202e}'+
+    '#cc .cc-md{display:grid;grid-template-columns:minmax(380px,40%) 1fr;gap:12px;align-items:start}#cc .cc-bar{position:sticky;bottom:calc(env(safe-area-inset-bottom) + 64px);background:#0d1722;border-top:1px solid #26405c;padding:8px;display:flex;gap:6px;justify-content:flex-end;z-index:5}'+
+    '#cc .cc-q{width:64px;text-align:center;padding:4px}#cc .cc-dirty{outline:1px solid #f0c040}#cc .cc-k{color:#8fa3b8;font-size:11px}#cc .cc-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}'+
+    '@media(max-width:899px){#cc .cc-md{display:block}#cc .cc-md.det .cc-mL{display:none}#cc .cc-md:not(.det) .cc-mR{display:none}#cc .cc-hm{display:none}}@media(min-width:900px){#cc .cc-back{display:none}#cc .cc-bar{bottom:0}}</style>';}
+  function init(){S.vista='main';S.sec=null;S.selSec=null;try{document.getElementById('title').textContent='CONTEOS FÍSICOS';}catch(e){}
+    el().innerHTML='<div id="cc">'+css()+'<div class="cbz-loading">Cargando conteos…</div></div>';
+    api({op:'cc_list'}).then(function(r){S.list=r.conteos||[];S.admin=!!r.admin;S.cur=(S.want&&S.list.filter(function(c){return c.doc.id===S.want;})[0])||S.list.filter(function(c){return c.doc.estado==='borrador';})[0]||null;
+      if(S.admin)return api({op:'cc_zonas'}).then(function(z){S.zonas=z;});}).then(render).catch(function(e){el().innerHTML='<div id="cc"><div class="cbz-error">'+esc(e.message||e)+'</div></div>';});}
+  function wrap(h){el().innerHTML='<div id="cc">'+css()+h+'</div>';}
+  function hdr(){var h='<div class="cc-row'+(S.selSec?' cc-hm':'')+'" style="margin-bottom:8px">';
+    if(S.admin)h+='<button class="cbz-btn" onclick="MCCC.nuevo()">＋ Nuevo conteo general</button><button class="chip" onclick="MCCC.vZonas()">⚙ Secciones</button><button class="chip" onclick="MCCC.vUsr()">👤 Contadores</button>';
+    if(S.admin)h+='<button class="chip" onclick="window.MC_CC_LEGACY=1;Stk.setTipo(\'conteo\');window.MC_CC_LEGACY=0;">📋 Hojas sueltas (antes)</button>';
+    return h+'</div>';}
+  function render(){if(S.vista==='zonas')return rZonas();if(S.vista==='usr')return rUsr();if(S.vista==='nuevo')return rNuevo();
+    var h=hdr(),c=S.cur;
+    if(!c){h+='<div class="cbz-card cbz-muted" style="text-align:center;padding:18px">'+(S.admin?'No hay un conteo general abierto. Crea uno con «Nuevo conteo general».':'No tienes conteos asignados.')+'</div>';
+      if(S.admin&&S.zonas)h+=rUltimos();wrap(h);return;}
+    var d=c.doc,SS=c.secciones,ap=SS.filter(function(s){return s.estado==='aprobada';}).length,rv=SS.filter(function(s){return s.estado==='en_revision';}).length;
+    var pl=(c.plan||[]).filter(function(p){return String(p.fecha).slice(0,10)===hoy();})[0];
+    h+='<div class="cbz-card'+(S.selSec?' cc-hm':'')+'"><div class="cc-row" style="justify-content:space-between"><div style="min-width:0"><b style="font-size:15px;white-space:nowrap">'+esc(d.number)+'</b> <span class="cbz-muted" style="white-space:nowrap">· '+esc(d.bodega||'')+' · 👤 '+esc(d.asignado_a||'—')+'</span></div>'+
+      '<div class="cc-row"><span style="white-space:nowrap;font-size:12.5px">Aprobadas <b>'+ap+'/'+SS.length+'</b>'+(rv?' · <b style="color:#5cc8ff">'+rv+' por revisar</b>':'')+'</span>'+(S.admin?'<button class="chip" onclick="MCCC.plan()">🗓 Plan del mes</button><button class="chip" onclick="MCCC.asignar()">👤 Reasignar</button><button class="chip" style="color:#e05c5c" onclick="MCCC.cancelar()">✕ Cancelar</button>':'')+'</div></div>'+
+      '<div style="height:6px;background:#1c2a3a;border-radius:4px;margin-top:6px;overflow:hidden"><div style="height:6px;width:'+Math.round(100*ap/Math.max(1,SS.length))+'%;background:#6fd68f"></div></div>'+
+      (pl?'<div style="font-size:12.5px;margin-top:6px">📅 Hoy toca: <b>'+esc(pl.zona||'la sección que elijas')+'</b></div>':'')+
+      '<div class="cbz-muted" style="font-size:11.5px;margin-top:4px">Elige una sección, pulsa «Iniciar» y cuenta. El inventario sigue vivo: el sistema toma el stock al iniciar la sección. Puedes guardar, salir y volver.</div></div>';
+    h+='<div class="cc-md'+(S.selSec?' det':'')+'"><div class="cc-mL"><div class="cbz-card" style="padding:4px 6px"><table class="cc-t"><thead><tr><th>Sección</th><th>Estado</th><th class="r">Cont.</th><th class="r">Dif.</th><th class="cc-hm">Último</th></tr></thead><tbody>'+
+      SS.map(function(s){var dias=s.ultimo?Math.floor((Date.now()-new Date(s.ultimo))/864e5):null,venc=dias==null||dias>(s.frecuencia_dias||30);
+        return '<tr class="x'+(S.selSec===s.id?' sel':'')+'" onclick="MCCC.abrirSec(\''+s.id+'\')"><td class="nm" title="'+esc((s.prefijos||[]).join(', '))+'"><b>'+esc(s.zona)+'</b> <span class="cbz-muted" style="font-size:11px">'+esc((s.prefijos||[]).join(' ').replace('=','(sin sub.)'))+'</span></td><td>'+chip(s.estado)+'</td><td class="r">'+(s.lineas?s.contadas+'/'+s.lineas:'—')+'</td><td class="r">'+(s.difs?'<b style="color:#f0c040">'+s.difs+'</b>':'—')+'</td><td class="cc-hm" style="color:'+(venc?'#e05c5c':'#8fa3b8')+'">'+(s.ultimo?fch(s.ultimo)+' · '+dias+'d':'nunca')+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+      '<div class="cc-mR" id="cc-det">'+(S.selSec?'<div class="cbz-loading">Cargando sección…</div>':'<div class="cbz-card cbz-muted" style="text-align:center;padding:30px">Elige una sección a la izquierda</div>')+'</div></div>';
+    wrap(h);if(S.selSec&&S.sec&&S.sec.seccion.id===S.selSec)rSec();}
+  function rUltimos(){var Z=(S.zonas&&S.zonas.zonas)||[];return '<div class="cbz-card" style="padding:4px 6px"><div class="cbz-card-name" style="font-size:13px;margin:6px">Último conteo por sección</div><table class="cc-t"><thead><tr><th>Sección</th><th>Último</th><th class="r">Días</th><th class="r">Cada</th></tr></thead><tbody>'+
+    Z.filter(function(z){return z.activo;}).map(function(z){var v=z.dias==null||z.dias>z.frecuencia_dias;return '<tr><td class="nm"><b>'+esc(z.nombre)+'</b></td><td>'+fch(z.ultimo)+'</td><td class="r" style="color:'+(v?'#e05c5c':'')+'">'+(z.dias==null?'nunca':z.dias)+'</td><td class="r">'+z.frecuencia_dias+'d</td></tr>';}).join('')+'</tbody></table></div>';}
+  function abrirSec(id){if(Object.keys(S.dirty).length&&!confirm('Tienes cantidades sin guardar. ¿Descartarlas?'))return;S.dirty={};S.selSec=id;S.sec=null;render();
+    api({op:'cc_sec_get',id:id}).then(function(r){S.sec=r;S.admin=S.admin||r.admin;var ls=null;try{ls=JSON.parse(localStorage.getItem('mc_cc_'+id)||'null');}catch(e){}
+      if(ls&&r.seccion.estado==='en_conteo'){r.lineas.forEach(function(l){if(ls[l.id]!==undefined&&String(ls[l.id])!==String(l.contado==null?'':l.contado))S.dirty[l.id]=ls[l.id];});}rSec();}).catch(err);}
+  function rSec(){var b=$('cc-det');if(!b)return;var r=S.sec,s=r.seccion,L=r.lineas,cnt=s.estado==='en_conteo',rev=s.estado==='en_revision'||s.estado==='aprobada';
+    var h='<div class="cbz-card"><div class="cc-row" style="justify-content:space-between"><div class="cc-row"><button class="chip cc-back" onclick="MCCC.cerrarDet()">← Secciones</button><b style="font-size:14px;white-space:nowrap">'+esc(s.zona)+'</b>'+chip(s.estado)+'</div>'+
+      '<span class="cbz-muted" style="font-size:11.5px;white-space:nowrap">'+(s.iniciado_at?'Inicio '+fhm(s.iniciado_at)+' · '+esc(s.iniciado_por||''):'')+'</span></div>'+(s.revision_nota?'<div style="font-size:12px;color:#f0c040;margin-top:4px">↩ '+esc(s.revision_nota)+'</div>':'')+'</div>';
+    if(s.estado==='pendiente'){h+='<div class="cbz-card" style="text-align:center;padding:20px"><div class="cbz-muted" style="font-size:12.5px;margin-bottom:10px">Al iniciar, el sistema guarda el stock de esta sección en este momento (las ventas y movimientos de antes ya quedan reflejados).</div><button class="cbz-btn" onclick="MCCC.iniciar()">▶ Iniciar '+esc(s.zona)+'</button></div>';b.innerHTML=h;return;}
+    if(cnt){var nc=L.filter(function(l){var v=S.dirty[l.id]!==undefined?S.dirty[l.id]:l.contado;return v!==null&&v!=='';}).length;
+      h+='<div class="cbz-card"><div class="cc-row"><input class="uinput" id="cc-scan" style="flex:1;min-width:180px" placeholder="Escanea o escribe código / nombre y Enter" value="'+esc(S.q)+'" oninput="MCCC.filtro(this.value)" onkeydown="if(event.key===\'Enter\')MCCC.scan(this.value)"><span class="cbz-muted" style="font-size:12px;white-space:nowrap">Contadas '+nc+'/'+L.length+'</span></div><div id="cc-res"></div></div>';}
+    var f=String(S.q||'').toLowerCase();var V=L.filter(function(l){return !cnt||!f||(l.sku+' '+l.nombre+' '+l.from_sub).toLowerCase().indexOf(f)>=0;});
+    h+='<div class="cbz-card" style="padding:4px 6px"><table class="cc-t"><thead><tr><th'+(rev?' class="cc-hm"':'')+'></th><th>Producto</th><th>Sub.</th>'+(rev?'<th class="r cc-hm">Al iniciar</th><th class="r cc-hm">Mov.</th><th class="r">Esperado</th><th class="r">Contado</th><th class="r">Dif.</th>':'<th class="r">Contado</th>')+'</tr></thead><tbody>'+
+      V.map(function(l){var v=S.dirty[l.id]!==undefined?S.dirty[l.id]:(l.contado==null?'':l.contado),esp=l.esperado!=null?l.esperado:l.sistema+(l.mov||0),df=l.contado==null?null:l.contado-esp;
+        return '<tr id="cc-l'+l.id+'"><td style="width:34px"'+(rev?' class="cc-hm"':'')+'>'+(l.img?'<img src="'+esc(l.img)+'" loading="lazy" style="width:30px;height:30px;object-fit:contain;background:#fff;border-radius:5px">':'')+'</td><td class="nm" title="'+esc(l.nombre)+'"><b>'+esc(l.sku)+'</b> <span style="font-size:12px">'+esc(l.nombre)+'</span></td><td>'+esc(l.from_sub||'—')+'</td>'+
+          (rev?'<td class="r cc-hm">'+num(l.sistema)+'</td><td class="r cbz-muted cc-hm">'+(l.mov?(l.mov>0?'+':'')+num(l.mov):'—')+'</td><td class="r">'+num(esp)+'</td><td class="r"><b>'+num(l.contado)+'</b></td><td class="r">'+(df==null?'<span class="cbz-muted">sin contar</span>':Math.abs(df)>1e-9?'<b style="color:'+(df<0?'#e05c5c':'#6fd68f')+'">'+(df>0?'+':'')+num(df)+'</b>':'<span class="cbz-muted">0</span>')+'</td>'
+          :'<td class="r"><input class="uinput cc-q'+(S.dirty[l.id]!==undefined?' cc-dirty':'')+'" id="cc-c'+l.id+'" type="number" inputmode="decimal" step="any" value="'+esc(v)+'" oninput="MCCC.set(\''+l.id+'\',this.value)"></td>')+'</tr>';}).join('')+(V.length?'':'<tr><td colspan="8" class="cbz-muted" style="text-align:center;padding:14px">'+(L.length?'Sin coincidencias':'Sección sin stock en el sistema; agrega lo que encuentres con el buscador')+'</td></tr>')+'</tbody></table></div>';
+    if(cnt){var nd=Object.keys(S.dirty).length;h+='<div class="cc-bar">'+(nd?'<span style="margin-right:auto;font-size:12px;color:#f0c040;align-self:center">'+nd+' sin guardar</span><button class="chip" onclick="MCCC.descartar()">Descartar</button><button class="cbz-btn" onclick="MCCC.guardar()">💾 Guardar</button>':'<span class="cbz-muted" style="margin-right:auto;font-size:12px;align-self:center">Todo guardado</span>')+'<button class="cbz-btn" style="background:#1e4976" onclick="MCCC.cerrarSec()">✔ Terminar sección</button></div>';}
+    if(s.estado==='en_revision'){var nd2=L.filter(function(l){return l.contado!=null&&Math.abs(l.contado-(l.esperado!=null?l.esperado:l.sistema))>1e-9;}).length;
+      h+=S.admin?'<div class="cc-bar"><span style="margin-right:auto;font-size:12px;align-self:center">'+nd2+' diferencia(s)<span class="cc-hm"> · se ajusta contra el esperado (stock al iniciar + movimientos durante el conteo)</span></span><button class="chip" onclick="MCCC.devolver()">↩ Devolver</button><button class="cbz-btn" onclick="MCCC.aprobar()">✔ Aprobar y ajustar</button></div>':'<div class="cbz-card cbz-muted" style="font-size:12.5px">Enviada a revisión. Esteban la aprueba.</div>';}
+    if(s.estado==='aprobada')h+='<div class="cbz-card" style="font-size:12.5px">✔ Aprobada '+fch(s.aprobado_at)+' por '+esc(s.aprobado_por||'')+(s.ajuste_id?' · <button class="chip" onclick="Stk.abrir(\''+s.ajuste_id+'\')">Ver ajuste</button>':' · sin diferencias')+'</div>';
+    b.innerHTML=h;}
+  function draft(){try{if(S.sec)localStorage.setItem('mc_cc_'+S.sec.seccion.id,JSON.stringify(S.dirty));}catch(e){}}
+  function set(id,v){var l=S.sec.lineas.filter(function(x){return x.id===id;})[0];var o=l&&l.contado!=null?String(l.contado):'';if(String(v)===o)delete S.dirty[id];else S.dirty[id]=v;draft();var e=$('cc-c'+id);if(e)e.classList.toggle('cc-dirty',S.dirty[id]!==undefined);
+    var bar=document.querySelector('#cc .cc-bar');if(bar){var a=document.activeElement&&document.activeElement.id;rSec();var x=a&&$(a);if(x){x.focus();try{var n=x.value.length;x.setSelectionRange&&x.type!=='number'&&x.setSelectionRange(n,n);}catch(e){}}}}
+  function filtro(v){S.q=v;var a=document.activeElement&&document.activeElement.id;rSec();var x=$('cc-scan');if(x&&a==='cc-scan'){x.focus();x.setSelectionRange(x.value.length,x.value.length);}}
+  function scan(v){v=String(v||'').trim();if(!v)return;var L=S.sec.lineas,u=v.toUpperCase().replace(/\s/g,'');var m=L.filter(function(l){return String(l.sku).toUpperCase().replace(/\s/g,'')===u;});
+    if(m.length===1){S.q='';rSec();var e=$('cc-c'+m[0].id);if(e){e.scrollIntoView({block:'center'});e.focus();e.select&&e.select();}return;}
+    api({op:'cc_buscar',q:v}).then(function(r){var b=$('cc-res');if(!b)return;var P=r.productos||[];b.innerHTML=P.length?'<div class="cbz-muted" style="font-size:11px;margin-top:6px">No está en esta sección. Agregar lo encontrado:</div>'+P.slice(0,8).map(function(p,i){return '<div class="cc-row" style="padding:5px 0;border-bottom:1px solid #1c2a3a"><b style="white-space:nowrap">'+esc(p.sku)+'</b><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">'+esc(p.name)+'</span><button class="chip" onclick="MCCC.agregar(\''+p.id+'\')">＋ Agregar</button></div>';}).join(''):'<div class="cbz-muted" style="font-size:12px;margin-top:6px">Sin resultados para «'+esc(v)+'»</div>';}).catch(err);}
+  function agregar(pid){var pre=(S.sec.seccion.prefijos||[])[0]||'';var sub=prompt('¿En qué sububicación lo encontraste?',pre==='='?'':pre);if(sub===null)return;var q=prompt('Cantidad contada','1');if(q===null)return;
+    api({op:'cc_sec_guardar',id:S.sec.seccion.id,lineas:[],agregar:{product_id:pid,sublocation:sub,contado:q}}).then(function(){S.q='';abrirSecKeep();}).catch(err);}
+  function abrirSecKeep(){var d=S.dirty;api({op:'cc_sec_get',id:S.selSec}).then(function(r){S.sec=r;S.dirty=d;rSec();}).catch(err);}
+  function guardar(cb){if(S.busy)return;var L=Object.keys(S.dirty).map(function(k){return {id:k,contado:S.dirty[k]};});if(!L.length){if(cb)cb();return;}S.busy=true;
+    api({op:'cc_sec_guardar',id:S.sec.seccion.id,lineas:L}).then(function(){S.busy=false;S.sec.lineas.forEach(function(l){if(S.dirty[l.id]!==undefined)l.contado=S.dirty[l.id]===''?null:+S.dirty[l.id];});S.dirty={};draft();if(cb)cb();else rSec();}).catch(err);}
+  function descartar(){if(!confirm('¿Descartar los cambios sin guardar?'))return;S.dirty={};draft();rSec();}
+  function iniciar(){if(S.busy)return;S.busy=true;api({op:'cc_sec_iniciar',id:S.selSec}).then(function(){S.busy=false;refrescar();}).catch(err);}
+  function cerrarSec(){guardar(function(){var f=S.sec.lineas.filter(function(l){return l.contado==null;}).length;
+    if(!confirm(f?'Quedan '+f+' producto(s) sin contar; no se ajustarán. ¿Terminar la sección y enviarla a revisión?':'¿Terminar la sección y enviarla a revisión?'))return;
+    api({op:'cc_sec_cerrar',id:S.selSec,forzar:true}).then(function(){try{localStorage.removeItem('mc_cc_'+S.selSec);}catch(e){}refrescar();}).catch(err);});}
+  function aprobar(){if(!confirm('¿Aprobar '+S.sec.seccion.zona+'? Se crea el ajuste por las diferencias en el stock (y se envía a inFlow).'))return;S.busy=true;
+    api({op:'cc_sec_aprobar',id:S.selSec}).then(function(r){S.busy=false;alert(r.nota||(r.conteo_completo?'Sección aprobada. ¡Conteo general completo!':'Sección aprobada · ajuste '+((r.ajuste&&r.ajuste.number)||'')));refrescar();}).catch(err);}
+  function devolver(){var n=prompt('¿Qué debe revisar de nuevo? (le aparece al contador)','');if(n===null)return;api({op:'cc_sec_devolver',id:S.selSec,nota:n}).then(refrescar).catch(err);}
+  function refrescar(){var id=S.selSec;api({op:'cc_list'}).then(function(r){S.list=r.conteos||[];S.cur=(S.want&&S.list.filter(function(c){return c.doc.id===S.want;})[0])||S.list.filter(function(c){return c.doc.estado==='borrador';})[0]||null;S.dirty={};render();if(id&&S.cur)abrirSec(id);}).catch(err);}
+  function cerrarDet(){if(Object.keys(S.dirty).length&&!confirm('Tienes cantidades sin guardar. ¿Salir igual? (quedan como borrador en este equipo)'))return;S.selSec=null;S.sec=null;S.dirty={};render();}
+  /* ---------- admin ---------- */
+  function usuarios(){return S.usuarios?Promise.resolve(S.usuarios):api({op:'cc_usuarios'}).then(function(r){S.usuarios=r.usuarios;return r.usuarios;});}
+  function nuevo(){usuarios().then(function(){S.nuevo={asg:'',fecha:hoy(),mes:hoy().slice(0,7),plan:true};S.vista='nuevo';render();}).catch(err);}
+  function rNuevo(){var n=S.nuevo;wrap('<div class="cc-row" style="margin-bottom:8px"><button class="chip" onclick="MCCC.init()">← Conteos</button><b>Nuevo conteo general</b></div><div class="cbz-card" style="max-width:560px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+      '<label class="cc-k">Quién cuenta<select class="uinput" id="ccn-a" style="width:100%"><option value="">— elegir —</option>'+S.usuarios.map(function(u){return '<option'+(n.asg===u.nombre?' selected':'')+'>'+esc(u.nombre)+'</option>';}).join('')+'</select></label>'+
+      '<label class="cc-k">Empieza<input class="uinput" id="ccn-f" type="date" style="width:100%" value="'+esc(n.fecha)+'"></label></div>'+
+      '<label style="display:block;margin-top:8px;font-size:12.5px"><input type="checkbox" id="ccn-p" checked> Repartir las secciones en los días hábiles del mes (alerta ese día al contador)</label>'+
+      '<div class="cbz-muted" style="font-size:11.5px;margin-top:6px">Un solo conteo cubre todas las secciones activas y queda abierto hasta aprobarlas todas. WhatsApp solo al número del contador y solo el día que le toca.</div>'+
+      '<div class="cc-row" style="margin-top:10px;justify-content:flex-end"><button class="chip" onclick="MCCC.init()">Descartar</button><button class="cbz-btn" onclick="MCCC.crear()">Guardar</button></div></div>');}
+  function crear(){var a=$('ccn-a').value,f=$('ccn-f').value,p=$('ccn-p').checked;if(!a){alert('Elige quién cuenta');return;}if(S.busy)return;S.busy=true;
+    api({op:'cc_crear',asignado:a,fecha:f}).then(function(r){return p?api({op:'cc_plan_mes',id:r.id,mes:f.slice(0,7)}):r;}).then(function(){S.busy=false;init();}).catch(err);}
+  function plan(){var c=S.cur;if(!c)return;var mes=prompt('Mes a planificar (AAAA-MM). Se reparten las secciones pendientes, la de conteo más antiguo primero:',hoy().slice(0,7));if(!mes)return;
+    api({op:'cc_plan_mes',id:c.doc.id,mes:mes,preview:true}).then(function(r){if(!confirm('Plan:\n'+r.plan.map(function(p){return p.fecha+' · '+p.zona;}).join('\n')+'\n\n¿Guardar?'))return;return api({op:'cc_plan_mes',id:c.doc.id,mes:mes}).then(init);}).catch(err);}
+  function asignar(){usuarios().then(function(U){var a=prompt('Asignar a ('+U.map(function(u){return u.nombre;}).join(', ')+'):',S.cur.doc.asignado_a||'');if(!a)return;return api({op:'cc_asignar',id:S.cur.doc.id,asignado:a}).then(init);}).catch(err);}
+  function cancelar(){if(!confirm('¿Cancelar el conteo general '+S.cur.doc.number+'? Las secciones ya aprobadas mantienen su ajuste.'))return;api({op:'cc_cancelar',id:S.cur.doc.id}).then(init).catch(err);}
+  function vZonas(){api({op:'cc_zonas'}).then(function(z){S.zonas=z;S.zEdit={};S.vista='zonas';render();}).catch(err);}
+  function rZonas(){var Z=S.zonas.zonas,E=S.zEdit;var row=function(z,k){var e=E[k]||{},v=function(f,d){return e[f]!==undefined?e[f]:d;},dt=Object.keys(e).length>0;
+      return '<tr'+(dt?' style="background:#1a2a1a"':'')+'><td class="nm"><input class="uinput" style="width:100%;min-width:120px" value="'+esc(v('nombre',z.nombre||''))+'" oninput="MCCC.zSet(\''+k+'\',\'nombre\',this.value)"></td><td><input class="uinput" style="width:150px;text-transform:uppercase" placeholder="ej. 7-, BS-" value="'+esc(v('prefijos',(z.prefijos||[]).join(', ')))+'" oninput="MCCC.zSet(\''+k+'\',\'prefijos\',this.value)"></td><td class="r"><input class="uinput" type="number" style="width:56px;text-align:right" value="'+esc(v('frecuencia_dias',z.frecuencia_dias||30))+'" oninput="MCCC.zSet(\''+k+'\',\'frecuencia_dias\',this.value)"></td><td class="r">'+(z.subs==null?'':z.subs)+'</td><td><input type="checkbox" '+(v('activo',z.activo!==false)?'checked':'')+' onchange="MCCC.zSet(\''+k+'\',\'activo\',this.checked)"></td><td>'+(dt?'<button class="chip" onclick="MCCC.zDesc(\''+k+'\')">Descartar</button> <button class="cbz-btn" style="padding:4px 10px" onclick="MCCC.zGuardar(\''+k+'\')">Guardar</button>':(z.id?'<button class="chip" style="color:#e05c5c;padding:3px 8px" onclick="MCCC.zBorrar(\''+z.id+'\')">🗑</button>':''))+'</td></tr>';};
+    wrap('<div class="cc-row" style="margin-bottom:8px"><button class="chip" onclick="MCCC.init()">← Conteos</button><b>Secciones de '+esc((Z[0]&&'Bodega principal')||'bodega')+'</b><button class="chip" onclick="MCCC.zNueva()">＋ Sección</button></div>'+
+      (S.zonas.sin_zona&&S.zonas.sin_zona.length?'<div class="cbz-card" style="border-color:#f0c040;font-size:12.5px">⚠ Sububicaciones con stock que no están en ninguna sección: <b>'+S.zonas.sin_zona.map(esc).join(', ')+'</b></div>':'')+
+      '<div class="cbz-card" style="padding:4px 6px;overflow-x:auto"><table class="cc-t"><thead><tr><th>Nombre</th><th>Sububicaciones (prefijo, «=» sin sub.)</th><th class="r">Cada (días)</th><th class="r">Subs</th><th>Activa</th><th></th></tr></thead><tbody>'+
+      Z.map(function(z){return row(z,z.id);}).join('')+(E._new?row({},'_new'):'')+'</tbody></table></div>');}
+  function zSet(k,f,v){S.zEdit[k]=S.zEdit[k]||{};S.zEdit[k][f]=v;var a=document.activeElement,i=a&&[].indexOf.call(document.querySelectorAll('#cc input'),a);rZonas();var n=document.querySelectorAll('#cc input')[i];if(n&&n.type!=='checkbox'){n.focus();try{n.setSelectionRange(n.value.length,n.value.length);}catch(e){}}}
+  function zDesc(k){delete S.zEdit[k];rZonas();}
+  function zNueva(){S.zEdit._new={nombre:'',prefijos:''};rZonas();}
+  function zGuardar(k){var z=S.zonas.zonas.filter(function(x){return x.id===k;})[0]||{},e=S.zEdit[k];var p={op:'cc_zona_save',id:z.id,nombre:e.nombre!==undefined?e.nombre:z.nombre,prefijos:e.prefijos!==undefined?e.prefijos:(z.prefijos||[]).join(','),frecuencia_dias:e.frecuencia_dias!==undefined?e.frecuencia_dias:z.frecuencia_dias,activo:e.activo!==undefined?e.activo:z.activo!==false,orden:z.orden||(S.zonas.zonas.length+1)};
+    api(p).then(vZonas).catch(err);}
+  function zBorrar(id){if(!confirm('¿Quitar esta sección? Si ya tiene conteos, solo se desactiva.'))return;api({op:'cc_zona_save',id:id,borrar:true}).then(vZonas).catch(err);}
+  function vUsr(){S.usuarios=null;usuarios().then(function(){S.uEdit={};S.vista='usr';render();}).catch(err);}
+  function rUsr(){wrap('<div class="cc-row" style="margin-bottom:8px"><button class="chip" onclick="MCCC.init()">← Conteos</button><b>Contadores · WhatsApp para alertas</b></div><div class="cbz-card" style="padding:4px 6px;max-width:620px"><table class="cc-t"><thead><tr><th>Usuario</th><th>WhatsApp (593…)</th><th></th></tr></thead><tbody>'+
+      S.usuarios.map(function(u,i){var e=S.uEdit[i];return '<tr><td class="nm"><b>'+esc(u.nombre)+'</b></td><td><input class="uinput" inputmode="tel" style="width:150px" placeholder="sin alertas WA" value="'+esc(e!==undefined?e:(u.telefono_wa||''))+'" oninput="MCCC.uSet('+i+',this.value)"></td><td>'+(e!==undefined?'<button class="chip" onclick="MCCC.uDesc('+i+')">Descartar</button> <button class="cbz-btn" style="padding:4px 10px" onclick="MCCC.uGuardar('+i+')">Guardar</button>':'')+'</td></tr>';}).join('')+'</tbody></table><div class="cbz-muted" style="font-size:11.5px;margin:6px">El WhatsApp solo se envía al contador asignado, el día que le toca contar.</div></div>');}
+  function uSet(i,v){S.uEdit[i]=v;var a=document.activeElement,ix=a&&[].indexOf.call(document.querySelectorAll('#cc input'),a);rUsr();var n=document.querySelectorAll('#cc input')[ix];if(n){n.focus();try{n.setSelectionRange(n.value.length,n.value.length);}catch(e){}}}
+  function uDesc(i){delete S.uEdit[i];rUsr();}
+  function uGuardar(i){api({op:'cc_usuario_save',nombre:S.usuarios[i].nombre,telefono_wa:S.uEdit[i]}).then(vUsr).catch(err);}
+  /* b346: abrir desde «Asignado a ti»: si el conteo es por secciones va a esta pantalla; si no, a la hoja vieja */
+  function abrirDoc(id){api({op:'cc_get',id:id}).then(function(){S.want=id;openMod('misconteos');},function(){openMod('conteos');setTimeout(function(){Stk.abrir(id);},350);});}
+  return {abrirDoc:abrirDoc,init:init,abrirSec:abrirSec,cerrarDet:cerrarDet,set:set,filtro:filtro,scan:scan,agregar:agregar,guardar:function(){guardar();},descartar:descartar,iniciar:iniciar,cerrarSec:cerrarSec,aprobar:aprobar,devolver:devolver,
+    nuevo:nuevo,crear:crear,plan:plan,asignar:asignar,cancelar:cancelar,vZonas:vZonas,zSet:zSet,zDesc:zDesc,zNueva:zNueva,zGuardar:zGuardar,zBorrar:zBorrar,vUsr:vUsr,uSet:uSet,uDesc:uDesc,uGuardar:uGuardar,_s:function(){return S;}};
+})();
+
+/* MCCC-END */
 var Stk=(function(){
   var tipo='',lista=[],cur=null,form=null,cat=null,busy=false,tmr=null,res=[];
   function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p);}
@@ -9268,7 +9400,7 @@ var Stk=(function(){
   function tabs0(){return '<div class="cbz-card-row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">'+[['','Todos'],['transfer','🔁 Transferencias'],['ajuste','± Ajustes'],['conteo','📋 Conteos']].map(function(t){return '<button class="chip'+(tipo===t[0]?' on':'')+'" style="'+(tipo===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Stk.setTipo(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';}
   function ensure(cb){if(cat)return cb();api({op:'stk_reasons'}).then(function(r){if(!r.ok)throw new Error(r.error);cat=r;cb();}).catch(err);}
   function locSel(id,sel){return '<select class="uinput" id="'+id+'" style="width:100%">'+cat.bodegas.map(function(b){return '<option value="'+b.id+'"'+((sel?b.id===sel:/principal/i.test(b.name))?' selected':'')+'>'+esc(b.name)+'</option>';}).join('')+'</select>';}
-  function init(){if(!tipo)tipo='transfer';cur=null;form=null;cargar();}
+  function init(){if(!tipo)tipo='transfer';cur=null;form=null;if(tipo==='conteo'&&!window.MC_CC_LEGACY&&window.MCCC){MCCC.init();return;}cargar();} /* b346 t609 */
   function setTipo(t){tipo=t||'transfer';try{document.getElementById('title').textContent=TIT[tipo];}catch(e){}init();}
   /* b298 hotfix: lista completa (Minecore + historial inFlow), filtro de estado y búsqueda recordados por usuario */
   var SF=(function(){try{return JSON.parse(localStorage.getItem('mc_lst_filt_STK')||'null')||{estado:'',q:''};}catch(e){return {estado:'',q:''};}})(),sTmr=null;
@@ -9422,7 +9554,7 @@ var MCAsig=(function(){
     if(d.tabla==='so'){openMod('vov');setTimeout(function(){Ventas.abrir(d.id);},300);}
     else if(d.tabla==='po'){openMod('prov');setTimeout(function(){Prov.setTab('mc');setTimeout(function(){Compras.abrir(d.id);},300);},350);}
     else if(d.tabla==='mo'){openMod('vmanuf');setTimeout(function(){Manuf.abrir(d.id);},350);}
-    else{openMod({Transferencia:'transf',Ajuste:'ajustes'}[d.tipo]||'conteos');setTimeout(function(){Stk.abrir(d.id);},350);}}
+    else if(d.tipo==='Conteo'&&window.MCCC){MCCC.abrirDoc(d.id);} /* b346 t609 */ else{openMod({Transferencia:'transf',Ajuste:'ajustes'}[d.tipo]||'conteos');setTimeout(function(){Stk.abrir(d.id);},350);}}
   return {chip:chip,editar:editar,init:init,ir:ir};
 })();
 
@@ -12075,6 +12207,7 @@ function renderHome(){
   if(p.rol!=='cliente'&&(can('dashboard')||p.rol==='admin')) add('rep','📋','Reportes con fecha de corte','Ventas, compras, CxC, CxP e inventario valorizado · CSV y PDF');
   if(p.rol!=='cliente'&&(can('inventario')||can('transfers'))) add('transf','🔁','Stock transfers','Transferencias entre bodegas y actas de entrega-recepción');
   if(p.rol!=='cliente') add('vasig','👤','Asignado a ti','OV, OC, OM, transferencias y conteos abiertos asignados a ti');
+  if(p.rol!=='cliente') add('misconteos','📋','Conteo físico','Conteo general por secciones: cuenta, guarda y vuelve; revisión de diferencias'); /* b346 t608 */
   if(p.rol!=='cliente'&&can('inventario')) add('ajustes','±','Stock adjustments','Ajustes de inventario con motivo');
   /* b271: módulo Precotizaciones retirado (las solicitudes de clientes llegan como cotizaciones en Cotizaciones y se envían solas a inFlow) */
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard'))) add('vcot','🧾','Cotizaciones','Crear, editar, convertir en OV, dividir y PDF');
@@ -12138,7 +12271,7 @@ function renderHome(){
     var tot=nres.items.reduce(function(a,x){return a+(x.n||1);},0);
     bar.innerHTML='<h3>🔔 Tienes '+tot+' notificación'+(tot===1?'':'es')+'</h3>'+
       nres.items.map(function(x){
-        var ico=x.tipo==='cotAprobada'?'🟢':(x.tipo==='aFacturar'?'🔴':(x.tipo==='ext'?'⏳':(x.tipo==='user'?'👥':'🟡')));
+        var ico=x.tipo==='cotAprobada'?'🟢':(x.tipo==='aFacturar'?'🔴':(x.tipo==='ext'?'⏳':(x.tipo==='user'?'👥':(/^conteo/.test(x.tipo)?'📋':'🟡'))));
         return '<div class="cbz-card-row" style="justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #223142;cursor:pointer" onclick="openMod(\''+x.destino+'\')">'+
           '<span style="font-size:13px">'+ico+' '+x.texto+'</span><span class="cbz-muted">Abrir ›</span></div>';
       }).join('');
@@ -12326,7 +12459,8 @@ function openMod(m){if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirty
   if(m==='bots'){document.getElementById('bots-screen').style.display='block';document.getElementById('title').textContent='BOTS';Bots.init();}
   if(m==='rep'){document.getElementById('rep-screen').style.display='block';document.getElementById('title').textContent='REPORTES';MCRep2.init(window.MC_REP_CAT||null);window.MC_REP_CAT=null;}
   if(m==='stk'){document.getElementById('stk-screen').style.display='block';Stk.setTipo('transfer');}
-  if(m==='transf'||m==='ajustes'||m==='conteos'){var tt={transf:'transfer',ajustes:'ajuste',conteos:'conteo'}[m];m='stk';document.getElementById('stk-screen').style.display='block';Stk.setTipo(tt);} /* b299: pantallas propias como inFlow */ /* b273: Stock Transfers viejo (escribía directo a inFlow) retirado */
+  if(m==='transf'||m==='ajustes'||m==='conteos'){var tt={transf:'transfer',ajustes:'ajuste',conteos:'conteo'}[m];m='stk';document.getElementById('stk-screen').style.display='block';Stk.setTipo(tt);} /* b299: pantallas propias como inFlow */
+  if(m==='misconteos'){document.getElementById('stk-screen').style.display='block';m='stk';MCCC.init();} /* b346 t608: conteo asignado (cualquier usuario interno) */ /* b273: Stock Transfers viejo (escribía directo a inFlow) retirado */
   if(m==='caja'){
     var cs=document.getElementById('caja-screen');
     cs.style.display='flex';cs.classList.add('on');
