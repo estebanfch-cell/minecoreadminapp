@@ -669,7 +669,29 @@ var MCKyc=(function(){
       document.body.appendChild(m);m.querySelector('#kyc-x').onclick=function(){m.remove();};
       m.querySelector('#kyc-cp').onclick=function(){try{navigator.clipboard.writeText(r.link);}catch(e){}this.textContent='✓ Copiado';};
     }).catch(function(e){alert(MCerr(e));});}
-  return {badge:badge,panel:panel,enviar:enviar};
+  /* MCKYC_SEND: envío real por la caja (WhatsApp plantilla registro_nuevo_cliente_v1 / correo cobranzas@). Sin envíos automáticos. */
+  function enviar2(id){var c=(typeof FC!=='undefined'&&FC&&FC.id===id)?FC:{id:id};
+    Promise.all([MCpost({action:'kyc_link',customer_id:id,user:getUserName(),pin:getPin()}),mcCobPost('kyc_estado',{}).catch(function(){return {};})]).then(function(rr){var r=rr[0],st=rr[1]||{};if(!r.ok)throw new Error(r.error);
+      var waOk=st.wa_template==='APPROVED',nom=c.contact_name||c.name||'',m=document.createElement('div');
+      m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+      m.innerHTML='<div class="cbz-card" style="max-width:540px;width:92%"><div class="cbz-card-name">Enviar formulario a '+esc(c.name||'')+'</div>'+
+        '<div style="display:grid;gap:6px;margin:8px 0"><label class="ms-sub">Nombre<input class="uinput" id="kyc-n" value="'+esc(nom)+'"></label>'+
+        '<label class="ms-sub">WhatsApp<input class="uinput" id="kyc-t" value="'+esc(c.phone||'')+'"></label><label class="ms-sub">Email<input class="uinput" id="kyc-e" value="'+esc(c.email||'')+'"></label></div>'+
+        '<div id="kyc-prev" style="white-space:pre-wrap;font-size:13px;border:1px solid #444;border-radius:8px;padding:10px;margin:8px 0"></div><div id="kyc-msg" class="ms-sub"></div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="cbz-btn" id="kyc-wa"'+(waOk?'':' disabled title="Plantilla en aprobación"')+'>'+(waOk?'💬 Enviar por WhatsApp':'💬 WhatsApp: plantilla en aprobación')+'</button>'+
+        '<button class="cbz-btn" id="kyc-em">✉️ Enviar por correo</button><button class="chip" id="kyc-cp">📋 Copiar enlace</button><button class="chip" id="kyc-x">Cerrar</button></div></div>';
+      document.body.appendChild(m);var q=function(x){return m.querySelector(x);};
+      var prev=function(){q('#kyc-prev').textContent=texto(q('#kyc-n').value.trim(),r.link);};prev();q('#kyc-n').oninput=prev;
+      q('#kyc-x').onclick=function(){m.remove();};q('#kyc-cp').onclick=function(){try{navigator.clipboard.writeText(r.link);}catch(e){}this.textContent='✓ Copiado';};
+      function go(canal,btn){var dest=canal==='wa'?q('#kyc-t').value.trim():q('#kyc-e').value.trim();if(!dest){q('#kyc-msg').textContent='Falta el '+(canal==='wa'?'WhatsApp':'email')+'.';return;}
+        if(!confirm('¿Enviar el formulario a '+dest+' por '+(canal==='wa'?'WhatsApp':'correo')+'?'))return;btn.disabled=true;q('#kyc-msg').textContent='Enviando…';
+        mcCobPost('kyc_send',{customer_id:id,canal:canal,nombre:q('#kyc-n').value.trim(),telefono:q('#kyc-t').value.trim(),email:q('#kyc-e').value.trim()}).then(function(x){
+          if(!x||!x.ok)throw new Error((x&&x.error)||'No se pudo enviar');q('#kyc-msg').textContent='✓ Enviado a '+x.a;c.kyc_estado=c.kyc_estado==='completo'?'completo':'enviado';
+          var p=document.querySelector('.mc-kyc');if(p){p.remove();panel(el2(),c);} }).catch(function(e){btn.disabled=false;q('#kyc-msg').textContent='⚠ '+(e.message||e.error||e);});}
+      q('#kyc-wa').onclick=function(){if(waOk)go('wa',this);};q('#kyc-em').onclick=function(){go('email',this);};
+    }).catch(function(e){alert(MCerr(e));});}
+  function el2(){var p=document.querySelector('.ms-bar');return p?p.parentNode:document.body;}
+  return {badge:badge,panel:panel,enviar:enviar2};
 })();
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
   return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
@@ -2882,7 +2904,7 @@ var Cobranza = (function () {
       conActa = confirm('¿Adjuntar el acta transaccional' + (c.actaAprobada ? ' APROBADA del ' + c.actaAprobada : ' (modelo)') + '?\nAceptar = con acta · Cancelar = solo estado de cuenta');
     }
     chooser = null;
-    api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined, conActa: conActa }).then(function (res) {
+    ((esN5&&conActa)?api({ action: 'sendNow', cliente: c.cliente, nivel: nivel || undefined, conActa: conActa }):mcCobPost('enviar_ahora',{cliente:c.cliente,nivel:nivel||undefined}).catch(function(e){return {ok:false,error:(e&&(e.error||e.message))||'Sin conexión'};})).then(function (res) {
       alert(res.ok ? res.resultado : 'Error: ' + (res.error || res.resultado));
       init();
     });
