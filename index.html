@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='349';
+  var MC_BUILD='352';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -9272,7 +9272,7 @@ var MCCC=(function(){
   function chip(e){var x=EST[e]||[e,'#9fc3e8'];return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap;color:'+x[1]+';border-color:'+x[1]+'">'+x[0]+'</span>';}
   function css(){return '<style>#cc .cc-t{width:100%;border-collapse:collapse;font-size:12.5px}#cc .cc-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px 7px;border-bottom:1px solid #26405c;white-space:nowrap}#cc .cc-t td{padding:6px 7px;border-bottom:1px solid #1c2a3a;white-space:nowrap;vertical-align:middle}#cc .cc-t td.nm{width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis}#cc .cc-t td.r,#cc .cc-t th.r{text-align:right}#cc tr.x{cursor:pointer}#cc tr.x:hover,#cc tr.sel{background:#13202e}'+
     '#cc .cc-md{display:grid;grid-template-columns:minmax(380px,40%) 1fr;gap:12px;align-items:start}#cc .cc-bar{position:sticky;bottom:calc(env(safe-area-inset-bottom) + 64px);background:#0d1722;border-top:1px solid #26405c;padding:8px;display:flex;gap:6px;justify-content:flex-end;z-index:5}'+
-    '#cc .cc-sh{display:flex;gap:8px;align-items:center;margin:0 0 6px}#cc .cc-top{position:sticky;top:0;z-index:6;display:flex;gap:8px;align-items:center;background:#0b131c;padding:6px 0}#cc .cc-top input{flex:1;min-width:0;height:40px;font-size:15px}#cc .cc-prog{font-size:13px;white-space:nowrap;color:#c9d6e3}#cc .cc-prog b{color:#b7f34a;font-size:15px}#cc .cc-list{background:#0f1a26;border:1px solid #1f3247;border-radius:12px;overflow:hidden}#cc .cc-ln{display:flex;align-items:center;gap:8px;padding:6px 8px;min-height:50px;box-sizing:border-box;border-bottom:1px solid #1c2a3a}#cc .cc-lb{background:#2a2410}#cc .cc-nm{font-weight:700;font-size:14px;color:#f2f6fa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}#cc .cc-cd{font-size:11.5px;color:#8fa3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}#cc .cc-sub{flex:0 0 auto;text-align:right;font-size:12.5px;color:#dbe6f0;white-space:nowrap;line-height:1.25}#cc .cc-rv{flex:0 0 58px;text-align:right;font-size:14px;white-space:nowrap}#cc .cc-q{flex:0 0 62px;width:62px;height:40px;box-sizing:border-box;text-align:center;font-size:17px;font-weight:700;color:#fff;background:#16273a;border:1px solid #33506e;border-radius:9px;padding:0}#cc .cc-q:focus{outline:2px solid #b7f34a;border-color:#b7f34a}#cc .cc-mn{flex:0 0 30px;height:40px;background:none;border:none;color:#8fa3b8;font-size:20px;padding:0;cursor:pointer}#cc .cc-mpop{display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:#13202e;border-bottom:1px solid #1c2a3a}#cc .cc-bq{font-size:12.5px;margin:0 0 6px;padding:6px 8px;border:1px solid #f0c040;border-radius:10px;display:flex;gap:4px;flex-wrap:wrap;align-items:center}#cc .cc-pend{margin-right:auto;font-size:12.5px;color:#f0c040;align-self:center;white-space:nowrap}#cc .cc-q.cc-dirty{border-color:#f0c040;background:#2a2410}#cc .cc-k{color:#8fa3b8;font-size:11px}#cc .cc-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}'+
+    '#cc .cc-sh{display:flex;gap:8px;align-items:center;margin:0 0 6px}#cc .cc-top{position:sticky;top:0;z-index:6;display:flex;gap:8px;align-items:center;background:#0b131c;padding:6px 0}#cc .cc-top input{flex:1;min-width:0;height:40px;font-size:15px}#cc .cc-prog{font-size:13px;white-space:nowrap;color:#c9d6e3}#cc .cc-prog b{color:#b7f34a;font-size:15px}#cc .cc-list{background:#0f1a26;border:1px solid #1f3247;border-radius:12px;overflow:hidden}#cc .cc-ln{display:flex;align-items:center;gap:8px;padding:5px 8px;min-height:48px;box-sizing:border-box;border-bottom:1px solid #1c2a3a}#cc .cc-lb{background:#2a2410}#cc .cc-nm{font-weight:700;font-size:13px;color:#f2f6fa;line-height:1.22;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden} /* t613: nombre completo hasta 2 líneas */#cc .cc-nm.cc-nm-s{font-size:11.5px;letter-spacing:-.15px;line-height:1.2;-webkit-line-clamp:3;line-clamp:3}#cc .cc-cd{font-size:11.5px;color:#8fa3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}#cc .cc-sub{flex:0 0 auto;text-align:right;font-size:12.5px;color:#dbe6f0;white-space:nowrap;line-height:1.25}#cc .cc-rv{flex:0 0 58px;text-align:right;font-size:14px;white-space:nowrap}#cc .cc-q{flex:0 0 58px;width:58px;height:40px;box-sizing:border-box;text-align:center;font-size:17px;font-weight:700;color:#fff;background:#16273a;border:1px solid #33506e;border-radius:9px;padding:0}#cc .cc-q:focus{outline:2px solid #b7f34a;border-color:#b7f34a}#cc .cc-mn{flex:0 0 24px;height:40px;background:none;border:none;color:#8fa3b8;font-size:20px;padding:0;cursor:pointer}#cc .cc-mpop{display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:#13202e;border-bottom:1px solid #1c2a3a}#cc .cc-bq{font-size:12.5px;margin:0 0 6px;padding:6px 8px;border:1px solid #f0c040;border-radius:10px;display:flex;gap:4px;flex-wrap:wrap;align-items:center}#cc .cc-pend{margin-right:auto;font-size:12.5px;color:#f0c040;align-self:center;white-space:nowrap}#cc .cc-q.cc-dirty{border-color:#f0c040;background:#2a2410}#cc .cc-k{color:#8fa3b8;font-size:11px}#cc .cc-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}'+
     '@media(max-width:899px){#cc .cc-md{display:block}#cc .cc-md.det .cc-mL{display:none}#cc .cc-md:not(.det) .cc-mR{display:none}#cc .cc-hm{display:none}}@media(min-width:900px){#cc .cc-back{display:none}#cc .cc-bar{bottom:0}}</style>';}
   function init(){S.vista='main';S.sec=null;S.selSec=null;try{document.getElementById('title').textContent='CONTEOS FÍSICOS';}catch(e){}
     el().innerHTML='<div id="cc">'+css()+'<div class="cbz-loading">Cargando conteos…</div></div>';
@@ -9326,7 +9326,9 @@ var MCCC=(function(){
     if(s.estado==='en_revision'){var nd2=L.filter(function(l){var e=l.esperado!=null?l.esperado:l.sistema;return l.contado!=null&&Math.abs(l.contado+(l.otra_qty||0)-e)>1e-9;}).length,nm=L.filter(function(l){return l.otra_sub!=null;}).length;
       h+=S.admin?'<div class="cc-bar"><span class="cc-pend" style="color:#e8eef5">'+nd2+' dif.'+(nm?' · '+nm+' reubic.':'')+'</span><button class="chip" onclick="MCCC.devolver()">↩ Devolver</button><button class="cbz-btn" onclick="MCCC.aprobar()">✔ Aprobar</button></div>'+(nm?'<div class="cbz-muted" style="font-size:11.5px;margin-top:6px">Al aprobar: ajuste por diferencias, transferencia a la ubicación real y ubicación por defecto actualizada en la ficha del producto (espejo inFlow).</div>':''):'<div class="cbz-card cbz-muted" style="font-size:12.5px">Enviada a revisión. Esteban la aprueba.</div>';}
     if(s.estado==='aprobada')h+='<div class="cbz-card" style="font-size:12.5px">✔ Aprobada '+fch(s.aprobado_at)+' por '+esc(s.aprobado_por||'')+(s.ajuste_id?' · <button class="chip" onclick="Stk.abrir(\''+s.ajuste_id+'\')">Ver ajuste</button>':' · sin diferencias')+'</div>';
-    b.innerHTML=h;}
+    b.innerHTML=h;fitNm(b);}
+  /* t613: si el nombre no cabe en 2 líneas a 13px, baja a 11.5px; solo entonces se recorta */
+  function fitNm(b){[].forEach.call(b.querySelectorAll('.cc-nm'),function(n){if(n.scrollHeight>n.clientHeight+1)n.classList.add('cc-nm-s');});}
   function rMenu(l){var o=S.otra&&S.otra.id===l.id?S.otra:null;
     if(!o)return '<div class="cc-mpop"><button class="chip" onclick="MCCC.otraAbrir(\''+l.id+'\')">📍 Está en otro lugar</button><button class="chip" onclick="MCCC.buscarDesp(\''+l.id+'\','+(!l.buscar)+')">'+(l.buscar?'✓ Ya lo encontré':'🔎 Buscar después')+'</button>'+(l.otra_sub!=null?'<button class="chip" style="color:#ff6b6b" onclick="MCCC.otraQuitar(\''+l.id+'\')">Quitar otro lugar</button>':'')+'</div>';
     var B=S.sec.bodegas||[];return '<div class="cc-mpop" style="display:grid;grid-template-columns:1fr 1fr 70px;gap:6px;align-items:end"><label class="cc-k">Bodega<select class="uinput" id="cc-ol" style="width:100%">'+B.map(function(x){return '<option value="'+x.id+'"'+(o.loc===x.id?' selected':'')+'>'+esc(x.name.replace(/^BODEGA /i,''))+'</option>';}).join('')+'</select></label>'+
@@ -13060,7 +13062,7 @@ try{ document.getElementById('hdrLogo').src=LOGO_PNG; }catch(e){}
 
 /* b348-perm-ini */
 /* b348 · EFCH t611: Usuarios, invitaciones y PERMISOS 100% en Supabase (portal-api). Sin Apps Script.
-   Permisos por usuario y módulo (— / Ver / Editar / Aprobar) + ver precios / costos / saldos. Solo EFCH los cambia.
+   Permisos: cuadrícula de interruptores por sección + sub-interruptores (b350 t617) + ver precios / costos / saldos. Solo EFCH los cambia.
    El servidor los valida en CADA petición; aquí la barra y las pantallas se ajustan solas en segundos (sin recargar). */
 var MC_RT_KEY='sb_publishable_bvwIy_pf8AMeIUcjlDRAtw_vfQIekQR';
 var MCP_FINOS=[['ventas','Ventas (OV y cotizaciones)',3],['picking','Preparar y recibir órdenes',2],['clientes','Clientes',2],['productos','Productos',2],['inventario','Inventario y ajustes',2],['transferencias','Transferencias',2],['conteo','Conteo físico',3],['manufactura','Manufactura / despiece',3],['compras','Compras (OC y proveedores)',3],['cobranzas','Cobranzas / CxC',2],['dashboard','Dashboard',1],['reportes','Reportes',1]];
@@ -13159,6 +13161,7 @@ Users=(function(){
   function cols(){return MCP_FINOS.concat(MCP_DIRECTOS);}
   var ABR={ventas:'Vent',picking:'Prep',clientes:'Cli',productos:'Prod',inventario:'Inv',transferencias:'Trf',conteo:'Cont',manufactura:'Manuf',compras:'Comp',cobranzas:'CxC',dashboard:'Dash',reportes:'Rep',caja:'Caja',banco:'Banco',consignacion:'Consig',estadocuenta:'EdC'};
   function chip(n){return '<span class="up-l" style="background:'+(n?NC[n]:'transparent')+';color:'+(n?'#0b1219':'#4a5a6a')+'">'+(n?NV[n].charAt(0):'·')+'</span>';}
+  function secs(p){var C=gcat(),n=C.filter(function(g){return g.items.some(function(it){try{return MCnavOk(p,g,it);}catch(e){return false;}});}).length;return '<span style="white-space:nowrap">'+(p.rol==='admin'?'Todas':n+' de '+C.length)+'</span>';}
   function prof(u){return {rol:u.rol,modulos:MCPtoks(u.modulos),nombre:u.nombre};}
   function init(){var el=document.getElementById('users-screen');el.innerHTML='<div class="cbz-loading">Cargando usuarios...</div>';
     api({action:'listUsers'}).then(function(r){if(!r.ok){el.innerHTML='<div class="cbz-error">'+esc(r.error)+'</div>';return;}lista=r.usuarios;puede=!!r.puedeEditar;render();
@@ -13166,14 +13169,14 @@ Users=(function(){
   function render(){var el=document.getElementById('users-screen');if(!el)return;var mob=window.innerWidth<760;
     var I=lista.filter(function(u){return u.rol!=='cliente';}),C=lista.filter(function(u){return u.rol==='cliente';});
     var h=css()+'<div class="up-bar">'+(puede?'<button class="cbz-btn" onclick="Users.nuevo()">+ Nuevo usuario</button><button class="cbz-btn-sec" onclick="Users.invitar()">🔗 Invitación</button>':'<span class="cbz-muted">Solo EFCH puede cambiar usuarios y permisos.</span>')+
-      '<span class="cbz-muted" style="font-size:11px;margin-left:auto">'+NV.slice(1).map(function(n,i){return chip(i+1)+' '+n;}).join(' &nbsp;')+'</span></div>';
+      '</div>';
     if(invForm)h+=invHtml();
     if(nuevo)h+=editor(nuevo,true);
-    h+='<div class="cbz-card-name" style="margin:6px 0">👷 Equipo Minecore ('+I.length+')</div><div class="cbz-card up-sw" style="padding:0"><table class="up-t"><thead><tr><th class="n">Usuario</th>'+cols().map(function(c){return '<th title="'+esc(c[1])+'">'+ABR[c[0]]+'</th>';}).join('')+'<th title="Precios">$</th><th title="Costos y márgenes">Costo</th><th title="Saldos">Saldo</th></tr></thead><tbody>';
+    h+='<div class="cbz-card-name" style="margin:6px 0">👷 Equipo Minecore ('+I.length+')</div><div class="cbz-card up-sw" style="padding:0"><table class="up-t"><thead><tr><th class="n">Usuario</th><th>Secciones</th><th title="Precios">$</th><th title="Costos y márgenes">Costo</th><th title="Saldos">Saldo</th></tr></thead><tbody>';
     I.forEach(function(u){var p=prof(u),on=abierto===u.nombre;
       h+='<tr class="r'+(on?' on':'')+'" onclick="Users.abrir(\''+esc(u.nombre).replace(/'/g,"\\'")+'\')"><td class="n"><span class="up-dot" style="background:'+(u.activo?'#3fbf6f':'#e05c5c')+';margin-right:6px"></span><b>'+esc(u.nombre)+'</b>'+(u.rol==='admin'?' <span class="tagx tf">ADMIN</span>':'')+'</td>'+
-        cols().map(function(c){return '<td>'+chip(MCPnivel(p,c[0]))+'</td>';}).join('')+MCP_FLAGS.map(function(f){return '<td>'+(MCPflag(p,f[0])?'<span style="color:#6fd68f">✓</span>':'<span style="color:#4a5a6a">✕</span>')+'</td>';}).join('')+'</tr>';
-      if(on&&!mob)h+='<tr><td colspan="'+(cols().length+4)+'" style="text-align:left;white-space:normal;padding:0 6px">'+editor(u,false)+'</td></tr>';});
+        '<td>'+secs(p)+'</td>'+MCP_FLAGS.map(function(f){return '<td>'+(MCPflag(p,f[0])?'<span style="color:#6fd68f">✓</span>':'<span style="color:#4a5a6a">✕</span>')+'</td>';}).join('')+'</tr>';
+      if(on&&!mob)h+='<tr><td colspan="5" style="text-align:left;white-space:normal;padding:0 6px">'+editor(u,false)+'</td></tr>';});
     h+='</tbody></table></div>';if(mob&&abierto&&I.some(function(u){return u.nombre===abierto;}))h+=editor(I.filter(function(u){return u.nombre===abierto;})[0],false);
     var orgs={};C.forEach(function(u){var e=u.empresa||'(sin empresa)';(orgs[e]=orgs[e]||[]).push(u);});
     h+='<div class="cbz-card-name" style="margin:16px 0 6px">🏢 Clientes del portal ('+C.length+') <span class="cbz-muted" style="font-size:11px;font-weight:400">· solo ven lo de su organización y nunca precios en inventario</span></div><div class="cbz-card up-sw" style="padding:0"><table class="up-t up-tc"><thead><tr><th class="n">Usuario</th><th style="text-align:left">Organización</th>'+CMODS_REG.map(function(cm){return '<th>'+esc(cm[2])+'</th>';}).join('')+'<th>Máster</th><th>Aprobado</th></tr></thead><tbody>';
@@ -13188,8 +13191,83 @@ Users=(function(){
       h+='</div>';}
     el.innerHTML=h;}
   /* ---------- editor en línea ---------- */
-  var D=null; /* borrador {nombre,rol,niv:{},fl:{},dir:{},pin,activo,cli:{...}} */
-  function borrador(u,nuevoU){var p=prof(u),d={nombre:u.nombre,nuevo:!!nuevoU,rol:u.rol,niv:{},fl:{},activo:u.activo!==false,pin:'',nav:MCPtoks(u.modulos).filter(function(t){return t.charAt(0)==='-';}),
+  var D=null;
+  /* b350 · EFCH t617: editor de permisos = cuadrícula de interruptores por sección (como antes) + sub-interruptores dentro de cada pantalla.
+     Encendido = lo ve. Los sub-interruptores dicen qué puede hacer/ver adentro. El servidor valida todo (portal-api). */
+  var IM={'inv.cf':['conteo',1],'crear.cjg':['caja',1],'crear.cjr':['caja',1],'fin.edc':['estadocuenta',1],'fin.caja':['caja',1],'fin.banco':['banco',1],'consig.consig':['consignacion',1],'consig.actas':['consignacion',1],'alq.alq':['consignacion',1],'fin.cbz':['cobranzas',1]};
+  var SOLO_ADM={'crear.cje':1,'rep.audit':1};
+  /* [tipo,clave,nivel,etiqueta,grupo,módulo] tipo n=nivel del módulo · s=sub-interruptor · x=solo administradores. grupo v=Ver e=Editar a=Acciones */
+  var V=function(k,t){return ['s',k,0,t,'v'];},Ed=function(k,t,m,l){return ['s',k,l||2,t,'e',m];},Ac=function(k,t,m,l){return ['s',k,l||2,t,'a',m];},N=function(m,l,t,g){return ['n',m,l,t,g||'a'];},X=function(t,g){return ['x','',0,t,g||'a'];};
+  function venta(p,m){return [V(p+'.precios','Precios'),V(p+'.costos','Costos y margen'),V(p+'.descuentos','Descuentos'),V(p+'.contacto','Teléfono y contacto del cliente'),V(p+'.saldos','Saldo y pagos'),V(p+'.notas','Notas'),V(p+'.adjuntos','Adjuntos'),
+    Ed(p+'.e.lineas','Líneas y cantidades',m),Ed(p+'.e.precios','Precios',m),Ed(p+'.e.descuentos','Descuentos',m),Ed(p+'.e.cliente','Cliente y contacto',m),Ed(p+'.e.fechas','Fechas y plazos',m),Ed(p+'.e.notas','Notas',m)];}
+  var SUBS={
+    'dash.home':[V('dash.montos','Montos de ventas y cobros'),V('dash.costos','Costos y márgenes'),V('dash.cfo','Panel financiero (CFO)'),V('dash.hist','Historial de ventas')],
+    'ventas.ov':venta('ov','ventas').concat([Ed('pick.e.cantidades','Cantidades escogidas (picking)','picking'),Ed('pick.e.empacar','Empacar','picking'),Ed('pick.e.enviar','Enviar / entregar','picking'),
+      Ac('ov.e.facturar','Enviar a facturar y facturar','ventas',3),Ac('ov.e.anular','Anular','ventas',3),Ac('ov.e.pagos','Registrar y editar pagos','ventas',3),Ac('ov.e.adjuntos','Subir adjuntos','ventas'),Ac('ov.e.dividir','Dividir entregas','ventas')]),
+    'ventas.cot':venta('cot','ventas').concat([Ac('cot.e.convertir','Convertir a orden de venta','ventas'),Ac('cot.e.pdf','Descargar / enviar PDF','ventas')]),
+    'ventas.cli':[V('cli.contacto','Teléfono y correo'),V('cli.saldos','Saldos'),V('cli.credito','Crédito y cupo'),V('cli.kyc','Formulario «Conoce a tu cliente»'),Ed('cli.e.datos','Datos del cliente','clientes'),Ed('cli.e.credito','Crédito y cupo','clientes'),Ed('cli.e.contactos','Contactos de pago','clientes')],
+    'manuf.mo':[V('mo.costos','Costos'),Ed('mo.e.crear','Crear y editar','manufactura'),Ed('mo.e.bom','Lista de materiales (BOM)','manufactura'),Ac('mo.e.completar','Completar','manufactura'),Ac('mo.e.anular','Anular','manufactura'),N('manufactura',3,'Recalcular')],
+    'manuf.ops':[V('mo.ops.cant','Cantidades en proceso')],
+    'inv.prod':[V('prod.precios','Precios'),V('prod.preciosnivel','Precios por nivel / lista'),V('prod.costos','Costos'),V('prod.fotos','Fotos'),Ed('prod.e.datos','Datos del producto','productos'),Ed('prod.e.precios','Precios y niveles','productos'),Ed('prod.e.fotos','Fotos','productos'),Ed('prod.e.ubicacion','Ubicación por defecto','productos')],
+    'inv.reorden':[V('reo.costos','Costos'),Ac('reo.oc','Crear OC desde reorden','compras')],
+    'inv.stock':[V('inv.precios','Precios'),V('inv.costos','Costo y valorización'),Ed('prod.e.ubicacion','Reubicar','inventario')],
+    'inv.cf':[V('co.sistema','Cantidad del sistema (apagado = ciego)'),V('co.costos','Costos y valor'),V('co.historial','Historial de conteos'),
+      Ac('co.iniciar','Iniciar sección','conteo',1),Ac('co.contar','Registrar cantidades','conteo',1),Ac('co.otro','«Está en otro lugar» / mover ubicación','conteo',1),Ac('co.buscar','«Buscar después»','conteo',1),Ac('co.agregar','Agregar producto no listado','conteo',1),Ac('co.cerrar','Cerrar sección','conteo',1)],
+    'inv.co':[Ac('co.crear','Crear y asignar conteos','conteo',3),Ac('co.aprobar','Aprobar o devolver diferencias','conteo',3),Ac('co.config','Secciones y contadores','conteo',3)],
+    'trf.tr':[V('tr.costos','Costos'),Ed('tr.e.crear','Crear y enviar','transferencias'),Ed('tr.e.recibir','Recibir','transferencias'),Ac('tr.e.anular','Anular','transferencias')],
+    'aju.aj':[V('aj.costos','Costos'),Ed('aj.e.crear','Crear ajustes','inventario')],
+    'compras.oc':[V('oc.costos','Costos y montos'),V('oc.descuentos','Descuentos'),V('oc.contacto','Contacto del proveedor'),V('oc.notas','Notas'),V('oc.adjuntos','Adjuntos'),
+      Ed('oc.e.lineas','Líneas y cantidades','compras'),Ed('oc.e.precios','Costos unitarios','compras'),Ed('oc.e.descuentos','Descuentos','compras'),Ed('oc.e.cliente','Proveedor','compras'),Ed('oc.e.fechas','Fechas','compras'),Ed('oc.e.notas','Notas','compras'),Ed('oc.e.recibir','Recepción: cantidades recibidas','picking'),
+      Ac('oc.e.aprobar','Aprobar','compras',3),Ac('oc.e.anular','Anular','compras',3),Ac('oc.e.pagos','Pagos','compras',3),Ac('oc.e.facturas','Facturas de compra','compras',3),Ac('oc.e.adjuntos','Subir adjuntos','compras')],
+    'compras.pq':[V('pq.costos','Costos'),Ed('pq.e.editar','Crear y editar','compras')],
+    'compras.prov':[V('prov.contacto','Teléfono y correo'),Ed('prov.e.datos','Crear y editar','compras')],
+    'fin.cbz':[V('cbz.contacto','Teléfono y correo'),V('cbz.saldos','Saldos'),Ed('cbz.e.gestionar','Notas y compromisos de pago','cobranzas'),Ac('cbz.e.recordar','Enviar recordatorios','cobranzas')],
+    'fin.edc':[Ac('edc.e.generar','Generar y descargar','estadocuenta')],
+    'fin.caja':[Ac('caja.e.gasto','Registrar gastos','caja'),Ac('caja.e.ruta','Registrar rutas','caja'),X('Ver los movimientos de todos'),X('Aprobar'),X('Eliminar')],
+    'fin.banco':[V('banco.saldos','Saldos'),Ed('banco.e.conciliar','Conciliar y editar','banco')],
+    'consig.consig':[V('consig.precios','Precios'),Ed('consig.e.editar','Crear y editar','consignacion')],'consig.actas':[Ac('actas.e.firmar','Generar actas','consignacion')],'alq.alq':[V('alq.precios','Precios'),Ed('alq.e.editar','Crear y editar','consignacion')]};
+  ['rec','ventas','stock','compras','reorden','manuf','quedado','pay','cxc'].forEach(function(r){var c=r==='rec'?'ventas':r==='manuf'?'ventas':r;SUBS['rep.'+r]=[V('rep.'+c+'.montos','Montos'),Ac('rep.'+c+'.exportar','Exportar CSV / PDF')];});
+  var SFLAG={'ov.precios':'precios','cot.precios':'precios','prod.precios':'precios','prod.preciosnivel':'precios','inv.precios':'precios','ov.costos':'costos','cot.costos':'costos','cli.saldos':'saldos','ov.saldos':'saldos','cot.saldos':'saldos','mo.costos':'costos','prod.costos':'costos','inv.costos':'costos','oc.costos':'costos','co.costos':'costos','tr.costos':'costos','aj.costos':'costos','cbz.saldos':'saldos','dash.costos':'costos'};
+  var OPEN={};
+  function gcat(){try{return MC_NAVCAT().filter(function(g){return !g.sep&&g.k!=='admin'&&g.items&&g.items.length;}).map(function(g){if(g.k!=='inv')return g;var c={};for(var x in g)c[x]=g[x];c.items=g.items.slice();var i=c.items.findIndex(function(it){return it[2]==='co';});c.items.splice(i<0?c.items.length:i,0,['🧮','Conteo físico (contar)','cf']);return c;});}catch(e){return [];}}
+  function req(g,it){var k=g.k+'.'+it[2],a=MCP_NAV[k];if(a)return a[0];return IM[k]||null;}
+  function adm(){return D.rol==='admin';}
+  function gOn(g){return adm()||D.nav.indexOf('-'+g.k)<0;}
+  function iOn(g,it){if(adm())return true;var k=g.k+'.'+it[2];if(SOLO_ADM[k])return false;if(!gOn(g)||D.nav.indexOf('-'+k)>=0)return false;var r=req(g,it);return !r||(D.niv[r[0]]||0)>=r[1];}
+  function sOn(x){if(adm())return true;if(x[0]==='x')return false;if(x[0]==='n')return (D.niv[x[1]]||0)>=x[2];if(x[5]&&(D.niv[x[5]]||0)<x[2])return false;return D.sub[x[1]]!==false&&(!SFLAG[x[1]]||D.fl[SFLAG[x[1]]]);}
+  function sw(on,dis,js,id){return '<input type="checkbox" class="usw"'+(id?' id="'+id+'"':'')+(on?' checked':'')+(dis?' disabled':'')+' onclick="event.stopPropagation()" onchange="'+js+'">';}
+  function grid(ro){var dis=ro||adm(),h='<div class="pg-sens"><b>Sensibles en toda la app</b>'+MCP_FLAGS.map(function(f){return '<label class="pg-chip'+(D.fl[f[0]]||adm()?' on':'')+'">'+sw(D.fl[f[0]]||adm(),dis,'Users.flag(\''+f[0]+'\',this.checked)')+'<span>'+f[1]+'</span></label>';}).join('')+'<span class="cbz-muted" style="font-size:11px">Si lo apagas aquí, se apaga en todas las pantallas.</span></div><div class="pg-g">';
+    gcat().forEach(function(g){var go=gOn(g),col=g.col==='#1b1d4a'?'#9fc3e8':(g.amar?'#f0c040':g.col);
+      h+='<div class="pg-c"><label class="pg-h"><span style="color:'+col+'">'+esc(g.t)+'</span>'+sw(go,dis,'Users.tg(\''+g.k+'\',this.checked)')+'</label>';
+      if(go)g.items.forEach(function(it){var k=g.k+'.'+it[2],sa=SOLO_ADM[k]&&!adm(),on=iOn(g,it),subs=SUBS[k]||[],op=on&&subs.length&&OPEN[k];
+        h+='<label class="pg-i'+(sa||!go?' off':'')+'"><span class="pg-n">'+(on&&subs.length?'<span class="pg-car" onclick="event.preventDefault();event.stopPropagation();Users.op(\''+k+'\')">'+(op?'▾':'▸')+'</span>':'<span class="pg-car"></span>')+it[0]+' '+esc(it[1])+(sa?' <small>(solo administradores)</small>':'')+'</span>'+sw(on,dis||sa||!go,'Users.ti(\''+g.k+'\',\''+it[2]+'\',this.checked)')+'</label>';
+        if(op){h+='<div class="pg-s">';[['v','Ver'],['e','Editar'],['a','Acciones']].forEach(function(G){var L=[];subs.forEach(function(x,i){if(x[4]!==G[0])return;var sa=x[0]==='x',fo=x[0]==='s'&&SFLAG[x[1]]&&!D.fl[SFLAG[x[1]]]&&!adm(),o=sOn(x);
+            L.push('<label class="pg-chip'+(o?' on':'')+(fo||(sa&&!adm())?' off':'')+'" title="'+(fo?'Apagado en «Sensibles en toda la app»':sa?'Solo administradores':'')+'">'+sw(o,dis||fo||sa,'Users.ts(\''+k+'\','+i+',this.checked)')+'<span>'+esc(x[3])+(sa&&!adm()?' <small>(solo admin)</small>':'')+'</span></label>');});
+          if(L.length)h+='<div class="pg-gr"><span class="pg-gl">'+G[1]+'</span>'+L.join('')+'</div>';});h+='</div>';}
+      });
+      h+='</div>';});
+    return h+'</div>';}
+  function pgCss(){return '<style>#users-screen .pg-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:8px 0}#users-screen .pg-c{background:#0f1a26;border:1px solid #1c2a3a;border-radius:10px;padding:10px 12px}'+
+    '#users-screen .pg-h{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:13.5px;margin-bottom:6px;cursor:pointer}#users-screen .pg-i{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;font-size:13px;cursor:pointer}'+
+    '#users-screen .pg-car{display:inline-block;width:16px;color:#8fa3b8;font-size:12px;cursor:pointer}#users-screen .pg-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#users-screen .pg-i.off .pg-n{opacity:.45}#users-screen .pg-i small{font-size:10px;color:#8fa3b8}'+
+    '#users-screen .pg-s{margin:0 0 8px 18px}#users-screen .pg-gr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:3px 0}#users-screen .pg-gl{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#8fa3b8;width:62px;white-space:nowrap}#users-screen .pg-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #26405c;border-radius:14px;padding:2px 8px 2px 4px;font-size:11.5px;color:#8fa3b8;white-space:nowrap;cursor:pointer}'+
+    '#users-screen .pg-chip.on{border-color:#6f8f00;color:#e8f0c0}#users-screen .pg-chip.off{opacity:.4}#users-screen .pg-chip .usw{transform:scale(.72);margin:0}'+
+    '#users-screen .pg-sens{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:10px 0 4px;font-size:12.5px}'+
+    '#users-screen .usw{appearance:none;-webkit-appearance:none;width:32px;min-width:32px;height:18px;border-radius:10px;background:#3a4a5c;position:relative;cursor:pointer;transition:.15s;margin:0}#users-screen .usw:before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#dfe7ef;transition:.15s}'+
+    '#users-screen .usw:checked{background:#e6f000}#users-screen .usw:checked:before{left:16px;background:#0b1219}#users-screen .usw:disabled{opacity:.45;cursor:default}#users-screen .pg-i .usw:disabled:checked{background:#6f8f00}'+
+    '@media(max-width:600px){#users-screen .pg-g{grid-template-columns:minmax(0,1fr)}#users-screen .pg-s{margin-left:0}#users-screen .pg-gl{width:100%}#users-screen .pg-c{min-width:0}}</style>';}
+  /* módulo sin ninguna pantalla encendida → nivel 0 (el servidor también lo corta) */
+  function cerrarMods(){if(adm())return;var vivo={};gcat().forEach(function(g){g.items.forEach(function(it){var r=req(g,it);if(!r)return;vivo[r[0]]=vivo[r[0]]||iOn(g,it);});});
+    Object.keys(vivo).forEach(function(m){if(!vivo[m]&&m!=='picking')D.niv[m]=0;});}
+  function tg(gk,on){D.nav=D.nav.filter(function(t){return t!=='-'+gk;});if(!on){D.nav.push('-'+gk);Object.keys(OPEN).forEach(function(x){if(x.indexOf(gk+'.')===0)delete OPEN[x];});}else{var g=gcat().filter(function(x){return x.k===gk;})[0];
+      if(g&&!g.items.some(function(it){return iOn(g,it);}))g.items.forEach(function(it){ti(gk,it[2],true,1);});}render();}
+  function ti(gk,ik,on,q){var k=gk+'.'+ik,g=gcat().filter(function(x){return x.k===gk;})[0],it=g&&g.items.filter(function(x){return x[2]===ik;})[0];if(!it)return;
+    D.nav=D.nav.filter(function(t){return t!=='-'+k;});if(on){var r=req(g,it);if(r)D.niv[r[0]]=Math.max(D.niv[r[0]]||0,r[1]);if(!q)OPEN[k]=1;}else{D.nav.push('-'+k);delete OPEN[k];}if(!q)render();}
+  function ts(k,i,on){var x=(SUBS[k]||[])[i];if(!x||x[0]==='x')return;if(x[0]==='s'&&x[5]&&on){D.niv[x[5]]=Math.max(D.niv[x[5]]||0,x[2]);D.sub[x[1]]=true;render();return;}if(x[0]==='n'){var cur=D.niv[x[1]]||0;D.niv[x[1]]=on?Math.max(cur,x[2]):Math.min(cur,x[2]-1);
+      if(!on&&x[2]===2&&x[1]===k.split('.')[0])D.niv[x[1]]=Math.max(D.niv[x[1]],1);}
+    else D.sub[x[1]]=!!on;render();}
+  /* borrador {nombre,rol,niv:{},fl:{},dir:{},pin,activo,cli:{...}} */
+  function borrador(u,nuevoU){var p=prof(u),d={nombre:u.nombre,nuevo:!!nuevoU,rol:u.rol,niv:{},fl:{},activo:u.activo!==false,pin:'',nav:MCPtoks(u.modulos).filter(function(t){return t.charAt(0)==='-';}),sub:(function(){var o={};MCPtoks(u.modulos).forEach(function(t){var x=/^~([a-z]+\.[a-z]+)=([01])$/.exec(t);if(x)o[x[1]]=x[2]==='1';});return o;})(),
       empresa:u.empresa||'',master:!!u.master,aprobado:!!u.aprobado,cmods:MCPtoks(u.modulos).map(function(x){return x.replace(/\+$/,'');}),telefono:u.telefono||'',email:u.email||'',origRol:u.rol,origMods:MCPtoks(u.modulos)};
     cols().forEach(function(c){d.niv[c[0]]=u.rol==='admin'?c[2]:MCPnivel(p,c[0]);});MCP_FLAGS.forEach(function(f){d.fl[f[0]]=MCPflag(p,f[0]);});return d;}
   function seg(k,max){var n=D.niv[k],dis=!puede||D.rol==='admin';return '<span class="up-seg">'+NV.slice(0,max+1).map(function(t,i){return '<button '+(dis?'disabled ':'')+'class="'+(n===i?'on':'')+'" style="'+(n===i?'background:'+(i?NC[i]:'#8fa3b8'):'')+'" onclick="event.stopPropagation();Users.niv(\''+k+'\','+i+')">'+t+'</button>';}).join('')+'</span>';}
@@ -13198,10 +13276,7 @@ Users=(function(){
       '<select class="uinput" style="max-width:200px" '+(ro?'disabled':'')+' onchange="Users.rol(this.value)"><option value="usuario"'+(D.rol==='usuario'?' selected':'')+'>👷 Usuario Minecore</option><option value="admin"'+(D.rol==='admin'?' selected':'')+'>👷 Administrador</option><option value="cliente"'+(esCli?' selected':'')+'>🏢 Cliente (portal)</option></select>'+
       (esCli||ro?'':'<select class="uinput" style="max-width:190px" onchange="Users.preset(this.value);this.value=\'\'"><option value="">Aplicar plantilla…</option>'+Object.keys(MCP_PRESETS).map(function(k){return '<option value="'+k+'">'+MCP_PRESETS[k].t+'</option>';}).join('')+'</select>')+
       '<label class="cbz-esc"><input type="checkbox" '+(D.activo?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'activo\',this.checked)"> Activo</label></div>';
-    if(!esCli){h+='<table class="up-m"><tbody>'+cols().map(function(c){return '<tr><td class="k">'+esc(c[1])+(c[2]===3?'<div class="cbz-muted" style="font-size:10.5px">Aprobar: '+esc(MCP_APRUEBA[c[0]]||'')+'</div>':'')+'</td><td>'+seg(c[0],c[2])+'</td></tr>';}).join('')+
-        '<tr><td class="k">Usuarios y permisos</td><td class="cbz-muted" style="font-size:11.5px">Solo EFCH</td></tr></tbody></table>'+
-        '<div class="up-bar">'+MCP_FLAGS.map(function(f){return '<label class="cbz-esc"><input type="checkbox" '+(D.fl[f[0]]?'checked':'')+(ro||D.rol==='admin'?' disabled':'')+' onchange="Users.flag(\''+f[0]+'\',this.checked)"> '+f[1]+'</label>';}).join('')+'</div>'+
-        (D.nombre&&/^oswal/i.test(D.nombre)||D.niv.caja?'<div class="cbz-muted" style="font-size:11px">Caja chica: cada usuario ve y registra solo sus propios movimientos; entregas de dinero y aprobaciones, solo administradores.</div>':'');}
+    if(!esCli){h+=pgCss()+grid(ro)+(D.niv.caja?'<div class="cbz-muted" style="font-size:11px">Caja chica: cada usuario ve y registra solo sus propios movimientos; entregas de dinero y aprobaciones, solo administradores.</div>':'');}
     else{h+='<div class="up-bar">'+CMODS_REG.map(function(cm){return '<label class="cbz-esc"><input type="checkbox" '+(D.cmods.indexOf(cm[0])>=0?'checked':'')+(ro?' disabled':'')+' onchange="Users.cmod(\''+cm[0]+'\',this.checked)"> '+esc(cm[1]+' '+cm[2])+'</label>';}).join('')+'</div>'+
       '<div class="up-g"><input class="uinput" placeholder="Organización (nombre exacto)" value="'+esc(D.empresa)+'" '+(ro?'readonly':'')+' list="up-cli-dl" oninput="Users.set(\'empresa\',this.value)" onfocus="Users.cargarCli()"><datalist id="up-cli-dl">'+clientes.map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist>'+
       '<label class="cbz-esc"><input type="checkbox" '+(D.master?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'master\',this.checked)"> Máster de su organización</label><label class="cbz-esc"><input type="checkbox" '+(D.aprobado?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'aprobado\',this.checked)"> ✅ Aprobado</label></div>'+
@@ -13211,10 +13286,11 @@ Users=(function(){
     return h+'</div>';}
   function tokens(){if(D.rol==='cliente')return D.cmods.filter(function(m){return CMODS_REG.some(function(cm){return cm[0]===m;});});
     if(D.rol==='admin')return D.origRol==='admin'?D.origMods.filter(function(x){return x.charAt(0)!=='-';}):['dashboard','cobranza','inventario','proveedores'];
-    var n=D.niv,t=[],L=function(tok,l){if(l>=2)t.push(tok+'+');else if(l>=1)t.push(tok);};
+    cerrarMods();var n=D.niv,t=[],L=function(tok,l){if(l>=2)t.push(tok+'+');else if(l>=1)t.push(tok);};
     L('cotizaciones',n.ventas);L('inventario',Math.max(n.inventario,n.productos,n.manufactura));L('proveedores',n.compras);L('transfers',n.transferencias);L('cobranza',Math.max(n.cobranzas,n.clientes));if(Math.max(n.dashboard,n.reportes)>=1)t.push('dashboard');
     MCP_DIRECTOS.forEach(function(c){L(c[0],n[c[0]]);});
     MCP_FINOS.forEach(function(c){t.push('@'+c[0]+'='+n[c[0]]);});MCP_FLAGS.forEach(function(f){t.push('$'+f[0]+'='+(D.fl[f[0]]?1:0));});
+    D.nav.forEach(function(x){if(/^-[a-z]+(\.[a-z0-9]+)?$/.test(x))t.push(x);});Object.keys(D.sub).forEach(function(k){if(D.sub[k]===false)t.push('~'+k+'=0');});
     return t;} /* b349 t614: la barra lateral sale de los niveles; ya no hay interruptores aparte */
   function guardar(){var m=document.getElementById('up-msg');if(D.nuevo&&!/^[\wÁÉÍÓÚÑáéíóúñ .-]{2,40}$/.test(D.nombre||'')){m.textContent='Escribe un nombre de usuario';return;}
     if(D.pin&&!/^\d{4,8}$/.test(D.pin)){m.textContent='El PIN debe tener 4 a 8 dígitos';return;}
@@ -13223,13 +13299,13 @@ Users=(function(){
     api(p).then(function(r){if(!r.ok){m.textContent='⚠ '+(r.error||'No se guardó');return;}var nm=D.nombre;D=null;nuevo=null;abierto=nm;try{toast('Guardado: '+nm+' ya tiene los permisos nuevos');}catch(e){}init();}).catch(function(e){m.textContent='⚠ '+MCerr(e);});}
   function borrar(){if(!confirm('¿Eliminar al usuario '+D.nombre+'? Se cierra su sesión al instante y no se puede deshacer.'))return;var nm=D.nombre;
     api({action:'deleteUser',nombre:nm}).then(function(r){if(!r.ok){alert('Error: '+r.error);return;}D=null;abierto=null;init();});}
-  function abrir(n){if(D&&D.nombre!==n&&dirty()&&!confirm('Tienes cambios sin guardar. ¿Descartarlos?'))return;abierto=abierto===n?null:n;D=null;render();}
-  function dirty(){if(!D)return false;var u=lista.filter(function(x){return x.nombre===D.nombre;})[0];if(!u)return true;var b=borrador(u);return JSON.stringify([b.rol,b.niv,b.fl,b.activo,b.cmods,b.empresa,b.master,b.aprobado])!==JSON.stringify([D.rol,D.niv,D.fl,D.activo,D.cmods,D.empresa,D.master,D.aprobado])||!!D.pin;}
+  function abrir(n){if(D&&D.nombre!==n&&dirty()&&!confirm('Tienes cambios sin guardar. ¿Descartarlos?'))return;abierto=abierto===n?null:n;D=null;OPEN={};render();}
+  function dirty(){if(!D)return false;var u=lista.filter(function(x){return x.nombre===D.nombre;})[0];if(!u)return true;var b=borrador(u);return JSON.stringify([b.rol,b.niv,b.fl,b.activo,b.cmods,b.empresa,b.master,b.aprobado,b.nav.slice().sort(),b.sub])!==JSON.stringify([D.rol,D.niv,D.fl,D.activo,D.cmods,D.empresa,D.master,D.aprobado,D.nav.slice().sort(),D.sub])||!!D.pin;}
   function rr(){var a=document.activeElement,id=a&&a.id,pos=null;try{pos=a.selectionStart;}catch(e){}render();if(id){var e=document.getElementById(id);if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}}}
   return {init:init,nuevo:function(){nuevo={nombre:'',rol:'usuario',modulos:'',activo:true};D=null;abierto=null;invForm=false;render();},abrir:abrir,
-    niv:function(k,i){D.niv[k]=i;render();},flag:function(k,v){D.fl[k]=v;},set:function(k,v){D[k]=v;},cmod:function(m,on){D.cmods=D.cmods.filter(function(x){return x!==m;});if(on)D.cmods.push(m);},
+    niv:function(k,i){D.niv[k]=i;render();},flag:function(k,v){D.fl[k]=v;render();},tg:tg,ti:function(g,i,on){ti(g,i,on);},ts:ts,op:function(k){if(OPEN[k])delete OPEN[k];else OPEN[k]=1;render();},set:function(k,v){D[k]=v;},cmod:function(m,on){D.cmods=D.cmods.filter(function(x){return x!==m;});if(on)D.cmods.push(m);},
     rol:function(r){D.rol=r;if(r==='admin')cols().forEach(function(c){D.niv[c[0]]=c[2];});render();},
-    preset:function(k){var P=MCP_PRESETS[k];if(!P)return;if(P.admin){D.rol='admin';cols().forEach(function(c){D.niv[c[0]]=c[2];});}else{if(D.rol==='admin')D.rol='usuario';cols().forEach(function(c){D.niv[c[0]]=Math.min(P.l[c[0]]||0,c[2]);});MCP_FLAGS.forEach(function(f){D.fl[f[0]]=!!P.f[f[0]];});}render();try{toast('Plantilla «'+P.t+'» aplicada — ajusta lo que quieras y Guarda');}catch(e){}},
+    preset:function(k){var P=MCP_PRESETS[k];if(!P)return;if(P.admin){D.rol='admin';cols().forEach(function(c){D.niv[c[0]]=c[2];});}else{if(D.rol==='admin')D.rol='usuario';D.nav=[];D.sub={};cols().forEach(function(c){D.niv[c[0]]=Math.min(P.l[c[0]]||0,c[2]);});MCP_FLAGS.forEach(function(f){D.fl[f[0]]=!!P.f[f[0]];});}render();try{toast('Plantilla «'+P.t+'» aplicada — ajusta lo que quieras y Guarda');}catch(e){}},
     guardar:guardar,descartar:function(){D=null;nuevo=null;abierto=null;render();},borrar:borrar,preview:function(n){PreviewAs.open(n);},togInv:function(){invOpen=!invOpen;render();},
     cargarCli:function(){if(clientes.length)return;MCpost({action:'cli_nombres',user:getUserName(),pin:getPin()}).then(function(r){if(r&&r.ok){clientes=r.clientes;var dl=document.getElementById('up-cli-dl');if(dl)dl.innerHTML=clientes.map(function(c){return '<option value="'+esc(c)+'">';}).join('');}});},
     invitar:function(){invForm=!invForm;nuevo=null;render();},crearInv:crearInv,copiar:function(t){var l=location.origin+location.pathname+'?invite='+t;try{navigator.clipboard.writeText(l);toast('Link copiado');}catch(e){prompt('Copia el link:',l);}},
@@ -13242,12 +13318,24 @@ Users=(function(){
     '<div class="up-bar"><button class="cbz-btn" onclick="Users.crearInv()">Crear link</button><button class="cbz-btn-sec" onclick="Users.invitar()">Cancelar</button></div><div id="upi-res"></div></div>';}
   function crearInv(){var rol=document.getElementById('upi-rol').value,mods=[],emp='';
     if(rol==='cliente'){mods=CMODS_REG.map(function(cm){return cm[0];}).filter(function(m){var c=document.getElementById('upi-c-'+m);return c&&c.checked;});emp=document.getElementById('upi-emp').value.trim();if(!emp){alert('Elige la organización');return;}}
-    else{var k=document.getElementById('upi-pre').value,P=MCP_PRESETS[k];if(P){var save=D;D={rol:'usuario',niv:{},fl:{},nav:[]};cols().forEach(function(c){D.niv[c[0]]=Math.min(P.l[c[0]]||0,c[2]);});MCP_FLAGS.forEach(function(f){D.fl[f[0]]=!!P.f[f[0]];});mods=tokens();D=save;}
+    else{var k=document.getElementById('upi-pre').value,P=MCP_PRESETS[k];if(P){var save=D;D={rol:'usuario',niv:{},fl:{},nav:[],sub:{}};cols().forEach(function(c){D.niv[c[0]]=Math.min(P.l[c[0]]||0,c[2]);});MCP_FLAGS.forEach(function(f){D.fl[f[0]]=!!P.f[f[0]];});mods=tokens();D=save;}
       else{mods=MCP_FINOS.map(function(c){return '@'+c[0]+'=0';});}}
     api({action:'createInvite',rol:rol,modulos:mods,empresa:emp}).then(function(r){if(!r.ok){alert('Error: '+r.error);return;}var l=location.origin+location.pathname+'?invite='+r.token;
       document.getElementById('upi-res').innerHTML='<input class="uinput" readonly value="'+esc(l)+'" onclick="this.select()"><div class="up-bar"><button class="cbz-btn" onclick="Users.copiar(\''+r.token+'\')">📋 Copiar link</button><a class="cbz-btn cbz-btn-wa" style="text-decoration:none" target="_blank" href="https://wa.me/?text='+encodeURIComponent('Hola! Crea tu acceso a la Minecore Admin App aquí: '+l)+'">WhatsApp</a></div>';
       api({action:'listInvites'}).then(function(r2){if(r2.ok)invites=r2.invitaciones;});});}
 })();
+
+/* b352: sub-interruptores sin acción en Supabase (Apps Script o solo navegador) → se esconden en pantalla */
+(function(){function off(k){var p=getProfile&&getProfile();if(!p||p.rol!=='usuario')return false;return MCPtoks(p.modulos).indexOf('~'+k+'=0')>=0;}
+  var REP={rec:'ventas',sales:'ventas',stock:'stock',purch:'compras',pay:'pay'};
+  var R=[['#rep-screen',/CSV|PDF|Excel|Exportar|Descargar/i,function(){return off('rep.'+(REP[window.MC_REP_CAT]||'ventas')+'.exportar');}],
+    ['#base-screen,#inv-screen',/Crear OC|Crear orden de compra|→ OC/i,function(){return off('reo.oc');}],
+    ['#cobranza-screen',/Recordatorio|Enviar WhatsApp|Enviar correo|Enviar email|Recordar/i,function(){return off('cbz.e.recordar');}],
+    ['#caja-screen',/^\s*[+➕💸]*\s*(Nuevo gasto|Gasto)\s*$/i,function(){return off('caja.e.gasto');}],['#caja-screen',/^\s*[+➕🚗]*\s*(Nueva ruta|Ruta)\s*$/i,function(){return off('caja.e.ruta');}],
+    ['#ventas-screen,#cot-screen',/Descargar PDF|Enviar PDF|PDF/i,function(){return off('cot.e.pdf')&&/vcot/.test(location.hash);}]];
+  function run(){R.forEach(function(x){var on=x[2]();document.querySelectorAll(x[0]).forEach(function(sc){sc.querySelectorAll('button,a.cbz-btn,.chip').forEach(function(b){if(x[1].test(b.textContent||'')){if(on){b.dataset.mcSubH=1;b.style.display='none';}else if(b.dataset.mcSubH){b.style.display='';delete b.dataset.mcSubH;}}});});});}
+  var t=null;new MutationObserver(function(){if(t)return;t=setTimeout(function(){t=null;run();},120);}).observe(document.documentElement,{childList:true,subtree:true});
+  var _r=MCnavRutaOk;MCnavRutaOk=function(m){if(m==='kyc'&&off('cli.kyc'))return false;return _r(m);};})();
 
 /* b348-perm-fin */
 if(/[?&]invite=/.test(location.search)){
