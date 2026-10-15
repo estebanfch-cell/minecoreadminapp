@@ -464,7 +464,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='344';
+  var MC_BUILD='344.1';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -4248,10 +4248,11 @@ var Inv = (function(){
     el.innerHTML='<div class="cbz-loading">Cargando inventario...</div>';
     /* b294 t426u: pinta al instante desde caché (IndexedDB) y refresca en segundo plano */
     var invU=localStorage.getItem('mc_user_name')||'',invPint=false,invVista=vista;
-    mcIdb.get('mc_inv').then(function(c){if(c&&c.u===invU&&c.res&&!invPint&&vista===invVista){invPint=true;try{procInv(JSON.parse(c.res),true);}catch(e){}}}).catch(function(){});
+    mcIdb.get('mc_inv').then(function(c){if(c&&c.u===invU&&c.res&&!invPint){if(vista===invVista){invPint=true;try{procInv(JSON.parse(c.res),true);}catch(e){}}else if(!(items&&items.length)){try{cargaItems(JSON.parse(c.res));}catch(e){}}}}).catch(function(){});
     api({action:'getInventario'}).then(function(res){
       if(res&&res.ok)try{mcIdb.set('mc_inv',{u:invU,res:JSON.stringify(res),t:Date.now()});}catch(e){}
-      if(vista!==invVista)return;invPint=true;procInv(res,false);}).catch(function(e){if(!invPint)el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
+      if(vista!==invVista){if(res&&res.ok)cargaItems(res);return;} /* b344-despiece: si cambió a Despieces, igual guarda el catálogo (antes se perdía y todo salía «no está en catálogo») */
+      invPint=true;procInv(res,false);}).catch(function(e){if(!invPint)el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
     function procInv(res,deCache){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
@@ -4311,7 +4312,7 @@ var Inv = (function(){
       '</div>';
     if(vista==='reo'){el.innerHTML=h+'<div id="reo-body"></div>';renderReo();return;}
     if(enModoCot())h=bannerCotPara()+h;
-    if(vista==='desp'||vista==='man'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();return;}
+    if(vista==='desp'||vista==='man'){el.innerHTML=h+'<div id="desp-body"></div>';renderDesp();if(!(items&&items.length))ensureItems(function(){});return;}
     if(vista==='miscot'){el.innerHTML=misCotHtml();if(enviadas===null)cargarEnviadas();return;}
     if(vista==='inv'&&!enModoCot())h=avisoCotListas()+h;
     if(vista==='cart'){el.innerHTML=h+cartHtml();return;}
@@ -4910,16 +4911,27 @@ var Inv = (function(){
           '<a class="cbz-btn-sec" style="text-decoration:none" href="'+absUrl(d.archivo)+'" download>⬇ Descargar</a></div></div>';
       }).join('');
   }
+  /* b344-despiece: guarda el catálogo (Supabase getInventario) aunque la vista activa sea Despieces/Manuales */
+  function cargaItems(res){
+    if(!res||!res.ok||!(res.items||[]).length)return false;
+    items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
+    if(res.bodegas){bodegas=res.bodegas;if(!bodega)bodega=MCbodegaDefault(bodegas);aplicarBodega();}
+    var pmods=(getProfile().modulos||[]);
+    puedeCot=esCliente||esAdmin||pmods.indexOf('cotizaciones')>=0||pmods.indexOf('cotizaciones+')>=0;
+    despIdx=null;return true;
+  }
+  var pItems=null;
   function ensureItems(cb){
     if(items&&items.length){cb();return;}
-    api({action:'getInventario'}).then(function(res){
-      if(res.ok){
-        items=res.items;esAdmin=res.esAdmin;esCliente=res.esCliente;
-        var pmods=(getProfile().modulos||[]);
-        puedeCot=esCliente||esAdmin||pmods.indexOf('cotizaciones')>=0||pmods.indexOf('cotizaciones+')>=0;
+    if(!pItems)pItems=api({action:'getInventario'}).then(function(res){
+      if(!cargaItems(res)){ /* respaldo: catálogo ya precargado al login (MCWarm, misma fuente Supabase) */
+        var w=null;try{w=MCWarm.getProductos();}catch(e){}
+        if(w&&w.length)cargaItems({ok:true,items:w,esAdmin:getProfile().rol==='admin',esCliente:getProfile().rol==='cliente'});
+        else console.warn('Despieces: catálogo no disponible',res&&res.error);
       }
-      cb();
-    }).catch(function(){cb();});
+    }).catch(function(e){console.warn('Despieces: getInventario falló',e&&e.message);})
+      .then(function(){pItems=null;});
+    pItems.then(cb);
   }
   function mountDesp(targetId){
     despTarget=targetId||'desp-body';
@@ -5102,8 +5114,21 @@ var Inv = (function(){
     });
   }
   var despCods=[];
-  function despItem(cod){var cands=[cod];if(cod.length>=12&&(cod.indexOf('120')===0||cod.indexOf('150')===0))cands.push(cod.slice(3));
-    for(var i=0;i<cands.length;i++)for(var j=0;j<items.length;j++)if(String(items[j].codigo||'').trim()===cands[i])return items[j];return null;}
+  /* b344-despiece: índice de búsqueda (código de parte/fabricante, SKU), normalizado */
+  var despIdx=null,despIdxN=0;
+  function despNorm(c){return String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+  function despVariantes(c){c=despNorm(c);var v=[c];if(c.length>=12&&/^(120|150)/.test(c))v.push(c.slice(3));var z=c.replace(/^0+/,'');if(z&&z!==c)v.push(z);return v;}
+  function despIndex(){
+    if(despIdx&&despIdxN===items.length)return despIdx;
+    despIdx={};despIdxN=items.length;
+    items.forEach(function(it){
+      var claves=[it.codigo,it.sku].concat(it.codigos||[],it.barcodes||[],it.alias||[]);
+      String(it.codigo||'').split(/[\s,;\/]+/).forEach(function(x){if(x.length>=6)claves.push(x);});
+      claves.forEach(function(k){despVariantes(k).forEach(function(v){if(v.length>=4&&!despIdx[v])despIdx[v]=it;});});
+    });
+    return despIdx;
+  }
+  function despItem(cod){var ix=despIndex(),v=despVariantes(cod);for(var i=0;i<v.length;i++)if(ix[v[i]])return ix[v[i]];return null;}
   // b242: agrega una pieza directo a la cotización abierta (nuevo cotizador vía MC_despDestino; antiguo vía carrito compartido)
   function despAgregar(it,n){if(window.MC_despDestino&&typeof Ventas!=='undefined'){Ventas.agregarSku(it.sku,n);return;}
     cartLoad();if(!carrito[it.sku])carrito[it.sku]={nombre:it.nombre,cantidad:0,img:it.img||''};carrito[it.sku].cantidad+=n;cartSave();updateFab();}
@@ -5112,7 +5137,12 @@ var Inv = (function(){
     if(window.MC_despDestino&&no.length&&typeof Ventas!=='undefined')Ventas.agregarConsulta(no);
     alert('Agregadas '+ok+' piezas'+(no.length?' · '+no.length+' códigos fuera de catálogo'+(window.MC_despDestino?' (como consulta a fábrica)':' (no agregados)'):'')+'.');}
   function despFichaPdf(cod){
-    if(enModoCot()||window.MC_despDestino){var di=despItem(cod);if(di){despAgregar(di,1);despFicha(String(di.codigo).trim(),true);return;}}
+    if(!(items&&items.length)){despModal('<div class="cbz-card" style="max-width:360px;width:100%;text-align:center;padding:20px"><div class="cbz-loading">Buscando '+cod+' en el catálogo...</div></div>',2);
+      ensureItems(function(){despFichaPdf2(cod);});return;}
+    despFichaPdf2(cod);
+  }
+  function despFichaPdf2(cod){
+    var di=despItem(cod);if(di){despFicha(cod,false,di);return;}
     // Normaliza el código impreso contra el catálogo de inFlow: exacto → sin prefijo 120 → sin prefijo 150
     var cands=[cod];
     if(cod.length>=12&&cod.indexOf('120')===0)cands.push(cod.slice(3));
@@ -5126,28 +5156,29 @@ var Inv = (function(){
     despFicha(elegido);
   }
   /* ---------- Ficha de producto (capa sobre el visor) ---------- */
-  function despFicha(cod,agregado){
-    var it=null;
-    for(var i=0;i<items.length;i++){if(String(items[i].codigo||'').trim()===String(cod).trim()){it=items[i];break;}}
+  function despFicha(cod,agregado,itDir){
+    var it=itDir||despItem(cod);
+    var puedeAg=puedeCot||!!window.MC_despDestino;
     var inner;
     if(!it){
       inner='<div style="font-size:30px">🏭</div>'+
         '<div class="cbz-card-name" style="margin:8px 0">Código '+cod+'</div>'+
         '<div class="cbz-muted" style="margin-bottom:14px">Este código no está en nuestro catálogo en línea. <b>Consúltanos:</b> Minecore puede verificar con fábrica si está disponible bajo pedido.</div>'+
         '<div class="cbz-card-row" style="justify-content:center;gap:8px;flex-wrap:wrap">'+
-        (puedeCot?'<button class="cbz-btn" onclick="Inv.despConsulta(\''+cod+'\')">➕ Agregar a mi cotización (lo consultamos por ti)</button>':'')+
+        (puedeAg?'<button class="cbz-btn" onclick="Inv.despConsulta(\''+cod+'\')">➕ Agregar a mi cotización (lo consultamos por ti)</button>':'')+
         '<button class="chip" onclick="Inv.despCerrar(2)">Cerrar</button></div>';
     } else {
       var st=it.stock>0?'<span style="color:#6fd68f;font-weight:bold">✅ '+(it.stock%1===0?Math.round(it.stock):it.stock)+' en stock</span>'
                        :'<span style="color:#e05c5c;font-weight:bold">Agotado</span> <span class="cbz-muted">— consúltanos el tiempo de reposición</span>';
-      inner='<div class="cbz-card-name" style="margin-bottom:6px">'+it.nombre+'</div>'+
+      inner=(it.img?'<img src="'+it.img+'" alt="" onclick="MCfoto(this.src,event)" style="max-width:160px;max-height:140px;object-fit:contain;border-radius:8px;background:#fff;margin:0 auto 8px;display:block;cursor:zoom-in">':'')+
+        '<div class="cbz-card-name" style="margin-bottom:6px">'+it.nombre+'</div>'+
         '<div class="cbz-muted" style="margin-bottom:4px">SKU: '+it.sku+(it.codigo?' · Cód: '+it.codigo:'')+'</div>'+
         '<div style="margin:6px 0">'+st+'</div>'+
         (it.ubicaciones&&!esCliente?'<div class="cbz-muted" style="margin-bottom:4px">📍 '+it.ubicaciones+'</div>':'')+
         (it.precio!==undefined&&it.precio?'<div class="cbz-card-name" style="margin:6px 0">'+fmt(it.precio)+'</div>':'')+
         (agregado?'<div style="color:#6fd68f;margin:8px 0">'+(window.MC_despDestino?'✔ Agregado a la cotización':'✔ Agregado al carrito ('+cartCount()+')')+'</div>':'')+
         '<div class="cbz-card-row" style="justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">'+
-        (puedeCot&&!agregado?'<span style="display:inline-flex;align-items:center;gap:6px"><input type="number" id="df-qty" min="1" inputmode="numeric" class="uinput" style="width:62px;text-align:center;padding:7px" value="1"><button class="cbz-btn" onclick="Inv.despCotizar(\''+String(it.sku).replace(/'/g,'')+'\',\''+cod+'\')">➕ Cotizar</button></span>':'')+
+        (puedeAg&&!agregado?'<span style="display:inline-flex;align-items:center;gap:6px"><input type="number" id="df-qty" min="1" inputmode="numeric" class="uinput" style="width:62px;text-align:center;padding:7px" value="1"><button class="cbz-btn" onclick="Inv.despCotizar(\''+String(it.sku).replace(/'/g,'')+'\',\''+cod+'\')">➕ Agregar a cotización</button></span>':'')+
         (agregado&&window.MC_despDestino?'<button class="cbz-btn" onclick="MCvolverCot()">← Volver a la cotización</button>':(puedeCot&&agregado?'<button class="cbz-btn" onclick="Inv.despCerrar();Inv.verCarrito()">🛒 Ver carrito ('+cartCount()+')</button>':''))+
         '<button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div>';
     }
@@ -5159,7 +5190,7 @@ var Inv = (function(){
     var it=null;for(var i=0;i<items.length;i++){if(items[i].sku===sku){it=items[i];break;}}
     if(!it)return;
     despAgregar(it,n);
-    despFicha(cod,true);
+    despFicha(cod,true,it);
   }
   function despConsulta(cod){
     if(window.MC_despDestino&&typeof Ventas!=='undefined'){Ventas.agregarConsulta([cod]);despModal('<div class="cbz-card" style="max-width:400px;width:100%;text-align:center;padding:20px"><div style="font-size:26px">✔</div><div class="cbz-card-name" style="margin:6px 0">Agregado a la cotización como consulta a fábrica</div><div class="cbz-card-row" style="justify-content:center;gap:8px"><button class="cbz-btn" onclick="MCvolverCot()">← Volver a la cotización</button><button class="chip" onclick="Inv.despCerrar(2)">Seguir viendo</button></div></div>',2);return;}
@@ -5228,7 +5259,7 @@ var Inv = (function(){
   return {setBodega:setBodega,init:init,setQ:setQ,setF:setF,setCat:setCat,setMarca:setMarca,abrir:abrir,setDesc:setDesc,setLin:setLin,setMm:setMm,
           despToggle:despToggle,despBuscar:despBuscar,despProv:despProvSet,despCat:despCatSet,
           despVer:despVer,despCerrar:despCerrar,despTodo:despTodo,despFicha:despFicha,despCotizar:despCotizar,despCopiar:despCopiar,
-          despFichaPdf:despFichaPdf,cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,mountDesp:mountDesp,
+          despFichaPdf:despFichaPdf,despConteo:function(){var ok=despCods.filter(function(c){return !!despItem(c);});return {total:despCods.length,encontrados:ok.length,faltan:despCods.filter(function(c){return !despItem(c);})};},cargarClisCarrito:cargarClisCarrito,crearSolInterna:crearSolInterna,mountDesp:mountDesp,
           miscotToggle:miscotToggle,miscotPdf:miscotPdf,despConsulta:despConsulta,despZoom:despZoom,despMas:despMas,miscotAprobar:miscotAprobar,finalizarCotPara:finalizarCotPara,
           setVista:setVista,calcular:calcular,csv:csv,settings:settings,settingsDl:settingsDl,dlAccion:dlAccion,precios:precios,promoExcel:promoExcel,
           addCart:addCart,verCarrito:verCarrito,cartQty:cartQty,cartSet:cartSet,enviarCarrito:enviarCarrito,
