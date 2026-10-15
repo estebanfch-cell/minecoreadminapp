@@ -464,7 +464,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='345';
+  var MC_BUILD='345.1';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -645,6 +645,32 @@ function MCsbEligible(c){
   return c.action==='ventas'||c.action==='cli_nombres'||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
 }
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
+
+/* b345-cxc: configuración de cobranza en Supabase (app.cxc_config); copia a Google sin esperar */
+function MCcxcUpd(p){p.user=getUserName();p.pin=getPin();var g=Object.assign({},p);try{MCpost0(g).catch(function(){});}catch(e){}
+  return MCpost({action:'ventas',op:'cxc_update',cliente:p.cliente,campo:p.campo,valor:p.valor,user:p.user,pin:p.pin});}
+/* b345-cxc: estado del formulario «Conoce a tu cliente» (pendiente/enviado/completo) + «Enviar formulario» */
+var MCKyc=(function(){
+  var C={pendiente:['#9aa0a6','Formulario pendiente'],enviado:['#E8FF00','Formulario enviado'],completo:['#6fd68f','Formulario completo']};
+  function badge(e){var x=C[e||'pendiente']||C.pendiente;return '<span class="chip" style="border-color:'+x[0]+';color:'+x[0]+';font-size:11px;padding:1px 7px">'+x[1]+'</span>';}
+  function texto(n,l){return 'Estimado/a '+n+', este es un mensaje automático de Minecore. Gracias por confiar en nosotros; nos alegra darle la bienvenida como nuevo cliente. Para dejar todo listo (facturación, contactos y crédito), por favor complete su registro en el siguiente enlace: '+l+'. Le toma solo unos minutos. ¡Gracias!';}
+  function panel(root,c){if(!root||!c||!c.id||root.querySelector('.mc-kyc'))return;var d=document.createElement('div');d.className='mc-kyc';d.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 10px';
+    d.innerHTML=badge(c.kyc_estado)+(c.kyc_enviado_at?'<span class="ms-sub">Enviado '+String(c.kyc_enviado_at).slice(0,10)+(c.kyc_enviado_a?' a '+esc(c.kyc_enviado_a):'')+'</span>':'')+(c.kyc_estado!=='completo'?'<button class="cbz-btn" onclick="MCKyc.enviar(\''+c.id+'\')">📨 Enviar formulario</button>':'');
+    var bar=root.querySelector('.ms-bar');if(bar&&bar.nextSibling)root.insertBefore(d,bar.nextSibling);else root.prepend(d);}
+  function enviar(id){var c=(typeof FC!=='undefined'&&FC&&FC.id===id)?FC:{id:id};
+    MCpost({action:'kyc_link',customer_id:id,user:getUserName(),pin:getPin()}).then(function(r){if(!r.ok)throw new Error(r.error);
+      var nom=c.contact_name||c.name||'',msg=texto(nom,r.link),m=document.createElement('div');
+      m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+      m.innerHTML='<div class="cbz-card" style="max-width:520px;width:92%"><div class="cbz-card-name">Enviar formulario a '+esc(c.name||'')+'</div>'+
+        '<div class="ms-sub" style="margin:6px 0">Para: '+esc(nom)+(c.phone?' · WhatsApp '+esc(c.phone):'')+(c.email?' · '+esc(c.email):'')+'</div>'+
+        '<div style="white-space:pre-wrap;font-size:13px;border:1px solid #444;border-radius:8px;padding:10px;margin:8px 0">'+esc(msg)+'</div>'+
+        '<div class="ms-sub">El envío por WhatsApp (plantilla registro_nuevo_cliente_v1) y por correo desde cobranzas@ se activa cuando Meta apruebe la plantilla. Mientras tanto puedes copiar el enlace.</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="cbz-btn" id="kyc-cp">📋 Copiar enlace</button><button class="chip" id="kyc-x">Cerrar</button></div></div>';
+      document.body.appendChild(m);m.querySelector('#kyc-x').onclick=function(){m.remove();};
+      m.querySelector('#kyc-cp').onclick=function(){try{navigator.clipboard.writeText(r.link);}catch(e){}this.textContent='✓ Copiado';};
+    }).catch(function(e){alert(MCerr(e));});}
+  return {badge:badge,panel:panel,enviar:enviar};
+})();
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
   return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
     .catch(function(e){try{console.warn('Supabase falló ('+sb.op+'), uso Google:',e&&e.message);}catch(x){}return MCpost(gas);});}
@@ -2611,7 +2637,7 @@ var Cobranza = (function () {
   function init() {
     var el = document.getElementById('cobranza-screen');
     el.innerHTML = '<div class="cbz-loading">Cargando cartera...</div>';
-    api({ action: 'getCxcConfig' }).then(function (res) {
+    MCsbOr({action:'ventas',op:'cxc_config'},{ action: 'getCxcConfig' }).then(function (res) { if(res.fuente==='supabase'){try{api({action:'getCxcConfig'}).then(function(g){if(g&&g.ok&&g.waTemplates){waTemplate=g.waTemplates;}}).catch(function(){});}catch(e){}}
       if (!res.ok) { el.innerHTML = '<div class="cbz-error">Error: ' + res.error + '</div>'; return; }
       setTimeout(loadCompromisos, 0);
       clientes = (res.clientes || []).sort(function (a, b) {
@@ -2940,19 +2966,19 @@ var Cobranza = (function () {
 
   function toggle(idx, on) {
     clientes[idx].activo = on;
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'activo', valor: on ? 'SI' : 'NO' })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'activo', valor: on ? 'SI' : 'NO' })
       .then(render);
   }
 
   function escala(idx, on) {
     clientes[idx].escalamiento = on;
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'escalamiento', valor: on ? 'SI' : 'NO' });
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'escalamiento', valor: on ? 'SI' : 'NO' });
   }
 
   function freq(idx, delta) {
     var f = Math.max(1, clientes[idx].frecuencia + delta);
     clientes[idx].frecuencia = f;
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'frecuencia', valor: f })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'frecuencia', valor: f })
       .then(render);
   }
 
@@ -2972,7 +2998,7 @@ var Cobranza = (function () {
     var current = clientes[idx].emails ? clientes[idx].emails + ', ' + e : e;
     clientes[idx].emails = current;
     input.value = '';
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'emails', valor: current })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'emails', valor: current })
       .then(function (res) { if (res.ok) { clientes[idx].emails = res.valor; render(); } });
   }
 
@@ -2981,7 +3007,7 @@ var Cobranza = (function () {
       .filter(function (x) { return x && x !== email; });
     var val = list.join(', ');
     clientes[idx].emails = val;
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'emails', valor: val })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'emails', valor: val })
       .then(render);
   }
 
@@ -2997,7 +3023,7 @@ var Cobranza = (function () {
     var current = clientes[idx].whatsapp ? clientes[idx].whatsapp + ', ' + n : n;
     clientes[idx].whatsapp = current;
     input.value = '';
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: current })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: current })
       .then(function (res) { if (res.ok) { clientes[idx].whatsapp = res.valor; render(); } });
   }
   function removeWa(idx, num) {
@@ -3005,7 +3031,7 @@ var Cobranza = (function () {
       .filter(function (x) { return x && x !== num; });
     var val = list.join(', ');
     clientes[idx].whatsapp = val;
-    api({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: val })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: clientes[idx].cliente, campo: 'whatsapp', valor: val })
       .then(render);
   }
   function legal(idx, on) {
@@ -3014,7 +3040,7 @@ var Cobranza = (function () {
                  : '¿Quitar a ' + c.cliente + ' del proceso legal?';
     if (!confirm(msg)) { render(); return; }
     clientes[idx].procesoLegal = on;
-    api({ action: 'updateCxcClient', cliente: c.cliente, campo: 'proceso', valor: on ? 'SI' : 'NO' })
+    MCcxcUpd({ action: 'updateCxcClient', cliente: c.cliente, campo: 'proceso', valor: on ? 'SI' : 'NO' })
       .then(render);
   }
 
@@ -12885,8 +12911,8 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
   function cLista(){if(!document.getElementById('ms-q'))el().innerHTML='<div class="cbz-loading">Cargando clientes…</div>';var sq=C.seq=(C.seq||0)+1;api({op:'cli_list',q:C.q}).then(function(r){C.l=r.clientes;if(sq===C.seq)cPinta();}).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
   function cPinta(){var nA=(C.l||[]).filter(function(x){return x.is_active===false;}).length,L=(C.l||[]).filter(function(x){return C.arch?x.is_active===false:x.is_active!==false;}),h='<div class="ms-bar"><input class="uinput" id="ms-q" placeholder="Buscar cliente, RUC o email" value="'+esc(C.q)+'" onkeydown="if(event.key===\'Enter\'){MCCli.buscar(this.value)}"><button class="chip" onclick="MCCli.buscar(document.getElementById(\'ms-q\').value)">🔎 Buscar</button><button class="chip'+(C.arch?' on':'')+'" onclick="MCCli.arch('+(C.arch?0:1)+')">🗄 '+(C.arch?'Ver activos':'Archivados ('+nA+')')+'</button><button class="cbz-btn" onclick="MCCli.nuevo()">＋ Nuevo cliente</button></div>'+(C.arch?'<div class="ms-sub" style="margin:4px 0 8px">Mostrando clientes archivados. Ábrelos para desarchivar.</div>':'');
     if(!L.length)h+='<p class="ms-sub">Sin resultados.</p>';else{
-    h+='<table class="ms-t"><thead><tr><th>Cliente</th><th>RUC</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Crédito</th><th>OV</th></tr></thead><tbody>'+L.map(function(c,i){return '<tr class="r" onclick="MCCli.abrirId(\''+c.id+'\')"><td><b>'+esc(c.name)+'</b> '+act(c.is_active)+'</td><td>'+esc(c.ruc||'')+'</td><td>'+esc(c.contact_name||'')+'</td><td>'+esc(c.email||'')+'</td><td>'+esc(c.phone||'')+'</td><td>'+(c.credit_days||0)+' días</td><td>'+c.ovs+' '+syncMini(c.sync_status)+'</td></tr>';}).join('')+'</tbody></table>';
-    h+='<div class="ms-cards">'+L.slice(0,PF.max).map(function(c,i){return '<div class="ms-card" onclick="MCCli.abrirId(\''+c.id+'\')"><div style="flex:1;min-width:0"><div class="nm">'+esc(c.name)+' '+act(c.is_active)+'</div><div class="ms-sub">'+esc(c.ruc||'Sin RUC')+(c.phone?' · '+esc(c.phone):'')+'</div>'+syncMini(c.sync_status)+'</div></div>';}).join('')+'</div>';}
+    h+='<table class="ms-t"><thead><tr><th>Cliente</th><th>RUC</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th>Crédito</th><th>OV</th></tr></thead><tbody>'+L.map(function(c,i){return '<tr class="r" onclick="MCCli.abrirId(\''+c.id+'\')"><td><b>'+esc(c.name)+'</b> '+act(c.is_active)+' '+MCKyc.badge(c.kyc_estado)+'</td><td>'+esc(c.ruc||'')+'</td><td>'+esc(c.contact_name||'')+'</td><td>'+esc(c.email||'')+'</td><td>'+esc(c.phone||'')+'</td><td>'+(c.credit_days||0)+' días</td><td>'+c.ovs+' '+syncMini(c.sync_status)+'</td></tr>';}).join('')+'</tbody></table>';
+    h+='<div class="ms-cards">'+L.slice(0,PF.max).map(function(c,i){return '<div class="ms-card" onclick="MCCli.abrirId(\''+c.id+'\')"><div style="flex:1;min-width:0"><div class="nm">'+esc(c.name)+' '+act(c.is_active)+' '+MCKyc.badge(c.kyc_estado)+'</div><div class="ms-sub">'+esc(c.ruc||'Sin RUC')+(c.phone?' · '+esc(c.phone):'')+'</div>'+syncMini(c.sync_status)+'</div></div>';}).join('')+'</div>';}
     el().innerHTML=h;}
   function cForm(c,dir,q){c=c||{};var a=(dir&&dir[0]&&dir[0].address)||{};
     el().innerHTML='<div class="ms-bar"><button class="chip" onclick="MCCli.volver()">← Volver</button><b style="font-size:18px">'+(c.id?esc(c.name):'Nuevo cliente')+'</b>'+(c.id?sync(c.sync_status):'')+'</div>'+
@@ -12942,7 +12968,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 
   /* ===== Cliente ===== */
   var FC=null;
-  function cFicha(r){addCss2();FXel=null;if(r.cliente.id)setTimeout(function(){try{MCCampos.append(el(),'cli',r.cliente.id);}catch(e){}},30);var c=r.cliente,R=r.resumen||{},K=r.catalogos||{},a=(r.direcciones&&r.direcciones[0]&&r.direcciones[0].address)||{};FC=c;CT=(r.contactos||[]).map(function(x){return Object.assign({},x);});
+  function cFicha(r){addCss2();FXel=null;setTimeout(function(){try{MCKyc.panel(el(),r.cliente);}catch(e){}},40);if(r.cliente.id)setTimeout(function(){try{MCCampos.append(el(),'cli',r.cliente.id);}catch(e){}},30);var c=r.cliente,R=r.resumen||{},K=r.catalogos||{},a=(r.direcciones&&r.direcciones[0]&&r.direcciones[0].address)||{};FC=c;CT=(r.contactos||[]).map(function(x){return Object.assign({},x);});
     try{MCroute.set('vcli',c.id);}catch(e){}
     var T=(K.terminos||[]).map(function(t){return [t.id,t.name];});
     var h='<div class="fx-hd"><button class="chip" onclick="MCCli.volver()">← Clientes</button><b class="nm">'+(c.id?esc(c.name):'Nuevo cliente')+'</b>'+act(c.is_active)+syncMini(c.sync_status)+'<button class="chip" style="margin-left:auto;'+(c.id?'':'display:none')+'" onclick="MCArch.abrir(\'cli\',\''+esc(c.id)+'\',\''+esc(String(c.name||'').replace(/'/g,''))+'\')">📎 Archivos</button>'+(c.id?'<button class="chip" onclick="MCCli.acc(\''+(c.is_active===false?'desarchivar':'archivar')+'\')">'+(c.is_active===false?'📤 Desarchivar':'🗄 Archivar')+'</button>'+(mcAdm()?'<button class="chip" style="color:#e05c5c;border-color:#7a2a2a" onclick="MCCli.acc(\'borrar\')">🗑 Eliminar</button>':''):'')+'</div>'+
