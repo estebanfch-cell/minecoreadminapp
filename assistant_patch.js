@@ -28,6 +28,8 @@
       f.map(function(r){return'<tr>'+ks.map(function(k){return'<td'+(typeof r[k]==='number'?' class="n"':'')+'>'+fm(r[k])+'</td>';}).join('')+'</tr>';}).join('')+'</table></div></details>';
   }
   var css='#mca-btn{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:#a3e635;color:#0f1620;border:0;box-shadow:0 4px 16px rgba(0,0,0,.4);font-size:26px;cursor:pointer;z-index:9998}'+
+  /* v2 (b338): en móvil el ✦ va ~16px sobre la barra inferior (62px) y respeta el área segura del iPhone */
+  '@media(max-width:899px){body.mc-nav #mca-btn{bottom:calc(62px + 16px + env(safe-area-inset-bottom));right:16px;width:52px;height:52px}}'+
   '#mca{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100vw;background:#121b26;color:#e6edf3;border-left:1px solid #1c2a3a;z-index:9999;display:none;flex-direction:column;font-size:14px}'+
   '#mca.on{display:flex}@media(max-width:700px){#mca{width:100vw;border:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}}'+
   '#mca header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #1c2a3a}#mca header b{color:#a3e635;flex:1}'+
