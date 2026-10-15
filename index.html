@@ -464,7 +464,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='344.1';
+  var MC_BUILD='345';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -616,6 +616,8 @@ function MCrefrescarStock(){
    Sesión: token firmado de 15 min que emite AdminAPI tras validar usuario+PIN (ping / sbToken); no contiene secretos.
    Si el token falta/vence/se revoca o Supabase falla ⇒ se usa el camino de siempre (Apps Script) sin que el usuario lo note. */
 var MC_SB_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api';
+/* b345: Google Apps Script fuera de las operaciones diarias: TODA operación de ventas-api (cotizaciones, OV, facturar, pagos, OC, transfers, stock, manufactura, maestros) va directo a portal-api. Lecturas = lista abajo; todo lo demás es escritura (90 s, sin reintento por Google). */
+var MC_SB_LECT2=/^(nav_reorden|nav_auditoria|meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo|dash_home|dash_hist|mo_list|mo_get|bom_get|bom_productos|mo_reconcile|po_list|po_get|po_vendors|po_productos|po_pendientes|rep|cxc_cartera|cli_list|cli_get|vnd_list|vnd_get|prod_list|prod_get|prod_catalogos|stk_list|stk_get|stk_reasons|bot_inbox_list|bot_inbox_resumen|cuadre_stock_live)$/;
 var MC_SB_LECT=/^(nav_reorden|nav_auditoria|meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo|dash_home|dash_hist)$/;
 /* b344: escrituras de bodega/recepción/stock directo a Supabase (portal-api → ventas-api), sin el salto por Apps Script; Apps Script solo si no hay sesión o Supabase no responde */
 var MC_SB_ESCR=/^(pick|pack|ship|fulfill|pick_edit|pick_undo|pack_undo|ship_edit|ship_undo|po_receive|stk_transfer|stk_adjust|stk_count_start|stk_count_save|stk_count_complete|stk_cancel)$/;
@@ -640,7 +642,7 @@ function MCsbRefresh(){
 }
 function MCsbEligible(c){
   if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
-  return (c.action==='ventas'&&(MC_SB_LECT.test(String(c.op||''))||MC_SB_ESCR.test(String(c.op||''))))||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
+  return c.action==='ventas'||c.action==='cli_nombres'||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
 }
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
@@ -660,7 +662,7 @@ function MCpost0(p){
   if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var esW=p.action==='ventas'&&MC_SB_ESCR.test(String(p.op||''));var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},esW?90000:Math.min(p._timeout||20000,20000)):null;
+  var esW=p.action==='ventas'&&!MC_SB_LECT2.test(String(p.op||''));var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},esW?90000:Math.min(p._timeout||20000,20000)):null;
   var t0=Date.now();
   return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
     .then(function(r){if(timer)clearTimeout(timer);
@@ -887,13 +889,9 @@ var MCWarm = (function(){
     var cred=auth();
     pCli=Promise.resolve()
       .then(function(){
-        return MCpost({action:'getClientes',user:cred.user,pin:cred.pin,_timeout:25000,_retries:1})
-          .then(function(r){if(r&&r.ok)applyClientes(r.clientes||[],'getClientes');})
-          .catch(function(){});
-      })
-      .then(function(){
-        return MCpost({action:'getClientesInflowLista',user:cred.user,pin:cred.pin,_timeout:45000,_retries:1})
-          .then(function(r2){if(r2&&r2.ok)applyClientes(r2.clientes||[],'getClientesInflowLista');})
+        /* b345: nombres de clientes desde Supabase (app.customers); Apps Script solo si no hay sesión Supabase */
+        return MCsbOr({action:'cli_nombres'},{action:'getClientesInflowLista',_timeout:45000,_retries:1})
+          .then(function(r){if(r&&r.ok)applyClientes(r.clientes||[],r.fuente==='supabase'?'supabase':'getClientesInflowLista');})
           .catch(function(){});
       })
       .then(function(){
@@ -947,6 +945,7 @@ var MCWarm = (function(){
     flight.then(function(){if(inflight[key]===flight)inflight[key]=null;},function(){if(inflight[key]===flight)inflight[key]=null;});
   }
   function loadInflow(tipo, force){
+    if(window.MC_IO_LEGACY!==true)return Promise.resolve([]); /* b345: Cotizaciones antiguo retirado; usa Ventas (Supabase) */
     hydrateDocs();
     var key=docKey(tipo);
     if(!force&&mem[key]!==null&&isDocFresh(mem[key+'At'], mem[key+'Source']))return Promise.resolve(mem[key]);
@@ -1058,6 +1057,7 @@ var MCWarm = (function(){
     warmDocs(true);
   }
   function armDocRefresh(){
+    if(window.MC_IO_LEGACY!==true)return; /* b345: sin sondeo getInflowOrdenes (Apps Script) cada 3 min */
     if(docsArmed)return;
     docsArmed=true;
     setTimeout(function(){warmDocs(false);},250);
@@ -3694,6 +3694,8 @@ var Dash = (function(){
     loadOrderDetail(id);
   }
   function toggleOrder(id){
+    if(window.MC_IO_LEGACY!==true){var _o=null;for(var _i=0;_i<(orders||[]).length;_i++)if(String(orders[_i].id)===String(id))_o=orders[_i];
+      if(_o&&_o.ov){openMod(_o.cotizacion?'vcot':'vov');setTimeout(function(){try{Ventas.abrirNum(_o.ov);}catch(e){}},350);return;}} /* b345 */
     if(!id){alert('Esta orden no tiene ID (corre syncAll con la v12 primero).');return;}
     openId = (openId===id)?null:id;
     render();
@@ -4843,7 +4845,7 @@ var Inv = (function(){
     if(!box)return;
     if(despArr===null){
       box.innerHTML='<div class="cbz-loading">Cargando despieces...</div>';
-      api({action:'getDespieces'}).then(function(res){
+      MCsbOr({action:'despieces'},{action:'getDespieces'}).then(function(res){ /* b345 */
         despArr=res.ok?(res.despieces||[]):[];
         renderDesp();
       }).catch(function(){despArr=[];renderDesp();});
@@ -12251,6 +12253,7 @@ function openMod(m){if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirty
   if(m==='kyc'){document.getElementById('kyc-screen').style.display='block';document.getElementById('title').textContent='BASE DE CLIENTES';Kyc.init();}
   if(m==='mailcfg'){document.getElementById('mailcfg-screen').style.display='block';document.getElementById('title').textContent='CORREO DEL SISTEMA';MailCfg.init();}
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
+  if(m==='cot'&&window.MC_IO_LEGACY!==true){openMod('vcot');return;} /* b345 */
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
   if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
   if(m==='bots'){document.getElementById('bots-screen').style.display='block';document.getElementById('title').textContent='BOTS';Bots.init();}
