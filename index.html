@@ -464,7 +464,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='343';
+  var MC_BUILD='344';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -617,6 +617,8 @@ function MCrefrescarStock(){
    Si el token falta/vence/se revoca o Supabase falla ⇒ se usa el camino de siempre (Apps Script) sin que el usuario lo note. */
 var MC_SB_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api';
 var MC_SB_LECT=/^(nav_reorden|nav_auditoria|meta|clientes|catalogos|productos|list|get|picklist|boxcontent|attachmentUrl|reconcile|outbox|paraPiquear|doc|refs|categorias|productoUbicaciones|dash_cfo|dash_home|dash_hist)$/;
+/* b344: escrituras de bodega/recepción/stock directo a Supabase (portal-api → ventas-api), sin el salto por Apps Script; Apps Script solo si no hay sesión o Supabase no responde */
+var MC_SB_ESCR=/^(pick|pack|ship|fulfill|pick_edit|pick_undo|pack_undo|ship_edit|ship_undo|po_receive|stk_transfer|stk_adjust|stk_count_start|stk_count_save|stk_count_complete|stk_cancel)$/;
 var MC_SB_DOWN=0,MC_SB_REF=null;
 var MC_CAJA_RX=/^(getRutas|getGastos|getEntregas|getBalanceCaja|getConfig|updateConfig|crearRuta|editarRuta|aprobarRuta|rechazarRuta|crearGasto|aprobarGasto|rechazarGasto|crearEntrega|eliminarLineaCaja|eliminarEntrega|eliminarGasto|eliminarRuta|cerrarCorte|savePhoto)$/;
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
@@ -638,7 +640,7 @@ function MCsbRefresh(){
 }
 function MCsbEligible(c){
   if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
-  return (c.action==='ventas'&&MC_SB_LECT.test(String(c.op||'')))||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
+  return (c.action==='ventas'&&(MC_SB_LECT.test(String(c.op||''))||MC_SB_ESCR.test(String(c.op||''))))||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
 }
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
@@ -658,7 +660,7 @@ function MCpost0(p){
   if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},Math.min(p._timeout||20000,20000)):null;
+  var esW=p.action==='ventas'&&MC_SB_ESCR.test(String(p.op||''));var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},esW?90000:Math.min(p._timeout||20000,20000)):null;
   var t0=Date.now();
   return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
     .then(function(r){if(timer)clearTimeout(timer);
@@ -668,6 +670,8 @@ function MCpost0(p){
     .then(function(res){try{window.MC_SB_LAST={a:p.action,op:p.op||'',ms:Date.now()-t0};}catch(e){}return res;})
     .catch(function(e){
       if(timer)clearTimeout(timer);
+      /* b344: una escritura que pudo llegar a ejecutarse (timeout o error del servidor) NO se reintenta por Apps Script: evitaría duplicar picks/recepciones */
+      if(esW&&!(e&&(e.message==='SB401'||e.name==='TypeError')))return {ok:false,error:'No hubo respuesta de Supabase. Recarga la orden antes de reintentar para no duplicar.'};
       if(!(e&&e.message==='SB401'))MC_SB_DOWN=Date.now()+60000;
       try{console.warn('Supabase directo falló, uso Apps Script:',e&&e.message);}catch(e2){}
       return MCpostAS(p);
@@ -11194,7 +11198,9 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     el().innerHTML=h;vencePrev();
   }
   function vencePrev(){var a=$('vt-ffec'),b=$('vt-fcd'),s=$('vt-fven');if(!a||!s)return;var d=new Date(a.value+'T12:00:00');if(isNaN(d))return;d.setDate(d.getDate()+(parseInt(b.value,10)||0));s.textContent='vence '+d.toISOString().slice(0,10);}
-  function volver(){if(DIRTY){return mcDirtyAsk(function(){ieGuardar(function(){volver();});},function(){DIRTY=null;volver();});}cur=null;form=null;if(window.MC_VOLVER_DASH&&DashV2.volverDash())return;renderLista();}
+  function volver(){if(DIRTY){return mcDirtyAsk(function(){ieGuardar(function(){volver();});},function(){DIRTY=null;volver();});}/* b344: al volver, reflejar al instante el estado de la orden abierta en la lista y refrescar en segundo plano (antes pintaba la lista vieja en memoria) */
+    try{if(cur&&cur.orden){var oo=cur.orden;lista.forEach(function(x,i){if(x.id===oo.id){for(var k in oo)if(typeof oo[k]!=='object'||oo[k]===null)x[k]=oo[k];}});}}catch(_){}
+    cur=null;form=null;if(window.MC_VOLVER_DASH&&DashV2.volverDash())return;renderLista();try{cargar(true);}catch(_){}}
   function run(p,msg,after){if(busy)return;busy=true;api(p).then(function(r){busy=false;if(!r.ok){err(r.error);return;}if(msg)try{toast(msg);}catch(e){}if(after)after(r);else recargar();}).catch(function(e){busy=false;err(e);});}
   function convertir(){var _bc=cur.cliente&&(cur.cliente.name||cur.cliente.nombre);if(mcBloq(_bc)){alert('⛔ Cliente BLOQUEADO ('+_bc+'): no se puede convertir la cotización hasta que administración lo desbloquee.');return;}if(!confirm('¿Convertir '+cur.orden.order_number+' en orden de venta?'))return;run({op:'convert',id:cur.orden.id},'Convertida',function(r){alert('Orden de venta '+r.order_number+' creada desde '+r.quote_number);tipo='SO';abrir(r.id);});}
   function cancelar(){if(!confirm('¿Cancelar '+cur.orden.order_number+'?'))return;run({op:'cancel',id:cur.orden.id},'Cancelada');}
