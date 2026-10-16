@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='383';
+  var MC_BUILD='384';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -9479,7 +9479,7 @@ var Compras=(function(){
   function pAsk(go){return mcDirtyAsk(function(){pG(go);},function(){PD=null;go();});}
   function renderDet(){var o=cur.orden,v=cur.proveedor||{},ab=!o.is_cancelled&&!o.is_quote,pend=cur.lineas.some(function(l){return l.quantity>l.recibido;});
     var h=RT+tabs()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Compras.init()">← Órdenes</button>'+
-      (o.is_quote&&!o.is_cancelled?'<button class="cbz-btn" style="background:#6fd68f" onclick="Compras.aprobar()">✅ Aprobar (cotización → OC)</button>':'')+'<button class="chip" onclick="window.MC_PO_CUR=Compras._cur();MCPoPdfBajar(true)">📄 PDF</button><button class="chip" onclick="Compras.email()">✉ Email</button><button class="chip" onclick="window.MC_PO_CUR=Compras._cur();MCPoPdfBajar(false)">📄 PDF bodega (sin precios)</button>'+'<button class="chip" onclick="Compras.duplicar()">📄 Duplicar</button>'+(PD?'<div style="position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;background:#3a2f0b;border:1px solid #c9a227;border-radius:8px;padding:6px 10px;margin:6px 0;width:100%"><b style="color:#f5d36b;font-size:12px">● Cambios sin guardar</b><button class="cbz-btn cbz-btn-primary" onclick="Compras.pG()">Guardar</button><button class="cbz-btn" onclick="Compras.pD()">Descartar</button></div>':'')+(!o.is_cancelled?'<button class="cbz-btn" onclick="Compras.editar()">＋ Agregar producto</button>':(ab?'<span class="cbz-muted" style="font-size:11px;align-self:center">✏️ Ya tiene recepciones: no se editan las líneas</span>':''))+(!o.is_cancelled?'<button class="chip" style="color:#e05c5c" onclick="Compras.cancelar()">✕ Cancelar OC</button>':'')+'</div>';
+      (o.is_quote&&!o.is_cancelled?'<button class="cbz-btn" style="background:#6fd68f" onclick="Compras.aprobar()">✅ Aprobar (cotización → OC)</button>':'')+'<button class="chip" onclick="window.MC_PO_CUR=Compras._cur();MCPoPdfBajar(true)">📄 PDF</button><button class="chip" onclick="Compras.email()">✉ Email</button>'+(window.MCPagProv&&(function(){try{return getProfile().rol==='admin';}catch(e){return false;}})()?'<button class="chip" onclick="MCPagProv.poPanel(\''+o.id+'\')">💵 Pagos por factura</button>':'')+'<button class="chip" onclick="window.MC_PO_CUR=Compras._cur();MCPoPdfBajar(false)">📄 PDF bodega (sin precios)</button>'+'<button class="chip" onclick="Compras.duplicar()">📄 Duplicar</button>'+(PD?'<div style="position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;background:#3a2f0b;border:1px solid #c9a227;border-radius:8px;padding:6px 10px;margin:6px 0;width:100%"><b style="color:#f5d36b;font-size:12px">● Cambios sin guardar</b><button class="cbz-btn cbz-btn-primary" onclick="Compras.pG()">Guardar</button><button class="cbz-btn" onclick="Compras.pD()">Descartar</button></div>':'')+(!o.is_cancelled?'<button class="cbz-btn" onclick="Compras.editar()">＋ Agregar producto</button>':(ab?'<span class="cbz-muted" style="font-size:11px;align-self:center">✏️ Ya tiene recepciones: no se editan las líneas</span>':''))+(!o.is_cancelled?'<button class="chip" style="color:#e05c5c" onclick="Compras.cancelar()">✕ Cancelar OC</button>':'')+'</div>';
     h+='<div class="cbz-card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><div class="cbz-card-name" style="font-size:17px">'+pie('order_number',esc(o.order_number))+'</div><b style="color:'+(EST_COL[o.estado]||'#9fc3e8')+'">'+esc(o.estado)+'</b></div>'+
       '<div class="cbz-muted" style="font-size:12px;line-height:1.6">'+esc(v.name||'')+' · N° proveedor '+pie('vendor_order_number',esc(o.vendor_order_number||''))+'<br>Fecha '+d10(o.order_date)+' · vence '+pie('due_date',o.due_date?d10(o.due_date):'')+' · Bodega '+esc(cur.bodega||'')+' · inFlow: '+(SYNC[o.sync_status]||esc(o.sync_status||''))+(o.sync_error?' · '+esc(o.sync_error):'')+'</div>'+'<div style="margin-top:4px">'+MCAsig.chip('po',o.id,o.asignado_a)+'</div>'+MCCampos.slot('po',o.id)+facHtml()+'</div>';setTimeout(function(){try{if(adm())MCPoAsig(o.id);}catch(e){}},0);
     h+='<div class="cbz-card-row" style="gap:6px;margin:8px 0;flex-wrap:wrap">'+[['orden','🧾 Orden'],['recibir','📥 Recibir'+(cur.recepciones.length?' ('+cur.recepciones.length+')':'')]].map(function(t){return '<button class="chip" style="'+(cv===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Compras.setV(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
@@ -12610,6 +12610,7 @@ function renderHome(){
   if(p.rol==='cliente') add('crec','🧾','Recibidos de entrega','Actas de entrega firmadas de tus órdenes');
   if(p.rol!=='cliente'&&(can('cotizaciones')||can('dashboard')||can('inventario'))) add('vpick','📦','Preparar orden','OV con stock: marca cada producto y descuenta de su sububicación');
   if(p.rol!=='cliente') add('vent','🚚','Entregar orden','Fotos, firma de quien recibe y PDF de recibido'); /* b353 · b360: junto a Preparar */
+  if(p.rol==='admin') add('vpagprov','💵','Pagos a proveedores','Comprobante → asignación por OC y factura (Abono/Saldo Fct) → Registrar'); /* b384 */
   if(p.rol==='admin') add('vcosteo','🧮','Costeo de importaciones','Facturas, packing, montos del agente, landed cost y lotes MCOR-06'); /* b360 */
   if(p.rol!=='cliente'&&(can('inventario')||can('dashboard'))) add('vmanuf','🏭','Manufactura','Listas de materiales, órdenes de manufactura y costo del armado');
   if(p.rol==='cliente'&&p.vinculada===false) add('vinc','🔎','Confirma tu organización','Toca aquí para encontrar tu empresa y vincular tu cuenta',{border:'#f0c040'});
@@ -12871,6 +12872,7 @@ function openMod(m){if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirty
   if(m==='vcli'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='CLIENTES';MCCli.init();}
   if(m==='vprod'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='PRODUCTOS';MCProd.init();}
   if(m==='vasig'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='ASIGNADO A TI';MCAsig.init();}
+  if(m==='vpagprov'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='PAGOS A PROVEEDORES';MCPagProv.init();} /* b384 */
   if(m==='vcosteo'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='COSTEO DE IMPORTACIONES';MCCosteo.init(window._mcCosteoIni||'');window._mcCosteoIni='';} /* b357 */
   if(m==='vcfg'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='CONFIGURACIÓN';MCCfg.init();}
   if(m==='vprecios'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='ESQUEMAS DE PRECIO';MCPrecios.init();}
@@ -12946,7 +12948,8 @@ function MC_NAVCAT(){
       ['🛒','Órdenes de compra','oc',PR,function(){oc(false);},'proveedores'],
       ['🗒','Cotizaciones de compra','pq',PR,function(){oc(true);},'proveedores'],
       ['🏭','Proveedores','prov',PR,function(){openMod('prov');},'proveedores'],
-      ['🧮','Costeo de importaciones','costeo',A,function(){openMod('vcosteo');},'ADMIN']]}, /* b357 */
+      ['🧮','Costeo de importaciones','costeo',A,function(){openMod('vcosteo');},'ADMIN'],
+      ['💵','Pagos a proveedores','pagprov',A,function(){openMod('vpagprov');},'ADMIN']]}, /* b357 · b384 */
     {k:'rep',ico:'bars',t:'Reportes',col:'#0f8f9c',items:[
       ['⭐','Recientes y guardados','rec',DA,function(){window.MC_REP_CAT='rec';openMod('rep');},'dashboard'],
       ['📈','Ventas','ventas',D,function(){window.MC_REP_CAT='sales';openMod('rep');},'dashboard'],
@@ -14905,6 +14908,87 @@ var MCCfg=(function(){var C={tab:'general',d:null,ed:null,inact:false,bod:null,s
 /* b358 · EFCH: en móvil Costeo y Cruce son una lista compacta (una fila por producto); al tocar se despliega (acordeón, una a la vez) con todos los campos por sección y edición Guardar/Descartar. */
 /* ---------- b357: COSTEO de importaciones (EFCH t649) — reemplaza el Excel de Cote. Solo administración. Servidor: costeo-api (vía portal-api action 'costeo').
    Flujo: OC(s) → facturas y packings (PDF; se leen solos y se adjuntan a la OC) → cruce → 12 montos de Majo (+ comisión $100) → aprobar → pre-recibir → conteo físico → recibir (stock + costo promedio) → cerrar (lote MCOR-06 por proveedor, ZIP por proveedor, BORRADOR a Stratega). ---------- */
+/* b384: Compras › Pagos a proveedores (comprobante → propuesta por OC/factura → Registrar). Supabase original; inFlow espejo por po_outbox. Solo admin (costeo-api). */
+var MCPagProv=(function(){
+  var S={v:'list',prov:'BOYLES',pagos:null,alertas:null,f:null,pr:null,busy:false,abierto:{}};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function f2(n){return n==null||isNaN(n)?'—':(+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function fd(s){var m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:'';}
+  function el(){return document.getElementById('maes-screen');}
+  function api(op,b){b=b||{};b.action='costeo';b.op=op;b.user=getUserName();b.pin=getPin();return MCpost(b).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Error');return r;});}
+  function css(){if(document.getElementById('pp-css'))return;var s=document.createElement('style');s.id='pp-css';s.textContent=
+    '.pp{max-width:1100px;margin:0 auto;padding:10px 12px 60px;font-size:14px;box-sizing:border-box}.pp *{box-sizing:border-box}'+
+    '.pp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.pp-sec{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8fa3b8;margin:18px 0 6px}'+
+    '.pp-in{background:transparent;border:0;border-bottom:1px solid #3a4d63;border-radius:0;color:inherit;padding:6px 2px;font:inherit;width:100%;outline:none}.pp-in:focus{border-bottom-color:#a3e635}'+
+    '.pp-row{display:flex;flex-wrap:wrap;gap:10px 16px}.pp-row label{flex:1 1 160px;min-width:0;font-size:11px;color:#8fa3b8}'+
+    '.pp-btn{background:#a3e635;color:#0b1520;border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer}.pp-btn[disabled]{opacity:.5}.pp-b2{background:transparent;color:inherit;border:1px solid #33475c;border-radius:8px;padding:8px 12px;cursor:pointer}'+
+    '.pp-card{border-bottom:1px solid #1d2b3a;padding:10px 2px}.pp-mut{color:#8fa3b8;font-size:12px}.pp-ok{color:#a3e635}.pp-bad{color:#ff8a8a}.pp-warn{color:#f0c040}'+
+    '.pp-al{border-left:3px solid #f0c040;padding:6px 10px;margin:6px 0;background:#f0c04010;font-size:13px}.pp-al.man{border-left-color:#ff8a8a;background:#ff8a8a10}'+
+    '.pp-drop{border:1.5px dashed #2f4258;border-radius:10px;padding:22px;text-align:center;cursor:pointer}.pp-drop.on{border-color:#a3e635}'+
+    '.pp-l{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) 110px;gap:4px 12px;align-items:center;padding:8px 0;border-bottom:1px solid #16222f}'+
+    '@media(max-width:640px){.pp-l{grid-template-columns:minmax(0,1fr) 100px}.pp-l .pp-rm{grid-column:1/-1}}.pp-num{text-align:right;font-variant-numeric:tabular-nums}';document.head.appendChild(s);}
+  function init(){css();S.v='list';try{MCroute.set('vpagprov');}catch(e){}lista();}
+  function alertasH(A){A=A||[];if(!A.length)return '';return '<div class="pp-sec">Alertas ('+A.length+')</div>'+A.map(function(a){return '<div class="pp-al'+(a.tipo==='manual'?' man':'')+'">'+(a.tipo==='manual'?'⚠ ':'')+esc(a.texto)+(a.origen?' <span class="pp-mut">· '+esc(a.origen)+'</span>':'')+'</div>';}).join('');}
+  function lista(){el().innerHTML='<div class="pp"><div class="cbz-loading">Cargando pagos…</div></div>';
+    Promise.all([api('prov_pago_list',S.prov?{proveedor:S.prov}:{}),api('prov_pago_alertas',{})]).then(function(r){S.pagos=r[0].pagos||[];S.alertas=r[1].alertas||[];pintaLista();}).catch(function(e){el().innerHTML='<div class="pp pp-bad">'+esc(e.message)+'</div>';});}
+  function pintaLista(){var P=S.pagos||[],tot=P.reduce(function(s,p){return s+(+p.monto||0);},0);
+    var h='<div class="pp"><div class="pp-bar"><b style="font-size:17px;flex:1 1 auto">Pagos a proveedores</b><button class="pp-btn" onclick="MCPagProv.nuevo()">＋ Subir comprobante</button></div>'+
+      '<div class="pp-row"><label>Proveedor<input class="pp-in" id="pp-fprov" value="'+esc(S.prov)+'" placeholder="Todos" onchange="MCPagProv._prov(this.value)"></label></div>'+alertasH(S.alertas)+
+      '<div class="pp-sec">'+P.length+' pagos · USD '+f2(tot)+'</div>';
+    h+=P.map(function(p){var o=S.abierto[p.id];return '<div class="pp-card"><div style="display:flex;flex-wrap:wrap;gap:4px 12px;cursor:pointer" onclick="MCPagProv._tog(\''+p.id+'\')"><b style="flex:1 1 200px">'+fd(p.fecha)+' · USD '+f2(p.monto)+'</b>'+
+      '<span class="pp-mut" style="flex:1 1 200px">Ref '+esc(p.referencia||'—')+' · '+esc(p.metodo||'')+'</span><span class="pp-mut">'+esc(p.estado==='historico'?'histórico (inFlow)':p.estado)+' · '+(p.lineas||[]).length+' línea(s)</span></div>'+
+      (o?(p.lineas||[]).map(function(l){return '<div class="pp-l"><div>'+esc(l.po)+(l.factura?' · Fct '+esc(l.factura):'')+'</div><div class="pp-mut pp-rm">'+esc(l.remarks||'')+'</div><div class="pp-num">'+f2(l.monto)+'</div></div>';}).join('')+(p.comprobante_nombre?'<button class="pp-b2" style="margin-top:6px" onclick="MCPagProv._ver(\''+p.id+'\')">📄 '+esc(p.comprobante_nombre)+'</button>':''):'')+'</div>';}).join('')||'<div class="pp-mut">Sin pagos.</div>';
+    el().innerHTML=h+'</div>';}
+  function nuevo(){S.v='nuevo';S.f={};S.pr=null;pintaNuevo();}
+  function pintaNuevo(){var f=S.f||{},pr=S.pr;
+    var h='<div class="pp"><div class="pp-bar"><button class="pp-b2" onclick="MCPagProv.init()">← Pagos</button><b style="font-size:17px">Nuevo pago a proveedor</b></div>';
+    h+='<div class="pp-drop" id="pp-drop" onclick="document.getElementById(\'pp-file\').click()">'+(f.nombre?'📄 '+esc(f.nombre)+(f.leyendo?' · leyendo…':' · leído'):'Arrastra aquí el comprobante (PDF o foto) o toca para elegir')+'</div><input type="file" id="pp-file" accept="application/pdf,image/*" style="display:none" onchange="MCPagProv._file(this.files[0])">';
+    h+='<div class="pp-sec">Datos del comprobante (revisa)</div><div class="pp-row">'+
+      '<label>Monto USD<input class="pp-in" id="pp-monto" inputmode="decimal" value="'+esc(f.monto||'')+'"></label>'+
+      '<label>Fecha valor<input class="pp-in" type="date" id="pp-fecha" value="'+esc(f.fecha||'')+'"></label>'+
+      '<label>Referencia (SWIFT / n.º comprobante)<input class="pp-in" id="pp-ref" value="'+esc(f.referencia||'')+'"></label>'+
+      '<label>Proveedor<input class="pp-in" id="pp-prov" value="'+esc(f.proveedor||'')+'"></label>'+
+      '<label>Método<select class="pp-in" id="pp-met">'+['TRANSFERENCIA INTERNACIONAL','TRANSFERENCIA LOCAL'].map(function(m){return '<option'+(f.metodo===m?' selected':'')+'>'+m+'</option>';}).join('')+'</select></label></div>'+
+      (f.concepto?'<div class="pp-mut" style="margin-top:6px">Detalle del banco: '+esc(f.concepto)+' <i>(pista; manda el EECC del proveedor)</i></div>':'')+
+      '<div class="pp-bar"><button class="pp-btn" onclick="MCPagProv._proponer()">Proponer asignación</button><span class="pp-mut" id="pp-st"></span></div>';
+    if(pr){h+=(pr.duplicado&&!pr.duplicado.parcial?'<div class="pp-al man">⛔ Duplicado: ya existe ref '+esc(f.referencia)+' por USD '+f2(pr.duplicado.monto)+' ('+esc(pr.duplicado.donde)+'). No se puede registrar.</div>':pr.duplicado?'<div class="pp-al">Esta referencia ya tiene USD '+f2(pr.duplicado.monto)+' en '+esc(pr.duplicado.pos||'')+'.</div>':'')+
+      '<div class="pp-sec">Propuesta · '+esc((pr.vendors||[]).map(function(v){return v.name;}).join(' / '))+'</div>'+
+      (pr.lineas||[]).map(function(l,i){return '<div class="pp-l"><div><b>'+esc(l.po)+'</b> · Fct '+esc(l.num)+' <span class="pp-mut">· abierto '+f2(l.abierto_factura)+' · saldo OC '+f2(l.saldo_po)+' · '+esc(l.fuente||'')+'</span></div>'+
+        '<input class="pp-in pp-rm" value="'+esc(l.remarks)+'" onchange="MCPagProv._ed('+i+',\'remarks\',this.value)">'+
+        '<input class="pp-in pp-num" inputmode="decimal" value="'+(+l.monto).toFixed(2)+'" onchange="MCPagProv._ed('+i+',\'monto\',this.value)"></div>';}).join('')+
+      '<div class="pp-l"><div><b>Total</b></div><div class="pp-mut pp-rm">'+(pr.sin_asignar>0.005?'<span class="pp-warn">Sin asignar USD '+f2(pr.sin_asignar)+': no hay facturas abiertas para cubrirlo. Revisa EECC.</span>':'')+'</div><div class="pp-num"><b>'+f2((pr.lineas||[]).reduce(function(s,l){return s+(+l.monto||0);},0))+'</b></div></div>'+
+      alertasH(pr.alertas)+
+      '<div class="pp-bar"><button class="pp-btn" id="pp-reg" onclick="MCPagProv._registrar()"'+(pr.duplicado&&!pr.duplicado.parcial||!(pr.lineas||[]).length?' disabled':'')+'>Registrar</button><span class="pp-mut">Guarda el pago y las líneas por OC/factura, actualiza saldos y lo envía a inFlow.</span></div>';}
+    el().innerHTML=h+'</div>';
+    var dz=document.getElementById('pp-drop');if(dz){dz.ondragover=function(e){e.preventDefault();dz.classList.add('on');};dz.ondragleave=function(){dz.classList.remove('on');};dz.ondrop=function(e){e.preventDefault();dz.classList.remove('on');file(e.dataTransfer.files[0]);};}}
+  function leerForm(){var g=function(k){var x=document.getElementById(k);return x?x.value.trim():'';};var f=S.f;f.monto=g('pp-monto').replace(/,/g,'');f.fecha=g('pp-fecha');f.referencia=g('pp-ref');f.proveedor=g('pp-prov');f.metodo=g('pp-met');return f;}
+  function file(fl){if(!fl)return;if(fl.size>15*1024*1024)return alert('Máximo 15 MB');leerForm();S.f.nombre=fl.name;S.f.leyendo=1;pintaNuevo();var rd=new FileReader();
+    rd.onload=function(){api('prov_pago_leer',{nombre:fl.name,base64:String(rd.result).split(',')[1]||''}).then(function(r){var x=r.extraido||{},f=S.f;f.leyendo=0;f.comprobante_path=r.comprobante_path;f.comprobante_nombre=r.comprobante_nombre;f.extraido=x;
+      if(x.monto!=null)f.monto=x.monto;if(x.fecha)f.fecha=x.fecha;if(x.referencia)f.referencia=x.referencia;f.proveedor=(r.vendors&&r.vendors[0]&&r.vendors[0].name)||x.proveedor||f.proveedor;if(x.metodo)f.metodo=/LOCAL/i.test(x.metodo)?'TRANSFERENCIA LOCAL':'TRANSFERENCIA INTERNACIONAL';f.concepto=x.concepto||'';f.vendor_ids=(r.vendors||[]).map(function(v){return v.id;});pintaNuevo();})
+      .catch(function(e){S.f.leyendo=0;pintaNuevo();alert(e.message);});};rd.readAsDataURL(fl);}
+  function body(){var f=leerForm(),b={monto:+f.monto,fecha:f.fecha,referencia:f.referencia,metodo:f.metodo};if(f.vendor_ids&&f.vendor_ids.length)b.vendor_ids=f.vendor_ids;else b.proveedor=f.proveedor;return b;}
+  function proponer(){var b=body();if(!(b.monto>0)||!b.fecha||!b.referencia)return alert('Monto, fecha y referencia son obligatorios');var st=document.getElementById('pp-st');if(st)st.textContent='Calculando…';
+    api('prov_pago_proponer',b).then(function(r){S.pr=r;pintaNuevo();}).catch(function(e){if(st)st.textContent='';alert(e.message);});}
+  function ed(i,k,v){var l=S.pr&&S.pr.lineas[i];if(!l)return;if(k==='monto'){var n=+String(v).replace(/,/g,'');if(!(n>=0))return pintaNuevo();if(n-l.abierto_factura>0.01){alert('No puede superar lo abierto de la factura ('+f2(l.abierto_factura)+')');return pintaNuevo();}l.monto=Math.round(n*100)/100;var t=l.abierto_factura-l.monto;l.tipo=Math.abs(t)<=0.01?'Saldo':'Abono';l.remarks=String(l.remarks).replace(/\/ (Saldo|Abono) Fct/,'/ '+l.tipo+' Fct');}else l[k]=v;pintaNuevo();}
+  function registrar(){if(!S.pr)return;var b=body(),L=S.pr.lineas.filter(function(l){return l.monto>0;}),sum=L.reduce(function(s,l){return s+l.monto;},0);
+    if(sum-b.monto>0.01)return alert('Las líneas suman más que el pago');
+    if(!confirm('¿Registrar pago USD '+f2(b.monto)+' ref '+b.referencia+' en '+L.length+' línea(s)? Se actualizan saldos y se envía a inFlow.'))return;
+    b.confirmar=true;b.lineas=L.map(function(l){return {po_id:l.po_id,po:l.po,factura:l.factura,tipo:l.tipo,monto:l.monto,remarks:l.remarks};});var f=S.f;b.comprobante_path=f.comprobante_path;b.comprobante_nombre=f.comprobante_nombre;b.extraido=f.extraido;
+    api('prov_pago_registrar',b).then(function(r){alert('Registrado: '+r.lineas.map(function(x){return x.po+' '+f2(x.monto)+' → saldo '+f2(x.saldo_despues);}).join('\n'));init();}).catch(function(e){alert(e.message);});}
+  function poPanel(po){var d=document.createElement('div');d.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 10px';d.onclick=function(e){if(e.target===d)d.remove();};
+    d.innerHTML='<div class="pp" style="background:#0f1a26;border-radius:12px;max-width:760px;width:100%"><div class="cbz-loading">Cargando…</div></div>';document.body.appendChild(d);css();
+    api('prov_po_pagos',{po_id:po}).then(function(r){var o=r.oc||{},F=o.facturas||[],P=r.pagos||[];
+      d.firstChild.innerHTML='<div class="pp-bar"><b style="flex:1 1 auto">'+esc(o.order_number||po)+' · pagos por factura</b><button class="pp-b2" onclick="this.closest(\'div[style*=fixed]\').remove()">✕</button></div>'+
+        '<div class="pp-mut">Total '+f2(o.total)+' · pagado '+f2(o.pagado)+' · saldo '+f2(o.saldo)+(o.sin_factura>0.05?' · sin factura '+f2(o.sin_factura):'')+'</div>'+
+        F.map(function(f){var pf=P.filter(function(p){return p.factura&&String(p.factura).split(/[^0-9]+/).filter(Boolean).map(function(z){return String(parseInt(z,10));}).indexOf(f.num)>=0;});
+          return '<div class="pp-sec">Fct '+esc(f.num)+' · share '+f2(f.cuota)+' · pagado '+f2(f.pagado)+' · <span class="'+(f.abierto>=1?'pp-warn':'pp-ok')+'">abierto '+f2(f.abierto)+'</span></div>'+pf.map(function(p){return '<div class="pp-l"><div>'+fd(p.fecha)+' · '+esc(p.referencia||'')+'</div><div class="pp-mut pp-rm">'+esc(p.remarks||'')+'</div><div class="pp-num">'+f2(p.monto)+'</div></div>';}).join('');}).join('')+
+        (function(){var sf=P.filter(function(p){return !p.factura;});return sf.length?'<div class="pp-sec">Pagos sin factura identificada</div>'+sf.map(function(p){return '<div class="pp-l"><div>'+fd(p.fecha)+' · '+esc(p.referencia||'')+'</div><div class="pp-mut pp-rm">'+esc(p.remarks||'')+'</div><div class="pp-num">'+f2(p.monto)+'</div></div>';}).join(''):'';})();})
+      .catch(function(e){d.firstChild.innerHTML='<div class="pp-bad">'+esc(e.message)+'</div>';});}
+  return {init:init,nuevo:nuevo,poPanel:poPanel,_file:file,_proponer:proponer,_ed:ed,_registrar:registrar,
+    _prov:function(v){S.prov=v.trim();lista();},_tog:function(id){S.abierto[id]=!S.abierto[id];pintaLista();},
+    _ver:function(id){api('prov_pago_url',{id:id}).then(function(r){if(r.url)window.open(r.url,'_blank');});}};
+})();
+
 var MCCosteo=(function(){
   var S={open:null,v:'list',id:null,d:null,tab:'costeo',ed:null,list:null,pos:null,busy:false,plan:null,cols:false};
   var LOC='a4b0d9f6-9544-4200-aefa-43ed6c027484';
