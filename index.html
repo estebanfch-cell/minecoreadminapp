@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='398';
+  var MC_BUILD='399';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -15559,7 +15559,7 @@ var MCDash=(function(){
     return '<div class="mcd-bar"><label>Período<select onchange="MCDash.set(\''+s.id+'\',\'per\',this.value)">'+PER.map(function(p){return '<option value="'+p[0]+'"'+(s.per===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select></label>'+
       '<label>Fecha de referencia<input type="date" value="'+s.ref+'" onchange="MCDash.set(\''+s.id+'\',\'ref\',this.value)"></label>'+
       (s.per==='anio'&&s.kind==='cli'?'<label>Tipo de reporte<span style="padding:5px 0">Cierre de año</span></label>':'<label>Tipo de reporte<select onchange="MCDash.set(\''+s.id+'\',\'tipo\',this.value,1)">'+T.map(function(t){return '<option value="'+t[0]+'"'+(s.tipo===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('')+'</select></label>')+
-      '<label>PDF<select id="mcd-top-'+s.id+'"><option value="10">Top 10</option><option value="20">Top 20</option><option value="0" selected>Completo</option></select></label><button class="mcd-btn" id="mcd-pdf-'+s.id+'" onclick="MCDash.pdf(\''+s.id+'\')">⬇ Descargar PDF</button><button class="mcd-btn" id="mcd-lk-'+s.id+'" onclick="MCDash.link(\''+s.id+'\')">🔗 Generar link</button><span class="mcd-lko" id="mcd-lko-'+s.id+'"></span></div>';}
+      '<button class="mcd-btn" id="mcd-pdf-'+s.id+'" onclick="MCDash.pdf(\''+s.id+'\')">⬇ Descargar PDF</button><button class="mcd-btn" id="mcd-lk-'+s.id+'" onclick="MCDash.link(\''+s.id+'\')">🔗 Generar link</button><span class="mcd-lko" id="mcd-lko-'+s.id+'"></span></div>';}
   function set(id,k,v,noLoad){var s=ST[id];s[k]=v;if(noLoad)return;pinta(s);}
   function pinta(s){var R=rango(s.per,s.ref);s.host.innerHTML='<div class="mcd">'+ctrl(s)+'<div class="cbz-muted">Cargando tablero…</div></div>';
     var b={desde:R.desde,hasta:R.hasta,prev_desde:R.prev_desde,prev_hasta:R.prev_hasta};b[s.kind==='cli'?'customer_id':'vendor_id']=s.id;
