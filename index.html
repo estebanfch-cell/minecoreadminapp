@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='387';
+  var MC_BUILD='388';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -14628,10 +14628,21 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     $('bk-rm').onclick=function(){api({op:'rematch'}).then(function(r){toastx(r.recalculados+' recalculados');cargar();}).catch(toastx);};
     tabs();cargar();
   }
-  function tabs(){var T=[['revisar','Por revisar','revisar,sin_match,judicial'],['propuesta','Débitos (propuestas)','propuesta'],['aplicado','Aplicados','aplicado,auto_aplicado,ya_registrado'],['todos','Todos','']];
+  function tabs(){var T=[['avisos','Avisos pendientes',''],['revisar','Por revisar','revisar,sin_match,judicial'],['propuesta','Débitos (propuestas)','propuesta'],['aplicado','Aplicados','aplicado,auto_aplicado,ya_registrado'],['todos','Todos','']];
     $('bk-tabs').innerHTML=T.map(function(t){return '<button data-k="'+t[0]+'" data-s="'+t[2]+'" class="'+(st.tab===t[0]?'on':'')+'">'+t[1]+'</button>';}).join('');
     [].forEach.call($('bk-tabs').children,function(b){b.onclick=function(){st.tab=b.dataset.k;st.status=b.dataset.s;tabs();cargar();};});}
-  function cargar(){var s={revisar:'revisar,sin_match,judicial',propuesta:'propuesta',aplicado:'aplicado,auto_aplicado,ya_registrado',todos:''}[st.tab];
+  function avisos(){$('bk-list').innerHTML='<p class="bk-sub">Cargando avisos…</p>'; /* b388: avisos bancarios (correo del banco) — Pendiente hasta cruzar con el estado de cuenta; nunca se aplican solos */
+    api({op:'notice_list'}).then(function(r){var A=r.avisos||[];if(!A.length){$('bk-list').innerHTML='<p class="bk-sub">Sin avisos pendientes.</p>';return;}
+      var E={pendiente:['Pendiente','#d97706'],propuesta:['Propuesta lista','#1e6fd9'],aplicado:['Aplicado','#16a34a']};
+      var fx=function(n){return (n.facturas_det||[]).map(function(f){return 'FAC '+f.num+(f.order_number?' <span class="bk-sub">'+esc(f.order_number)+' · saldo '+m(f.saldo)+'</span>':' <span class="bk-sub" style="color:#f87171">sin saldo</span>');}).join('<br>')||'<span class="bk-sub">— sin facturas citadas</span>';};
+      var ch=function(n){var e=E[n.estado]||[n.estado,'#334155'];return '<span class="bk-chip" style="background:'+e[1]+';color:#fff">'+e[0]+'</span>';};
+      var go=function(n){return n.movement_id&&n.estado==='propuesta'?'<button class="bk-btn sec sm" data-mv="'+n.id+'">Ver propuesta →</button>':'';};
+      var nota=function(n){return n.estado==='pendiente'?'Esperando la fila del estado de cuenta (monto + fecha ±3 días + pagador).':esc(n.match_reason||'');};
+      var t='<table class="bk-tbl"><thead><tr><th>Fecha</th><th>Banco</th><th>Pagador</th><th class="bk-num">Monto</th><th>Referencia / facturas citadas</th><th>Estado</th><th></th></tr></thead><tbody>'+A.map(function(n){return '<tr><td>'+esc(n.date||'')+'</td><td>'+esc(n.bank||'')+'</td><td>'+esc(n.payer||'—')+'</td><td class="bk-num bk-c">+'+m(n.amount)+'</td><td>'+esc(n.reference||'')+'<div style="margin-top:4px">'+fx(n)+'</div><div class="bk-sub">'+nota(n)+'</div></td><td>'+ch(n)+'</td><td>'+go(n)+'</td></tr>';}).join('')+'</tbody></table>';
+      var c='<div class="bk-cards">'+A.map(function(n){return '<div class="bk-card"><div class="nm">'+esc(n.payer||'—')+'</div><div class="row"><span>'+esc(n.date||'')+' · '+esc(n.bank||'')+'</span><b class="bk-c">+'+m(n.amount)+'</b></div><div class="bk-sub" style="margin-top:6px;word-break:break-word">'+esc(n.reference||'')+'</div><div style="margin-top:4px;font-size:13px">'+fx(n)+'</div><div class="row"><span>'+ch(n)+'</span>'+go(n)+'</div><div class="bk-sub" style="margin-top:4px">'+nota(n)+'</div></div>';}).join('')+'</div>';
+      $('bk-list').innerHTML=t+c;[].forEach.call($('bk-list').querySelectorAll('button[data-mv]'),function(b){b.onclick=function(){st.tab='revisar';st.q='';tabs();cargar();};});
+    }).catch(function(e){$('bk-list').innerHTML='<p class="bk-sub" style="color:#e05c5c">'+esc(e&&e.message?e.message:e)+'</p>';});}
+  function cargar(){if(st.tab==='avisos'){avisos();return;}var s={revisar:'revisar,sin_match,judicial',propuesta:'propuesta',aplicado:'aplicado,auto_aplicado,ya_registrado',todos:''}[st.tab];
     if(!st.rows.length)$('bk-list').innerHTML='<p class="bk-sub">Cargando…</p>';api({op:'list',status:s||null,q:st.q||null}).then(function(r){st.rows=r.movimientos;resumen(r.resumen);pintar();}).catch(function(e){$('bk-list').innerHTML='<p class="bk-sub" style="color:#e05c5c">'+esc(e&&e.message?e.message:e)+' <button class="bk-btn sec sm" onclick="MCBanco.recargar()">Reintentar</button></p>';});}
   function resumen(R){var g=function(f){return R.filter(f).reduce(function(a,x){return a+x.n;},0);};
     $('bk-sum').innerHTML='<div><span class="bk-sub">Por revisar</span><b>'+g(function(x){return /revisar|sin_match|judicial/.test(x.status);})+'</b></div><div><span class="bk-sub">Aplicados</span><b>'+g(function(x){return /aplicado/.test(x.status);})+'</b></div><div><span class="bk-sub">Propuestas OC</span><b>'+g(function(x){return x.status==='propuesta';})+'</b></div>';}
