@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='390';
+  var MC_BUILD='392';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -14129,7 +14129,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     try{MCroute.set('prov',c.id);}catch(e){}
     var T=(K.terminos||[]).map(function(t){return [t.id,t.name];});
     var h=(VP.pre?VP.pre():'')+'<div class="fx-hd"><button class="chip" onclick="MCVnd.volver()">← Proveedores</button><b class="nm">'+(c.id?esc(c.name):'Nuevo proveedor')+'</b>'+act(c.is_active)+(c.tipo?'<span class="chip">'+(c.tipo==='exterior'?'🌎 Exterior':'🇪🇨 Local')+'</span>':'')+syncMini(c.sync_status)+'<button class="chip" style="margin-left:auto;'+(c.id?'':'display:none')+'" onclick="MCArch.abrir(\'vnd\',\''+esc(c.id)+'\',\''+esc(String(c.name||'').replace(/'/g,''))+'\')">📎 Archivos</button>'+(c.id?'<button class="chip" onclick="MCVnd.acc(\''+(c.is_active===false?'desarchivar':'archivar')+'\')">'+(c.is_active===false?'📤 Desarchivar':'🗄 Archivar')+'</button>'+(mcAdm()?'<button class="chip" style="color:#e05c5c;border-color:#7a2a2a" onclick="MCVnd.acc(\'borrar\')">🗑 Eliminar</button>':''):'')+'</div>'+
-     '<div class="fx-kpi">'+chipK('Por pagar',money2(R.por_pagar),'#E8FF00')+chipK('Compras '+new Date().getFullYear(),money2(R.compras_anio),'#a3e635')+chipK('Compras total',money2(R.compras_total))+chipK('OC',R.ocs||0)+chipK('Última OC',d10(R.ultima))+'</div>'+
+     '<div class="fx-kpi">'+chipK('Por pagar',money2(R.por_pagar),'#E8FF00')+chipK('Compras '+new Date().getFullYear(),money2(R.compras_anio),'#a3e635')+chipK('Compras total',money2(R.compras_total))+chipK('OC',R.ocs||0)+chipK('Última OC',d10(R.ultima))+'</div>'+(c.id&&(function(){try{return getProfile().rol==='admin';}catch(e){return false;}})()?'<div id="fx-pxp" style="margin:4px 0 10px"></div>':'')+
      (c.id?'':kAviso(K,'MCVnd._kRe()'))+tabs([['gen','General'],['com','Compra e impuestos'],['ban','Banco'],['his','Historial'],['not','Notas']])+'<div class="cbz-card">'+
      pane('gen','<div class="ms-g">'+inp('mv-n','Nombre *',c.name)+inp('mv-r','RUC / Tax ID',c.ruc)+selO('mv-tp','Tipo',[['local','Local'],['exterior','Exterior']],c.tipo)+inp('mv-ct','Contacto',c.contact_name)+inp('mv-e','Email',c.email,'type="email"')+inp('mv-p','Teléfono',c.phone,'inputmode="tel"')+inp('mv-fx','Fax',c.fax)+inp('mv-w','Website',c.website)+chk('mv-a','Activo',c.is_active!==false)+'</div>')+
      pane('com','<div class="ms-g">'+selO('mv-pt','Términos de pago',T,c.default_payment_terms_id)+inp('mv-cd','Días de crédito',c.credit_days==null?'':c.credit_days,'inputmode="numeric"')+inp('mv-d','Descuento %',c.discount==null?'':c.discount,'inputmode="decimal"')+inp('mv-lt','Tiempo de entrega (días)',c.lead_time_days==null?'':c.lead_time_days,'inputmode="numeric"')+
@@ -14140,7 +14140,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
      pane('his',ordTabla(r.ordenes,true))+
      pane('not','<label class="ms-sub" style="display:block">Observaciones<textarea class="uinput" id="mv-rm" rows="6" style="width:100%;box-sizing:border-box">'+esc(c.remarks||'')+'</textarea></label>'+cola(r.cola))+
      '</div><div class="fx-bar"><button class="cbz-btn" style="display:none" id="mv-g" onclick="MCVnd.guardar(\''+esc(c.id||'')+'\')">Guardar</button>'+(c.id?'':'<span class="ms-sub">El proveedor se crea al presionar Guardar.</span>')+'</div>';
-    vHost().innerHTML=h;cuPinta();if(!MCcan('prov.e.datos'))MCro(vHost());MCFD.watch(vHost(),{g:function(){vGuardar(c.id||'');},d:function(){vFicha(r);},x:function(){return JSON.stringify(CU);},alive:function(){return !!document.getElementById('mv-n');}});
+    vHost().innerHTML=h;cuPinta();if(c.id)MCPxP(document.getElementById('fx-pxp'),{vendor_id:c.id});if(!MCcan('prov.e.datos'))MCro(vHost());MCFD.watch(vHost(),{g:function(){vGuardar(c.id||'');},d:function(){vFicha(r);},x:function(){return JSON.stringify(CU);},alive:function(){return !!document.getElementById('mv-n');}});
     var pt=document.getElementById('mv-pt');if(pt)pt.onchange=function(){var t=(K.terminos||[]).filter(function(x){return x.id===pt.value;})[0];if(t&&t.days_due!=null)document.getElementById('mv-cd').value=t.days_due;};
     var tp=document.getElementById('mv-tp'),iv=document.getElementById('mv-iv'),ip=document.getElementById('mv-ip');if(tp)tp.onchange=function(){if(tp.value==='exterior'){iv.checked=false;ip.value='0';}else if(tp.value==='local'&&!ip.value){iv.checked=true;ip.value='15';}};}
   function vAbrirId(id){VP.seq=(VP.seq||0)+1;addCss2();FXel=vHost();vHost().innerHTML=(VP.pre?VP.pre():'')+'<div class="cbz-loading">Cargando…</div>';api({op:'vnd_get',id:id}).then(vFicha).catch(function(e){alert(MCerr(e));vLista();});}
@@ -15006,11 +15006,11 @@ var MCPagProv=(function(){
   function pintaLista(){var P=S.pagos||[],tot=P.reduce(function(s,p){return s+(+p.monto||0);},0);
     var h='<div class="pp"><div class="pp-bar"><b style="font-size:17px;flex:1 1 auto">Pagos a proveedores</b><button class="pp-btn" onclick="MCPagProv.nuevo()">＋ Subir comprobante</button></div>'+
       '<div class="pp-row"><label>Proveedor<input class="pp-in" id="pp-fprov" value="'+esc(S.prov)+'" placeholder="Todos" onchange="MCPagProv._prov(this.value)"></label></div>'+alertasH(S.alertas)+
-      '<div class="pp-sec">'+P.length+' pagos · USD '+f2(tot)+'</div>';
+      '<div class="pp-sec">Por pagar</div><div id="pp-pxp"></div><div class="pp-sec">'+P.length+' pagos · USD '+f2(tot)+'</div>';
     h+=P.map(function(p){var o=S.abierto[p.id];return '<div class="pp-card"><div style="display:flex;flex-wrap:wrap;gap:4px 12px;cursor:pointer" onclick="MCPagProv._tog(\''+p.id+'\')"><b style="flex:1 1 200px">'+fd(p.fecha)+' · USD '+f2(p.monto)+'</b>'+
       '<span class="pp-mut" style="flex:1 1 200px">Ref '+esc(p.referencia||'—')+' · '+esc(p.metodo||'')+'</span><span class="pp-mut">'+esc(p.estado==='historico'?'histórico (inFlow)':p.estado)+' · '+(p.lineas||[]).length+' línea(s)</span></div>'+
       (o?mcGT([{k:'po',h:'OC',w:'118px'},{k:'monto',h:'Monto',w:'104px',cls:'r'},{k:'fct',h:'Factura',w:'92px'},{k:'tipo',h:'Tipo',w:'56px'},{k:'nota',h:'Nota',b:1}],(p.lineas||[]).map(function(l){return {po:esc(String(l.po||'').replace(/^MCOR-PO-0*/,'PO')),monto:'<b>'+f2(l.monto)+'</b>',fct:esc(String(l.factura||'').replace(/^0+/,'')),tipo:esc(l.tipo||mcPagTipo(l.remarks)),nota:'<span class="pp-mut">'+esc(l.remarks||'')+'</span>'};}))+(p.comprobante_nombre?'<button class="pp-b2" style="margin-top:6px" onclick="MCPagProv._ver(\''+p.id+'\')">📄 '+esc(p.comprobante_nombre)+'</button>':''):'')+'</div>';}).join('')||'<div class="pp-mut">Sin pagos.</div>';
-    el().innerHTML=h+'</div>';}
+    el().innerHTML=h+'</div>';MCPxP(document.getElementById('pp-pxp'),S.prov?{proveedor:S.prov}:{});}
   function nuevo(){S.v='nuevo';S.f={};S.pr=null;pintaNuevo();}
   function pintaNuevo(){var f=S.f||{},pr=S.pr;
     var h='<div class="pp"><div class="pp-bar"><button class="pp-b2" onclick="MCPagProv.init()">← Pagos</button><b style="font-size:17px">Nuevo pago a proveedor</b></div>';
@@ -15498,6 +15498,18 @@ function mcGT(cols,rows,extra){if(!document.getElementById('mc-gt-css')){var st=
 function mcPagTipo(t){t=String(t||'');return /\bsaldo\b/i.test(t)?'Saldo':/\babono\b/i.test(t)?'Abono':'';}
 function mcPagFct(p){if(p.factura)return String(p.factura).replace(/^0+/,'');var m=String(p.remarks||'').match(/F(?:ct|act|AC)\.?\s*([0-9][0-9\-]*)/i);return m?m[1]:'';}
 var MC_PAGCOLS=[{k:'fecha',h:'Fecha',w:'86px'},{k:'monto',h:'Monto',w:'104px',cls:'r'},{k:'metodo',h:'Método',b:1},{k:'ref',h:'Referencia',b:1},{k:'fct',h:'Factura',w:'92px'},{k:'tipo',h:'Tipo',w:'56px'},{k:'nota',h:'Nota',b:1,wb:'minmax(0,2fr)'},{k:'x',h:'&nbsp;',w:'64px',cls:'x'}];
+/* b392: Por pagar a proveedores = facturado abierto + en OC sin facturar; facturado junto al saldo EECC (±0.05) */
+function MCPxP(host,q){if(!host)return;var f2=function(n){return n==null||isNaN(n)?'':(+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});},es=function(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return '&#'+c.charCodeAt(0)+';';});};
+  host.innerHTML='<div class="cbz-muted" style="font-size:12px;padding:6px 0">Calculando por pagar…</div>';
+  var b=Object.assign({action:'costeo',op:'prov_por_pagar',user:getUserName(),pin:getPin()},q||{});
+  MCpost(b).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Error');var F=r.filas||[];
+    if(!F.length){host.innerHTML='<div class="cbz-muted" style="font-size:12px;padding:6px 0">Sin saldos por pagar.</div>';return;}
+    var ee=function(f){if(!f.eecc)return '';var ok=!f.eecc.dif;return f2(f.eecc.saldo)+' <span style="color:'+(ok?'#a3e635':'#ff8a8a')+'" title="EECC al '+es(f.eecc.fecha_corte)+'">'+(ok?'✓':'Δ '+f2(f.eecc.dif))+'</span>';};
+    var C=[{k:'p',h:'Proveedor'},{k:'fa',h:'Por pagar facturado',w:'130px',cls:'r'},{k:'ee',h:'Saldo EECC',w:'130px',cls:'r'},{k:'sf',h:'En OC (sin facturar)',w:'130px',cls:'r'},{k:'t',h:'Total por pagar',w:'130px',cls:'r'}];
+    var rows=F.map(function(f,i){return {p:'<a href="#" style="color:inherit" onclick="var d=document.getElementById(\'pxp-d'+i+'\');d.style.display=d.style.display?\'\':\'none\';return false">'+es(f.proveedor)+'</a>'+(f.eecc?' <span class="cbz-muted" style="font-size:11px">EECC '+es(String(f.eecc.fecha_corte).split('-').reverse().join('/'))+'</span>':''),fa:f2(f.facturado),ee:ee(f),sf:f2(f.sin_facturar),t:'<b>'+f2(f.total)+'</b>'};});
+    var h=mcGT(C,rows,F.length>1?{p:'<b>Total</b>',fa:'<b>'+f2(r.totales.facturado)+'</b>',ee:'',sf:'<b>'+f2(r.totales.sin_facturar)+'</b>',t:'<b>'+f2(r.totales.total)+'</b>'}:null);
+    h+=F.map(function(f,i){return '<div id="pxp-d'+i+'" style="display:none;margin:4px 0 10px 10px">'+mcGT([{k:'po',h:'OC',w:'130px'},{k:'fe',h:'Fecha',w:'90px'},{k:'tt',h:'Total OC',w:'110px',cls:'r'},{k:'fa',h:'Facturado abierto',w:'120px',cls:'r'},{k:'sf',h:'Sin facturar',w:'110px',cls:'r'},{k:'sa',h:'Saldo OC',w:'110px',cls:'r'}],(f.ocs||[]).map(function(o){return {po:es(o.po),fe:es(String(o.fecha||'').slice(0,10).split('-').reverse().join('/')),tt:f2(o.total),fa:f2(o.facturado),sf:f2(o.sin_facturar),sa:f2(o.saldo)};}))+'</div>';}).join('');
+    host.innerHTML=h;}).catch(function(e){host.innerHTML='<div style="color:#ff8a8a;font-size:12px">'+es(e.message)+'</div>';});}
 function MCPoPdfBajar(conPrecio){var c=window.MC_PO_CUR;if(!c){alert('Abre la orden primero');return;}
   MCPoPdf(c,conPrecio).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=mcSanitizeFilename((c.orden.is_quote?'Cotización de compra ':'Orden de compra ')+c.orden.order_number+(conPrecio?'':' (bodega)')+'.pdf');document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},800);}).catch(function(e){alert('No se pudo generar el PDF: '+(e&&e.message||e));});}
 </script>
@@ -15990,5 +16002,14 @@ var MCnw=(function(){
   document.addEventListener('DOMContentLoaded',sched);sched();
   return {run:run};
 })();
-</script></body>
+</script><style id="mc-nobox">/* b391: regla global — NINGÚN campo con recuadro. Texto plano con etiqueta pequeña; solo subrayado al pasar/enfocar. Gana sobre estilos de cada vista (incluso inline) */
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea){border:0!important;border-bottom:1px solid transparent!important;border-radius:0!important;background-color:transparent!important;box-shadow:none!important;outline:none!important;padding-left:1px!important;padding-right:1px!important;transition:border-color .15s;max-width:100%;min-width:0}
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea):hover{border-bottom-color:#2a3d52!important}
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea):focus{border-bottom-color:#a3e635!important}
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea):disabled,html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea)[readonly]{border-bottom-color:transparent!important}
+html body select{-webkit-appearance:none!important;appearance:none!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%236b7f94'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 2px center!important;padding-right:14px!important;cursor:pointer}
+html body select option{background:#0f1720;color:#e8eef6}
+html body textarea{resize:vertical}
+</style>
+</body>
 </html>
