@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='381';
+  var MC_BUILD='383';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2320,7 +2320,12 @@ function MCInflowDoc(kind, d, opt){
       else if(kind!=='sq_noprice')cols.push({type:'money',key:'precio',head:'Precio\nunitario',x:410,w:51.8,align:'right'},{type:'pct',key:'descuento',head:'Descuento',x:465,w:46.8,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:515,w:46.7,align:'right'});
       if(kind==='sq_nocat'){cols[1].w=310;}
       cols[1].x=45.6;var t=prodRows.length?table(cols,prodRows,y+30):{y:y+20};
-      cierre(t.y,kind!=='sq_noprice');
+      /* b383: observaciones (order_remarks) siempre impresas si existen: OV, cotización y PDF de «Solicitar factura» */
+      var obsT=String(d.notas||d.observaciones||d.order_remarks||'').replace(/\r\n/g,'\n').trim(),ty=t.y;
+      if(obsT){var OL=[];obsT.split('\n').forEach(function(p){var w=wrap(p,RIGHT-28.5-12,8.9,0);if(!w.length)w=[''];OL=OL.concat(w);});
+        ty+=18;if(ty+30>BOTTOM){doc.addPage();ty=30.7;}txt('NOTAS',28.5,ty,8.9,1,OLIVE);ty+=15;
+        OL.forEach(function(l){if(ty+12>BOTTOM){doc.addPage();ty=30.7;}txt(l,34.5,ty,8.9,0);ty+=12;});}
+      cierre(ty,kind!=='sq_noprice');
       if(opt.entregas&&kind.indexOf('sq')===0){txt('Tiempos de entrega por producto: ver página 2.',28.5,BOTTOM-4,8.9,0,QTYC);entregasPag(opt.entregas);}
     } else if(kind==='pend'){
       /* b341: Informe de pendientes por recibir (OC) / por entregar (OV), formato Stock Pilot */
@@ -5875,7 +5880,7 @@ function mcPlanillaRenderPdf(idoc, filename){
 /* b342: la Planilla del Cotizador / Mis cotizaciones / Importar OV salen con el PDF estándar (MCInflowDoc) + página 2 de tiempos de entrega */
 function MCPlanillaCot(cfg){try{var cli=cfg.cliente||{},L=cfg.lineas||[],q=!/ORDEN/i.test(cfg.titulo||'COTIZ');
     var sub=+cfg.subtotal||L.reduce(function(a,l){return a+(parseFloat(l.precioFinal)||0)*(parseFloat(l.cantidad)||0);},0),iva=Math.round(sub*0.15*100)/100;
-    var D={num:cfg.num||'',fecha:String(cfg.fecha||MCStd.hoy()).slice(0,10),cliente:cli.nombre||cli.name||'',ruc:cli.ruc||'',direccion:cli.direccion?[cli.direccion]:[],contacto:cfg.contacto||cli.contacto||'',telefono:cli.telefono||'',email:cli.email||'',terminos:cli.terminos||'',representante:cfg.representante||'',
+    var D={notas:cfg.notas||cfg.observaciones||cfg.order_remarks||'',num:cfg.num||'',fecha:String(cfg.fecha||MCStd.hoy()).slice(0,10),cliente:cli.nombre||cli.name||'',ruc:cli.ruc||'',direccion:cli.direccion?[cli.direccion]:[],contacto:cfg.contacto||cli.contacto||'',telefono:cli.telefono||'',email:cli.email||'',terminos:cli.terminos||'',representante:cfg.representante||'',
       subtotal:sub,iva:iva,iva_pct:15,total:Math.round((sub+iva)*100)/100,
       lineas:L.map(function(l,i){var c=parseFloat(l.cantidad)||0,pf=parseFloat(l.precioFinal)||0;return {line_id:'p'+i,nombre:l.nombre,codigo:l.codigo||'',sku:l.sku,categoria:l.categoria||'',cantidad:c,precio:parseFloat(l.precioLista)||pf,descuento:parseFloat(l.descuento)||0,subtotal:Math.round(pf*c*100)/100,img:l.img||'',product_id:l.sku||('x'+i)};})};
     var E=L.some(function(l){return l.ent;})?L.map(function(l,i){var e=l.ent||{},cant=parseFloat(l.cantidad)||0,P=(e.partes||[]).filter(function(p){return p&&p.cantidad>0;}),filas=[],ah=0,pz=e.plazo||'Por confirmar';
