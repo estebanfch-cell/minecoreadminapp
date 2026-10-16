@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='396';
+  var MC_BUILD='397';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -16302,6 +16302,16 @@ new MutationObserver(function(M){M.forEach(function(m){if(m.type==='attributes')
 .mc-fpop{position:fixed;z-index:9999;background:#0f1d2b;border:1px solid #26405c;border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px #0008;font-size:12px;max-width:92vw}
 .mc-fpop table{border-collapse:collapse}.mc-fpop th,.mc-fpop td{padding:3px 8px;text-align:left;white-space:nowrap}.mc-fpop th{color:#8fa3b8;font-weight:400}.mc-fpop td.r{text-align:right}
 .cst-t td .cst-cod{white-space:nowrap}.cst-t td .cst-bdg{display:block;margin-top:3px}.cst-t td.cst-ocs{white-space:normal;word-break:normal;overflow-wrap:normal}
+</style>
+<style id="mc-fieldcolor">/* b397 (t790): campos sin recuadro heredan el color de texto del tema (claro en fondos oscuros, oscuro en paneles claros) */
+:root{--mc-txt:#dce6f0;--mc-mut:#6b7f94}
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea){color:inherit!important;-webkit-text-fill-color:currentColor!important;caret-color:currentColor!important;opacity:1}
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea)::placeholder{color:var(--mc-mut)!important;-webkit-text-fill-color:var(--mc-mut)!important;opacity:1}
+html body :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=hidden]),select,textarea):disabled{opacity:.6}
+
+html body :is(input[type=date],input[type=datetime-local],input[type=month],input[type=time],input[type=week]){color-scheme:dark}
+html body select option,html body select optgroup{background:#0f1720!important;color:#e8eef6!important;-webkit-text-fill-color:#e8eef6!important}
+html body input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #0b1219 inset!important;-webkit-text-fill-color:var(--mc-txt)!important}
 </style>
 </body>
 </html>
