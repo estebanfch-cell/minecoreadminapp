@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='367';
+  var MC_BUILD='369';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -14296,7 +14296,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
         ((r.serials||[]).length?'<div style="margin-top:12px"><b>Números de serie</b> <span class="ms-sub">('+r.serials.filter(function(s){return s.status!=='fuera';}).length+' en stock o alquiler)</span><div style="overflow-x:auto;margin-top:6px"><table class="ms-t" style="display:table"><thead><tr><th>Serie</th><th>Estado</th><th>Ubicación</th></tr></thead><tbody>'+
           r.serials.map(function(s){var est={alquilada:['En alquiler','#b48cff'],fuera:['Fuera','#4a5a6a'],disponible:['Disponible','#a3e635'],stock:['Disponible','#a3e635'],en_stock:['Disponible','#a3e635']}[s.status]||[s.status||'—','#cfd8e3'];
             return '<tr style="'+(s.status==='fuera'?'opacity:.55':'')+'"><td>'+esc(s.serial_no)+'</td><td><span style="color:'+est[1]+'">'+esc(est[0])+'</span></td><td>'+esc((s.bodega||'').trim())+(s.sublocation?' · <b>'+esc(s.sublocation)+'</b>':'')+(s.cliente?' · '+esc(s.cliente):'')+'</td></tr>';}).join('')+'</tbody></table></div></div>':'')+'</div>'+
-        preciosHtml(r,p)+
+        preciosHtml(r,p)+cpHtml(p)+
         '</div><div class="cbz-card" style="margin-top:12px"><b>Observaciones</b><div class="ms-sub" style="margin-top:6px;white-space:pre-wrap">'+(p.remarks?esc(p.remarks):'Sin observaciones.')+'</div></div>';}
     else if(PF.tab==='bom'){var T=function(L,lab){return L.length?'<table class="ms-t" style="display:table"><thead><tr><th>'+lab+'</th><th>SKU</th><th class="n">Cantidad</th>'+(lab==='Componente'?'<th class="n">Stock</th><th class="n">Costo</th>':'')+'</tr></thead><tbody>'+L.map(function(x){return '<tr class="r" onclick="MCProd.abrirId(\''+x.id+'\')"><td>'+esc(x.name)+'</td><td>'+esc(x.sku||'')+'</td><td class="n">'+x.quantity+'</td>'+(lab==='Componente'?'<td class="n">'+x.stock+'</td><td class="n">'+(x.costo==null?'—':money2(x.costo))+'</td>':'')+'</tr>';}).join('')+'</tbody></table>':'<p class="ms-sub">Ninguno.</p>';};
       h='<div class="cbz-card"><b>Lista de materiales</b>'+T(r.bom||[],'Componente')+'<div style="margin-top:12px"><b>Se usa en</b></div>'+T(r.usado||[],'Producto')+'</div>';}
@@ -14429,6 +14429,33 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     guardar:function(){var r=PF.cur,L=[];(r.precios||[]).forEach(function(x,i){var t=v('pe-t'+i),val=v('pe-v'+i);if(t==='global'){if(x.es_override)L.push({price_list_id:x.id});return;}
       if(val===''||isNaN(+val))return;L.push(t==='precio'?{price_list_id:x.id,price:+val}:{price_list_id:x.id,markup:+val});});
       var b=document.getElementById('pe-g');b.disabled=true;api({op:'prod_save',id:r.producto.id,precios:L}).then(function(){PE.on=false;toast('Precios guardados');pfAbrirId(r.producto.id);}).catch(function(e){b.disabled=false;alert(MCerr(e));});}};
+  /* b368-costo-prov: costo provisional para productos nuevos (sin costeo real) */
+  var CP={};
+  function cpFmt(n,d){return '$'+(+n).toLocaleString('en-US',{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d});}
+  function cpHtml(p){if(p.unit_cost==null)return '';var prov=!!p.cost_provisional,nuevo=!(+p.unit_cost>0);
+    if(!prov&&!nuevo)return '';var d=p.cost_prov_data||{},k=CP[p.id]||{};
+    var h='<div class="cbz-card" id="cp-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>Costeo provisional</b>'+(prov?'<span class="chip" style="background:#3a2f00;color:#E8FF00;border-color:#E8FF00">Costo provisional</span>':'')+'</div>';
+    if(prov&&!k.on)h+='<div class="ms-sub" style="margin-top:6px">'+cpFmt(p.unit_cost,5)+' desde '+esc(String(p.cost_prov_at||'').slice(0,10))+' · precio proveedor '+cpFmt(d.precio)+' + '+(+d.pct||0).toFixed(2)+'% '+(d.base==='proveedor'?'('+esc(d.vendor||'proveedor')+', n='+d.n+')':'(global, n='+d.n+')')+' + '+(d.seguridad||10)+'% seguridad. Se reemplaza solo con el primer costeo o recepción real.</div><div style="margin-top:8px"><button class="chip" onclick="MCCostoProv.abrir()">Recalcular</button></div>';
+    else if(!k.on)h+='<div class="ms-sub" style="margin-top:6px">Producto sin costo real. Calcula un costo provisional para cotizar hasta que llegue el costeo.</div><div style="margin-top:8px"><button class="cbz-btn" onclick="MCCostoProv.abrir()">Calcular costeo</button></div>';
+    else{var c=k.r;
+      h+='<div style="margin-top:8px"><div class="ms-sub" style="font-size:11px">Precio proveedor (FOB)</div><input id="cp-precio" inputmode="decimal" value="'+(k.precio||'')+'" placeholder="0.00" oninput="MCCostoProv.calc()" style="background:transparent;border:0;border-bottom:1px solid #2c3e55;border-radius:0;color:inherit;font:inherit;font-size:15px;padding:2px 0;width:140px;outline:none"></div>';
+      if(c){h+='<table class="ms-t" style="display:table;margin-top:8px"><tbody>'+
+        '<tr><td>Precio proveedor</td><td class="n">'+cpFmt(c.precio)+'</td></tr>'+
+        '<tr><td>% costeo promedio <div class="ms-sub">'+(c.base==='proveedor'?'proveedor '+esc(c.vendor||'')+' · n='+c.n+' OC':'global · n='+c.n+' OC')+' (global '+(+c.global_pct).toFixed(2)+'%)</div></td><td class="n">'+(+c.pct).toFixed(2)+'%</td></tr>'+
+        '<tr><td>+ Seguridad</td><td class="n">'+c.seguridad+'%</td></tr>'+
+        '<tr><td><b>Costo provisional</b> <div class="ms-sub">precio × (1 + '+(+c.pct_total).toFixed(2)+'%)</div></td><td class="n"><b>'+cpFmt(c.costo,5)+'</b></td></tr></tbody></table>';
+        if(c.elegible===false)h+='<div class="ms-sub" style="color:#e05c5c">Este producto ya tiene costo real; no se puede poner provisional.</div>';}
+      h+='<div style="margin-top:10px;display:flex;gap:8px"><button class="cbz-btn" id="cp-g" onclick="MCCostoProv.guardar()" '+(c&&c.elegible!==false&&+c.precio>0?'':'disabled')+'>Guardar</button><button class="chip" onclick="MCCostoProv.descartar()">Descartar</button></div>';}
+    return h+'</div>';}
+  var cpT;
+  window.MCCostoProv={
+    abrir:function(){var p=PF.cur.producto;CP[p.id]={on:true,precio:(p.cost_prov_data||{}).precio||''};pfPane();if(CP[p.id].precio)MCCostoProv.calc();setTimeout(function(){var e=document.getElementById('cp-precio');if(e)e.focus();},50);},
+    descartar:function(){delete CP[PF.cur.producto.id];pfPane();},
+    calc:function(){var p=PF.cur.producto,k=CP[p.id];var e=document.getElementById('cp-precio');if(e)k.precio=e.value.replace(',','.');clearTimeout(cpT);
+      cpT=setTimeout(function(){if(!(+k.precio>0)){k.r=null;pfPane();return;}
+        api({op:'prod_catalogos',costo_prov:{product_id:p.id,precio:+k.precio}}).then(function(r){if(!CP[p.id])return;k.r=(r&&r.costo_prov)||(r&&r.data&&r.data.costo_prov);pfPane();var i=document.getElementById('cp-precio');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}}).catch(function(e){alert(MCerr(e));});},350);},
+    guardar:function(){var p=PF.cur.producto,k=CP[p.id];if(!(+k.precio>0))return;var b=document.getElementById('cp-g');if(b)b.disabled=true;
+      api({op:'prod_save',costo_prov:{product_id:p.id,precio:+k.precio}}).then(function(){delete CP[p.id];toast('Costo provisional guardado');pfAbrirId(p.id);}).catch(function(e){if(b)b.disabled=false;alert(MCerr(e));});}};
   function preciosHtml(r,p){var P0=r.precios||[],puede=p.unit_cost!=null;
     if(PE.on&&puede)return '<div class="cbz-card"><b>Precios y costo · excepciones de este producto</b><table class="ms-t" style="display:table;margin-top:6px"><thead><tr><th>Esquema</th><th>Usa</th><th class="n">Valor</th></tr></thead><tbody>'+
       P0.map(function(x,i){var t=x.override_price!=null?'precio':x.override_markup!=null?'markup':'global';return '<tr><td>'+esc(x.name)+'<div class="ms-sub">global '+(x.esquema_markup==null?0:x.esquema_markup)+'%</div></td><td><select class="uinput" id="pe-t'+i+'" style="margin:0">'+[['global','Markup global'],['markup','Markup propio %'],['precio','Precio fijo $']].map(function(o){return '<option value="'+o[0]+'"'+(o[0]===t?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></td><td class="n"><input class="uinput" id="pe-v'+i+'" inputmode="decimal" style="width:100px;text-align:right;margin:0" value="'+(t==='precio'?x.override_price:t==='markup'?x.override_markup:'')+'"></td></tr>';}).join('')+
@@ -14437,7 +14464,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     var fila=function(x){return '<tr><td>'+esc(x.name)+(x.is_default?' <span class="ms-sub">(por defecto)</span>':'')+(x.es_override?' <span class="ms-sub" style="color:#E8FF00">· propio</span>':'')+'</td><td class="n">'+(x.markup==null?'—':(+x.markup).toFixed(2)+'%')+'</td><td class="n">'+(x.precio==null?'—':money2(x.precio))+'</td></tr>';};
     return '<div class="cbz-card"><div style="display:flex;justify-content:space-between;align-items:center"><b>Precios y costo</b>'+(puede?'<button class="chip" onclick="MCProdPrecios.editar()">✏️ Editar precios</button>':'')+'</div>'+
       (D?'<div style="margin-top:10px"><div class="ms-sub">Precio PVP<button class="chip pf-pct" title="Ver esquema y markup" onclick="var e=document.getElementById(\'pf-pctx\');e.style.display=e.style.display?\'\':\'none\'">%</button><span id="pf-pctx" style="display:none;margin-left:6px">'+esc(D.name)+(D.markup!=null?' · markup '+(+D.markup).toFixed(2)+'%':'')+(D.es_override?' · propio':'')+'</span></div><div class="pf-pvp">'+(D.precio==null?'—':money2(D.precio))+'</div></div>':'')+
-      (puede?'<div style="margin-top:14px;padding-top:8px;border-top:1px solid #1f2f42;display:flex;justify-content:space-between;font-size:12px"><span class="ms-sub">Costo</span><span>$'+(+p.unit_cost).toFixed(5)+'</span></div>':'')+
+      (puede?'<div style="margin-top:14px;padding-top:8px;border-top:1px solid #1f2f42;display:flex;justify-content:space-between;font-size:12px"><span class="ms-sub">Costo'+(p.cost_provisional?' <span style="color:#E8FF00">· Costo provisional</span>':'')+'</span><span>$'+(+p.unit_cost).toFixed(5)+'</span></div>':'')+
       '<details style="margin-top:10px"><summary class="ms-sub" style="cursor:pointer;list-style:none">Ver todas las escalas ▾</summary><table class="ms-t" style="display:table;margin-top:6px"><thead><tr><th>Esquema</th><th class="n">Markup</th><th class="n">Precio de venta</th></tr></thead><tbody>'+P0.map(fila).join('')+'</tbody></table></details></div>';}
 })();
 
@@ -14856,7 +14883,7 @@ var MCCosteo=(function(){
   function nfPinta(){var b=document.getElementById('cst-nuevo');if(!b||!S.nf)return;var F=S.nf.files,listo=F.length&&F.every(function(x){return x.st!=='leyendo';});
     var TIP={factura:'🧾 Factura',packing:'📦 Packing list',dai:'🛃 DAI',otro:'📄 Otro'};
     var h='<div class="cbz-card" style="margin-bottom:14px"><div class="cst-sec" style="margin-top:0">Nuevo costeo</div>'+
-      '<label class="cst-drop cst-bigdrop" id="nf-drop"><input type="file" id="nf-file" multiple accept="application/pdf,.pdf,.xlsx,.xls,image/*" style="display:none" onchange="MCCosteo._nf(this.files);this.value=\'\'">'+
+      '<label class="cst-drop cst-bigdrop" id="nf-drop" data-nodrop><input type="file" id="nf-file" multiple accept="application/pdf,.pdf,.xlsx,.xls,image/*" style="display:none" onchange="MCCosteo._nf(this.files);this.value=\'\'">'+
       '<div style="font-size:30px;line-height:1">⬆</div><div style="font-size:16px;color:#e8eef5;margin:8px 0 4px">Sube todos los archivos de este costeo</div><div>Facturas, packing lists, DAI… (PDF, Excel o fotos). Arrástralos aquí o toca para elegir.</div></label>'+
       '<div class="cst-row" style="margin:-4px 0 6px"><label style="flex:0 0 auto;flex-direction:row;align-items:center;gap:8px;cursor:pointer;color:#e8eef5;font-size:13.5px"><input type="checkbox" id="cst-prueba" style="width:auto"'+(S.nf.prueba?' checked':'')+' onchange="S_nfPr(this.checked)"> Prueba <span class="cst-mut">(calcula todo, nunca aplica costos, stock ni inFlow)</span></label></div>';
     if(F.length){h+='<div class="cst-sec">Archivos ('+F.length+')</div>'+F.map(function(x,k){var r=x.r||{},e=r.extraido||{};
@@ -15155,6 +15182,7 @@ var MCTbl=(function(){
     if(acc.length)F=F.filter(function(f){var n=f.name.toLowerCase(),t=(f.type||'').toLowerCase();return acc.some(function(a){return a.charAt(0)==='.'?n.slice(-a.length)===a:a.slice(-2)==='/*'?t.indexOf(a.slice(0,-1))===0:t===a;});});
     if(!F.length){alert('Ese tipo de archivo no se acepta aquí ('+acc.join(', ')+').');return;}if(!i.multiple)F=F.slice(0,1);
     try{var dt=new DataTransfer();F.forEach(function(f){dt.items.add(f);});i.files=dt.files;i.dispatchEvent(new Event('change',{bubbles:true}));}catch(x){alert('Tu navegador no permite soltar archivos aquí; usa el botón.');}});
+  /* b369 drop-fix */document.addEventListener('drop',quita,true);document.addEventListener('dragend',quita,true);document.addEventListener('dragleave',function(e){if(!e.relatedTarget||e.clientX<=0&&e.clientY<=0)quita();},true);
   window.addEventListener('blur',quita);})();
 /* b293: PDF de orden de compra / cotización de compra (Supabase, estilo Minecore). conPrecio=false ⇒ versión para bodega. */
 
