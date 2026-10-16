@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='371';
+  var MC_BUILD='372';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -648,6 +648,22 @@ function MCsbRefresh(){
   if(localStorage.getItem('mc_login_alt')==='1'){MC_SB_REF=fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'login',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.t){MCsbSet(r.t);try{window.MC_LOGIN_VIA='supabase';}catch(e){}}else{localStorage.setItem('mc_login_alt','0');MCsbRefresh();}},function(){MC_SB_REF=null;localStorage.setItem('mc_login_alt','0');});return;}
   MC_SB_REF=MCsbTok().then(function(r){MC_SB_REF=null;if(r&&r.sbt)MCsbSet(r.sbt);},function(){MC_SB_REF=null;});
 }
+/* b372 red */
+function MCsbRenew(){if(MC_SB_REF)return MC_SB_REF;var raw=null;try{raw=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');}catch(e){}
+  if(!raw||!raw.t||raw.u!==getUserName()||!(raw.exp>Date.now()/1000+5)){MCsbRefresh();return MC_SB_REF||Promise.resolve();}
+  MC_SB_REF=fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'sb_renew',t:raw.t})}).then(function(r){return r.json().catch(function(){return {};});})
+    .then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.t)MCsbSet(r.t);else{MCsbRefresh();return MC_SB_REF;}},function(){MC_SB_REF=null;});return MC_SB_REF;}
+function MCnetMsg(e){if(navigator.onLine===false||(e&&e.message==='OFF'))return 'Sin internet. Revisa tu conexión.';if(e&&(e.message==='SB401'||e.message==='SBTOK'))return 'Sesión vencida. Vuelve a ingresar con tu usuario y PIN.';
+  if(e&&e.name==='AbortError')return 'El servidor de Minecore no respondió a tiempo.';return 'El servidor de Minecore no responde.';}
+function MCnetBanner(msg){try{var b=document.getElementById('mc-net-ban');if(!msg){if(b)b.remove();return;}if(!b){b=document.createElement('div');b.id='mc-net-ban';
+  b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:99999;background:#3a1414;color:#fff;border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 24px);box-shadow:0 4px 16px rgba(0,0,0,.4);font-size:13px';document.body.appendChild(b);}
+  b.innerHTML='<span>⚠️ '+msg+' (se intentó 3 veces)</span><button style="background:#E8FF00;color:#111;border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer" onclick="location.reload()">Reintentar</button><button style="background:none;color:#ccc;border:0;cursor:pointer" onclick="MCnetBanner()">✕</button>';}catch(e){}}
+function MCsbRetry(p,e){var n=(p._try||0)+1;
+  if(n>3){var m=MCnetMsg(e);MCnetBanner(m);return Promise.resolve({ok:false,error:m,_transport:true});}
+  p._try=n;var es=e&&(e.message==='SB401'||e.message==='SBTOK');if(es)MCsbSet(null);
+  return new Promise(function(ok){setTimeout(ok,[600,1500,3500][n-1]);}).then(function(){return es?Promise.resolve(MCsbRenew()).catch(function(){}):null;}).then(function(){p._sbw=0;p._sbw2=0;return MCpost0(p);});}
+(function(){var vuelve=function(){if(!getUserName||!getUserName())return;Promise.resolve(MCsbRenew()).catch(function(){}).then(function(){if(document.getElementById('mc-net-ban')){MCnetBanner();try{window.dispatchEvent(new Event('mc-stock'));window.dispatchEvent(new Event('mc-reconnect'));}catch(e){}}});};
+  window.addEventListener('online',vuelve);document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){var s=null;try{s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');}catch(e){}if(!s||s.exp<Date.now()/1000+300||document.getElementById('mc-net-ban'))vuelve();}});})();
 function MCsbEligible(c){
   if(location.protocol==='file:')return false;if(MC_CAJA_RX.test(c.action||'')||MC_SB_ONLY.test(c.action||''))return true; /* b360-gas */
   if(Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
@@ -725,13 +741,14 @@ function MCpost0(p){
   var s=null;
   if(MCsbEligible(p)){
     s=MCsbGet();
-    if(!s||s.exp<Date.now()/1000+180)MCsbRefresh();
+    if(!s||s.exp<Date.now()/1000+180)MCsbRenew(); /* b372 */
   }
   if(!s&&MCsbEligible(p)&&!p._sbw&&MC_SB_REF){p._sbw=1;return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});} /* b346 */
   /* b360-gas: Caja chica 100% Supabase — nunca cae a Apps Script (Sheets Caja_* ya no es la fuente de verdad) */
   var esCaja=MC_CAJA_RX.test(String(p.action||''))||MC_SB_ONLY.test(String(p.action||''));
-  if(esCaja&&!s){if(!p._sbw2){p._sbw2=1;MCsbRefresh();return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
+  if(esCaja&&!s&&false){if(!p._sbw2){p._sbw2=1;MCsbRefresh();return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
     return Promise.resolve({ok:false,error:'No se pudo abrir la sesión con el servidor. Revisa tu conexión y vuelve a intentar.',_transport:true});}
+  if(!s&&MCsbEligible(p))return MCsbRetry(p,{message:navigator.onLine===false?'OFF':'SBTOK'}); /* b372 */
   if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -746,6 +763,7 @@ function MCpost0(p){
     .catch(function(e){
       if(timer)clearTimeout(timer);
       /* b344: una escritura que pudo llegar a ejecutarse (timeout o error del servidor) NO se reintenta por Apps Script: evitaría duplicar picks/recepciones */
+      if(!esW||(e&&(e.message==='SB401'||e.name==='TypeError')))return MCsbRetry(p,e); /* b372: reintento con espera; sin apagón de 60 s */
       if(esW&&!(e&&(e.message==='SB401'||e.name==='TypeError')))return {ok:false,error:'No hubo respuesta de Supabase. Recarga la orden antes de reintentar para no duplicar.'};
       if(esCaja){if(e&&e.message==='SB401'&&!p._sb401){p._sb401=1;return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
         return {ok:false,error:(e&&e.name==='AbortError')?'TIMEOUT':'Sin conexión con el servidor de Minecore (Supabase). Intenta de nuevo en un momento.',_transport:true};} /* b360-gas: sin respaldo Google */
