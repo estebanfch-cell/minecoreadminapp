@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='395';
+  var MC_BUILD='396';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -15616,9 +15616,13 @@ var MCDash=(function(){
     var pp=s.kind==='prov'?api('prov_por_pagar',{vendor_id:s.id}).catch(function(){return null;}):Promise.resolve(null);
     return Promise.all([api('cli_perspectivas',{resumen:s.d,tipo:tipo,periodo:perNom(s.per)+' '+R.lab}).catch(function(e){return {perspectivas:'(No se pudo generar el análisis: '+e.message+')',carta:''};}),pp])
       .then(function(r){var dd=s.kind==='cli'?sinDinero(s.d):s.d;return {v:1,meta:{kind:s.kind,id:s.id,nombre:s.nombre,per:s.per,ref:s.ref,tipo:tipo,R:R,titulo:titulo(s),emitido:iso(new Date())},d:dd,ia:r[0],pxp:r[1]};});}
+  var PORTAL='https://portal.minecore.ec';
+  function slugBase(s){var R2=rango(s.per,s.ref),t=s.per==='anio'&&s.kind==='cli'?'cierre':'reporte-'+perNom(s.per).toLowerCase();
+    var p=s.per==='dia'||s.per==='sem'?R2.desde:R2.lab,n=String(s.nombre||'').replace(/[,.]?\s*(S\.?\s*A\.?\s*S\.?|S\.?\s*A\.?|C[IÍ]A\.?\s*LTDA\.?|LTDA\.?)\s*$/i,'');
+    return (t+' '+p+' '+n);}
   function link(id){var s=ST[id];if(!s||!s.d)return;var bt=document.getElementById('mcd-lk-'+id),out=document.getElementById('mcd-lko-'+id);if(bt){bt.disabled=true;bt.textContent='Generando link…';}
-    snap(s).then(function(S2){s.snap=S2;var S3=Object.assign({},S2);return api('rep_link_crear',{data:S2,kind:s.kind,ref_id:s.id,titulo:S2.meta.titulo});})
-      .then(function(r){var u=location.origin+location.pathname+'?rep='+r.token;out.innerHTML='<input readonly value="'+es(u)+'" onclick="this.select()"><button class="mcd-btn2" onclick="MCDash.copiar(this)">Copiar</button><a class="mcd-btn2" href="'+es(u)+'" target="_blank" rel="noopener">Abrir</a>';})
+    snap(s).then(function(S2){s.snap=S2;var S3=Object.assign({},S2);return api('rep_link_crear',{data:S2,kind:s.kind,ref_id:s.id,titulo:S2.meta.titulo,slug_base:slugBase(s)});})
+      .then(function(r){var u=r.slug?PORTAL+'/r/'+r.slug:location.origin+location.pathname+'?rep='+r.token;out.innerHTML='<input readonly value="'+es(u)+'" onclick="this.select()"><button class="mcd-btn2" onclick="MCDash.copiar(this)">Copiar</button><a class="mcd-btn2" href="'+es(u)+'" target="_blank" rel="noopener">Abrir</a><span class="cbz-muted" style="font-size:11px;white-space:nowrap">vence en 15 días</span>';})
       .catch(function(e){out.innerHTML='<span style="color:#ff8a8a">'+es(e.message)+'</span>';}).then(function(){if(bt){bt.disabled=false;bt.textContent='🔗 Generar link';}});}
   function copiar(b){var i=b.parentNode.querySelector('input');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).catch(function(){document.execCommand('copy');});b.textContent='Copiado ✓';setTimeout(function(){b.textContent='Copiar';},1800);}
   var RCSS='.mcr-tb{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:6px 0}.mcr-tb input,.mcr-tb select{background:transparent;border:0;border-bottom:1px solid #2a3d52;color:inherit;padding:5px 2px;min-width:200px;font:inherit}.mcr-tb select option{background:#0b1219}.mcr-n{font-size:11px;color:#8fa3b8;margin-left:auto}'+
@@ -15635,11 +15639,11 @@ var MCDash=(function(){
       '#mcrep .cd{background:#0f1a25;border:1px solid #1c2a3a;border-radius:14px;padding:14px 16px;margin:14px 0;animation:up .5s both}#mcrep .cd h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#8fa3b8;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}#mcrep .cd h2::before{content:"";display:inline-block;width:18px;height:3px;background:'+ACC+';margin-right:8px;vertical-align:middle;border-radius:2px}'+
       '#mcrep .tg{display:inline-flex;background:#0b1219;border-radius:9px;padding:2px;gap:2px}#mcrep .tg button{background:transparent;border:0;color:#8fa3b8;padding:5px 10px;border-radius:7px;cursor:pointer;font:inherit;font-size:11.5px;text-transform:none;letter-spacing:0}#mcrep .tg button.on{background:'+ACC+';color:'+INK+';font-weight:700}'+
       '#mcrep .g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}#mcrep svg{width:100%;height:auto;display:block}#mcrep .bar{transform-origin:bottom;transform-box:fill-box;animation:gr .8s cubic-bezier(.2,.8,.2,1) both;cursor:pointer;transition:opacity .2s}#mcrep .bar:hover{opacity:.75}#mcrep .tip{position:fixed;pointer-events:none;background:#1a2836;border:1px solid #2a3d52;border-radius:8px;padding:6px 9px;font-size:12px;z-index:50;display:none;box-shadow:0 6px 20px #0008}'+
-      '#mcrep ul.ia{margin:0;padding-left:18px;line-height:1.55}#mcrep ul.ia li{margin:3px 0}#mcrep .ft{color:#5d7186;font-size:11px;margin-top:28px;text-align:center}@keyframes gr{from{transform:scaleY(0)}to{transform:scaleY(1)}}@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}'+
+      '#mcrep .nota{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin:14px 0 4px;padding:10px 14px;border-radius:12px;background:#E8FF0012;border:1px solid #E8FF0055;font-size:13px}#mcrep ul.ia{margin:0;padding-left:18px;line-height:1.55}#mcrep ul.ia li{margin:3px 0}#mcrep .ft{color:#5d7186;font-size:11px;margin-top:28px;text-align:center}@keyframes gr{from{transform:scaleY(0)}to{transform:scaleY(1)}}@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}'+
       '#mcrep .dn{color:#ff8a8a}#mcrep .up{color:#a3e635}'+'#mcrep .cd h2{display:block}#mcrep .cd h2 .tg{float:right;margin-top:-4px}#mcrep .cd h2 .sub{margin-left:8px}#mcrep .mcr-tw{max-height:none!important;overflow:visible!important}'+RCSS.replace(/\.mcr-/g,'#mcrep .mcr-');document.head.appendChild(st);
     var host=document.createElement('div');host.id='mcrep';host.innerHTML='<div class="sub" style="padding:40px;text-align:center">Cargando reporte…</div>';document.body.appendChild(host);
-    fetch(FN+'?t='+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){if(!j.ok)throw new Error(j.error||'Enlace inválido');document.title=j.data.meta.titulo;pintaVisor(host,j.data);})
-      .catch(function(e){host.innerHTML='<div style="padding:60px;text-align:center"><div class="lg" style="display:inline-flex"><img src="'+MC_PICK_LOGO+'"></div><h1>'+es(e.message)+'</h1><div class="sub">Solicita un nuevo enlace a Minecore.</div></div>';});}
+    fetch(FN+(/^[0-9a-f]{40}$/.test(tok)?'?t=':'?s=')+encodeURIComponent(tok)).then(function(r){return r.json();}).then(function(j){if(!j.ok){throw new Error('Página no encontrada');}document.title=j.data.meta.titulo;j.data._expira=j.expira;pintaVisor(host,j.data);})
+      .catch(function(e){host.innerHTML='<div style="padding:60px;text-align:center"><div class="lg" style="display:inline-flex"><img src="'+MC_PICK_LOGO+'"></div><h1>'+es(e.message)+'</h1><div class="sub" style="font-size:14px;margin-top:8px">El enlace no existe o ya no está disponible.</div><div class="sub" style="margin-top:18px">www.minecore.ec</div></div>';});}
   function svgBars(A,B,o){o=o||{};var N=Math.max(A.length,(B||[]).length,1),W=640,H=o.h||200,pad=30,max=1;A.concat(B||[]).forEach(function(x){if(x&&x.v>max)max=x.v;});var bw=(W-pad*2)/N,h='<svg viewBox="0 0 '+W+' '+(H+26)+'">';
     for(var g=1;g<=3;g++){var yy=H-H*g/4;h+='<line x1="'+pad+'" x2="'+(W-pad)+'" y1="'+yy+'" y2="'+yy+'" stroke="#16222f"/><text x="'+(pad-4)+'" y="'+(yy+3)+'" font-size="9" fill="#5d7186" text-anchor="end">'+abbr(max*g/4)+'</text>';}
     for(var i=0;i<N;i++){var a=A[i],b=B&&B[i],x=pad+i*bw;
@@ -15657,7 +15661,9 @@ var MCDash=(function(){
   function bullets(t){var L=String(t||'').split(/\n+/).map(function(x){return x.replace(/^\s*[•\-\*·]\s*/,'').replace(/\*\*/g,'').trim();}).filter(Boolean);return L;}
   function pintaVisor(host,S2){var M=S2.meta,d=S2.d,ia=S2.ia||{},cli=M.kind==='cli',P=d.periodo||{actual:{},anterior:{}},A=P.actual||{},B=P.anterior||{},R=M.R;
     var kc=function(l,v,x,dl){return '<div class="kc" style="animation-delay:'+(dl||0)+'ms"><small>'+l+'</small><b>'+v+'</b>'+(x?'<i>'+x+'</i>':'')+'</div>';};
-    var h='<div class="hd"><div class="lg"><img alt="Minecore" src="'+MC_PICK_LOGO+'"></div><div class="pdfb"><select id="mcr-top"><option value="10">PDF · Top 10</option><option value="20">PDF · Top 20</option><option value="0" selected>PDF · Completo</option></select><button class="btn" id="mcr-pdf">⬇ Descargar PDF</button></div></div>';
+    var h='<div class="hd"><div class="lg"><img alt="Minecore" src="'+MC_PICK_LOGO+'"></div><span class="sub">Reporte preparado por Minecore</span></div>';
+    var dl=S2._expira?Math.max(1,Math.ceil((Date.parse(S2._expira)-Date.now())/864e5)):15;
+    h+='<div class="nota"><span>Este link vencerá en '+dl+' día'+(dl===1?'':'s')+'. Puedes descargar el PDF aquí</span><span class="pdfb"><select id="mcr-top" aria-label="Productos en el PDF"><option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option><option value="0" selected>Todos</option></select><button class="btn" id="mcr-pdf">⬇ Descargar PDF</button></span></div>';
     h+='<h1>'+es(M.titulo)+'</h1><div class="sub">Período '+R.desde.split('-').reverse().join('/')+' – '+R.hasta.split('-').reverse().join('/')+' · comparado con '+R.prev_desde.split('-').reverse().join('/')+' – '+R.prev_hasta.split('-').reverse().join('/')+' · emitido '+M.emitido.split('-').reverse().join('/')+'</div>';
     var cu=crecU(P);if(cli)h+='<div class="kp">'+kc('Unidades del período',fq(A.uq),'',0)+kc('Período anterior',fq(B.uq)+' u','',60)+kc('Crecimiento del consumo','<span class="'+(cu>0?'up':cu<0?'dn':'')+'">'+pc(cu)+'</span>','',120)+kc('Órdenes',fq(A.ordenes),'vs '+fq(B.ordenes)+' antes',180)+kc('Productos distintos',fq(A.nprod),'vs '+fq(B.nprod),240)+kc('Frecuencia','cada '+fq(d.frecuencia_dias)+' días','',300)+'</div>';
     else h+='<div class="kp">'+kc('Compras a proveedor',f2(A.total),'',0)+kc('Período anterior',f2(B.total),'',60)+kc('Variación','<span class="'+(P.crec>0?'up':P.crec<0?'dn':'')+'">'+pc(P.crec)+'</span>','',120)+kc('Órdenes',fq(A.ordenes),'vs '+fq(B.ordenes)+' antes',180)+kc('Ticket promedio',f2(A.ticket),'',240)+
@@ -15691,7 +15697,7 @@ var MCDash=(function(){
     var pb=document.getElementById('mcr-pdf');pb.onclick=function(){pb.disabled=true;pb.textContent='Generando…';var top=+document.getElementById('mcr-top').value;
       build({kind:M.kind,id:M.id,nombre:M.nombre,per:M.per,ref:M.ref,tipo:M.tipo},d,ia,S2.pxp,M.tipo,R,{top:top}).then(function(o){var a=document.createElement('a');a.href=URL.createObjectURL(o.blob);a.download=o.name;document.body.appendChild(a);a.click();a.remove();})
         .catch(function(e){alert(e.message);}).then(function(){pb.disabled=false;pb.textContent='⬇ Descargar PDF';});};}
-  try{var _q=new URLSearchParams(location.search).get('rep');if(_q){var go=function(){visor(_q);};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else setTimeout(go,0);}}catch(e){}
+  try{var _u=new URLSearchParams(location.search),_m=location.pathname.match(/\/r\/([a-z0-9-]{8,90})\/?$/),_q=_u.get('rep')||_u.get('r')||(_m&&_m[1]);if(_q&&_u.get('r')&&history.replaceState){try{history.replaceState(null,'','/r/'+_q);}catch(e){}}if(_q){var go=function(){visor(_q);};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else setTimeout(go,0);}}catch(e){}
   /* ---------- PDF ---------- */
   function pdf(id){var s=ST[id];if(!s||!s.d)return;var bt=document.getElementById('mcd-pdf-'+id);if(bt){bt.disabled=true;bt.textContent='Generando…';}
     var tp=document.getElementById('mcd-top-'+id),top=tp?+tp.value:0,R=rango(s.per,s.ref),tt=titulo(s);
@@ -15776,7 +15782,7 @@ var MCDash=(function(){
     var bl=bullets(ia.perspectivas);seccion('Perspectivas y recomendaciones',[bl.length?pBul(bl):pP('—')]);
     var nm=(typeof mcSanitizeFilename==='function'?mcSanitizeFilename:function(x){return x.replace(/[^\w\- ]+/g,'');})(titulo(s)+(TOP?' (Top '+TOP+')':'')+'.pdf').replace(/(\.pdf)+$/i,'.pdf');
     return {blob:doc.output('blob'),name:nm};});}
-  return {init:init,lazy:lazy,set:set,pdf:pdf,link:link,copiar:copiar,_visor:pintaVisor,_sd:sinDinero,_rango:rango,_build:build,_st:ST,_titulo:titulo};
+  return {_slugBase:slugBase,init:init,lazy:lazy,set:set,pdf:pdf,link:link,copiar:copiar,_visor:pintaVisor,_sd:sinDinero,_rango:rango,_build:build,_st:ST,_titulo:titulo};
 })();
 
 function MCPoPdfBajar(conPrecio){var c=window.MC_PO_CUR;if(!c){alert('Abre la orden primero');return;}
