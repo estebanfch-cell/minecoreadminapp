@@ -408,6 +408,18 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
  #mc-sheet .ms-h{width:40px;height:4px;border-radius:2px;background:#cfd3e6;margin:4px auto 10px}
  #mc-sheet .mf-t{padding-top:10px}
  #mc-fly{display:none!important}
+ /* b386: barra simétrica + «⋯» bajo Crear que despliega la barra azul hacia arriba */
+ #mc-bbar .mb-cc{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0;position:relative}
+ #mc-bbar .mb-cc .mb-crear{flex:none;padding-bottom:0}
+ #mc-bbar .mb-dots{border:0;background:transparent;color:#E8FF00;padding:0 14px;margin-top:-16px;height:22px;line-height:0;cursor:pointer;transition:transform .25s}
+ #mc-bbar .mb-dots svg{width:28px;height:28px}
+ #mc-bbar.mas-on .mb-dots{transform:rotate(90deg)}
+ #mc-mas{position:fixed;left:0;right:0;bottom:calc(62px + env(safe-area-inset-bottom));background:#1b1d4a;z-index:7999;border-radius:16px 16px 0 0;max-height:0;overflow:hidden;transition:max-height .32s ease,box-shadow .32s;box-shadow:none}
+ #mc-mas.on{max-height:72vh;overflow-y:auto;box-shadow:0 -10px 28px rgba(0,0,0,.45)}
+ #mc-mas .mm-in{padding:10px 8px 6px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:2px 8px}
+ #mc-mas .mf-t{grid-column:1/-1;padding-top:8px}
+ #mc-mas .mf-o{color:#e8eaff;min-width:0;overflow-wrap:anywhere}#mc-mas .mf-o:hover,#mc-mas .mf-o:active{background:rgba(255,255,255,.1)}
+ #mc-masbg{display:none;position:fixed;inset:0;z-index:7998;background:rgba(5,8,20,.45)}#mc-masbg.on{display:block}
 }
 body.mc-nav #mc-hfab{display:none!important}
 body.mc-nav #backBtn{display:none!important}
@@ -471,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='385';
+  var MC_BUILD='386';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -13114,9 +13126,9 @@ var MCNav=(function(){
     var prin=['crear','ventas','inv','compras','bod'],mas=gs.filter(function(g){return prin.indexOf(g.k)<0;});
     /* b338 (EFCH iPhone): Ventas · Inventario · Crear (centro, grande) · Compras · Más. Sin «Inicio»: el logo de arriba lleva al Dashboard. */
     var b='<div id="mc-bbar">';
-    ['ventas','inv','crear','bod','compras'].forEach(function(k){var g=gs.filter(function(x){return x.k===k;})[0];if(!g)return;b+='<button class="mb-i'+(k==='crear'?' mr-plus mb-crear':'')+'" onclick="MCNav.sheet(\''+g.k+'\')">'+ic(g.ico)+'<span>'+(k==='crear'?'Crear':g.t)+'</span></button>';});
-    if(mas.length)b+='<button class="mb-i" onclick="MCNav.sheet(\'_mas\')">'+ic('more')+'<span>Más</span></button>';
-    b+='</div><div id="mc-sheet" onclick="if(event.target===this)MCNav.cerrar()"></div>';
+    ['ventas','inv','crear','bod','compras'].forEach(function(k){var g=gs.filter(function(x){return x.k===k;})[0];if(!g)return;var bt='<button class="mb-i'+(k==='crear'?' mr-plus mb-crear':'')+'" onclick="MCNav.sheet(\''+g.k+'\')">'+ic(g.ico)+'<span>'+(k==='crear'?'Crear':g.t)+'</span></button>';
+      b+=k==='crear'?'<div class="mb-cc">'+bt+(mas.length?'<button class="mb-dots" aria-label="Más opciones" onclick="MCNav.mas()">'+ic('more',28)+'</button>':'')+'</div>':bt;}); /* b386: sin pestaña «Más»; ⋯ bajo Crear */
+    b+='</div><div id="mc-masbg" onclick="MCNav.mas(false)"></div><div id="mc-mas"></div><div id="mc-sheet" onclick="if(event.target===this)MCNav.cerrar()"></div>';
     var w=document.createElement('div');w.id='mc-navwrap';w.innerHTML=h+b;var old=document.getElementById('mc-navwrap');if(old)old.remove();document.body.appendChild(w);}
   function flyHtml(g){return '<div class="mf-t" style="color:'+g.col+'">'+g.t+'</div>'+g.items.map(function(it,j){var dv=g.k==='bod'&&it[1]==='Recibir orden';return (dv&&j?'<div style="height:1px;background:rgba(255,255,255,.14);margin:4px 8px"></div>':'')+'<button class="mf-o" onclick="MCNav.go(\''+g.k+'\','+j+')"><span class="mf-ic">'+it[0]+'</span>'+it[1]+'</button>';}).join('');}
   var tmr=null;
@@ -13126,16 +13138,20 @@ var MCNav=(function(){
     var top=Math.max(8,Math.min(r.top,innerHeight-f.offsetHeight-8));f.style.top=top+'px';
     document.querySelectorAll('#mc-rail .mr-i').forEach(function(x){x.classList.toggle('on',x===btn);});}
   function leave(){tmr=setTimeout(cerrar,250);}
-  function cerrar(){abierto=null;var f=document.getElementById('mc-fly');if(f)f.style.display='none';var s=document.getElementById('mc-sheet');if(s)s.style.display='none';document.querySelectorAll('#mc-rail .mr-i').forEach(function(x){x.classList.remove('on');});}
+  function cerrar(){abierto=null;mas(false);var f=document.getElementById('mc-fly');if(f)f.style.display='none';var s=document.getElementById('mc-sheet');if(s)s.style.display='none';document.querySelectorAll('#mc-rail .mr-i').forEach(function(x){x.classList.remove('on');});}
   function sheet(k){var s=document.getElementById('mc-sheet');if(!s)return;var gs=grupos.filter(function(g){return !g.sep;}),h='';
     if(k==='_mas'){var prin=['crear','bod','ventas','inv','compras']; /* b360: «prep» estaba excluido de Más y no está en la barra → Preparar orden desaparecía en el iPhone del admin */gs.filter(function(g){return prin.indexOf(g.k)<0;}).forEach(function(g){h+=flyHtml(g);});}
     else{var g=gs.filter(function(x){return x.k===k;})[0];if(g)h=flyHtml(g);}
     s.innerHTML='<div class="ms-in"><div class="ms-h"></div>'+h+'</div>';s.style.display='flex';}
+  function mas(on){var m=document.getElementById('mc-mas'),bg=document.getElementById('mc-masbg'),bb=document.getElementById('mc-bbar');if(!m)return; /* b386 */
+    if(on===undefined)on=!m.classList.contains('on');
+    if(on){var prin=['crear','bod','ventas','inv','compras'],h='';grupos.filter(function(g){return !g.sep&&prin.indexOf(g.k)<0;}).forEach(function(g){h+=flyHtml(g);});m.innerHTML='<div class="mm-in">'+h+'</div>';var s=document.getElementById('mc-sheet');if(s)s.style.display='none';}
+    m.classList.toggle('on',on);if(bg)bg.classList.toggle('on',on);if(bb)bb.classList.toggle('mas-on',on);}
   function go(k,j){var g=grupos.filter(function(x){return x.k===k;})[0];if(g&&g.items[j])ir(g.items[j][2]);}
   function inicio(){cerrar();var d=MC_NAVCAT()[0];if(P&&MCnavOk(P,d,d.items[0]))openMod('dash');else goHome();}
-  return {render:render,on:on,hover:hover,toggle:toggle,leave:leave,cerrar:cerrar,sheet:sheet,go:go,inicio:inicio};
+  return {render:render,on:on,hover:hover,toggle:toggle,leave:leave,cerrar:cerrar,sheet:sheet,go:go,inicio:inicio,mas:mas};
 })();
-document.addEventListener('click',function(e){try{if(!e.target.closest('#mc-rail')&&!e.target.closest('#mc-fly'))MCNav.cerrar();}catch(x){}},true);
+document.addEventListener('click',function(e){try{if(!e.target.closest('#mc-rail')&&!e.target.closest('#mc-fly')&&!e.target.closest('#mc-mas')&&!e.target.closest('.mb-dots')&&!e.target.closest('#mc-masbg'))MCNav.cerrar();}catch(x){}},true);
 
 /* b275: pantallas base que leen Supabase — Reorden (y pronóstico) y Registro de auditoría */
 var MCBase=(function(){
