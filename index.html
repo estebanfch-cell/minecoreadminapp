@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='362';
+  var MC_BUILD='363';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -711,6 +711,8 @@ var MCKyc=(function(){
   return {badge:badge,panel:panel,enviar:enviar2,dot:dot};
 })();
 function MCsbOnly(sb){sb.user=getUserName();sb.pin=getPin();return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');});} /* b360-gas-cot */
+/* b363-notif: solo Supabase (mismo contrato que MCsbOr, sin caer a Google) */
+function MCsbSolo(sb){sb.user=getUserName();sb.pin=getPin();return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');});}
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
   return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
     .catch(function(e){try{console.warn('Supabase falló ('+sb.op+'), uso Google:',e&&e.message);}catch(x){}return MCpost(gas);});}
@@ -2778,6 +2780,87 @@ var CxcSb=(function(){
   return {cargar:cargar,set:set,tog:tog,ec:ec,irOV:irOV,render:render};
 })();
 
+/* b362-actas: Acta transaccional en el portal (jsPDF), mismo texto y amortización francesa que Apps Script v151 (apiGenerarActa_). */
+function MCLetras(monto){
+  var U=['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISÉIS','DIECISIETE','DIECIOCHO','DIECINUEVE','VEINTE'];
+  var D=['','','VEINTI','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+  var C=['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  function t3(n){if(n===0)return '';if(n===100)return 'CIEN';var c=Math.floor(n/100),r=n%100,s=C[c];if(r===0)return s;if(s)s+=' ';if(r<=20)return s+U[r];var d=Math.floor(r/10),u=r%10;if(d===2)return s+(u===0?'VEINTE':'VEINTI'+U[u]);return s+D[d]+(u?' Y '+U[u]:'');}
+  function g(n){if(n===0)return 'CERO';var mi=Math.floor(n/1e6),k=Math.floor((n%1e6)/1000),r=n%1000,o=[];if(mi)o.push(mi===1?'UN MILLÓN':t3(mi)+' MILLONES');if(k)o.push(k===1?'MIL':t3(k)+' MIL');if(r)o.push(t3(r));return o.join(' ');}
+  var e=Math.floor(monto),cv=Math.round((monto-e)*100);
+  return g(e)+' DÓLARES DE LOS ESTADOS UNIDOS DE AMÉRICA'+(cv>0?' CON '+g(cv)+' CENTAVOS':' CON CERO CENTAVOS');}
+function MCActaCalc(p){
+  var meses=Math.max(1,Math.min(360,parseInt(p.meses,10)||24)),tasa=Math.max(0,Math.min(1000,parseFloat(p.tasa)||8)),monto=Math.round((parseFloat(p.monto)||0)*100)/100;
+  var i=tasa/100/12,cuota=Math.round((i>0?monto*i/(1-Math.pow(1+i,-meses)):monto/meses)*100)/100,saldo=monto,filas=[];
+  for(var n=1;n<=meses;n++){var it=Math.round(saldo*i*100)/100,cap=n===meses?saldo:Math.round((cuota-it)*100)/100,cf=n===meses?Math.round((cap+it)*100)/100:cuota;saldo=Math.round((saldo-cap)*100)/100;filas.push([n,cf,it,cap,saldo]);}
+  return {meses:meses,tasa:tasa,monto:monto,cuota:cuota,filas:filas};}
+function MCActaPdf(p){
+  var cli=String(p.cliente||'').trim();if(!cli)return Promise.reject(new Error('Falta el cliente'));
+  var K=MCActaCalc(p);if(!(K.monto>0))return Promise.reject(new Error('El cliente no tiene cartera vencida'));
+  var es=String(p.firmante||'martin').toLowerCase()==='esteban',mN=es?'Esteban Orazio Ferlito Chiriboga':'Martín José Pinto Laureiro',mC=es?'Gerente General':'Presidente',mI=es?'1712218344':'1712426483';
+  function fm(n){var s=(Math.round(n*100)/100).toFixed(2).split('.');return '$'+s[0].replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+s[1];}
+  function bl(v,l){v=String(v||'').trim();return v||Array((l||24)+1).join('_');}
+  var rn=String(p.repNombre||'').trim(),rc=String(p.repCedula||'').trim(),ry=String(p.repCiudad||'').trim(),re=String(p.repEmail||'').trim(),ru=String(p.clienteRuc||'').trim();
+  var M=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'],h=new Date(),fecha=h.getDate()+' de '+M[h.getMonth()]+' de '+h.getFullYear();
+  var usd=fm(K.monto).replace('$','');
+  /* bloques: ['h1'|'h2'|'p'|'n'(numerado)|'c'(centrado)|'tab'|'firma', segmentos] ; '**' marca negrita */
+  var B=[['h1','ACTA TRANSACCIONAL'],['p','En la Ciudad de Quito, hoy día '+fecha+', comparecen'],
+    ['n','**i)** Por una parte el señor '+mN+', ecuatoriano, con cédula de ciudadanía No. '+mI+', mayor de edad, en calidad de '+mC+' y como representante legal de la compañía **MINECORE S.A.S.**, con RUC 1793194965001, domiciliada en Calle Alpallana E7-212 y Diego de Almagro, de la ciudad de Quito, en calidad de **ACREEDOR**.'],
+    ['n','**ii)** Por otra parte el/la señor(a) '+bl(rn,30)+', con cédula de ciudadanía No. '+bl(rc,14)+', mayor de edad, en calidad de Gerente General y como representante legal de la compañía **'+cli+'**, con RUC No. '+bl(ru,15)+', domiciliada en la ciudad de '+bl(ry,18)+', en calidad de **DEUDOR**.'],
+    ['n','**iii)** Y el/la señor(a) '+bl(rn,30)+', con cédula de ciudadanía No. '+bl(rc,14)+', por sus propios y personales derechos, en calidad de **GARANTE SOLIDARIO**, y;'],
+    ['p','Convienen la siguiente transacción:'],['h2','PRIMERA. - ANTECEDENTES:'],
+    ['n','**1.1.** El DEUDOR adeuda a la compañía **MINECORE S.A.S.** la cantidad de '+MCLetras(K.monto)+' (USD $ '+usd+'), por concepto de venta de equipos, repuestos y suministros dentro del área de exploración minera, deuda soportada en diversas facturas emitidas y pendientes de pago.'],
+    ['n','**1.2.** Por diversas razones el DEUDOR no ha podido cumplir a tiempo con sus obligaciones de pago, por lo que ha solicitado un financiamiento a MINECORE S.A.S. a fin de cumplir con el pago de los valores pendientes.'],
+    ['n','**1.3.** Es de mutuo interés de las partes evitar el inicio y/o continuación de acciones legales por el retraso en el pago de los valores antes señalados.'],
+    ['h2','SEGUNDA. - TRANSACCIÓN:'],
+    ['n','**2.1.** En este acto y por el presente instrumento, las partes de mutuo acuerdo, libre y voluntariamente vienen a celebrar la presente acta transaccional.'],
+    ['n','**2.2.** El DEUDOR se obliga, por medio de la firma del presente instrumento, a efectuar el pago del valor antes indicado (USD $ '+usd+'), de acuerdo al siguiente cronograma de pagos, a fin de cubrir la totalidad de su deuda:'],
+    ['tab'],
+    ['n','**2.3.** Son '+K.meses+' cuotas mensuales de '+fm(K.cuota)+' cada una, que se componen de capital e intereses, calculados a una tasa anual del '+K.tasa+'%, según consta en la tabla de amortización precedente.'],
+    ['n','**2.4.** Los pagos se harán efectivos hasta máximo el treintavo día de cada mes (excepto los meses de febrero, que se harán hasta el último día de dichos meses), a la siguiente cuenta bancaria de titularidad del ACREEDOR:'],
+    ['c','**BANCO PICHINCHA**\nCuenta corriente: 2100267034\nNombre de cuenta: MINECORE SAS\nRUC: 1793194965001'],
+    ['n','**2.5.** En caso de que la fecha de pago coincida con fin de semana o feriado nacional, el pago se trasladará al siguiente día hábil inmediato.'],
+    ['n','**2.6.** El GARANTE SOLIDARIO se obliga, a título personal y de manera solidaria, en los mismos términos y condiciones constantes en este documento, renunciando de manera expresa a cualquier beneficio de orden u exclusión.'],
+    ['n','**2.7.** El DEUDOR y GARANTE SOLIDARIO se obligan a constituir, en el plazo de 60 días contados a partir de la firma del presente instrumento, garantía real y suficiente a favor del ACREEDOR a fin de garantizar el cumplimiento de pago de la obligación dineraria materia de la presente transacción.'],
+    ['h2','TERCERA. - FINIQUITO:'],
+    ['p','Los intervinientes declaran que han comparecido libre y voluntariamente a la suscripción del presente documento. En caso de incumplimiento de dos o más cuotas señaladas en la cláusula segunda, y/o de cualquier otra obligación constante en este instrumento por parte del DEUDOR y/o GARANTE SOLIDARIO, la compañía MINECORE S.A.S. podrá declarar de plazo vencido toda la deuda y proceder a ejecutarla forzosamente según lo dispuesto en el artículo 363 y siguientes del Código Orgánico General de Procesos, incluyendo el saldo de capital adeudado, el máximo interés moratorio permitido, costas procesales y honorarios de defensa.'],
+    ['h2','CUARTA. - JURISDICCIÓN Y CITACIONES:'],
+    ['p','Las partes renuncian fuero y domicilio y se someten expresamente a los Jueces de la Unidad Judicial Civil con sede en la Parroquia Iñaquito del Distrito Metropolitano de Quito. Para efectos de citaciones y/o notificaciones futuras, las partes acuerdan los siguientes correos electrónicos:'],
+    ['p','**MINECORE S.A.S.:** martinpinto@minecore.ec\n**'+cli+':** '+bl(re,28)],
+    ['h2','QUINTA. - ACEPTACIÓN:'],
+    ['p','Las partes aceptan el contenido del presente documento, el cual refleja el acuerdo al que han llegado, y lo firman por duplicado de igual tenor en señal de aceptación.'],
+    ['firma',mN+',\n'+mC+'\n**MINECORE S.A.S.**\nRUC No. 1793194965001\nACREEDOR'],
+    ['firma',(rn?rn+',':'Nombre: ____________________________')+'\nGerente General\n**'+cli+'**\nDEUDOR'],
+    ['firma',(rn?rn+',':'Nombre: ____________________________')+'\nC.I. No. '+(rc||'__________________')+'\nGARANTE SOLIDARIO']];
+  return mcPlanillaLoadJsPDF().then(function(jsPDF){
+    var doc=new jsPDF({unit:'mm',format:'a4'}),L=22,R=188,W=R-L,TOP=20,BOT=280,y=TOP,FS=10.5,LH=5.0;
+    function need(hh){if(y+hh>BOT){doc.addPage();y=TOP;}}
+    function words(txt){var out=[];String(txt).split('**').forEach(function(s,k){s.split(/(\s+)/).forEach(function(w){if(w&&!/^\s+$/.test(w))out.push({w:w,b:k%2===1});});});return out;}
+    function wid(t,b){doc.setFont('times',b?'bold':'normal');return doc.getTextWidth(t);}
+    function para(txt,x0,w,align){doc.setFontSize(FS);String(txt).split('\n').forEach(function(lineTxt){
+      var ws=words(lineTxt),sp=wid(' ',false),lines=[],cur=[],cw=0;
+      ws.forEach(function(o){o.l=wid(o.w,o.b);if(cur.length&&cw+sp+o.l>w){lines.push(cur);cur=[];cw=0;}cw+=(cur.length?sp:0)+o.l;cur.push(o);});if(cur.length)lines.push(cur);
+      lines.forEach(function(ln,li){need(LH);var tot=ln.reduce(function(a,o){return a+o.l;},0),last=li===lines.length-1;
+        var gap=(align==='j'&&!last&&ln.length>1)?(w-tot)/(ln.length-1):sp,xx=align==='c'?x0+(w-(tot+sp*(ln.length-1)))/2:x0;
+        ln.forEach(function(o){doc.setFont('times',o.b?'bold':'normal');doc.text(o.w,xx,y);xx+=o.l+gap;});y+=LH;});});}
+    doc.setTextColor(17,17,17);
+    B.forEach(function(b){var t=b[0],s=b[1];
+      if(t==='h1'){doc.setFont('times','bold');doc.setFontSize(13);var tw=doc.getTextWidth(s);doc.text(s,105,y,{align:'center'});doc.setLineWidth(0.3);doc.line(105-tw/2,y+1,105+tw/2,y+1);y+=11;return;}
+      if(t==='h2'){need(14);y+=3;doc.setFont('times','bold');doc.setFontSize(11);doc.text(s,L,y);y+=6.5;return;}
+      if(t==='n'){var m=s.match(/^\*\*(.+?)\*\*\s*/);need(LH*3);var y0=y;doc.setFont('times','bold');doc.setFontSize(FS);doc.text(m[1],L,y0);para(s.slice(m[0].length),L+12,W-12,'j');y+=2.5;return;}
+      if(t==='p'){para(s,L,W,'j');y+=2.5;return;}
+      if(t==='c'){need(LH*4);para(s,L,W,'c');y+=2.5;return;}
+      if(t==='firma'){need(42);y+=22;doc.setLineWidth(0.3);doc.line(105-40,y,105+40,y);y+=5;para(s,L,W,'c');return;}
+      if(t==='tab'){var cw=[18,33,33,33,33],cx=[L+8,L+26,L+59,L+92,L+125],hdr=['# Pago','Cuota mensual','Pago Interés','Pago Capital','Saldo'];
+        function head(){doc.setFillColor(58,58,58);doc.rect(L+8,y-4,W-16,6.2,'F');doc.setTextColor(255,255,255);doc.setFont('times','bold');doc.setFontSize(9);hdr.forEach(function(hh,j){doc.text(hh,j?cx[j]+cw[j]-2:cx[j]+cw[j]/2,y,{align:j?'right':'center'});});doc.setTextColor(17,17,17);y+=6;}
+        need(14);y+=2;head();doc.setFont('times','normal');doc.setFontSize(9.2);
+        K.filas.forEach(function(f){if(y+5>BOT){doc.addPage();y=TOP;head();doc.setFont('times','normal');doc.setFontSize(9.2);}
+          var v=[String(f[0]),fm(f[1]),fm(f[2]),fm(f[3]),f[4]>0?fm(f[4]):'-'];v.forEach(function(x,j){doc.text(x,j?cx[j]+cw[j]-2:cx[j]+cw[j]/2,y,{align:j?'right':'center'});});
+          doc.setDrawColor(187,187,187);doc.setLineWidth(0.15);doc.line(L+8,y+1.6,R-8,y+1.6);y+=5.2;});y+=4;}});
+    try{doc.setProperties({title:'Acta transaccional — '+cli,author:'Minecore S.A.S'});}catch(e){}
+    return {blob:doc.output('blob'),filename:'ACTA_TRANSACCIONAL_'+cli.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',cuota:K.cuota,meses:K.meses,tasa:K.tasa,monto:K.monto};});}
+function MCActaB64(blob){return new Promise(function(ok,ko){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]||'');};fr.onerror=function(){ko(new Error('No se pudo leer el PDF'));};fr.readAsDataURL(blob);});}
+
 var Cobranza = (function () {
   function puedeInteractuar(){
     var p=getProfile();var ms=p.modulos||[];
@@ -2807,7 +2890,7 @@ var Cobranza = (function () {
   function init() {
     var el = document.getElementById('cobranza-screen');
     el.innerHTML = '<div class="cbz-loading">Cargando cartera...</div>';
-    MCsbOr({action:'ventas',op:'cxc_config'},{ action: 'getCxcConfig' }).then(function (res) { if(res.fuente==='supabase'){try{api({action:'getCxcConfig'}).then(function(g){if(g&&g.ok&&g.waTemplates){waTemplate=g.waTemplates;}}).catch(function(){});}catch(e){}}
+    MCpost({action:'ventas',op:'cxc_config',user:getUserName(),pin:getPin()}).then(function (res) { /* b362-actas: waTemplates (WA1–WA5) vienen de app.cxc_mensajes */
       if (!res.ok) { el.innerHTML = '<div class="cbz-error">Error: ' + res.error + '</div>'; return; }
       setTimeout(loadCompromisos, 0);
       clientes = (res.clientes || []).sort(function (a, b) {
@@ -3224,7 +3307,7 @@ var Cobranza = (function () {
     var c = clientes[idx];
     if (!c.actaAprobada) return;
     // pre-carga los datos del acta aprobada para editarla
-    api({ action: 'getActaAprobada', cliente: c.cliente, conPdf: false }).then(function (res) {
+    actaApi('cxc_acta_get', { cliente: c.cliente, conPdf: false }).then(function (res) {
       if (!res.ok || actaOpen !== idx) return;
       function set(id, v) { var el = document.getElementById(id); if (el && v !== undefined && v !== null && v !== '') el.value = v; }
       set('a-meses', res.meses); set('a-tasa', res.tasa); set('a-firmante', res.firmante);
@@ -3235,27 +3318,20 @@ var Cobranza = (function () {
   function verActa(idx) {
     var c = clientes[idx];
     var w = window.open('', '_blank');
-    api({ action: 'getActaAprobada', cliente: c.cliente }).then(function (res) {
+    actaApi('cxc_acta_get', { cliente: c.cliente }).then(function (res) {
       if (!res.ok) { if (w) w.close(); alert('Error: ' + res.error); return; }
-      var bin = atob(res.b64), arr = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      var url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
-      if (w) w.location = url; else window.open(url, '_blank');
+      if (w) w.location = res.url; else window.open(res.url, '_blank'); /* b362-actas: enlace firmado (10 min) */
     }).catch(function () { if (w) w.close(); alert('No se pudo abrir el acta.'); });
   }
+  /* b362-actas: monto = cartera vencida del cliente (igual que Apps Script: suma de saldos con mora > 0) */
+  function actaPrm(c) { var g = function (id) { var e = document.getElementById(id); return e ? e.value : ''; };
+    return { cliente: c.cliente, monto: c.vencido, meses: g('a-meses'), tasa: g('a-tasa'), firmante: g('a-firmante'), repNombre: g('a-nombre'), repCedula: g('a-cedula'), repCiudad: g('a-ciudad'), clienteRuc: g('a-ruc'), repEmail: g('a-email') }; }
+  function actaApi(op, p) { return MCpost(Object.assign({ action: 'ventas', op: op, user: getUserName(), pin: getPin() }, p)); }
   function actaAprobar(idx) {
     var c = clientes[idx];
     if (!confirm('¿Aprobar esta acta para ' + c.cliente + '? Quedará guardada y se adjuntará en los envíos de nivel 5.')) return;
-    api({ action: 'aprobarActa', cliente: c.cliente,
-      meses: document.getElementById('a-meses').value,
-      tasa: document.getElementById('a-tasa').value,
-      firmante: document.getElementById('a-firmante').value,
-      repNombre: document.getElementById('a-nombre').value,
-      repCedula: document.getElementById('a-cedula').value,
-      repCiudad: document.getElementById('a-ciudad').value,
-      clienteRuc: document.getElementById('a-ruc').value,
-      repEmail: document.getElementById('a-email').value
-    }).then(function (res) {
+    var prm = actaPrm(c);
+    MCActaPdf(prm).then(function (o) { return MCActaB64(o.blob).then(function (b64) { return actaApi('cxc_acta_save', Object.assign({}, prm, { b64: b64, cuota: o.cuota })); }); }).then(function (res) {
       if (!res.ok) { alert('Error: ' + res.error); return; }
       alert('Acta aprobada y guardada (' + res.meses + ' cuotas de ' + fmt(res.cuota) + ' al ' + res.tasa + '%). Se adjuntará en los envíos N5.');
       actaOpen = null;
@@ -3266,20 +3342,9 @@ var Cobranza = (function () {
     var c = clientes[idx];
     var w = preview ? window.open('', '_blank') : null; // abrir antes del fetch (popup blockers)
     var pdfTab = preview ? null : mcArmPdfTab();
-    api({ action: 'generarActa', cliente: c.cliente,
-      meses: document.getElementById('a-meses').value,
-      tasa: document.getElementById('a-tasa').value,
-      firmante: document.getElementById('a-firmante').value,
-      repNombre: document.getElementById('a-nombre').value,
-      repCedula: document.getElementById('a-cedula').value,
-      repCiudad: document.getElementById('a-ciudad').value,
-      clienteRuc: document.getElementById('a-ruc').value,
-      repEmail: document.getElementById('a-email').value
-    }).then(function (res) {
+    MCActaPdf(actaPrm(c)).then(function (o) { return { ok: true, blob: o.blob, filename: o.filename, cuota: o.cuota, meses: o.meses, tasa: o.tasa, monto: o.monto }; }).then(function (res) {
       if (!res.ok) { if (w) w.close(); mcClosePdfTab_(pdfTab); alert('Error: ' + res.error); return; }
-      var bin = atob(res.b64), arr = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      var blob = new Blob([arr], { type: 'application/pdf' });
+      var blob = res.blob; /* b362-actas: PDF generado en el portal */
       if (preview) {
         var url = URL.createObjectURL(blob);
         if (w) w.location = url; else window.open(url, '_blank');
@@ -3289,7 +3354,7 @@ var Cobranza = (function () {
           alert('Acta descargada: ' + res.meses + ' cuotas de ' + fmt(res.cuota) + ' al ' + res.tasa + '% sobre ' + fmt(res.monto) + '.');
         });
       }
-    }).catch(function(){ if (w) w.close(); mcClosePdfTab_(pdfTab); alert('Error de red generando el acta.'); });
+    }).catch(function(e){ if (w) w.close(); mcClosePdfTab_(pdfTab); alert('Error generando el acta: ' + MCerr(e)); });
   }
 
 
@@ -3678,7 +3743,7 @@ var DashV2=(function(){
     try{var c0=JSON.parse(localStorage.getItem(ck)||'null');if(c0&&c0.ok&&Date.now()-(c0._t||0)<6*3600e3){data=c0;cargando=false;render();}else{cargando=true;render();}}catch(x){cargando=true;render();}
     var pedir=function(){return MCpost({action:'ventas',op:'dash_cfo',tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'sin datos');
         try{window.MC_DASH_MS=Date.now()-t0;r._t=Date.now();localStorage.setItem(ck,JSON.stringify(r));}catch(x){try{localStorage.removeItem(ck);}catch(y){}}return r;})
-      .catch(function(e1){try{console.warn('Dashboard Supabase falló, uso Google:',e1&&e1.message);}catch(x){}return MCpost({action:'getCfo',tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to,user:getUserName(),pin:getPin()});});};
+      .catch(function(e1){return {ok:false,error:(e1&&e1.message)||'Sin conexión con Minecore (Supabase)'};});}; /* b363-notif: sin getCfo de Google */
     pedir().then(function(r){if(rango(tab).from!==rg.from)return;cargando=false;if(!(r&&r.ok)&&data)return;data=(r&&r.ok)?r:null;
       if(!data){var host=document.getElementById(hostId);if(host)host.innerHTML='<div class="cbz-error">'+e((r&&r.error)||'Sin datos')+'</div>';return;}render();})
     .catch(function(x){cargando=false;var host=document.getElementById(hostId);if(host)host.innerHTML='<div class="cbz-error">'+e(typeof MCerr==='function'?MCerr(x):String(x))+'</div>';});}
@@ -4023,7 +4088,7 @@ var Dash = (function(){
   function loadCfo(){
     var box=document.getElementById('dash-cfo');if(!box)return;
     box.innerHTML='<div class="cbz-loading">Cargando finanzas y operaciones...</div>';
-    MCpost({action:'getCfo',fromDate:from,toDate:to,user:getUserName(),pin:getPin()}).then(function(r){
+    MCpost({action:'ventas',op:'dash_cfo',fromDate:from,toDate:to,user:getUserName(),pin:getPin()}).then(function(r){ /* b363-notif: Supabase */
       if(!r||!r.ok){box.innerHTML='<div class="cbz-error">'+((r&&r.error)||'Sin datos')+'</div>';return;}
       cfo=r;renderCfo();
     }).catch(function(e){box.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
@@ -4046,7 +4111,7 @@ var Dash = (function(){
       (c.top90&&c.top90.length?'<div class="sub">Mayores +90: '+c.top90.map(function(x){return cE(x.cliente)+' '+fmt(x.saldo);}).join(' · ')+'</div>':'')+
       (r.dso&&r.dso.dias!==null?'<div class="sub">DSO <b style="color:'+(r.dso.semaforo==='verde'?'#6fd68f':(r.dso.semaforo==='rojo'?'#e05c5c':'#f0c040'))+'">'+r.dso.dias+' días</b></div>':''));
     if(r.caja30)h+=card('Caja proyectada a 30 días','<div class="num" style="color:'+(r.caja30.neto<0?'#e05c5c':'#6fd68f')+'">'+fmt(r.caja30.neto)+'</div><div class="sub">Por cobrar '+fmt(r.caja30.cobrar)+' − por pagar '+fmt(r.caja30.pagar)+'</div>');
-    if(r.cxp)h+=card('Cuentas por pagar (OCs)','<div class="num">'+fmt(r.cxp.saldo)+'</div><div class="sub">Vence en 30 d '+fmt(r.cxp.vence30)+' · Boyles aparte: '+fmt(r.cxp.boyles.saldo)+' (30 d '+fmt(r.cxp.boyles.vence30)+')</div>');
+    if(r.cxp)h+=card('Cuentas por pagar (OCs)','<div class="num">'+fmt(r.cxp.saldo!=null?r.cxp.saldo:r.cxp.deuda)+'</div><div class="sub">Vence en 30 d '+fmt(r.cxp.vence30)+(r.cxp.boyles?' · Boyles aparte: '+fmt(r.cxp.boyles.saldo)+' (30 d '+fmt(r.cxp.boyles.vence30)+')':'')+'</div>'); /* b363: forma de dash_cfo */
     if(r.inventario)h+=card('Inventario valorizado','<div class="num">'+fmt(r.inventario.valor)+'</div><div class="sub">Días de inventario '+(r.inventario.diasInventario===null?'—':'<b style="color:'+(r.inventario.diasInventario>150?'#e05c5c':'inherit')+'">'+r.inventario.diasInventario+'</b>')+(r.inventario.ocPendienteRecibir!==null?' · OCs por recibir '+fmt(r.inventario.ocPendienteRecibir):'')+'</div>');
     if(r.lento)h+=card('Inventario lento','<div class="sub">Sin venta 90 d: '+r.lento.sinVenta90.n+' SKUs · '+fmt(r.lento.sinVenta90.valor)+' · 180 d: '+r.lento.sinVenta180.n+' · '+fmt(r.lento.sinVenta180.valor)+'</div>'+
       r.lento.top10.map(function(x,i){return '<div class="sub">'+(i+1)+'. '+cE(x.sku)+' '+cE(String(x.nombre).slice(0,40))+' · '+x.stock+' und · '+fmt(x.valor)+' · últ. '+cE(x.ultimaVenta)+'</div>';}).join(''));
@@ -12472,7 +12537,7 @@ function renderHome(){
   mcBindHomeTiles();
   var nb=document.getElementById('notif-bar');
   if(nb){nb.className='';nb.style.display='none';nb.innerHTML='';nb.removeAttribute('data-has');}
-  MCsbOr({action:'notificaciones'},{action:'getNotificaciones'}).then(function(nres){ /* b346: Supabase */
+  MCsbSolo({action:'notificaciones'}).then(function(nres){ /* b346: Supabase */
     var bar=document.getElementById('notif-bar');
     if(!bar)return;
     if(!nres.ok||!(nres.items||[]).length){bar.className='';bar.style.display='none';bar.innerHTML='';bar.removeAttribute('data-has');return;}
@@ -15303,7 +15368,7 @@ var MCHoy=(function(){
     P.push(grp('prep')?api({op:'paraPiquear'}).then(function(r){D.prep=r&&r.ok?(r.ordenes||[]):[];}).catch(function(){D.prep=[];}):Promise.resolve(D.prep=null));
     P.push(grp('entr')?api({op:'ent_list'}).then(function(r){D.ent=r&&r.ok?(r.ordenes||[]).filter(function(o){return o.ship_estado!=='enviado';}):[];}).catch(function(){D.ent=[];}):Promise.resolve(D.ent=null));
     P.push(grp('recib')?api({op:'po_list',limit:5000}).then(function(r){D.rec=r&&r.ok?(r.ordenes||[]).filter(function(o){return !o.is_quote&&!o.is_cancelled&&(o.estado==='abierta'||o.estado==='parcial');}):[];}).catch(function(){D.rec=[];}):Promise.resolve(D.rec=null));
-    P.push(MCsbOr({action:'notificaciones'},{action:'getNotificaciones'}).then(function(r){D.notif=((r&&r.ok&&r.items)||[]).filter(function(x){return x.destino&&MCnavRutaOk(x.destino);});}).catch(function(){D.notif=[];}));
+    P.push(MCsbSolo({action:'notificaciones'}).then(function(r){D.notif=((r&&r.ok&&r.items)||[]).filter(function(x){return x.destino&&MCnavRutaOk(x.destino);});}).catch(function(){D.notif=[];}));
     Promise.all(P).then(function(){busy=0;last=Date.now();if(vis())pintar();},function(){busy=0;});}
   function render(){var h=document.getElementById('home');if(!h)return;h.innerHTML='<div id="mc-hoy"></div>';pintar();cargar();
     ['home-edit-bar','notif-bar'].forEach(function(id){var x=document.getElementById(id);if(x)x.style.display='none';});
@@ -15342,7 +15407,7 @@ var MCAvisos=(function(){
   function vivos(){return L.filter(function(x){return !oculto(kA(x));});}
   function asig(){var st=MCNotif._st;return (st.asig||[]).filter(function(d){return !oculto('a:'+d.tabla+':'+d.id);});}
   function n(){return vivos().length;}
-  function cargar(){return MCsbOr({action:'notificaciones'},{action:'getNotificaciones'}).then(function(r){
+  function cargar(){return MCsbSolo({action:'notificaciones'}).then(function(r){
       L=((r&&r.ok&&r.items)||[]).filter(function(x){return x.destino&&(typeof MCnavRutaOk!=='function'||MCnavRutaOk(x.destino));});
       /* auto-limpieza: se olvidan los ✕ de cosas que ya no existen */
       var vivosK=L.map(kA).concat((MCNotif._st.asig||[]).map(function(d){return 'a:'+d.tabla+':'+d.id;}));
