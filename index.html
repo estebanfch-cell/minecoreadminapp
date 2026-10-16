@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='399';
+  var MC_BUILD='400';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -15665,7 +15665,7 @@ var MCDash=(function(){
     var dl=S2._expira?Math.max(1,Math.ceil((Date.parse(S2._expira)-Date.now())/864e5)):15;
     h+='<div class="nota"><span>Este link vencerá en '+dl+' día'+(dl===1?'':'s')+'. Puedes descargar el PDF aquí</span><span class="pdfb"><select id="mcr-top" aria-label="Productos en el PDF"><option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option><option value="0" selected>Todos</option></select><button class="btn" id="mcr-pdf">⬇ Descargar PDF</button></span></div>';
     h+='<h1>'+es(M.titulo)+'</h1><div class="sub">Período '+R.desde.split('-').reverse().join('/')+' – '+R.hasta.split('-').reverse().join('/')+' · comparado con '+R.prev_desde.split('-').reverse().join('/')+' – '+R.prev_hasta.split('-').reverse().join('/')+' · emitido '+M.emitido.split('-').reverse().join('/')+'</div>';
-    var cu=crecU(P);if(cli)h+='<div class="kp">'+kc('Unidades del período',fq(A.uq),'',0)+kc('Período anterior',fq(B.uq)+' u','',60)+kc('Crecimiento del consumo','<span class="'+(cu>0?'up':cu<0?'dn':'')+'">'+pc(cu)+'</span>','',120)+kc('Órdenes',fq(A.ordenes),'vs '+fq(B.ordenes)+' antes',180)+kc('Productos distintos',fq(A.nprod),'vs '+fq(B.nprod),240)+kc('Frecuencia','cada '+fq(d.frecuencia_dias)+' días','',300)+'</div>';
+    var cu=crecU(P);if(cli)h+='<div class="kp">'+kc('Unidades período actual',fq(A.uq)+' u','',0)+kc('Unidades período anterior',fq(B.uq)+' u','',60)+kc('Crecimiento del consumo','<span class="'+(cu>0?'up':cu<0?'dn':'')+'">'+pc(cu)+'</span>','',120)+kc('Órdenes',fq(A.ordenes),'vs '+fq(B.ordenes)+' antes',180)+kc('Productos distintos',fq(A.nprod),'vs '+fq(B.nprod),240)+kc('Frecuencia','cada '+fq(d.frecuencia_dias)+' días','',300)+'</div>';
     else h+='<div class="kp">'+kc('Compras a proveedor',f2(A.total),'',0)+kc('Período anterior',f2(B.total),'',60)+kc('Variación','<span class="'+(P.crec>0?'up':P.crec<0?'dn':'')+'">'+pc(P.crec)+'</span>','',120)+kc('Órdenes',fq(A.ordenes),'vs '+fq(B.ordenes)+' antes',180)+kc('Ticket promedio',f2(A.ticket),'',240)+
       ((d.ventas?kc('Vendido de sus productos',fq(d.ventas.ytd.q)+' u','año en curso vs '+fq(d.ventas.ytd.q_prev)+' u',300):''))+'</div>';
     if(cli&&ia.carta)h+='<div class="cd"><h2>Gracias por este año</h2><div style="white-space:pre-line;line-height:1.6">'+es(ia.carta)+'</div></div>';
@@ -15755,7 +15755,7 @@ var MCDash=(function(){
     var up=P.crec>0?[60,130,40]:P.crec<0?[190,60,60]:INKc;
     if(tipo==='cierre'&&ia.carta)seccion('Gracias por este año',[pP(ia.carta,10)]);
     var cu=crecU(P),upu=cu>0?[60,130,40]:cu<0?[190,60,60]:INKc;
-    if(cli)kpis([['Unidades del período',fq(A.uq)],['Período anterior',fq(B.uq)],['Crecimiento consumo',pc(cu),upu],['Órdenes',fq(A.ordenes)+' vs '+fq(B.ordenes)],['Productos distintos',fq(A.nprod)]]);
+    if(cli)kpis([['Unidades período actual',fq(A.uq)+' u'],['Unidades período anterior',fq(B.uq)+' u'],['Crecimiento consumo',pc(cu),upu],['Órdenes',fq(A.ordenes)+' vs '+fq(B.ordenes)],['Productos distintos',fq(A.nprod)]]);
     else kpis([['Compras a proveedor',f2(A.total)],['Período anterior',f2(B.total)],['Variación',pc(P.crec),up],['Órdenes',fq(A.ordenes)+' vs '+fq(B.ordenes)],['Ticket promedio',f2(A.ticket)]]);
     var gl=function(x){if(!x)return '';var k=x.k;return P.gran==='dia'?String(+k.slice(8)):MES[(+k.slice(5,7))-1];};
     if(tipo!=='pendientes')seccion(cli?'Consumo del período en unidades vs período anterior (gris)':'Compras del período vs período anterior (gris)',[pB(cli?A.serie_q||[]:A.serie||[],cli?B.serie_q||[]:B.serie||[],gl)]);
