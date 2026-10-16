@@ -471,7 +471,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='360';
+  var MC_BUILD='361';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -629,11 +629,12 @@ var MC_SB_LECT=/^(nav_reorden|nav_auditoria|meta|clientes|catalogos|productos|li
 /* b344: escrituras de bodega/recepción/stock directo a Supabase (portal-api → ventas-api), sin el salto por Apps Script; Apps Script solo si no hay sesión o Supabase no responde */
 var MC_SB_ESCR=/^(pick|pack|ship|fulfill|pick_edit|pick_undo|pack_undo|ship_edit|ship_undo|po_receive|stk_transfer|stk_adjust|stk_count_start|stk_count_save|stk_count_complete|stk_cancel)$/;
 var MC_SB_DOWN=0,MC_SB_REF=null;
+var MC_SB_ONLY=/^(cli_nombres|precot_bandeja)$/; /* b360-gas-cot: cotizador solo Supabase */
 var MC_CAJA_RX=/^(getRutas|getGastos|getEntregas|getBalanceCaja|getConfig|updateConfig|crearRuta|editarRuta|aprobarRuta|rechazarRuta|crearGasto|aprobarGasto|rechazarGasto|crearEntrega|eliminarLineaCaja|eliminarEntrega|eliminarGasto|eliminarRuta|cerrarCorte|savePhoto)$/;
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
 function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
 /* b334: token de sesión desde portal-api (sbToken con NOMBRE+PIN); si falla, Apps Script (AdminAPI ya no trae sbToken) */
-function MCsbTok(){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'sbToken',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){if(!(e1&&e1.name==='TypeError'))return {ok:false,error:(e1&&e1.error)||'sin token'};return MCpostAS({action:'sbToken',user:getUserName(),pin:getPin(),_retries:1}).then(function(r){if(r&&r.sbt)return r;return {ok:false,error:(e1&&e1.error)||(r&&r.error)||'sin token'};});});}
+function MCsbTok(){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'sbToken',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){if(!(e1&&e1.name==='TypeError'))return {ok:false,error:(e1&&e1.error)||'sin token'};return {ok:false,error:'No hay conexión con el servidor de Minecore (Supabase).'};} /* b361-login: sin token por Apps Script */);}
 /* b340: escalera de cobranza — clientes Bloqueados (compromiso incumplido). Fuente: webhook cobranza (Supabase app.customers.bloqueado). */
 var MC_BLOQ={},MC_BLOQ_T=0,MC_COB_URL='https://uniformly-rockband-uncapped.ngrok-free.dev/cobranza/';
 function mcCobPost(path,body){return MCsbTok().then(function(tk){if(!tk||!tk.sbt)throw {error:'Sin sesión'};body=body||{};body.t=tk.sbt;return fetch(MC_COB_URL+path,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},body:JSON.stringify(body)}).then(function(r){return r.json();});});}
@@ -648,7 +649,8 @@ function MCsbRefresh(){
   MC_SB_REF=MCsbTok().then(function(r){MC_SB_REF=null;if(r&&r.sbt)MCsbSet(r.sbt);},function(){MC_SB_REF=null;});
 }
 function MCsbEligible(c){
-  if(location.protocol==='file:'||Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
+  if(location.protocol==='file:')return false;if(MC_CAJA_RX.test(c.action||'')||MC_SB_ONLY.test(c.action||''))return true; /* b360-gas */
+  if(Date.now()<MC_SB_DOWN||localStorage.getItem('mc_sb_off')==='1')return false;
   return c.action==='ventas'||c.action==='cli_nombres'||/^(kyc_link|kyc_enviado|getKycClientes)$/.test(c.action||'')/* b346-cli */||c.action==='despieces'||c.action==='notificaciones'||c.action==='getInventario'||c.action==='team_list'||c.action==='cli_estado'||c.action==='precot_bandeja'||/^consig_(data|ext|ext_res|cliente)$/.test(c.action||'')||MC_CAJA_RX.test(c.action||''); /* b326: Caja chica directo a Supabase */
 }
 /* b260: Supabase primero y Google solo de respaldo (misma respuesta) */
@@ -708,6 +710,7 @@ var MCKyc=(function(){
   function dot(e){var ok=e==='completo';return '<span title="'+(ok?'Formulario completo':e==='enviado'?'Formulario enviado (pendiente)':'Formulario pendiente')+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle;flex:none;background:'+(ok?'#22c55e':'#ef4444')+'"></span>';}
   return {badge:badge,panel:panel,enviar:enviar2,dot:dot};
 })();
+function MCsbOnly(sb){sb.user=getUserName();sb.pin=getPin();return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');});} /* b360-gas-cot */
 function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
   return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
     .catch(function(e){try{console.warn('Supabase falló ('+sb.op+'), uso Google:',e&&e.message);}catch(x){}return MCpost(gas);});}
@@ -723,6 +726,10 @@ function MCpost0(p){
     if(!s||s.exp<Date.now()/1000+180)MCsbRefresh();
   }
   if(!s&&MCsbEligible(p)&&!p._sbw&&MC_SB_REF){p._sbw=1;return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});} /* b346 */
+  /* b360-gas: Caja chica 100% Supabase — nunca cae a Apps Script (Sheets Caja_* ya no es la fuente de verdad) */
+  var esCaja=MC_CAJA_RX.test(String(p.action||''))||MC_SB_ONLY.test(String(p.action||''));
+  if(esCaja&&!s){if(!p._sbw2){p._sbw2=1;MCsbRefresh();return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
+    return Promise.resolve({ok:false,error:'No se pudo abrir la sesión con el servidor. Revisa tu conexión y vuelve a intentar.',_transport:true});}
   if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -738,6 +745,8 @@ function MCpost0(p){
       if(timer)clearTimeout(timer);
       /* b344: una escritura que pudo llegar a ejecutarse (timeout o error del servidor) NO se reintenta por Apps Script: evitaría duplicar picks/recepciones */
       if(esW&&!(e&&(e.message==='SB401'||e.name==='TypeError')))return {ok:false,error:'No hubo respuesta de Supabase. Recarga la orden antes de reintentar para no duplicar.'};
+      if(esCaja){if(e&&e.message==='SB401'&&!p._sb401){p._sb401=1;return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
+        return {ok:false,error:(e&&e.name==='AbortError')?'TIMEOUT':'Sin conexión con el servidor de Minecore (Supabase). Intenta de nuevo en un momento.',_transport:true};} /* b360-gas: sin respaldo Google */
       if(!(e&&e.message==='SB401'))MC_SB_DOWN=Date.now()+60000;
       try{console.warn('Supabase directo falló, uso Apps Script:',e&&e.message);}catch(e2){}
       return MCpostAS(p);
@@ -954,7 +963,7 @@ var MCWarm = (function(){
     pCli=Promise.resolve()
       .then(function(){
         /* b345: nombres de clientes desde Supabase (app.customers); Apps Script solo si no hay sesión Supabase */
-        return MCsbOr({action:'cli_nombres'},{action:'getClientesInflowLista',_timeout:45000,_retries:1})
+        return MCsbOnly({action:'cli_nombres'})
           .then(function(r){if(r&&r.ok)applyClientes(r.clientes||[],r.fuente==='supabase'?'supabase':'getClientesInflowLista');})
           .catch(function(){});
       })
@@ -1009,7 +1018,7 @@ var MCWarm = (function(){
     flight.then(function(){if(inflight[key]===flight)inflight[key]=null;},function(){if(inflight[key]===flight)inflight[key]=null;});
   }
   function loadInflow(tipo, force){
-    if(window.MC_IO_LEGACY!==true)return Promise.resolve([]); /* b345: Cotizaciones antiguo retirado; usa Ventas (Supabase) */
+    return Promise.resolve([]); /* b360-gas-cot: Cotizaciones antiguo (inFlow/Apps Script) retirado del todo; usa Ventas (Supabase) */
     hydrateDocs();
     var key=docKey(tipo);
     if(!force&&mem[key]!==null&&isDocFresh(mem[key+'At'], mem[key+'Source']))return Promise.resolve(mem[key]);
@@ -1056,7 +1065,7 @@ var MCWarm = (function(){
     var my=ticket.pre;
     mem.preLoading=true;mem.preErr='';notify('cotadmin');
     var cred=auth();
-    var flight=MCsbOr({action:'precot_bandeja'},{action:'getCotAdmin',_timeout:70000,_retries:1}).then(function(res){ /* b269: copia en Supabase primero, hoja de respaldo */
+    var flight=MCsbOnly({action:'precot_bandeja'}).then(function(res){ /* b269: copia en Supabase primero, hoja de respaldo */
       if(ticket.pre!==my)return mem.pre;
       if(!res||!res.ok)throw new Error((res&&res.error)||'No se pudo cargar');
       applyDoc('pre', res.solicitudes||[], 'api');
@@ -2393,12 +2402,20 @@ var MCLbl=(function(){
   function cut(doc,s,w){s=String(s||'');if(doc.getTextWidth(s)<=w)return s;while(s.length>1&&doc.getTextWidth(s+'…')>w)s=s.slice(0,-1);return s+'…';}
   function lines(doc,s,w,n){var L=doc.splitTextToSize(String(s||''),w);if(L.length>n){L=L.slice(0,n);L[n-1]=cut(doc,L[n-1]+' …',w);}return L;}
   /* d = {sku,nombre,cod_prov,proveedor,categoria,cat_contable,linea,barcode,img(dataURL),logo(dataURL)} */
+  /* b360b label fix: solo el nombre de nuestra categoría (sin «MCOR-01.4» ni ruta) */
+  function catNom(s){s=String(s||'');s=s.split('>').pop();return s.replace(/^\s*[A-Z]{2,}-[\d.]+\s*/,'').trim();}
+  /* b360b label fix: blanco y negro puro para DYMO térmica (Floyd–Steinberg) */
+  function bw(c,logo){var g=c.getContext('2d'),W=c.width,H=c.height,im=g.getImageData(0,0,W,H),d=im.data,L=new Float32Array(W*H),i,x,y;
+    for(i=0;i<W*H;i++){var a=d[i*4+3]/255,l=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];if(logo){L[i]=a>0.5&&l>110?0:255;continue;}l=Math.max(0,Math.min(255,(l-25)*255/190));L[i]=l*a+255*(1-a);}
+    if(logo){for(i=0;i<W*H;i++){d[i*4]=d[i*4+1]=d[i*4+2]=L[i];d[i*4+3]=255;}g.putImageData(im,0,0);return c;} /* logo: amarillo→negro, M oscura→blanco (como la etiqueta de EFCH) */
+    for(y=0;y<H;y++)for(x=0;x<W;x++){i=y*W+x;var o=L[i],n=o<128?0:255,e=o-n;L[i]=n;if(x+1<W)L[i+1]+=e*7/16;if(y+1<H){if(x>0)L[i+W-1]+=e*3/16;L[i+W]+=e*5/16;if(x+1<W)L[i+W+1]+=e/16;}}
+    for(i=0;i<W*H;i++){d[i*4]=d[i*4+1]=d[i*4+2]=L[i];d[i*4+3]=255;}g.putImageData(im,0,0);return c;}
   function cliente(doc,d){var W=51,cx=W/2;doc.setTextColor(0,0,0);
     doc.setFont('courier','normal');doc.setFontSize(6.6);var L=lines(doc,d.nombre,48,2),y=3.2;L.forEach(function(l){doc.text(l,cx,y,{align:'center'});y+=2.5;});
     if(d.cod_prov){doc.text(cut(doc,d.cod_prov,48),cx,y,{align:'center'});y+=2.5;}
     if(d.categoria){doc.text(cut(doc,d.categoria,48),cx,y,{align:'center'});y+=2.6;}
     doc.setFont('helvetica','bold');doc.setFontSize(8.6);doc.text(String(d.sku||''),cx,Math.min(y+0.6,15.6),{align:'center'});
-    if(d.linea){doc.setFont('courier','normal');doc.setFontSize(6.6);doc.text(cut(doc,d.linea,22),49.5,18.1,{align:'right'});}}
+    if(d.linea){doc.setFont('courier','normal');doc.setFontSize(6.6);doc.text(cut(doc,d.linea,48),cx,18.1,{align:'center'});}} /* b360b label fix: todo centrado */
   function bodega(doc,d){var W=102,H=57;doc.setTextColor(0,0,0);
     doc.setFont('helvetica','normal');doc.setFontSize(9.5);var T=lines(doc,d.nombre,96,2);T.forEach(function(l,i){doc.text(l,W/2,5.5+i*3.8,{align:'center'});});
     var top=T.length>1?11:8;
@@ -2411,7 +2428,7 @@ var MCLbl=(function(){
     if(d.linea){var LL=lines(doc,d.linea,30,2);LL.forEach(function(l,i){doc.text(l,rx,top+14+i*3.8,{align:'center'});});}
     doc.setFontSize(8);if(d.proveedor)lines(doc,d.proveedor,30,2).forEach(function(l,i){doc.text(l,rx,top+27+i*3.3,{align:'center'});});
     if(d.cod_prov)doc.text(cut(doc,d.cod_prov,30),rx,top+34.5,{align:'center'});
-    doc.setFontSize(8.5);if(d.cat_contable)doc.text(cut(doc,d.cat_contable,96),W/2,H-2.6,{align:'center'});}
+    doc.setFontSize(8.5);if(d.cat_contable)doc.text(cut(doc,catNom(d.cat_contable),96),W/2,H-2.6,{align:'center'});}
   function pdf(jsPDF,tipo,items){var w=tipo==='cliente'?51:102,h=tipo==='cliente'?19:57,doc=new jsPDF({unit:'mm',format:[w,h],orientation:'landscape'});
     items.forEach(function(d,i){for(var c=0;c<(d.copias||1);c++){if(i||c)doc.addPage([w,h],'landscape');(tipo==='cliente'?cliente:bodega)(doc,d);}});return doc;}
   /* DYMO Connect XML (sin foto: DYMO Connect necesita la imagen en base64 PNG; se incluye si viene) */
@@ -2423,14 +2440,14 @@ var MCLbl=(function(){
   function IM(b64,X,Y,w,h){return '<ObjectInfo><ImageObject><Name>IMG</Name>'+FC+'<Image>'+b64+'</Image><ScaleMode>Uniform</ScaleMode><BorderWidth>0</BorderWidth><BorderColor Alpha="255" Red="0" Green="0" Blue="0"/><HorizontalAlignment>Center</HorizontalAlignment><VerticalAlignment>Center</VerticalAlignment></ImageObject><Bounds X="'+tw(X)+'" Y="'+tw(Y)+'" Width="'+tw(w)+'" Height="'+tw(h)+'"/></ObjectInfo>';}
   function RC(X,Y,w,h){return '<ObjectInfo><ShapeObject><Name>BOX</Name>'+FC+'<ShapeType>Rectangle</ShapeType><LineWidth>15</LineWidth><LineAlignment>Center</LineAlignment><FillMode>None</FillMode><FillColor Alpha="0" Red="255" Green="255" Blue="255"/></ShapeObject><Bounds X="'+tw(X)+'" Y="'+tw(Y)+'" Width="'+tw(w)+'" Height="'+tw(h)+'"/></ObjectInfo>';}
   function xml(tipo,d){var o,pn,w,h,b64=function(u){return u&&u.indexOf('image/png')>0?u.split(',')[1]:'';};
-    if(tipo==='cliente'){pn='11355 Multi-Purpose';w=51;h=19;o=T('N',d.nombre,1,0.6,49,5.2,7,false,'Courier New')+T('C',d.cod_prov||'',1,5.8,49,2.6,6.5,false,'Courier New')+T('K',d.categoria||'',1,8.4,49,2.6,6.5,false,'Courier New')+T('S',d.sku,1,11,49,3.6,9,true)+T('L',d.linea||'',30,14.8,20,3,6.5,false,'Courier New');}
+    if(tipo==='cliente'){pn='11355 Multi-Purpose';w=51;h=19;o=T('N',d.nombre,1,0.6,49,5.2,7,false,'Courier New')+T('C',d.cod_prov||'',1,5.8,49,2.6,6.5,false,'Courier New')+T('K',d.categoria||'',1,8.4,49,2.6,6.5,false,'Courier New')+T('S',d.sku,1,11,49,3.6,9,true)+T('L',d.linea||'',1,14.8,49,3,6.5,false,'Courier New');}
     else{pn='30256 Shipping';w=102;h=57;o=T('N',d.nombre,3,1.5,96,6,10,false)+(b64(d.img)?IM(b64(d.img),2,9,29,40):'')+(b64(d.logo)?IM(b64(d.logo),46,9,8,8):'')+T('Q','CANTIDAD',34,17.5,32,3,8,false)+RC(34,20.5,32,13)+T('S',d.sku,30,34.5,40,6,16,true)+(d.barcode?BC(d.barcode,34,41,32,9.5):'')+
-      T('L',d.linea||'',69,17,30,7,10,false)+T('P',d.proveedor||'',69,30,30,6,9,false)+T('V',d.cod_prov||'',69,37,30,3.5,9,false)+T('K',d.cat_contable||'',3,51.5,96,4,9,false);}
+      T('L',d.linea||'',69,17,30,7,10,false)+T('P',d.proveedor||'',69,30,30,6,9,false)+T('V',d.cod_prov||'',69,37,30,3.5,9,false)+T('K',catNom(d.cat_contable),3,51.5,96,4,9,false);}
     return '<?xml version="1.0" encoding="utf-8"?><DieCutLabel Version="8.0" Units="twips"><PaperOrientation>Landscape</PaperOrientation><Id>Address</Id><PaperName>'+pn+'</PaperName><DrawCommands><RoundRectangle X="0" Y="0" Width="'+tw(h)+'" Height="'+tw(w)+'" Rx="180" Ry="180"/></DrawCommands>'+o+'</DieCutLabel>';}
   /* datos desde prod_get */
   function datos(r){var p=r.producto||r,pv=(r.proveedores||[])[0]||{};
     return {sku:p.sku||'',nombre:p.name||'',cod_prov:pv.vendor_item_code||'',proveedor:pv.name||'',categoria:p.categoria_nombre||p.categoria||'',cat_contable:p.categoria_contable||'',linea:p.linea||'',barcode:p.barcode||'',imgUrl:p.img||'',copias:1};}
-  return {cliente:cliente,bodega:bodega,pdf:pdf,xml:xml,datos:datos,enc:enc};
+  return {cliente:cliente,bodega:bodega,pdf:pdf,xml:xml,datos:datos,enc:enc,bw:bw,catNom:catNom};
 })();
 
 var MCLblUI=(function(){
@@ -2439,9 +2456,9 @@ var MCLblUI=(function(){
   function to(ms,p){return Promise.race([p,new Promise(function(_,r){setTimeout(function(){r(new Error('timeout'));},ms);})]);}
   function svc(){if(base)return Promise.resolve(base);var i=0;return new Promise(function(res,rej){(function nx(){if(i>=HOSTS.length){rej(new Error('DYMO Connect no responde'));return;}var h=HOSTS[i++];
     to(2500,fetch(h+'/DYMO/DLS/Printing/StatusConnected')).then(function(r){return r.text();}).then(function(t){if(/true/i.test(t)){base=h;res(h);}else nx();}).catch(nx);})();});}
-  function img2data(u,png){return new Promise(function(res){if(!u){res(null);return;}var im=new Image();im.crossOrigin='anonymous';im.onload=function(){try{var c=document.createElement('canvas'),k=Math.min(1,600/Math.max(im.naturalWidth,im.naturalHeight));c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);var g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);res(c.toDataURL(png?'image/png':'image/jpeg',0.85));}catch(e){res(null);}};im.onerror=function(){res(null);};im.src=u;});}
+  function img2data(u,png,lg){return new Promise(function(res){if(!u){res(null);return;}var im=new Image();im.crossOrigin='anonymous';im.onload=function(){try{var c=document.createElement('canvas'),k=lg?256/Math.max(im.naturalWidth,im.naturalHeight):Math.min(1,600/Math.max(im.naturalWidth,im.naturalHeight));c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);var g=c.getContext('2d');if(!lg){g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);}g.drawImage(im,0,0,c.width,c.height);MCLbl.bw(c,lg);res(c.toDataURL('image/png'));}catch(e){res(null);}};im.onerror=function(){res(null);};im.src=u;});}
   function logo(){var l=document.querySelector('link[rel="icon"]');return l?l.href:'';}
-  function prep(d){return Promise.all([tipo==='bodega'?img2data(d.imgUrl,true):null,tipo==='bodega'?img2data(logo(),true):null]).then(function(a){d.img=a[0];d.logo=a[1];return d;});}
+  function prep(d){return Promise.all([tipo==='bodega'?img2data(d.imgUrl,true):null,tipo==='bodega'?img2data(logo(),true,1):null]).then(function(a){d.img=a[0];d.logo=a[1];return d;});}
   function pdf(){var n=Math.max(1,parseInt((document.getElementById('lb-n')||{}).value,10)||1),d=cur;d.copias=n;
     Promise.all([mcPlanillaLoadJsPDF(),prep(d)]).then(function(r){var doc=MCLbl.pdf(r[0],tipo,[d]);var b=doc.output('blob'),nm='Etiqueta_'+(tipo==='cliente'?'cliente_':'bodega_')+d.sku+'.pdf';
       if(typeof MCsaveBlob==='function')MCsaveBlob(b,nm);else{var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},500);}}).catch(function(e){alert('PDF: '+(e.message||e));});}
@@ -4085,7 +4102,7 @@ var Users = (function(){
       api({action:'listInvites'}).then(function(r2){
         if(r2.ok){invites=r2.invitaciones;render();}
       }).catch(function(){});
-      api({action:'getClientes'}).then(function(r3){
+      api({action:'cli_nombres'}).then(function(r3){ /* b360-gas-cot: app.customers */
         if(r3.ok){clientes=r3.clientes;if(editing!==null)render();}
       }).catch(function(){});
     }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
@@ -6769,7 +6786,7 @@ var Cot = (function(){
   function cargar(){
     el().innerHTML='<div class="cbz-loading">Cargando solicitudes...</div>';
     MCrefrescarStock(); // b231: catálogo del cotizador con stock fresco
-    MCsbOr({action:'precot_bandeja'},{action:'getCotAdmin',_timeout:70000,_retries:1}).then(function(res){ /* b269 */
+    MCsbOnly({action:'precot_bandeja'}).then(function(res){ /* b269 */
       if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       lista=res.solicitudes||[];limp=null;renderLista();cargarLimpieza();
     }).catch(function(e){el().innerHTML=tabsHtml()+'<div class="cbz-error">'+MCerr(e)+'</div><div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Cot.setTab(\'pre\')">↻ Reintentar</button></div>';});
@@ -9114,7 +9131,7 @@ var Sols = (function(){
     api({action:'listUsers'}).then(function(res){
       if(!res.ok){el.innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       pend=res.usuarios.filter(function(u){return u.rol==='cliente'&&!u.aprobado&&(u.solicitud||u.master);});
-      api({action:'getClientes'}).then(function(r2){clientes=r2.ok?r2.clientes:[];render();})
+      api({action:'cli_nombres'}).then(function(r2){clientes=r2.ok?r2.clientes:[];render();}) /* b360-gas-cot */
         .catch(function(){clientes=[];render();});
     }).catch(function(e){el.innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
   }
@@ -11853,10 +11870,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
       '</table><div style="text-align:right;margin-top:10px;line-height:1.6">Subtotal '+money(o.subtotal)+'<br>IVA '+mcIva(o.tax1_rate)+'% '+money(o.tax1)+'<br><b style="font-size:16px">Total '+money(o.total)+'</b></div>'+(o.order_remarks?'<h2>Notas</h2><div>'+esc(o.order_remarks).replace(/\n/g,'<br>')+'</div>':'')+'</div></div>';}
   /* PDF de cotización/OV: si ya está en inFlow usa el MISMO PDF del portal (getOrderPdf); si aún es local, vista previa en overlay con «← Volver» */
   function pdf(){var o=cur.orden;
-    if(o.inflow_id&&o.sync_status==='synced'){var tab=mcArmPdfTab();
-      MCpost({action:'getOrderPdf',orderId:o.inflow_id,user:getUserName(),pin:getPin()}).then(function(res){if(!res.ok){mcClosePdfTab_(tab);alert('Error: '+(res.error||'no se pudo generar el PDF'));return;}
-        return mcDownloadBlob(res.b64,mcPdfFilename(res.filename,o.order_number),'application/pdf',tab);}).catch(function(e){mcClosePdfTab_(tab);err(e);});return;}
-    overlay((o.is_quote?'Cotización ':'OV ')+o.order_number+' (aún no está en inFlow)',pdfHtml());}
+    return imprimir(o.is_quote?'sq':'so');} /* b360-gas-cot: PDF Minecore desde Supabase (sin getOrderPdf de inFlow/Apps Script) */
   /* Pick list: el MISMO formato del portal (MCPickListPdf: ubicación, sububicación/cuadrante, foto) con datos de Supabase */
   function pickList(){return imprimir('pick');}
   function pickListOld(){var o=cur.orden;pdfBlob(api({op:'picklist',id:o.id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCPickListPdf(r);}),mcPdfFilename(null,o.order_number,'LISTA DE PREPARACIÓN'));}
@@ -12609,7 +12623,7 @@ function openMod(m){if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirty
   if(m==='kyc'){document.getElementById('kyc-screen').style.display='block';document.getElementById('title').textContent='BASE DE CLIENTES';Kyc.init();}
   if(m==='mailcfg'){document.getElementById('mailcfg-screen').style.display='block';document.getElementById('title').textContent='CORREO DEL SISTEMA';MailCfg.init();}
   if(m==='consig'){document.getElementById('consig-screen').style.display='block';document.getElementById('title').textContent='CONSIGNACIÓN';Consig.init();}
-  if(m==='cot'&&window.MC_IO_LEGACY!==true){openMod('vcot');return;} /* b345 */
+  if(m==='cot'){openMod('vcot');return;} /* b360-gas-cot: el Cotizador antiguo ya no abre; todo va a Cotizaciones (ventas-api) */
   if(m==='cot'){document.getElementById('cot-screen').style.display='block';document.getElementById('title').textContent='COTIZACIONES';Cot.init();}
   if(m==='prov'){document.getElementById('prov-screen').style.display='block';document.getElementById('title').textContent='PROVEEDORES';Prov.init();}
   if(m==='bots'){document.getElementById('bots-screen').style.display='block';document.getElementById('title').textContent='BOTS';Bots.init();}
@@ -12996,7 +13010,7 @@ function entrar(res,usr,pin,recordarPin){
 /* b346: MCping = «ping» de Apps Script pero en Supabase. Devuelve la misma forma {ok,auth,user,rol,modulos,...} y deja el token de sesión listo.
    Apps Script solo: (a) si Supabase no responde, (b) para confirmar un rechazo de PIN (por si el PIN se cambió y aún no se copió). */
 function MCping(usr,pin){
-  var as=function(){return MCpostAS({action:'ping',user:usr,pin:pin,_retries:1}).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});};
+  var as=function(){return Promise.resolve({ok:false,error:'No hay conexión con el servidor de Minecore (Supabase). Intenta de nuevo en un momento.'});}; /* b361-login: sin ping de Apps Script */
   if(location.protocol==='file:'||localStorage.getItem('mc_sb_off')==='1')return as();
   return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'login',v2:true,user:usr,pin:pin})})
     .then(function(r){return r.json().then(function(j){return {st:r.status,j:j};});})
@@ -13009,7 +13023,7 @@ function MCping(usr,pin){
 }
 function MCloginAlt(usr,pin){return MCping(usr,pin);} /* b346 */
 function MCloginAltOld(usr,pin){
-  var as=function(){return MCpost({action:'ping',user:usr,pin:pin});};
+  var as=function(){return Promise.resolve({ok:false,error:'No hay conexión con el servidor de Minecore (Supabase).'});}; /* b361-login */
   if(location.protocol==='file:'||localStorage.getItem('mc_sb_off')==='1')return as();
   var P=function(b){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json();});};
   return P({action:'login_alt_status',user:usr}).then(function(st){
