@@ -2413,7 +2413,8 @@ var MCLbl=(function(){
   function cliente(doc,d){var W=51,cx=W/2;doc.setTextColor(0,0,0);
     doc.setFont('courier','normal');doc.setFontSize(6.6);var L=lines(doc,d.nombre,48,2),y=3.2;L.forEach(function(l){doc.text(l,cx,y,{align:'center'});y+=2.5;});
     if(d.cod_prov){doc.text(cut(doc,d.cod_prov,48),cx,y,{align:'center'});y+=2.5;}
-    if(d.categoria){doc.text(cut(doc,d.categoria,48),cx,y,{align:'center'});y+=2.6;}
+    var _cn=catNom(d.cat_contable)||d.categoria; /* b361b: Cliente = solo nuestra categoría, como Bodega */
+    if(_cn){doc.text(cut(doc,_cn,48),cx,y,{align:'center'});y+=2.6;}
     doc.setFont('helvetica','bold');doc.setFontSize(8.6);doc.text(String(d.sku||''),cx,Math.min(y+0.6,15.6),{align:'center'});
     if(d.linea){doc.setFont('courier','normal');doc.setFontSize(6.6);doc.text(cut(doc,d.linea,48),cx,18.1,{align:'center'});}} /* b360b label fix: todo centrado */
   function bodega(doc,d){var W=102,H=57;doc.setTextColor(0,0,0);
@@ -2440,7 +2441,7 @@ var MCLbl=(function(){
   function IM(b64,X,Y,w,h){return '<ObjectInfo><ImageObject><Name>IMG</Name>'+FC+'<Image>'+b64+'</Image><ScaleMode>Uniform</ScaleMode><BorderWidth>0</BorderWidth><BorderColor Alpha="255" Red="0" Green="0" Blue="0"/><HorizontalAlignment>Center</HorizontalAlignment><VerticalAlignment>Center</VerticalAlignment></ImageObject><Bounds X="'+tw(X)+'" Y="'+tw(Y)+'" Width="'+tw(w)+'" Height="'+tw(h)+'"/></ObjectInfo>';}
   function RC(X,Y,w,h){return '<ObjectInfo><ShapeObject><Name>BOX</Name>'+FC+'<ShapeType>Rectangle</ShapeType><LineWidth>15</LineWidth><LineAlignment>Center</LineAlignment><FillMode>None</FillMode><FillColor Alpha="0" Red="255" Green="255" Blue="255"/></ShapeObject><Bounds X="'+tw(X)+'" Y="'+tw(Y)+'" Width="'+tw(w)+'" Height="'+tw(h)+'"/></ObjectInfo>';}
   function xml(tipo,d){var o,pn,w,h,b64=function(u){return u&&u.indexOf('image/png')>0?u.split(',')[1]:'';};
-    if(tipo==='cliente'){pn='11355 Multi-Purpose';w=51;h=19;o=T('N',d.nombre,1,0.6,49,5.2,7,false,'Courier New')+T('C',d.cod_prov||'',1,5.8,49,2.6,6.5,false,'Courier New')+T('K',d.categoria||'',1,8.4,49,2.6,6.5,false,'Courier New')+T('S',d.sku,1,11,49,3.6,9,true)+T('L',d.linea||'',1,14.8,49,3,6.5,false,'Courier New');}
+    if(tipo==='cliente'){pn='11355 Multi-Purpose';w=51;h=19;o=T('N',d.nombre,1,0.6,49,5.2,7,false,'Courier New')+T('C',d.cod_prov||'',1,5.8,49,2.6,6.5,false,'Courier New')+T('K',catNom(d.cat_contable)||d.categoria||'',1,8.4,49,2.6,6.5,false,'Courier New')+T('S',d.sku,1,11,49,3.6,9,true)+T('L',d.linea||'',1,14.8,49,3,6.5,false,'Courier New');}
     else{pn='30256 Shipping';w=102;h=57;o=T('N',d.nombre,3,1.5,96,6,10,false)+(b64(d.img)?IM(b64(d.img),2,9,29,40):'')+(b64(d.logo)?IM(b64(d.logo),46,9,8,8):'')+T('Q','CANTIDAD',34,17.5,32,3,8,false)+RC(34,20.5,32,13)+T('S',d.sku,30,34.5,40,6,16,true)+(d.barcode?BC(d.barcode,34,41,32,9.5):'')+
       T('L',d.linea||'',69,17,30,7,10,false)+T('P',d.proveedor||'',69,30,30,6,9,false)+T('V',d.cod_prov||'',69,37,30,3.5,9,false)+T('K',catNom(d.cat_contable),3,51.5,96,4,9,false);}
     return '<?xml version="1.0" encoding="utf-8"?><DieCutLabel Version="8.0" Units="twips"><PaperOrientation>Landscape</PaperOrientation><Id>Address</Id><PaperName>'+pn+'</PaperName><DrawCommands><RoundRectangle X="0" Y="0" Width="'+tw(h)+'" Height="'+tw(w)+'" Rx="180" Ry="180"/></DrawCommands>'+o+'</DieCutLabel>';}
