@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='426';
+  var MC_BUILD='427';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -13943,13 +13943,14 @@ var MCP_RUTA={vent:[['entrega',1]],vov:[['ventas',1],['picking',1]],vcot:[['vent
   var _ro=MCnavRutaOk;MCnavRutaOk=function(m){var p=getProfile();if(!_ro(m))return false;if(!p||p.rol!=='usuario')return true;if(m==='users'||m==='sols')return false;return MCPdecide(p,MCP_RUTA[m],true);};
 })();
 /* Usuarios/invitaciones → portal-api directo (sin respaldo por Google) */
+function MCesDemo(){try{var p=getProfile()||{};return p.demo===true||String(p.empresa||'').trim()==='DEMO MINERA APPLE S.A.';}catch(e){return false;}}
 var MC_USR_RX=/^(deleteMyAccount|listUsers|saveUser|deleteUser|listInvites|createInvite|revokeInvite|invitePeek|redeemInvite|matchEmpresa|usr_me|permLog)$/;
 function MCusr(p){var pub=/^(invitePeek|redeemInvite|matchEmpresa)$/.test(p.action),body={};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var go=function(t){if(t)body.t=t;return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){j._st=r.status;return j;});});};
   if(pub)return go();var s=MCsbGet();
   return (s?Promise.resolve(s.t):MCsbTok().then(function(r){if(r&&r.sbt){MCsbSet(r.sbt);return r.sbt;}throw new Error((r&&r.error)||'Sin sesión');}))
     .then(go).then(function(j){if(j._st===401&&j.sb!=='revocado'&&!p._r){MCsbSet(null);p._r=1;return MCusr(p);}if(j._st===401&&j.sb==='revocado')MCperm.fuera();return j;});}
-(function(){var _p0=MCpost0;MCpost0=function(p){if(p&&MC_USR_RX.test(String(p.action||'')))return MCusr(p);return _p0(p).then(function(r){try{if(r&&r._pv)MCperm.pv(r._pv);}catch(e){}return r;});};})();
+(function(){var _p0=MCpost0;MCpost0=function(p){if(p&&MC_USR_RX.test(String(p.action||'')))return MCusr(p);if(p&&MCesDemo()&&/^(misCotizaciones|miOrden|miEstadoCuentaPdf|getEstadoCuenta|enviarCarrito|aprobarCotCliente|solicitarEdc|cli_estado)$/.test(String(p.action||''))){if(p.action==='getEstadoCuenta')p.action='cli_estado';return MCusr(p);} /* b427 demo: nunca a Apps Script */return _p0(p).then(function(r){try{if(r&&r._pv)MCperm.pv(r._pv);}catch(e){}return r;});};})();
 var MCperm=(function(){var PV=null,busy=0,T=null;
   function firma(p){return (p.rol||'')+'|'+MCPtoks(p.modulos).join(',');}
   function fuera(){if(fuera._x)return;fuera._x=1;clearCreds();alert('Tu acceso fue desactivado por el administrador.');location.reload();}
