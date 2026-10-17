@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='411';
+  var MC_BUILD='412';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -650,9 +650,10 @@ function MCsbTok(){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type'
 /* b340: escalera de cobranza — clientes Bloqueados (compromiso incumplido). Fuente: webhook cobranza (Supabase app.customers.bloqueado). */
 var MC_BLOQ={},MC_BLOQ_T=0,MC_COB_URL='https://uniformly-rockband-uncapped.ngrok-free.dev/cobranza/';
 function mcCobPost(path,body){return MCsbTok().then(function(tk){if(!tk||!tk.sbt)throw {error:'Sin sesión'};body=body||{};body.t=tk.sbt;return fetch(MC_COB_URL+path,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},body:JSON.stringify(body)}).then(function(r){return r.json();});});}
-function mcBloqKey(n){return String(n||'').trim().toLowerCase();}
-function mcBloqLoad(force){if(!force&&Date.now()-MC_BLOQ_T<300000)return Promise.resolve(MC_BLOQ);MC_BLOQ_T=Date.now();return mcCobPost('compromisos',{}).then(function(r){if(r&&r.ok){var m={};(r.bloqueados||[]).forEach(function(x){m[mcBloqKey(x.cliente)]=x;});MC_BLOQ=m;window.MC_COB_DATA=r;}return MC_BLOQ;}).catch(function(){return MC_BLOQ;});}
-function mcBloq(n){return MC_BLOQ[mcBloqKey(n)]||null;}
+function mcBloqKey(n){return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(s\.?\s*a\.?\s*s?\.?|cia\.?|ltda\.?|c\.?\s*a\.?)\s*$/g,'').replace(/[^a-z0-9]/g,'');}
+function mcBloqLoad(force){if(!force&&Date.now()-MC_BLOQ_T<300000)return Promise.resolve(MC_BLOQ);MC_BLOQ_T=Date.now();return mcCobPost('compromisos',{}).then(function(r){if(r&&r.ok){var m={};(r.bloqueados||[]).forEach(function(x){m[mcBloqKey(x.cliente)]=x;if(x.customer_id)m['id:'+x.customer_id]=x;});MC_BLOQ=m;window.MC_COB_DATA=r;}return MC_BLOQ;}).catch(function(){return MC_BLOQ;});}
+function mcBloq(n,id){return (id&&MC_BLOQ['id:'+id])||MC_BLOQ[mcBloqKey(n)]||null;}
+function mcBloqGuard(n,id,accion){return mcBloqLoad(true).then(function(){var x=mcBloq(n,id);if(x){alert('⛔ Cliente BLOQUEADO ('+(n||'')+'): '+(x.motivo||'compromiso de pago incumplido')+'.\nNo se puede '+(accion||'continuar')+' hasta que administración lo desbloquee.');return false;}return true;});}
 function mcBloqStrip(n){var x=mcBloq(n);if(!x)return '';return '<div style="background:#7a1616;border:1px solid #e05c5c;color:#fff;border-radius:8px;padding:8px 12px;margin:6px 0;font-size:13px"><b>⛔ CLIENTE BLOQUEADO</b> · '+String(x.motivo||'Compromiso de pago incumplido').replace(/</g,'&lt;')+(x.fecha?' · desde '+String(x.fecha).slice(0,10).split('-').reverse().join('/'):'')+'<br><span style="font-size:12px;opacity:.9">No se pueden crear cotizaciones, convertir, preparar, empacar ni despachar hasta que administración lo desbloquee.</span></div>';}
 function MCsbRefresh(){
   if(MC_SB_REF||!getUserName()||!getPin())return;
@@ -3257,7 +3258,7 @@ var Cobranza = (function () {
     cobPost('compromisos', {}).then(function (r) {
       if (!r || !r.ok) return; compromisos = {};
       (r.rows || []).forEach(function (x) { compromisos[String(x.cliente).trim().toLowerCase()] = x; });
-      var m = {}; (r.bloqueados || []).forEach(function (x) { m[mcBloqKey(x.cliente)] = x; }); MC_BLOQ = m; MC_BLOQ_T = Date.now(); propuestas = r.propuestas || [];
+      var m = {}; (r.bloqueados || []).forEach(function (x) { m[mcBloqKey(x.cliente)] = x; if (x.customer_id) m['id:' + x.customer_id] = x; }); MC_BLOQ = m; MC_BLOQ_T = Date.now(); propuestas = r.propuestas || [];
       renderList();
     }).catch(function () {});
   }
@@ -8366,6 +8367,7 @@ var Cot = (function(){
     if(!det||!det.cot||det._creando)return;
     if(!det.cot.id){alert('Espera un momento: se está abriendo la pre-cotización.');return;}
     if(!det.vinculo){alert('Primero vincula la empresa con su cliente de inFlow (botones amarillos arriba).');return;}
+    if(!det._bloqOk){mcBloqGuard(det.vinculo.nombre,det.vinculo.customerId,'crear la cotización').then(function(ok){if(ok){det._bloqOk=1;crear();det&&(det._bloqOk=0);}});return;}
     var lineas=det.lineas.filter(function(l){return l.productId;});
     if(!lineas.length){alert('Ninguna línea tiene producto de inFlow.');return;}
     var omitidas=det.lineas.length-lineas.length;
@@ -8460,6 +8462,9 @@ var Cot = (function(){
     }).catch(function(){editandoCreada=false;alert('Sin conexión. Verifica en inFlow antes de reintentar.');abrir(det.cot.id);});
   }
   function convertirOV(){
+    var _v=det.vinculo||{};mcBloqGuard(_v.nombre||det.cot.empresa,_v.customerId,'convertir en Orden de Venta').then(function(ok){if(ok)convertirOV_();});
+  }
+  function convertirOV_(){
     var msg=det.cot.estado==='APROBADA'?'¿Convertir la cotización '+det.cot.inflowNum+' en ORDEN DE VENTA en inFlow?'
       :'El cliente aún no ha aprobado esta cotización.\n¿Convertirla en ORDEN DE VENTA de todas formas?';
     if(!confirm(msg))return;
@@ -11870,7 +11875,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     try{if(cur&&cur.orden){var oo=cur.orden;lista.forEach(function(x,i){if(x.id===oo.id){for(var k in oo)if(typeof oo[k]!=='object'||oo[k]===null)x[k]=oo[k];}});}}catch(_){}
     cur=null;form=null;if(window.MC_VOLVER_DASH&&DashV2.volverDash())return;renderLista();try{cargar(true);}catch(_){}}
   function run(p,msg,after){if(busy)return;busy=true;api(p).then(function(r){busy=false;if(!r.ok){err(r.error);return;}if(msg)try{toast(msg);}catch(e){}if(after)after(r);else recargar();}).catch(function(e){busy=false;err(e);});}
-  function convertir(){var _bc=cur.cliente&&(cur.cliente.name||cur.cliente.nombre);if(mcBloq(_bc)){alert('⛔ Cliente BLOQUEADO ('+_bc+'): no se puede convertir la cotización hasta que administración lo desbloquee.');return;}if(!confirm('¿Convertir '+cur.orden.order_number+' en orden de venta?'))return;run({op:'convert',id:cur.orden.id},'Convertida',function(r){alert('Orden de venta '+r.order_number+' creada desde '+r.quote_number);tipo='SO';abrir(r.id);});}
+  function convertir(){var _bc=cur.cliente&&(cur.cliente.name||cur.cliente.nombre);mcBloqGuard(_bc,cur.orden.customer_id,'convertir la cotización').then(function(ok){if(ok)convertir_();});}function convertir_(){if(!confirm('¿Convertir '+cur.orden.order_number+' en orden de venta?'))return;run({op:'convert',id:cur.orden.id},'Convertida',function(r){alert('Orden de venta '+r.order_number+' creada desde '+r.quote_number);tipo='SO';abrir(r.id);});}
   function cancelar(){if(!confirm('¿Cancelar '+cur.orden.order_number+'?'))return;run({op:'cancel',id:cur.orden.id},'Cancelada');}
   /* ===== b272: Fulfill en un paso + edición en Pick/Pack/Ship/Pagos (Supabase original → espejo inFlow) ===== */
   function edModal(html){var m=document.getElementById('vt-modal');if(!m){m=document.createElement('div');m.id='vt-modal';document.body.appendChild(m);}
