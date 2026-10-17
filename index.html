@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='424';
+  var MC_BUILD='425';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2939,7 +2939,7 @@ var MCCred=(function(){
       '<div><span>Usado (saldo + OV sin facturar)</span><b style="color:'+(pctUso!=null&&pctUso>100?'#ff6b6b':'#e8e8e8')+'">'+money(u.usado)+(pctUso!=null?' · '+pctUso+'%':'')+'</b></div>'+
       '<div><span>Vencido</span><b style="color:'+(u.vencido>0?'#ff6b6b':'#6fd68f')+'">'+money(u.vencido)+'</b></div>'+
       '<div><span>Mora actual máx.</span><b style="color:'+(u.max_mora>0?'#ff6b6b':'#6fd68f')+'">'+u.max_mora+' días</b></div>'+
-      '<div><span>Sugerido</span><b>'+(sg.dias?sg.dias+' días · '+money(sg.cupo):'Contado')+'</b></div>'+(K.prom_pago!==undefined?'<div><span>Paga en promedio (real)</span><b style="color:'+(K.prom_pago!=null&&K.prom_pago>(c.credit_days||0)?'#f0c040':'#6fd68f')+'">'+(K.prom_pago!=null?K.prom_pago+' días':'—')+'</b></div><div><span>Mediana de pago</span><b>'+(K.med_pago!=null?K.med_pago+' días':'—')+'</b></div>'+'<div><span>Pagado histórico</span><b>'+(K.pct_pagado!=null?K.pct_pagado+'% de '+money(K.ventas_vida):'—')+'</b></div><div><span>Valor vs otros clientes</span><b>Percentil '+(K.valor_pct!=null?K.valor_pct:'—')+'</b></div>':'')+'</div>'+(K.sugerencia_texto?'<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#2a2f36;color:#e6ff00;font-weight:700">⬆ '+esc(K.sugerencia_texto)+(ad?' <button class="cr-lk" onclick="MCCred.set(\''+id+'\',\'credit_days\',\''+K.subir_a+'\')">Aplicar en la ficha</button>':'')+'</div>':'')+(ad?'<div style="margin-top:8px"><button class="cbz-btn cbz-btn-primary" onclick="MCCredProp.abrir(\''+id+'\',\''+esc(String(c.name).replace(/\'/g,''))+'\')">🧮 Propuesta puntual</button></div>':'')+
+      '<div><span>Sugerido</span><b>'+(sg.dias?sg.dias+' días · '+money(sg.cupo):'Contado')+'</b></div>'+(K.prom_pago!==undefined?'<div><span>Paga en promedio (real)</span><b style="color:'+(K.prom_pago!=null&&K.prom_pago>(c.credit_days||0)?'#f0c040':'#6fd68f')+'">'+(K.prom_pago!=null?K.prom_pago+' días':'—')+(K.frecuencia&&K.med_pago!=null?' <small style="color:#8fa3b8">· mediana '+K.med_pago+'</small>':'')+'</b></div>'+(K.frecuencia?MCCredFreq(K.frecuencia):'<div><span>Mediana de pago</span><b>'+(K.med_pago!=null?K.med_pago+' días':'—')+'</b></div>')/*t875-freq*/+'<div><span>Pagado histórico</span><b>'+(K.pct_pagado!=null?K.pct_pagado+'% de '+money(K.ventas_vida):'—')+'</b></div><div><span>Valor vs otros clientes</span><b>Percentil '+(K.valor_pct!=null?K.valor_pct:'—')+'</b></div>':'')+'</div>'+(K.sugerencia_texto?'<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#2a2f36;color:#e6ff00;font-weight:700">⬆ '+esc(K.sugerencia_texto)+(ad?' <button class="cr-lk" onclick="MCCred.set(\''+id+'\',\'credit_days\',\''+K.subir_a+'\')">Aplicar en la ficha</button>':'')+'</div>':'')+(ad?'<div style="margin-top:8px"><button class="cbz-btn cbz-btn-primary" onclick="MCCredProp.abrir(\''+id+'\',\''+esc(String(c.name).replace(/\'/g,''))+'\')">🧮 Propuesta puntual</button></div>':'')+
       (c.bloqueado?'<div style="color:#ff6b6b;margin-top:6px">⛔ Bloqueado: '+esc(c.bloqueo_motivo||'')+'</div>':'');
     /* 1) Condiciones */
     var tsel='<select class="cr-in" onchange="MCCred.set(\''+id+'\',\'tipo\',this.value)">'+TIPOS.map(function(t){return '<option value="'+t[0]+'"'+(t[0]===x.tipo?' selected':'')+'>'+t[1]+'</option>';}).join('')+'</select>';
@@ -2958,6 +2958,7 @@ var MCCred=(function(){
         ad?'<select class="cr-in" onchange="MCCred.doc(\''+id+'\',\''+d.clave+'\',this.value,null)"><option value="NO"'+(d.manual?'':' selected')+'>No</option><option value="SI"'+(d.manual?' selected':'')+'>Sí</option></select>':''];}),true);
     /* 3) Historial de pago */
     var hist=[['Facturas pagadas a tiempo',(K.pct_a_tiempo!=null?K.pct_a_tiempo+'%':'—')+' ('+(H.n_a_tiempo||0)+' de '+(H.n_pagadas||0)+')','Pagada hasta el vencimiento'],
+      ['Frecuencia de pago',K.frecuencia?esc(K.frecuencia.etiqueta)+(K.frecuencia.intervalo!=null?' · cada '+K.frecuencia.intervalo+' días':''):'—',K.frecuencia?K.frecuencia.pagos_90d+' pagos en 90 días por '+money(K.frecuencia.monto_90d)+' · último '+fd(K.frecuencia.ultimo_pago):'Disponible con la fórmula flex3'],
       ['Tiempo real de pago (pagos aplicados)',K.prom_pago!=null?K.prom_pago+' días promedio · '+K.med_pago+' mediana':'—','Fecha de pago − fecha de factura, ponderado por monto, sin retenciones'],
       ['Días promedio de pago',H.prom_dias_pago!=null?H.prom_dias_pago+' días':'—','Plazo promedio '+(H.prom_plazo!=null?H.prom_plazo+' días':'—')],
       ['Atraso promedio',H.prom_atraso!=null?H.prom_atraso+' días':'—','Después del vencimiento'],
@@ -2983,7 +2984,7 @@ var MCCred=(function(){
     if(ad)h+='<div class="cr-h">Lista de documentos requeridos (todos los clientes)</div><div id="cr-defs-'+id+'"><button class="cr-lk" onclick="MCCred.defs(\''+id+'\')">Editar lista…</button></div>';
     host.innerHTML=h;}
   function each(id){[].forEach.call(document.querySelectorAll('.mc-cred[data-id="'+id+'"]'),pinta);}
-  function cargar(id){D[id]=null;each(id);post(window.MC_CRED_FLEX?{op:'credito_get',customer_id:id,formula:'flex'}:{op:'credito_get',customer_id:id}).then(function(r){D[id]=r&&r.ok?r.credito:{error:(r&&r.error)||'No se pudo cargar'};each(id);}).catch(function(e){D[id]={error:MCerr(e)};each(id);});}
+  function cargar(id){D[id]=null;each(id);post(window.MC_CRED_FORM?{op:'credito_get',customer_id:id,formula:window.MC_CRED_FORM}:{op:'credito_get',customer_id:id}).then(function(r){D[id]=r&&r.ok?r.credito:{error:(r&&r.error)||'No se pudo cargar'};each(id);}).catch(function(e){D[id]={error:MCerr(e)};each(id);});}
   function lazy(root){[].forEach.call((root||document).querySelectorAll('.mc-cred'),function(h){var id=h.getAttribute('data-id');if(D[id])pinta(h);else cargar(id);});}
   function set(id,campo,valor){if(campo==='credit_days'&&!confirm('¿Cambiar los días de crédito a '+valor+'? Se actualiza la ficha y se sincroniza con inFlow.'))return cargar(id);
     post({op:'credito_save',customer_id:id,campo:campo,valor:valor}).then(function(r){if(!r.ok)alert('Error: '+r.error);cargar(id);}).catch(function(e){alert(MCerr(e));cargar(id);});}
@@ -2999,7 +3000,7 @@ var MCCred=(function(){
   return {lazy:lazy,set:set,doc:doc,defs:defs,defSave:defSave,defDel:defDel,defAdd:defAdd,mas:mas,cargar:cargar};
 })();
 
-try{window.MC_CRED_FLEX=localStorage.getItem('mc_cred_flex')==='1';}catch(e){}
+try{window.MC_CRED_FLEX=localStorage.getItem('mc_cred_flex')||'';window.MC_CRED_FORM=MC_CRED_FLEX==='3'?'flex3':MC_CRED_FLEX==='1'?'flex':'';}catch(e){}
 /* b424 · EFCH t873/t874: propuesta puntual para una compra grande (solo admin) + PDF. Calcula ventas-api op credito_propuesta. */
 var MCCredProp=(function(){
   function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -3020,7 +3021,7 @@ var MCCredProp=(function(){
   function calc(id,nombre){var r=document.getElementById('mp-res');r.innerHTML='<div class="cbz-loading">Calculando…</div>';
     var items=(document.getElementById('mp-items').value||'').split(/\n/).map(function(l){var p=l.split(/[,;\t]/).map(function(x){return x.trim();});return p[0]?{sku:p[0],cantidad:parseFloat(p[1])||0,precio:parseFloat(String(p[2]||'').replace(/[$\s]/g,''))||0}:null;}).filter(Boolean);
     var b={action:'ventas',op:'credito_propuesta',customer_id:id,monto:parseFloat(String(document.getElementById('mp-monto').value).replace(/[$,\s]/g,''))||0,margen_pct:document.getElementById('mp-margen').value||'',items:items,user:getUserName(),pin:getPin()};
-    if(window.MC_CRED_FLEX)b.formula='flex';
+    if(window.MC_CRED_FORM)b.formula=window.MC_CRED_FORM;
     MCpost(b).then(function(x){if(!x||!x.ok)throw new Error((x&&x.error)||'No se pudo calcular');LAST={cliente:x.cliente||nombre,p:x.propuesta};pinta(r);}).catch(function(e){r.innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
   function pinta(r){var P=LAST.p,i=0;function fila(a,b){i++;return '<tr><td class="n">'+i+'</td><td class="c1" data-l="">'+a+'</td><td>'+b+'</td></tr>';}
     var h='<div class="cr-sum"><div><span>Calificación</span><b>'+esc(P.letra)+(P.score!=null?' · '+P.score+'/100':'')+'</b></div><div><span>Anticipo</span><b style="color:#e6ff00">'+P.anticipo_pct+'% · '+money(P.anticipo)+'</b></div><div><span>Financiado</span><b>'+money(P.financiado)+'</b></div><div><span>Descuento máx.</span><b>'+P.descuento_max_pct+'% <small style="color:#8fa3b8">(pronto pago '+P.descuento_pronto_pago_pct+'%)</small></b></div></div>'+
@@ -3054,6 +3055,9 @@ var MCCredProp=(function(){
   return {abrir:abrir,cerrar:cerrar,pdf:pdf,_last:function(){return LAST;}};
 })();
 
+function MCCredFreq(f){var col={Semanal:'#6fd68f',Quincenal:'#a3e635',Mensual:'#e8e8e8',Irregular:'#f0c040'}[f.etiqueta]||'#e8e8e8';
+  var u=f.ultimo_pago?String(f.ultimo_pago).slice(0,10).split('-').reverse().join('/'):'—';
+  return '<div><span>Frecuencia de pago</span><b style="color:'+col+'">'+f.etiqueta+(f.intervalo!=null?' · cada '+f.intervalo+' d':'')+'</b><span>Último pago '+u+' · '+f.pagos_90d+' pagos en 90 d</span></div>';}
 var CxcSb=(function(){
   var d=null,ord='vencido',solo=false,qc='',qv='',abierto={},busy=false;
   var AG=[['por_vencer','Por vencer','#6fd68f'],['d1_30','1–30','#f0c040'],['d31_60','31–60','#f59e42'],['d61_90','61–90','#e07a5c'],['d90','+90','#e05c5c']];
