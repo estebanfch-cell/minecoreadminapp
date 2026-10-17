@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='425';
+  var MC_BUILD='426';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -496,6 +496,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
     <span class="dot"></span><img id="hdrLogo" alt="Minecore" title="Dashboard" role="button" style="height:30px;display:none;flex:none;cursor:pointer" onload="this.style.display='inline-block'" onclick="try{if(window.MCNav&&MCNav.inicio)MCNav.inicio();else goHome();}catch(e){goHome();}"><span style="flex:1"></span><span id="whoami" style="color:#8fa3b8;font-size:12px;font-weight:700;margin-right:6px"></span>
     <button id="syncBtn" style="display:none" onclick="doSyncNow()" title="Sincronizar con inFlow">⟳<span class="lbl">Sync</span></button>
     <button id="mc-bell" onclick="MCNotif.abrir()" title="Avisos y mis valores por defecto" style="position:relative">🔔<span class="lbl">Avisos</span><b id="mc-bell-n" style="display:none;position:absolute;top:-4px;right:-4px;background:#e05c5c;color:#fff;border-radius:9px;font-size:10px;min-width:17px;height:17px;line-height:17px;padding:0 4px;text-align:center"></b></button>
+    <button onclick="MCCuenta.abrir()" title="Mi cuenta">👤<span class="lbl">Cuenta</span></button>
     <button onclick="doLogout()" title="Cerrar sesión">⎋<span class="lbl">Salir</span></button>
     <button id="backBtn" style="display:none" onclick="goHome()" title="Volver al menú">←<span class="lbl">Menú</span></button>
   </div>
@@ -13942,7 +13943,7 @@ var MCP_RUTA={vent:[['entrega',1]],vov:[['ventas',1],['picking',1]],vcot:[['vent
   var _ro=MCnavRutaOk;MCnavRutaOk=function(m){var p=getProfile();if(!_ro(m))return false;if(!p||p.rol!=='usuario')return true;if(m==='users'||m==='sols')return false;return MCPdecide(p,MCP_RUTA[m],true);};
 })();
 /* Usuarios/invitaciones → portal-api directo (sin respaldo por Google) */
-var MC_USR_RX=/^(listUsers|saveUser|deleteUser|listInvites|createInvite|revokeInvite|invitePeek|redeemInvite|matchEmpresa|usr_me|permLog)$/;
+var MC_USR_RX=/^(deleteMyAccount|listUsers|saveUser|deleteUser|listInvites|createInvite|revokeInvite|invitePeek|redeemInvite|matchEmpresa|usr_me|permLog)$/;
 function MCusr(p){var pub=/^(invitePeek|redeemInvite|matchEmpresa)$/.test(p.action),body={};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var go=function(t){if(t)body.t=t;return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){j._st=r.status;return j;});});};
   if(pub)return go();var s=MCsbGet();
@@ -17228,6 +17229,33 @@ html body input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #0b1219 inset!imp
   function ini(){run();try{new MutationObserver(sched).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});}catch(e){}}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ini);else ini();
 })();
+</script>
+<script>/* b426 Apple 5.1.1(v): Mi cuenta → Privacidad + Eliminar mi cuenta (confirma con PIN; máster bloqueado en servidor) */
+var MCCuenta=(function(){
+ function cerrar(){var m=document.getElementById('mc-cta');if(m)m.remove();}
+ function abrir(){cerrar();var p=(typeof getProfile==='function'&&getProfile())||{};var adm=p.rol==='admin';
+  var d=document.createElement('div');d.id='mc-cta';d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  d.innerHTML='<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:18px;font-size:14px;color:#333">'+
+  '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:17px">👤 Mi cuenta</b><button class="chip" onclick="MCCuenta.cerrar()">✕</button></div>'+
+  '<div style="margin:8px 0 14px;color:#666">'+(p.nombre||'')+' · '+(p.rol||'')+'</div>'+
+  '<a href="https://portal.minecore.ec/privacidad.html" target="_blank" rel="noopener" style="display:block;margin-bottom:14px;color:#6b7a2a">🔒 Política de privacidad</a>'+
+  '<div id="mc-cta-del"><button class="cbz-btn-sec" style="color:#c0392b" onclick="MCCuenta.paso()">🗑 Eliminar mi cuenta</button></div></div>';
+  document.body.appendChild(d);}
+ function paso(){var p=(typeof getProfile==='function'&&getProfile())||{};var adm=p.rol==='admin';
+  document.getElementById('mc-cta-del').innerHTML='<div style="background:#fdf2f1;border-radius:10px;padding:12px;line-height:1.45">'+
+  '<b>Esto elimina tu acceso y tus datos personales de inmediato.</b> No se puede deshacer. Por ley (SRI) se conservan facturas, pagos y registros contables, sin tu nombre.</div>'+
+  '<div style="margin-top:10px">PIN</div><input id="mc-cta-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" style="width:100%;border:0;border-bottom:1px solid #ccc;padding:8px 0;font-size:16px;outline:none">'+
+  (adm?'<div style="margin-top:10px">Escribe ELIMINAR</div><input id="mc-cta-fr" autocomplete="off" style="width:100%;border:0;border-bottom:1px solid #ccc;padding:8px 0;font-size:16px;outline:none">':'')+
+  '<div id="mc-cta-msg" style="color:#c0392b;margin-top:8px"></div>'+
+  '<div style="display:flex;gap:8px;margin-top:12px"><button class="cbz-btn-sec" onclick="MCCuenta.cerrar()">Cancelar</button><button class="cbz-btn" style="background:#c0392b" onclick="MCCuenta.confirmar()">Eliminar definitivamente</button></div>';}
+ function confirmar(){var pin=(document.getElementById('mc-cta-pin')||{}).value||'',fr=(document.getElementById('mc-cta-fr')||{}).value||'',msg=document.getElementById('mc-cta-msg');
+  if(!/^\d{4,8}$/.test(pin)){msg.textContent='Ingresa tu PIN.';return;}
+  msg.style.color='#666';msg.textContent='Eliminando…';
+  MCusr({action:'deleteMyAccount',confirmPin:pin,frase:fr}).then(function(r){
+   if(r&&r.ok){cerrar();try{clearCreds();}catch(e){}alert('Tu cuenta fue eliminada. Gracias por usar Minecore.');location.reload();return;}
+   msg.style.color='#c0392b';msg.textContent=(r&&r.error)||'No se pudo eliminar. Intenta de nuevo.';
+  }).catch(function(e){msg.style.color='#c0392b';msg.textContent='Sin conexión. Intenta de nuevo.';});}
+ return {abrir:abrir,cerrar:cerrar,paso:paso,confirmar:confirmar};})();
 </script>
 </body>
 </html>
