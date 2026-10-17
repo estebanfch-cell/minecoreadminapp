@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='423';
+  var MC_BUILD='424';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2939,7 +2939,7 @@ var MCCred=(function(){
       '<div><span>Usado (saldo + OV sin facturar)</span><b style="color:'+(pctUso!=null&&pctUso>100?'#ff6b6b':'#e8e8e8')+'">'+money(u.usado)+(pctUso!=null?' · '+pctUso+'%':'')+'</b></div>'+
       '<div><span>Vencido</span><b style="color:'+(u.vencido>0?'#ff6b6b':'#6fd68f')+'">'+money(u.vencido)+'</b></div>'+
       '<div><span>Mora actual máx.</span><b style="color:'+(u.max_mora>0?'#ff6b6b':'#6fd68f')+'">'+u.max_mora+' días</b></div>'+
-      '<div><span>Sugerido</span><b>'+(sg.dias?sg.dias+' días · '+money(sg.cupo):'Contado')+'</b></div></div>'+
+      '<div><span>Sugerido</span><b>'+(sg.dias?sg.dias+' días · '+money(sg.cupo):'Contado')+'</b></div>'+(K.prom_pago!==undefined?'<div><span>Paga en promedio (real)</span><b style="color:'+(K.prom_pago!=null&&K.prom_pago>(c.credit_days||0)?'#f0c040':'#6fd68f')+'">'+(K.prom_pago!=null?K.prom_pago+' días':'—')+'</b></div><div><span>Mediana de pago</span><b>'+(K.med_pago!=null?K.med_pago+' días':'—')+'</b></div>'+'<div><span>Pagado histórico</span><b>'+(K.pct_pagado!=null?K.pct_pagado+'% de '+money(K.ventas_vida):'—')+'</b></div><div><span>Valor vs otros clientes</span><b>Percentil '+(K.valor_pct!=null?K.valor_pct:'—')+'</b></div>':'')+'</div>'+(K.sugerencia_texto?'<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#2a2f36;color:#e6ff00;font-weight:700">⬆ '+esc(K.sugerencia_texto)+(ad?' <button class="cr-lk" onclick="MCCred.set(\''+id+'\',\'credit_days\',\''+K.subir_a+'\')">Aplicar en la ficha</button>':'')+'</div>':'')+(ad?'<div style="margin-top:8px"><button class="cbz-btn cbz-btn-primary" onclick="MCCredProp.abrir(\''+id+'\',\''+esc(String(c.name).replace(/\'/g,''))+'\')">🧮 Propuesta puntual</button></div>':'')+
       (c.bloqueado?'<div style="color:#ff6b6b;margin-top:6px">⛔ Bloqueado: '+esc(c.bloqueo_motivo||'')+'</div>':'');
     /* 1) Condiciones */
     var tsel='<select class="cr-in" onchange="MCCred.set(\''+id+'\',\'tipo\',this.value)">'+TIPOS.map(function(t){return '<option value="'+t[0]+'"'+(t[0]===x.tipo?' selected':'')+'>'+t[1]+'</option>';}).join('')+'</select>';
@@ -2958,6 +2958,7 @@ var MCCred=(function(){
         ad?'<select class="cr-in" onchange="MCCred.doc(\''+id+'\',\''+d.clave+'\',this.value,null)"><option value="NO"'+(d.manual?'':' selected')+'>No</option><option value="SI"'+(d.manual?' selected':'')+'>Sí</option></select>':''];}),true);
     /* 3) Historial de pago */
     var hist=[['Facturas pagadas a tiempo',(K.pct_a_tiempo!=null?K.pct_a_tiempo+'%':'—')+' ('+(H.n_a_tiempo||0)+' de '+(H.n_pagadas||0)+')','Pagada hasta el vencimiento'],
+      ['Tiempo real de pago (pagos aplicados)',K.prom_pago!=null?K.prom_pago+' días promedio · '+K.med_pago+' mediana':'—','Fecha de pago − fecha de factura, ponderado por monto, sin retenciones'],
       ['Días promedio de pago',H.prom_dias_pago!=null?H.prom_dias_pago+' días':'—','Plazo promedio '+(H.prom_plazo!=null?H.prom_plazo+' días':'—')],
       ['Atraso promedio',H.prom_atraso!=null?H.prom_atraso+' días':'—','Después del vencimiento'],
       ['Mora máxima histórica',H.max_atraso_hist!=null?H.max_atraso_hist+' días':'—','Facturas ya pagadas'],
@@ -2973,15 +2974,16 @@ var MCCred=(function(){
     var EV=(F.eventos||[]).map(function(z){return [fd(z.created_at),esc(ACC[z.accion]||z.accion),esc((z.dias_ext?z.dias_ext+' días':'')+(z.hasta?' hasta '+fd(z.hasta):'')+(z.dias_mora!=null?' · mora '+z.dias_mora+' d':'')),esc(z.por||'—')];})
       .concat((F.log||[]).map(function(z){return [fd(z.at),z.accion==='bloquear'?'⛔ Bloqueo':z.accion==='desbloquear'?'🔓 Desbloqueo':esc(z.accion),esc(z.motivo||''),esc(z.por||'—')];}));
     h+='<div class="cr-h">Bloqueos y extensiones</div>'+tabla(id+':ev',[['Fecha'],['Acción'],['Detalle'],['Por']],EV);
+    if(F.snapshots)h+='<div class="cr-h">Evolución de la calificación (diaria)</div>'+tabla(id+':snap',[['Fecha'],['Calificación'],['Prom. pago',1],['Días sug.',1],['Cupo sug.',1]],F.snapshots.map(function(z){return [fd(z.fecha),'<b style="color:'+(COL[z.letra]||'#e8e8e8')+'">'+esc(z.letra)+(z.score!=null?' · '+z.score:'')+'</b>',z.prom_pago!=null?z.prom_pago+' d':'—',z.dias_sug!=null?z.dias_sug+' d':'—',money(z.cupo_sug)];}));
     /* 4) Calificación */
     var P=K.partes||{},PN=[['aTiempo','Pago a tiempo',40],['atraso','Atraso promedio',25],['moraActual','Mora actual',20],['eventos','Bloqueos / extensiones',10],['volumen','Historial (n.º de facturas)',5]];
-    h+='<div class="cr-h">Calificación '+(K.letra==='N'?'· sin historial':K.letra+' · '+K.score+'/100')+'</div>'+tabla(id+':cal',[['Componente'],['Puntos',1],['Máximo',1]],PN.map(function(p){return [p[1],P[p[0]]!=null?String(P[p[0]]):'—',String(p[2])];}),true)+
+    h+='<div class="cr-h">Calificación '+(K.letra==='N'?'· sin historial':K.letra+' · '+K.score+'/100')+'</div>'+tabla(id+':cal',[['Componente'],['Puntos',1],['Máximo',1]],(K.partes_lista?K.partes_lista.map(function(q){return [esc(q[0]),String(q[1]),String(q[2])];}):PN.map(function(p){return [p[1],P[p[0]]!=null?String(P[p[0]]):'—',String(p[2])];})),true)/*t871-flex*/+(K.motivo?'<div style="color:#f0c040;font-size:12px;margin-top:4px">'+esc(K.motivo)+'</div>':'')+
       '<div style="color:#8fa3b8;font-size:12px;margin-top:4px">'+esc(F.formula||'')+'</div>';
     /* lista de documentos (admin) */
     if(ad)h+='<div class="cr-h">Lista de documentos requeridos (todos los clientes)</div><div id="cr-defs-'+id+'"><button class="cr-lk" onclick="MCCred.defs(\''+id+'\')">Editar lista…</button></div>';
     host.innerHTML=h;}
   function each(id){[].forEach.call(document.querySelectorAll('.mc-cred[data-id="'+id+'"]'),pinta);}
-  function cargar(id){D[id]=null;each(id);post({op:'credito_get',customer_id:id}).then(function(r){D[id]=r&&r.ok?r.credito:{error:(r&&r.error)||'No se pudo cargar'};each(id);}).catch(function(e){D[id]={error:MCerr(e)};each(id);});}
+  function cargar(id){D[id]=null;each(id);post(window.MC_CRED_FLEX?{op:'credito_get',customer_id:id,formula:'flex'}:{op:'credito_get',customer_id:id}).then(function(r){D[id]=r&&r.ok?r.credito:{error:(r&&r.error)||'No se pudo cargar'};each(id);}).catch(function(e){D[id]={error:MCerr(e)};each(id);});}
   function lazy(root){[].forEach.call((root||document).querySelectorAll('.mc-cred'),function(h){var id=h.getAttribute('data-id');if(D[id])pinta(h);else cargar(id);});}
   function set(id,campo,valor){if(campo==='credit_days'&&!confirm('¿Cambiar los días de crédito a '+valor+'? Se actualiza la ficha y se sincroniza con inFlow.'))return cargar(id);
     post({op:'credito_save',customer_id:id,campo:campo,valor:valor}).then(function(r){if(!r.ok)alert('Error: '+r.error);cargar(id);}).catch(function(e){alert(MCerr(e));cargar(id);});}
@@ -2995,6 +2997,61 @@ var MCCred=(function(){
   function defAdd(id){var n=prompt('Nombre del documento:');if(!n)return;post({op:'credito_def_save',clave:n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,40),nombre:n,orden:100}).then(function(r){if(!r.ok)alert('Error: '+r.error);cargar(id);});}
   function mas(k,n){LIM[k]=(LIM[k]||3)+n;each(k.split(':')[0]);}
   return {lazy:lazy,set:set,doc:doc,defs:defs,defSave:defSave,defDel:defDel,defAdd:defAdd,mas:mas,cargar:cargar};
+})();
+
+try{window.MC_CRED_FLEX=localStorage.getItem('mc_cred_flex')==='1';}catch(e){}
+/* b424 · EFCH t873/t874: propuesta puntual para una compra grande (solo admin) + PDF. Calcula ventas-api op credito_propuesta. */
+var MCCredProp=(function(){
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function money(n){var x=parseFloat(n)||0;return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  var LAST=null;
+  function cerrar(){var m=document.getElementById('mc-prop');if(m)m.remove();}
+  function abrir(id,nombre){cerrar();var m=document.createElement('div');m.id='mc-prop';m.setAttribute('data-nd','1');
+    m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:16px 10px';
+    m.innerHTML='<div class="cbz-card" style="width:100%;max-width:720px;background:#1f2329;border-radius:12px;padding:16px;margin:auto 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="color:#e6ff00;font-size:16px">🧮 Propuesta puntual</b><button class="cr-lk" onclick="MCCredProp.cerrar()">✕</button></div>'+
+      '<div style="color:#8fa3b8;font-size:12px;margin:2px 0 10px">'+esc(nombre)+' · sugiere anticipo, plazo/cuotas y descuento máximo sin bajar del piso de margen.</div>'+
+      '<div class="cr-wrap"><table class="cr-t"><tbody>'+
+      '<tr><td class="n">1</td><td class="c1" data-l="">Monto de la compra (USD)</td><td><input id="mp-monto" class="cr-in" inputmode="decimal" placeholder="100000" value="100000" style="width:160px"></td></tr>'+
+      '<tr><td class="n">2</td><td class="c1" data-l="">Margen de la venta % (opcional)</td><td><input id="mp-margen" class="cr-in" inputmode="decimal" placeholder="histórico del cliente" style="width:160px"></td></tr>'+
+      '<tr><td class="n">3</td><td class="c1" data-l="">Mezcla de productos (opcional)</td><td><textarea id="mp-items" class="cr-in" rows="3" placeholder="SKU, cantidad, precio (una línea por producto)" style="width:100%;min-width:200px"></textarea></td></tr>'+
+      '</tbody></table></div><div style="margin:10px 0"><button class="cbz-btn cbz-btn-primary" id="mp-go">Calcular propuesta</button></div><div id="mp-res"></div></div>';
+    document.body.appendChild(m);m.addEventListener('click',function(e){if(e.target===m)cerrar();});
+    document.getElementById('mp-go').onclick=function(){calc(id,nombre);};}
+  function calc(id,nombre){var r=document.getElementById('mp-res');r.innerHTML='<div class="cbz-loading">Calculando…</div>';
+    var items=(document.getElementById('mp-items').value||'').split(/\n/).map(function(l){var p=l.split(/[,;\t]/).map(function(x){return x.trim();});return p[0]?{sku:p[0],cantidad:parseFloat(p[1])||0,precio:parseFloat(String(p[2]||'').replace(/[$\s]/g,''))||0}:null;}).filter(Boolean);
+    var b={action:'ventas',op:'credito_propuesta',customer_id:id,monto:parseFloat(String(document.getElementById('mp-monto').value).replace(/[$,\s]/g,''))||0,margen_pct:document.getElementById('mp-margen').value||'',items:items,user:getUserName(),pin:getPin()};
+    if(window.MC_CRED_FLEX)b.formula='flex';
+    MCpost(b).then(function(x){if(!x||!x.ok)throw new Error((x&&x.error)||'No se pudo calcular');LAST={cliente:x.cliente||nombre,p:x.propuesta};pinta(r);}).catch(function(e){r.innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
+  function pinta(r){var P=LAST.p,i=0;function fila(a,b){i++;return '<tr><td class="n">'+i+'</td><td class="c1" data-l="">'+a+'</td><td>'+b+'</td></tr>';}
+    var h='<div class="cr-sum"><div><span>Calificación</span><b>'+esc(P.letra)+(P.score!=null?' · '+P.score+'/100':'')+'</b></div><div><span>Anticipo</span><b style="color:#e6ff00">'+P.anticipo_pct+'% · '+money(P.anticipo)+'</b></div><div><span>Financiado</span><b>'+money(P.financiado)+'</b></div><div><span>Descuento máx.</span><b>'+P.descuento_max_pct+'% <small style="color:#8fa3b8">(pronto pago '+P.descuento_pronto_pago_pct+'%)</small></b></div></div>'+
+      (P.requiere_aprobacion?'<div style="color:#f0c040;margin:8px 0">⚠ Requiere aprobación de gerencia (excede el cupo disponible).</div>':'')+
+      '<div class="cr-h">Condiciones</div><div class="cr-wrap"><table class="cr-t"><thead><tr><th>#</th><th>Concepto</th><th>Valor</th></tr></thead><tbody>'+
+      fila('Monto',money(P.monto))+fila('Anticipo',P.anticipo_pct+'% · '+money(P.anticipo))+fila('Plazo',P.plazo_dias?P.plazo_dias+' días':'Sin crédito (contra entrega)')+
+      fila('Descuento máximo a crédito',P.descuento_max_pct+'%')+fila('Descuento con pronto pago',P.descuento_pronto_pago_pct+'%')+fila('Margen de la venta',P.margen_pct+'% · '+esc(P.margen_fuente))+fila('Costo del dinero estimado',P.costo_dinero_pct+'%')+
+      fila('Cupo sugerido / usado / disponible',money(P.cupo_sugerido)+' / '+money(P.usado)+' / '+money(P.disponible))+'</tbody></table></div>'+
+      '<div class="cr-h">Cuotas</div><div class="cr-wrap"><table class="cr-t"><thead><tr><th>#</th><th>Cuota</th><th class="r">Días</th><th class="r">Monto</th></tr></thead><tbody>'+
+      '<tr><td class="n">1</td><td class="c1" data-l="">Anticipo</td><td class="r" data-l="Días">0</td><td class="r" data-l="Monto">'+money(P.anticipo)+'</td></tr>'+
+      P.cuotas.map(function(c,k){return '<tr><td class="n">'+(k+2)+'</td><td class="c1" data-l="">Cuota '+c.n+'</td><td class="r" data-l="Días">'+c.dias+'</td><td class="r" data-l="Monto">'+money(c.monto)+'</td></tr>';}).join('')+'</tbody></table></div>'+
+      '<div class="cr-h">Por qué</div><ol style="margin:0;padding-left:20px;font-size:12.5px;line-height:1.5">'+P.razones.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol>'+
+      '<div style="color:#8fa3b8;font-size:11.5px;margin-top:8px">Reglas: '+esc(P.reglas)+'</div>'+
+      '<div style="margin-top:12px"><button class="cbz-btn cbz-btn-primary" onclick="MCCredProp.pdf()">⬇ Descargar propuesta PDF</button></div>';
+    r.innerHTML=h;}
+  function pdf(){if(!LAST)return;var P=LAST.p;loadJsPDF().then(function(J){var d=new J({unit:'mm',format:'a4'}),W=210,y=0;
+    var S=function(t){return String(t==null?'':t).normalize('NFC');};
+    d.setFillColor(31,35,41);d.rect(0,0,W,28,'F');d.setTextColor(230,255,0);d.setFont('helvetica','bold');d.setFontSize(18);d.text('MINECORE',14,13);
+    d.setFontSize(11);d.setTextColor(255,255,255);d.text('Propuesta comercial',14,21);d.setFontSize(9);d.text(new Date().toLocaleDateString('es-EC'),W-14,21,{align:'right'});
+    y=38;d.setTextColor(31,35,41);d.setFontSize(13);d.text(S(LAST.cliente),14,y);y+=8;
+    function row(a,b){d.setFont('helvetica','normal');d.setFontSize(10);d.setTextColor(90,90,90);d.text(S(a),14,y);d.setTextColor(31,35,41);d.setFont('helvetica','bold');d.text(S(b),110,y);y+=6.5;}
+    row('Monto de la compra',money(P.monto));row('Anticipo',P.anticipo_pct+'% - '+money(P.anticipo));row('Saldo financiado',money(P.financiado));row('Plazo',P.plazo_dias?P.plazo_dias+' dias':'Contra entrega');
+    row('Descuento a credito (max.)',P.descuento_max_pct+'%');row('Descuento con pronto pago (max.)',P.descuento_pronto_pago_pct+'%');
+    y+=3;d.setFillColor(230,255,0);d.rect(14,y-4.5,W-28,7,'F');d.setTextColor(31,35,41);d.setFont('helvetica','bold');d.setFontSize(10);d.text('#',16,y);d.text('Cuota',26,y);d.text('Dias',120,y,{align:'right'});d.text('Monto',W-16,y,{align:'right'});y+=7;
+    var C=[{n:'Anticipo',dias:0,monto:P.anticipo}].concat(P.cuotas.map(function(c){return {n:'Cuota '+c.n,dias:c.dias,monto:c.monto};}));
+    d.setFont('helvetica','normal');C.forEach(function(c,k){d.text(String(k+1),16,y);d.text(c.n,26,y);d.text(String(c.dias),120,y,{align:'right'});d.text(money(c.monto),W-16,y,{align:'right'});y+=6;});
+    y+=6;d.setFontSize(8.5);d.setTextColor(110,110,110);
+    var t=d.splitTextToSize('Condiciones sujetas a aprobacion de credito y disponibilidad de inventario. Precios en USD, no incluyen IVA. Validez: 15 dias.',W-28);d.text(t,14,y);
+    d.setFillColor(31,35,41);d.rect(0,287,W,10,'F');d.setTextColor(230,255,0);d.setFontSize(8);d.text('minecore.ec',14,293);
+    d.save('Propuesta_'+S(LAST.cliente).replace(/[^A-Za-z0-9]+/g,'_').slice(0,40)+'.pdf');}).catch(function(e){alert('No se pudo generar el PDF: '+MCerr(e));});}
+  return {abrir:abrir,cerrar:cerrar,pdf:pdf,_last:function(){return LAST;}};
 })();
 
 var CxcSb=(function(){
