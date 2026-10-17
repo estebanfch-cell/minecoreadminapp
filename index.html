@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='418';
+  var MC_BUILD='419';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -670,7 +670,15 @@ function mcMoraPrompt(n,id,accion){var x=mcMora(n,id);if(!x)return Promise.resol
       x.ext_hasta=r.hasta;alert('⏳ Extensión guardada hasta el '+String(r.hasta).split('-').reverse().join('/')+'.');res(true);
     }).catch(function(e){d.remove();alert('No se pudo guardar la decisión');res(false);});};
 });}
-function mcBloqStrip(n,id){var x=mcBloq(n,id);if(!x)return '';return '<div style="background:#7a1616;border:1px solid #e05c5c;color:#fff;border-radius:8px;padding:8px 12px;margin:6px 0;font-size:13px"><b>⛔ CLIENTE BLOQUEADO</b> · '+String(x.motivo||'Compromiso de pago incumplido').replace(/</g,'&lt;')+(x.fecha?' · desde '+String(x.fecha).slice(0,10).split('-').reverse().join('/'):'')+'<br><span style="font-size:12px;opacity:.9">No se pueden crear cotizaciones, convertir, preparar, empacar ni despachar hasta que administración lo desbloquee.</span></div>';}
+/* b419 · EFCH t851: desbloqueo manual (solo admin) con 15 días de gracia antes de que la regla >60 días vuelva a aplicar */
+var MC_DESB=[];function mcEsAdmin(){try{return getProfile().rol==='admin';}catch(e){return false;}}
+function mcDesbBtn(n,id){if(!mcEsAdmin())return '';var i=MC_DESB.push([n,id])-1;return '<button class="cbz-btn" style="background:#e6ff00;color:#111;margin-top:6px;border:0" onclick="event.stopPropagation();mcDesbloquear('+i+')">🔓 Desbloquear</button>';}
+function mcDesbloquear(i){var p=MC_DESB[i]||[],n=p[0],id=p[1],x=mcBloq(n,id)||{};var mot=prompt('Motivo para desbloquear a '+(x.cliente||n)+' (obligatorio):');if(mot==null)return;mot=String(mot).trim();if(mot.length<3){alert('El motivo es obligatorio.');return;}
+  mcCobPost('desbloquear',{customer_id:id||x.customer_id||'',cliente:x.cliente||n,motivo:mot}).then(function(r){if(!r||!r.ok){alert('Error: '+((r&&r.error)||'no se pudo desbloquear'));return;}
+    alert('✅ '+(x.cliente||n)+' desbloqueado.'+(r.gracia_hasta?'\nNo se volverá a bloquear automáticamente antes del '+String(r.gracia_hasta).split('-').reverse().join('/')+'.':''));
+    MC_BLOQ_T=0;mcBloqLoad(true).then(function(){[].forEach.call(document.querySelectorAll('.mc-bloq-strip'),function(e){e.remove();});try{if(window.Cobranza&&Cobranza.loadCompromisos)Cobranza.loadCompromisos();}catch(e){}});
+  }).catch(function(e){alert('Error: '+MCerr(e));});}
+function mcBloqStrip(n,id,sinBtn){var x=mcBloq(n,id);if(!x)return '';return '<div class="mc-bloq-strip" style="background:#7a1616;border:1px solid #e05c5c;color:#fff;border-radius:8px;padding:8px 12px;margin:6px 0;font-size:13px"><b>⛔ CLIENTE BLOQUEADO</b> · '+String(x.motivo||'Compromiso de pago incumplido').replace(/</g,'&lt;')+(x.fecha?' · desde '+String(x.fecha).slice(0,10).split('-').reverse().join('/'):'')+'<br><span style="font-size:12px;opacity:.9">No se pueden crear cotizaciones, convertir, preparar, empacar ni despachar hasta que administración lo desbloquee.</span>'+(sinBtn?'':'<br>'+mcDesbBtn(n,id||x.customer_id))+'</div>';}
 function MCsbRefresh(){
   if(MC_SB_REF||!getUserName()||!getPin())return;
   /* b252: login sin Google (alterno, apagado): con localStorage mc_login_alt=1 el token sale de portal-api (NOMBRE+PIN contra hash en Supabase) en vez de Apps Script; si falla, vuelve a Apps Script */
@@ -3280,7 +3288,7 @@ var Cobranza = (function () {
   }
   function compromisoChip(c) {
     var x = compromisos[String(c.cliente).trim().toLowerCase()];
-    var bq = mcBloq(c.cliente) ? '<div style="flex-basis:100%">' + mcBloqStrip(c.cliente) + ((function () { try { return getProfile().rol === 'admin'; } catch (e) { return false; } })() ? '<button class="cbz-btn" style="background:#7a1616" onclick="Cobranza.desbloquear(' + clientes.indexOf(c) + ')">🔓 Desbloquear</button>' : '') + '</div>' : '';
+    var bq = mcBloq(c.cliente) ? '<div style="flex-basis:100%">' + mcBloqStrip(c.cliente, c.customer_id, true) + ((function () { try { return getProfile().rol === 'admin'; } catch (e) { return false; } })() ? '<button class="cbz-btn" style="background:#7a1616" onclick="Cobranza.desbloquear(' + clientes.indexOf(c) + ')">🔓 Desbloquear</button>' : '') + '</div>' : '';
     if (!x) return '<span class="cbz-money cbz-muted">Compromiso: —</span>' + bq;
     var lbl = { pendiente: '📅 ', recordado: '🔔 ', pagado_revisar: '💰 Dice que pagó · revisar', cumplido: '✅ Cumplido', incumplido: '⚠️ Incumplido' }[x.estado] || x.estado;
     var f = x.fecha ? String(x.fecha).slice(0, 10).split('-').reverse().join('/') : '';
@@ -14113,7 +14121,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
 
   /* ===== Cliente ===== */
   var FC=null;
-  function cFicha(r){addCss2();FXel=null;setTimeout(function(){try{MCKyc.panel(el(),r.cliente);}catch(e){}},40);if(r.cliente.id)setTimeout(function(){try{MCCampos.append(el(),'cli',r.cliente.id);}catch(e){}},30);var c=r.cliente,R=r.resumen||{},K=r.catalogos||{},a=(r.direcciones&&r.direcciones[0]&&r.direcciones[0].address)||{};FC=c;CT=(r.contactos||[]).map(function(x){return Object.assign({},x);});
+  function cFicha(r){addCss2();FXel=null;if(r&&r.cliente)(function(cc){mcBloqLoad(true).then(function(){var h=el();if(!h||!mcBloq(cc.name,cc.id)||h.querySelector('.mc-bloq-strip'))return;var d=document.createElement('div');d.innerHTML=mcBloqStrip(cc.name,cc.id);h.insertBefore(d.firstChild,h.firstChild);});})(r.cliente);setTimeout(function(){try{MCKyc.panel(el(),r.cliente);}catch(e){}},40);if(r.cliente.id)setTimeout(function(){try{MCCampos.append(el(),'cli',r.cliente.id);}catch(e){}},30);var c=r.cliente,R=r.resumen||{},K=r.catalogos||{},a=(r.direcciones&&r.direcciones[0]&&r.direcciones[0].address)||{};FC=c;CT=(r.contactos||[]).map(function(x){return Object.assign({},x);});
     try{MCroute.set('vcli',c.id);}catch(e){}
     var T=(K.terminos||[]).map(function(t){return [t.id,t.name];});
     var h='<div class="fx-hd"><button class="chip" onclick="MCCli.volver()">← Clientes</button><b class="nm">'+(c.id?esc(c.name):'Nuevo cliente')+'</b>'+act(c.is_active)+syncMini(c.sync_status)+'<button class="chip" style="margin-left:auto;'+(c.id?'':'display:none')+'" onclick="MCArch.abrir(\'cli\',\''+esc(c.id)+'\',\''+esc(String(c.name||'').replace(/'/g,''))+'\')">📎 Archivos</button>'+(c.id?'<button class="chip" onclick="MCCli.acc(\''+(c.is_active===false?'desarchivar':'archivar')+'\')">'+(c.is_active===false?'📤 Desarchivar':'🗄 Archivar')+'</button>'+(mcAdm()?'<button class="chip" style="color:#e05c5c;border-color:#7a2a2a" onclick="MCCli.acc(\'borrar\')">🗑 Eliminar</button>':''):'')+'</div>'+
