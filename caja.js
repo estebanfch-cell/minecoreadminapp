@@ -1821,7 +1821,7 @@ function renderNuevaEntrega(c){
       <select class="field-sel" id="e-dest">${us.map(u=>`<option value="${u.usuario}"${u.usuario===CAJA_DEST_DEFAULT?' selected':''}>${u.usuario} — ${u.nombre}</option>`).join('')}</select></div>
     <div class="field-group"><label class="field-label">Monto ($)</label><input class="field-input" type="number" id="e-monto" placeholder="0.00" step="0.01" min="0.01"></div>
     <div class="field-group"><label class="field-label">Forma</label>
-      <select class="field-sel" id="e-forma"><option value="Transferencia">💳 Transferencia</option><option value="Efectivo">💵 Efectivo</option><option value="Cheque">📄 Cheque</option></select></div>
+      <select class="field-sel" id="e-forma"><option value="Transferencia">🏦 Transferencia</option><option value="Efectivo">💵 Efectivo</option><option value="Cheque">📄 Cheque</option><option value="Tarjeta de crédito">💳 Tarjeta de crédito</option></select></div>
     <div class="field-group"><label class="field-label">Descripción</label><input class="field-input" id="e-desc" placeholder="Ej: Anticipo caja chica junio"></div>
     <label class="field-label">Foto del comprobante (opcional)</label>
     <div class="photo-zone" onclick="document.getElementById('e-foto').click()">
