@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='431';
+  var MC_BUILD='432';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -654,7 +654,16 @@ function mcCobPost(path,body){return MCsbTok().then(function(tk){if(!tk||!tk.sbt
 function mcBloqKey(n){return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(s\.?\s*a\.?\s*s?\.?|cia\.?|ltda\.?|c\.?\s*a\.?)\s*$/g,'').replace(/[^a-z0-9]/g,'');}
 function mcBloqLoad(force){if(!force&&Date.now()-MC_BLOQ_T<300000)return Promise.resolve(MC_BLOQ);MC_BLOQ_T=Date.now();return mcCobPost('compromisos',{}).then(function(r){if(r&&r.ok){var m={};(r.bloqueados||[]).forEach(function(x){m[mcBloqKey(x.cliente)]=x;if(x.customer_id)m['id:'+x.customer_id]=x;});MC_BLOQ=m;window.MC_COB_DATA=r;var mm={};(r.mora||[]).forEach(function(x){mm['id:'+x.customer_id]=x;mm[mcBloqKey(x.cliente)]=x;});MC_MORA=mm;}return MC_BLOQ;}).catch(function(){return MC_BLOQ;});}
 function mcBloq(n,id){return (id&&MC_BLOQ['id:'+id])||MC_BLOQ[mcBloqKey(n)]||null;}
-function mcBloqGuard(n,id,accion,monto){return mcBloqLoad(true).then(function(){var x=mcBloq(n,id);if(x){alert('⛔ Cliente BLOQUEADO ('+(n||'')+'): '+(x.motivo||'compromiso de pago incumplido')+'.\nNo se puede '+(accion||'continuar')+' hasta que administración lo desbloquee.');return false;}return mcMoraPrompt(n,id,true).then(function(ok){return ok?mcCupoAviso(n,id,monto):false;});});}
+/* b432 · EFCH «corrige»: el bloqueo se confirma con Supabase (app.customers, por id/inFlow id/nombre/alias) antes de cualquier acción; si no responde, NO se continúa */
+function mcGateSrv(n,id){return MCpost({action:'ventas',op:'clientes',q:String(n||'').trim(),user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'sin respuesta');var L=r.rows||r.clientes||[],k=mcBloqKey(n),x=null;
+  L.forEach(function(c){if(x)return;if(id&&(c.id===id||c.inflow_id===id))x=c;});if(!x)L.forEach(function(c){if(!x&&(mcBloqKey(c.name)===k||mcBloqKey(c.nombre_comercial)===k))x=c;});
+  return x&&x.bloqueado?{cliente:x.name,motivo:x.bloqueo_motivo,customer_id:x.id}:null;});}
+function mcBloqGuard(n,id,accion,monto){return mcGateSrv(n,id).then(function(xs){if(xs){alert('⛔ Cliente BLOQUEADO ('+(xs.cliente||n||'')+'): '+(xs.motivo||'compromiso de pago incumplido')+'.\nNo se puede '+(accion||'continuar')+' hasta que administración lo desbloquee.');return false;}return mcBloqGuard0(n,id,accion,monto);},function(e){alert('No se pudo verificar el estado de crédito del cliente ('+MCerr(e)+'). Reintenta en unos segundos.');return false;});}
+/* b432: conversión cotización→OV por ventas-api (bloqueo en servidor, espejo inFlow verificado); luego Apps Script solo deja la pre-cotización en ORDEN (inFlow ya convertido ⇒ no repite) */
+function mcConvVentas(q,asP){var p={action:'ventas',op:'convert',user:getUserName(),pin:getPin()};for(var k in q)if(q[k])p[k]=q[k];
+  return MCpost(p).then(function(r){if(!r||!r.ok)return {ok:false,error:(r&&r.error)||'No se pudo convertir'};
+    return MCpost(asP).then(function(a){a=a||{};if(!a.ok&&!/Ya es Orden/i.test(String(a.error||'')))a={ok:true,numOV:r.order_number,aviso:'La pre-cotización no se marcó como ORDEN: '+(a.error||'')};a.ok=true;delete a.error;a.numOV=a.numOV||r.order_number;return a;},function(){return {ok:true,numOV:r.order_number};});});}
+function mcBloqGuard0(n,id,accion,monto){return mcBloqLoad(true).then(function(){var x=mcBloq(n,id);if(x){alert('⛔ Cliente BLOQUEADO ('+(n||'')+'): '+(x.motivo||'compromiso de pago incumplido')+'.\nNo se puede '+(accion||'continuar')+' hasta que administración lo desbloquee.');return false;}return mcMoraPrompt(n,id,true).then(function(ok){return ok?mcCupoAviso(n,id,monto):false;});});}
 /* b423 · EFCH t866: cupo de crédito (ficha → Crédito). Avisa si la orden lo excede; NO bloquea. */
 function mcCupoAviso(n,id,monto){if(!id)return Promise.resolve(true);return MCpost({action:'ventas',op:'credito_cupo_get',customer_id:id,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok||!r.credito||r.credito.cupo==null)return true;var cu=+r.credito.cupo,us=+(r.uso&&r.uso.usado||0),m=+(monto||0),f=function(v){return '$'+(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};if(us+m<=cu+0.005)return true;return confirm('⚠️ '+(r.cliente||n||'El cliente')+' excede su cupo de crédito.\nCupo: '+f(cu)+'\nUsado (saldo + OV sin facturar): '+f(us)+(m?'\nEsta orden: '+f(m):'')+'\nExceso: '+f(us+m-cu)+'\n\n¿Continuar de todas formas?');}).catch(function(){return true;});}
 /* b413 · EFCH t832: mora >30 días tras vencimiento -> el admin decide Bloquear / Extender 15 / Extender 30 (se guarda en app.cxc_mora_decision; durante la extensión no se pregunta) */
@@ -8354,7 +8363,8 @@ var Cot = (function(){
     if(!confirm('¿Convertir la cotización '+o.num+' ('+o.cliente+') en ORDEN DE VENTA en inFlow?\n'+o.lineas.length+' línea(s) · Subtotal '+fmt(o.total)))return;
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Convirtiendo '+o.num+' en Orden de Venta...</div>';
     var p={action:'convertirCotOrden'};if(preId)p.id=preId;else p.salesOrderId=o.salesOrderId;
-    api(p).then(function(res){
+    p.user=getUserName();p.pin=getPin();
+    mcConvVentas({inflow_id:o.salesOrderId,order_number:o.salesOrderId?'':o.num},p).then(function(res){
       if(!res.ok){alert('Error: '+res.error);renderInflowLista();return;}
       alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despacharla.'+MCmoTxt(res));
       ioDet=null;MCWarm.markStale('both');cargarInflow({fresh:true, invalidateOther:true});
@@ -8739,7 +8749,7 @@ var Cot = (function(){
       :'El cliente aún no ha aprobado esta cotización.\n¿Convertirla en ORDEN DE VENTA de todas formas?';
     if(!confirm(msg))return;
     el().innerHTML='<div class="cbz-loading">Convirtiendo en Orden de Venta...</div>';
-    api({action:'convertirCotOrden',id:det.cot.id}).then(function(res){
+    mcConvVentas({order_number:det.cot.inflowNum},{action:'convertirCotOrden',id:det.cot.id,user:getUserName(),pin:getPin()}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
       alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despachar.'+MCmoTxt(res));
       abrir(det.cot.id);
