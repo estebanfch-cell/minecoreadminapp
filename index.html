@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='430';
+  var MC_BUILD='431';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -15441,7 +15441,7 @@ var MCCosteo=(function(){
     if(c.estado==='recibido')return '<button class="cst-btn" onclick="MCCosteo.cerrar()">Cerrar y preparar borrador a Stratega</button>';return '';}
   function pinta(){css();var d=S.d,c=d.costeo,t=d.totales,e=EST[c.estado]||[c.estado,'#8fa3b8'],ab=d.discrepancias.filter(function(x){return x.estado==='abierta';});
     var provs=[];d.lineas.forEach(function(x){if(x.proveedor&&provs.indexOf(x.proveedor)<0)provs.push(x.proveedor);});
-    var TABS=[['docs','Documentos ('+d.docs.length+')'],['cruce','Cruce'+(ab.length?' ⚠'+ab.length:'')],['montos','Montos'],['costeo','Costeo'],['recep','Recepción'],['hist','Historial']];
+    var TABS=[['docs','Documentos ('+d.docs.length+')'],['cruce','Cruce'+(ab.length?' ⚠'+ab.length:'')],['montos','Montos'+(d.majo&&({cuadra:' ✓',no_cuadra:' ⚠',revisar:' ⚠',error:' ⚠',enviado:' 💬',por_enviar:' 💬'})[d.majo.estado]||'')],['costeo','Costeo'],['recep','Recepción'],['hist','Historial']];
     var h='<div class="cst"><div class="cst-h"><button class="cst-b2" onclick="MCCosteo.lista()">←</button><h2>'+esc(c.codigo)+'</h2>'+chip(e[0],e[1])+(c.prueba?chip('PRUEBA · no aplica','#E8FF00'):'')+(c.historico?chip('Histórico (solo lectura)','#8fa3b8'):'')+'<span class="cst-mut cst-hide-m">'+esc(provs.join(' + '))+'</span><span class="cst-sp"></span>'+
       '<span class="cst-menu"><button class="cst-b2" onclick="MCCosteo._menu(this)">Acciones ▾</button><div class="mn" style="display:none"><div onclick="MCCosteo.xlsx()">⬇ Descargar Excel</div><div onclick="MCCosteo.pdf()">⬇ Descargar PDF</div>'+
       (c.cierre&&c.cierre.zips?'<div onclick="MCCosteo.tabG(\'recep\')">📦 ZIPs y borrador Stratega</div>':'')+(c.prueba?'<div style="color:#ff8a8a" onclick="MCCosteo.borrarPrueba()">🗑 Borrar prueba</div>':'')+(!c.prueba&&!c.historico&&['recibido','cerrado','anulado'].indexOf(c.estado)<0?'<div style="color:#ff8a8a" onclick="MCCosteo.anular()">Anular costeo</div>':'')+'</div></span>'+accionPrincipal()+'</div>'+
@@ -15501,6 +15501,7 @@ var MCCosteo=(function(){
   function dRes(can){return function(z){return '<div style="padding:8px 0;border-bottom:1px solid #121d29;font-size:13px"><div class="cst-bad"'+(z.line_id?' style="cursor:pointer" onclick="MCCosteo.det(\''+z.line_id+'\')"':'')+'>⚠ '+esc(MCcNom(z))+'</div>'+(can?'<input id="dn-'+z.id+'" placeholder="Nota (opcional)" class="cst-un" style="width:100%;margin:8px 0"><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="cst-b2" onclick="MCCosteo.res('+z.id+',\'aceptar\')">Aceptar</button><button class="cst-b2" onclick="MCCosteo.res('+z.id+',\'aceptar_oc\')">Según OC</button><button class="cst-b2 dn" onclick="MCCosteo.res('+z.id+',\'retener\')">Retener</button><button class="cst-b2 dn" onclick="MCCosteo.res('+z.id+',\'nota_credito\')">Nota crédito</button></div>':'')+'</div>';};}
   /* --- Montos de Majo (Guardar/Descartar) --- */
   function tMontos(){var d=S.d,c=d.costeo,m=c.montos||{},ed=S.ed==='montos',can=puedeEd();
+    var hM=tMajo(can);
     var V=(d.validaciones||[]).map(function(v){var nm={iva:'IVA costeo vs IVA DAI (±0.05)',fodinfa:'Fodinfa ≈ 0.5% × (CIF + seguro)',seguro:'Seguro ≈ 1% × (FOB + gastos exterior)',calculo:'Cálculo'}[v.tipo]||v.tipo;
       return '<div><span>'+nm+'</span><b class="'+(v.ok?'cst-ok':(v.solo_aviso?'cst-warn':'cst-bad'))+'">'+(v.esperado!=null?'calc '+f2(v.esperado)+' · ':'')+(v.ok?'✓':'⚠ dif '+f2(v.dif))+'</b></div>';}).join('');
     var h='<div class="cst-bar"><div class="cst-sec" style="margin:0">Los 12 montos del agente de aduanas (Majo) · USD</div><span class="cst-sp"></span>'+(can&&!ed?'<button class="cst-b2" onclick="MCCosteo.edit(\'montos\')">✏️ Editar</button>':'')+'</div>';
@@ -15508,7 +15509,33 @@ var MCCosteo=(function(){
       '<label>Comisión bancaria (AB) · fija<input id="cm-comision" inputmode="decimal" value="'+c.comision+'"></label><label>ISD (tasa)<input id="cm-isd" inputmode="decimal" value="'+c.isd_rate+'"></label><label>Base ISD<select id="cm-isdb"><option value="cif"'+(c.isd_base==='cif'?' selected':'')+'>CIF (FOB + flete + gastos ext.)</option><option value="fob"'+(c.isd_base==='fob'?' selected':'')+'>Solo FOB</option></select></label><label>IVA (tasa)<input id="cm-iva" inputmode="decimal" value="'+c.iva_rate+'"></label>'+
       '<label style="flex:1 1 100%">Notas / observaciones<textarea id="cm-notas" rows="3">'+esc(c.notas||'')+'</textarea></label></div><div class="cst-bar"><button class="cst-btn" onclick="MCCosteo.gMontos()">Guardar</button><button class="cst-b2" onclick="MCCosteo.desc()">Descartar</button></div>';}
     else h+='<div class="cst-kv">'+d.conceptos.map(function(k){return '<div><span>'+esc(k[1])+'</span><b>'+(m[k[0]]==null?'<span class="cst-warn">falta</span>':'$'+f2(m[k[0]]))+'</b></div>';}).join('')+'<div><span>Comisión bancaria (fija)</span><b>$'+f2(c.comision)+'</b></div><div><span>ISD</span><b>'+(+c.isd_rate*100)+'% sobre '+(c.isd_base==='fob'?'FOB':'CIF')+'</b></div><div><span>IVA</span><b>'+(+c.iva_rate*100)+'%</b></div></div>'+(c.notas?'<div class="cst-mut" style="margin-top:10px;white-space:pre-wrap">'+esc(c.notas)+'</div>':'');
-    return h+'<div class="cst-sec">Validaciones</div><div class="cst-kv">'+(V||'<div><span class="cst-mut">Carga los montos para validar</span></div>')+'</div>';}
+    return hM+h+'<div class="cst-sec">Validaciones</div><div class="cst-kv">'+(V||'<div><span class="cst-mut">Carga los montos para validar</span></div>')+'</div>';}
+  /* b431 majo t910 */
+  var MJ_EST={por_enviar:['Enviando…','cst-warn'],enviado:['Enviado · esperando respuesta','cst-warn'],respondido:['Respondido · revisando','cst-warn'],cuadra:['✓ Cuadra','cst-ok'],no_cuadra:['⚠ No cuadra','cst-bad'],revisar:['⚠ Revisar: no se pudo leer','cst-bad'],error:['⚠ Error','cst-bad'],cancelado:['Cancelado','cst-mut']};
+  var MJ_NOM={flete:'Flete',gastos_ext:'Gastos en exterior',seguro:'Seguro 1%',fodinfa:'Fodinfa',advalorem:'Ad-Valorem',agente:'Agente de aduanas',almacenaje:'Almacenaje',seguro_local:'Seguro local',colect_fee:'Colect fee',manejo:'Manejo de carga',transporte:'Transporte interno',iva_dai:'IVA 15% (DAI)'};
+  function mjF(t){if(!t)return '';try{return new Date(t).toLocaleString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
+  function tMajo(can){var j=S.d.majo,c=S.d.costeo,act=j&&(j.estado==='por_enviar'||j.estado==='enviado');
+    var h='<div class="cst-bar"><div class="cst-sec" style="margin:0">Pedido a Majo por WhatsApp</div><span class="cst-sp"></span>'+
+      (can?'<button class="'+(j?'cst-b2':'cst-btn')+'" onclick="MCCosteo.pedirMajo()">'+(act?'↻ Reenviar a Majo':'💬 Pedir montos a Majo')+'</button>':'')+(j?'<button class="cst-b2" onclick="MCCosteo._recargar()">Actualizar</button>':'')+'</div>';
+    if(!j)return h+'<div class="cst-mut" style="margin-bottom:6px">Se le envía a Majo la plantilla aprobada de pedido de montos (como Cote). Cuando responda, el sistema llena los montos, revisa que cuadren y le contesta solo.'+(c.prueba?' Costeo de PRUEBA: no se envía nada de verdad.':'')+'</div>';
+    var e=MJ_EST[j.estado]||[j.estado,''];
+    h+='<div class="cst-kv"><div><span>Estado</span><b class="'+e[1]+'">'+esc(e[0])+(j.mock?' <span class="cst-mut">(simulado, no se envió)</span>':'')+'</b></div>'+
+      '<div><span>Pedido</span><b>'+esc(mjF(j.pedido_at))+' · '+esc(j.pedido_por||'')+'</b></div>'+
+      (j.enviado_at?'<div><span>Enviado</span><b>'+esc(mjF(j.enviado_at))+' · '+esc(j.proveedores||'')+'</b></div>':'')+
+      (j.respuesta_at?'<div><span>Respuesta de Majo</span><b>'+esc(mjF(j.respuesta_at))+'</b></div>':'')+
+      ((j.vacios||[]).length?'<div><span>En blanco (cargado como 0)</span><b>'+esc(j.vacios.map(function(k){return MJ_NOM[k]||k;}).join(', '))+'</b></div>':'')+
+      ((j.faltan||[]).length?'<div><span>Faltan</span><b class="cst-bad">'+esc(j.faltan.map(function(k){return MJ_NOM[k]||k;}).join(', '))+'</b></div>':'')+
+      ((j.no_cuadra||[]).map(function(v){return '<div><span>No cuadra · '+(v.tipo==='iva'?'IVA 15% (DAI)':'Fodinfa')+'</span><b class="cst-bad">Majo $'+f2(v.real)+' · calc $'+f2(v.esperado)+' · dif '+f2(v.dif)+'</b></div>';}).join(''))+
+      (j.nota?'<div><span>Nota</span><b class="cst-bad" style="white-space:normal;text-align:right">'+esc(j.nota)+'</b></div>':'')+'</div>';
+    if(j.respuesta_texto)h+='<div class="cst-mut" style="margin:10px 0 2px">Lo que respondió Majo (texto original)</div><div style="white-space:pre-wrap;font-size:13px;padding:6px 0 8px 10px;border-left:2px solid #33475c">'+esc(j.respuesta_texto)+'</div>';
+    if(j.auto_texto)h+='<div class="cst-mut" style="margin:10px 0 2px">Respuesta automática a Majo · '+esc(mjF(j.auto_at))+'</div><div style="white-space:pre-wrap;font-size:13px;padding:6px 0 8px 10px;border-left:2px solid #33475c">'+esc(j.auto_texto)+'</div>';
+    return h+'<div style="height:14px"></div>';}
+  function pedirMajo(){api('costeo_majo_pedir',{id:S.id,preview:true}).then(function(r){var pv=r.preview||{};
+      if(pv.activo&&!confirm('Ya hay un pedido a Majo '+(pv.activo==='por_enviar'?'enviándose':'esperando respuesta')+'. ¿Reenviarlo?'))return;
+      var prov=prompt('Se le enviará a Majo (WhatsApp 099 855 3198) el pedido de los 12 montos como Cote:\n\n«'+pv.texto+' …»\n\nRevisa el nombre del proveedor y acepta para enviar:',pv.proveedores||'');
+      if(prov===null)return;prov=prov.trim();if(!prov){msg('Falta el proveedor',1);return;}
+      return api('costeo_majo_pedir',{id:S.id,proveedores:prov,reenviar:!!pv.activo}).then(function(x){msg(x.pedido&&x.pedido.mock?'Pedido simulado (costeo de prueba): no se envía nada de verdad':'Pedido a Majo en cola: sale en menos de 1 minuto');return recargar();});
+    }).catch(err);}
   /* --- Documentos --- */
   function tDocs(){var d=S.d,can=puedeEd(),h='';
     if(can)h+='<div class="cst-row" style="margin-bottom:6px"><label style="flex:0 1 200px">Otro documento<select id="cd-tipo"><option value="dai">DAI / paquete aduana</option><option value="otro">Otro</option></select></label><span class="cst-mut" style="flex:3 1 300px">Los PDF se leen solos (líneas, cantidades, precios, vencimiento) y se adjuntan automáticamente a la OC activa que corresponde. Todo se puede corregir.</span></div>'+
@@ -15608,7 +15635,7 @@ var MCCosteo=(function(){
   document.addEventListener('drop',function(e){var q=e.target.closest&&e.target.closest('.cd-dz');if(q){e.preventDefault();e.stopPropagation();q.classList.remove('on');subir(e.dataTransfer.files,q.getAttribute('data-tipo'));return;}var z=document.getElementById('cd-drop');if(z&&z.contains(e.target)){e.preventDefault();e.stopPropagation();z.classList.remove('on');subir(e.dataTransfer.files);}},true);
   return {init:function(a){css();var p=null;try{p=getProfile();}catch(e){}if(!p||p.rol!=='admin'){el().innerHTML='<div class="cst cst-bad">Costeo es solo para administración.</div>';return;}if(a)abrir(a);else lista();},
     lista:lista,nuevo:nuevo,_nf:function(f){nfFiles(f);},crear:crear,abrir:abrir,tabG:function(t){S.tab=t;S.ed=null;pinta();},edit:function(k){S.ed=k;pinta();},desc:function(){S.ed=null;pinta();},
-    _ver0:function(){S.ver0=!S.ver0;pinta();},det:det,detPdf:detPdf,detOc:detOc,gLinea:gLinea,gMontos:gMontos,gDoc:gDoc,subir:subir,res:res,paso:paso,gConteo:gConteo,simular:simular,recibir:recibir,cerrar:cerrar,xlsx:xlsx,pdf:pdf,verDoc:verDoc,delDoc:delDoc,addPo:addPo,anular:anular,borrarPrueba:borrarPrueba,
+    _ver0:function(){S.ver0=!S.ver0;pinta();},det:det,detPdf:detPdf,detOc:detOc,gLinea:gLinea,gMontos:gMontos,pedirMajo:pedirMajo,_recargar:function(){recargar();},gDoc:gDoc,subir:subir,res:res,paso:paso,gConteo:gConteo,simular:simular,recibir:recibir,cerrar:cerrar,xlsx:xlsx,pdf:pdf,verDoc:verDoc,delDoc:delDoc,addPo:addPo,anular:anular,borrarPrueba:borrarPrueba,
     _menu:mn,_open:function(id){S.open=S.open===id?null:id;if(S.ed&&S.ed!=='l:'+id)S.ed=null;pinta();},_sub:sub,_cols:function(){S.cols=!S.cols;pinta();},_fpo:fpo,_sel:function(id,v){(S.sel||(S.sel={}))[id]=v?'man':false;if(!v&&S.det)delete S.det[id];},_dlAdd:function(){var tb=document.querySelector('#dd-lin tbody');if(tb)tb.insertAdjacentHTML('beforeend',dlRow({}));},_s:function(){return S;}};
 })();
 
