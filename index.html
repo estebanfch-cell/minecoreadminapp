@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='433';
+  var MC_BUILD='434';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -494,7 +494,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
 <div id="shell" style="display:none">
   <div class="topbar">
     <span class="dot"></span><img id="hdrLogo" alt="Minecore" title="Dashboard" role="button" style="height:30px;display:none;flex:none;cursor:pointer" onload="this.style.display='inline-block'" onclick="try{if(window.MCNav&&MCNav.inicio)MCNav.inicio();else goHome();}catch(e){goHome();}"><span style="flex:1"></span><span id="whoami" style="color:#8fa3b8;font-size:12px;font-weight:700;margin-right:6px"></span>
-    <button id="syncBtn" style="display:none" onclick="doSyncNow()" title="Sincronizar con inFlow">⟳<span class="lbl">Sync</span></button>
+    <button id="syncBtn" style="display:none" onclick="doSyncNow()" title="Recargar datos">⟳<span class="lbl">Sync</span></button>
     <button id="mc-bell" onclick="MCNotif.abrir()" title="Avisos y mis valores por defecto" style="position:relative">🔔<span class="lbl">Avisos</span><b id="mc-bell-n" style="display:none;position:absolute;top:-4px;right:-4px;background:#e05c5c;color:#fff;border-radius:9px;font-size:10px;min-width:17px;height:17px;line-height:17px;padding:0 4px;text-align:center"></b></button>
     <button onclick="MCCuenta.abrir()" title="Mi cuenta">👤<span class="lbl">Cuenta</span></button>
     <button onclick="doLogout()" title="Cerrar sesión">⎋<span class="lbl">Salir</span></button>
@@ -598,7 +598,7 @@ function mcShowUpdateBanner(){
 var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
 /* v129: errores honestos — distingue "sin red" de "el servidor respondió algo que no es JSON" (páginas de error de Google, timeouts) */
 function MCjson(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){var s2=String(t||'').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);if(/no se pudo abrir el archivo|Drive|Google Drive|tiempo máximo|exceeded maximum execution/i.test(s2))s2='Google no pudo atender la solicitud en este momento (error temporal de Apps Script/Drive)';throw new Error('HTTP '+r.status+' — '+(s2||'respuesta vacía'));}});}
-function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')return 'El servidor tardó demasiado en responder (probablemente inFlow está lento o caído). Intenta de nuevo en un momento.';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
+function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')return 'El servidor tardó demasiado en responder (probablemente el servidor está ocupado). Intenta de nuevo en un momento.';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
 /* v132: reintentos. Google a veces contesta con una página HTML ("Drive: no se pudo abrir el archivo", HTTP 404/500)
    ANTES de ejecutar el script — en ese caso el script no corrió y reintentar es seguro para cualquier acción.
    Si falló la red (sin respuesta), solo se reintentan las lecturas (una escritura podría haberse ejecutado). */
@@ -818,6 +818,7 @@ function MCactFin(b,ok){if(!b)return;var t=b.dataset.mct;delete b.dataset.mcbusy
 function MCpost(p){var op=String((p&&p.op)||''),_ab=MCactIni(p);return MCpost0(p).then(function(r){MCactFin(_ab,!!(r&&r.ok!==false));if(r&&r.ok!==false&&MC_STK_RX.test(op)){MC_STK_V++;try{window.dispatchEvent(new Event('mc-stock'));}catch(e){}}return r;},function(e){MCactFin(_ab,false);throw e;});}
 function MCpost0(p){
   p=p||{};
+  var _off=MCoffInflow(p);if(_off)return _off; /* b434-off: nada a Apps Script→inFlow */
   var s=null;
   if(MCsbEligible(p)){
     s=MCsbGet();
@@ -883,7 +884,7 @@ function MCpostAS(p){
   function intento(n){
     return go().catch(function(e){
       if(e&&e.doget){
-        if(MC_NO_REPETIR.test(accion)&&!idem)throw new Error('Google devolvió una respuesta vacía para "'+accion+'". Verifica en la app/inFlow si la acción se aplicó antes de repetirla.');
+        if(MC_NO_REPETIR.test(accion)&&!idem)throw new Error('Google devolvió una respuesta vacía para "'+accion+'". Verifica en la app si la acción se aplicó antes de repetirla.');
         if(n>=maxRetry)throw new Error('Google respondió sin ejecutar la acción "'+accion+'" ('+(maxRetry+1)+' intentos). Reintenta en unos segundos.');
         return new Promise(function(ok){setTimeout(ok,[700,1500,3000][n]||3000);}).then(function(){return intento(n+1);});
       }
@@ -1275,7 +1276,7 @@ function MCpedTxt(it,html){var e=it&&it.enPedido;if(!e||!(e.q>0))return html?'<s
     if(p.llega)t+=(p.llega<hoy?', atrasada (era ~'+dm(p.llega)+')':', llega ~'+dm(p.llega));else if(p.fecha)t+=', OC del '+dm(p.fecha);
     return t;}).join('; ');
   var q=e.q%1?e.q:Math.round(e.q);var txt='📦 En pedido '+q+' ('+ps+')';
-  return html?'<span style="color:#5cc8ff" title="Órdenes de compra abiertas en inFlow (pendiente por recibir)">'+txt.replace(/</g,'&lt;')+'</span>':txt;}
+  return html?'<span style="color:#5cc8ff" title="Órdenes de compra abiertas (pendiente por recibir)">'+txt.replace(/</g,'&lt;')+'</span>':txt;}
 function MCarmDe(it,b){var ap=(it&&it.armablePor)||{};var v;if(!b||b==='*'){for(var k0 in ap){if(/principal/i.test(k0)){v=ap[k0];break;}}}else{v=ap[b];if(v===undefined){for(var k in ap){if(k.toLowerCase()===String(b).toLowerCase()){v=ap[k];break;}}}}return Math.max(0,Math.floor(parseFloat(v)||0));}
 function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.stockTotal:it.stock)||0;var sp=it.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}return parseFloat(v)||0;}
 /* v214: en el Mac (Safari o Chrome) el toque descarga el PDF a Descargas.
@@ -3898,7 +3899,7 @@ var MCDesc=(function(){var L=[],ord='valor',sel={},cli='',dias=15,clis=null;
     var ahorro=A.reduce(function(s,x){return s+(x.descuento.precio-x.descuento.precioSugerido)*x.stock;},0),venta=A.reduce(function(s,x){return s+x.descuento.precioSugerido*x.stock;},0);
     m.innerHTML='<div style="position:sticky;top:0;z-index:2;background:#0e1520;border-bottom:1px solid #223142;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="chip" onclick="MCDesc.cerrar()">← Volver</button><b>Descuentos sugeridos</b>'+
       [['valor','Mayor valor'],['dias','Más días'],['desc','Mayor descuento']].map(function(o){return '<button class="chip" style="'+(ord===o[0]?'background:#E8FF00;color:#161926':'')+'" onclick="MCDesc.orden(\''+o[0]+'\')">'+o[1]+'</button>';}).join('')+'</div>'+
-      '<div style="padding:10px 12px 120px;max-width:860px;margin:0 auto"><div class="cbz-muted" style="margin-bottom:8px">Solo para revisar: no cambia precios en Minecore ni en inFlow y no envía nada. Regla: 10% (90-180 d), 20% (180-365 d), 30% (365+ d, +5% por año extra, tope 50%); +5% si el margen es ≥50%, −5% si es <25%; nunca bajo el costo (+2%).<br>'+A.length+' productos · si se vende todo al precio sugerido: '+f$(venta)+' (descuento total '+f$(ahorro)+').</div>'+
+      '<div style="padding:10px 12px 120px;max-width:860px;margin:0 auto"><div class="cbz-muted" style="margin-bottom:8px">Solo para revisar: no cambia precios en Minecore y no envía nada. Regla: 10% (90-180 d), 20% (180-365 d), 30% (365+ d, +5% por año extra, tope 50%); +5% si el margen es ≥50%, −5% si es <25%; nunca bajo el costo (+2%).<br>'+A.length+' productos · si se vende todo al precio sugerido: '+f$(venta)+' (descuento total '+f$(ahorro)+').</div>'+
       /* propuesta */
       '<div class="cbz-card" style="border-color:#E8FF00"><div class="pname" style="color:#E8FF00">📄 Proponer a un cliente</div>'+
       '<div class="cbz-muted" style="font-size:12px;margin:2px 0 8px">Marca los productos (ya van marcados los 12 de más valor con descuento), elige el cliente y genera el PDF interactivo. Tú decides si lo compartes: no se envía nada.</div>'+
@@ -4088,7 +4089,7 @@ var DashV2=(function(){
       return '<button class="dv-op'+(det==='ops:'+k?' on':'')+(cls||'')+'" onclick="DashV2.ver(\'ops:'+k+'\')"><b>'+g.n+'</b><span>'+lbl+'</span><em>'+f$(g.monto)+'</em>'+(ej?'<small>'+e(ej)+'</small>':'')+'</button>';};
     h+='<div class="dv-card"><div class="dv-ct">Operaciones</div><div class="dv-ops">'+OPS.map(function(x){return tile(x[0],x[1],x[0]==='despSinFact'&&o[x[0]]&&o[x[0]].n?' a':'');}).join('')+'</div>'+
       '<div class="dv-ops" style="margin-top:8px;grid-template-columns:1fr 1fr 1fr">'+OPS2.map(function(x){return tile(x[0],x[1],x[0]==='atrasadas'&&o.atrasadas.n?' r':(x[0]==='listas'&&o.listas.n?' g':''));}).join('')+'</div>'+
-      (o.sinFechaEntrega?'<div class="dv-ax" style="margin-top:6px">'+o.sinFechaEntrega+' sin fecha de entrega en inFlow</div>':'')+'</div>'+pos(['ops']);
+      (o.sinFechaEntrega?'<div class="dv-ax" style="margin-top:6px">'+o.sinFechaEntrega+' sin fecha de entrega</div>':'')+'</div>'+pos(['ops']);
     if(r.cxp)h+='<div class="dv-card"><div class="dv-ct">Por pagar <span class="dv-muted">solo mercadería recibida</span></div><div class="dv-big">'+f$(r.cxp.deuda)+'</div><div class="dv-ks">vence en 30 días '+f$(r.cxp.vence30)+(r.cxp.pedidoNoRecibido?' · pedido aún no recibido '+f$(r.cxp.pedidoNoRecibido)+' (no se cuenta)':'')+'</div>'+proveedores(r.cxp)+'</div>';
     h+='<div id="dvx"></div>';
     host.innerHTML=h;try{MCDashX.mount(r);}catch(ex){try{console.warn('dvx',ex);}catch(_){}}var sc=document.getElementById('dv-hscroll');if(sc)sc.scrollLeft=(sx!==undefined&&det.indexOf('h:')===0)?sx:sc.scrollWidth;
@@ -4283,7 +4284,7 @@ var Dash = (function(){
         if(!isQuote){
           dh+='<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">'+
             '<span class="tagx" style="border-color:'+invColor+';color:'+invColor+'">Inv: '+(invSt||'—')+'</span>'+
-            (res.isInvoiced?'<span class="cbz-muted" style="font-size:11px">También aplica al invoice de esta OV en inFlow</span>':'')+
+            (res.isInvoiced?'<span class="cbz-muted" style="font-size:11px">También aplica a la factura de esta OV</span>':'')+
             '</div>';
         }
         dh+='<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">';
@@ -4291,7 +4292,7 @@ var Dash = (function(){
         if(!isQuote){
           if(dashCanWrite()){
             if(isFulfilled){
-              dh+='<button class="cbz-btn-sec" onclick="Dash.setFulfill(\''+id+'\',false)">Desmarcar fulfilled</button>';
+              dh+='<button class="cbz-btn-sec" onclick="Dash.setFulfill(\''+id+'\',false)">↩ Deshacer despacho</button>';
             } else {
               dh+='<button class="cbz-btn" onclick="Dash.setFulfill(\''+id+'\',true)">Marcar fulfilled</button>';
             }
@@ -4343,8 +4344,8 @@ var Dash = (function(){
     if(!dashCanWrite()){alert('Sin permiso de escritura en Dashboard');return;}
     if(window._dashBusy)return;
     var msg=fulfilled
-      ?'Esto descuenta stock en inFlow. ¿Continuar?'
-      :'¿Desmarcar fulfilled en inFlow?';
+      ?'Esto despacha la orden en Minecore (descuenta stock). ¿Continuar?'
+      :'¿Deshacer el despacho? Antes de confirmar te muestro qué stock vuelve y a dónde.';
     if(!confirm(msg))return;
     window._dashBusy=true;
     var det=document.getElementById('det-'+id);
@@ -4474,13 +4475,13 @@ var Dash = (function(){
     h+=card('Por facturar','<div class="num">'+fmt(pf.monto)+'</div><div class="sub">'+pf.n+' orden(es) · la más antigua '+pf.maxDias+' días'+(pf.mas7?' · <b style="color:#e05c5c">'+pf.mas7+' con más de 7 días</b>':'')+'</div>');
     var tc=r.topClientes;
     h+=card('Top 5 clientes del período',tc.items.map(function(x,i){return '<div class="sub">'+(i+1)+'. '+cE(x.cliente)+' · '+fmt(x.subtotal)+' · margen '+(x.margenPct===null?'—':x.margenPct+'%')+' · '+x.participacionPct+'%</div>';}).join('')+(tc.concentracionTop5Pct!==null?'<div class="sub">Concentración top 5: '+tc.concentracionTop5Pct+'%</div>':''));
-    h+=card('Cotizaciones abiertas (inFlow)','<div class="num">'+r.cotizaciones.n+'</div><div class="sub">'+fmt(r.cotizaciones.subtotal)+' sin IVA</div>');
+    h+=card('Cotizaciones abiertas','<div class="num">'+r.cotizaciones.n+'</div><div class="sub">'+fmt(r.cotizaciones.subtotal)+' sin IVA</div>');
     // Operaciones
     var o=r.operaciones;
     h+='<div class="dash-hist-label">Operaciones</div><div class="chips" style="flex-wrap:wrap">'+OPS.map(function(p){var g=o[p[0]];if(!g)return '';
       return '<button class="chip'+(opsAbierto===p[0]?' on':'')+'" style="text-align:left" onclick="Dash.opsVer(\''+p[0]+'\')"><b>'+g.n+'</b> '+p[1]+' · '+fmt(g.monto)+'</button>';}).join('')+'</div>';
     if(!o.listasDisponible)h+='<div class="cbz-muted" style="font-size:11px">«Listas para completar» necesita la hoja OV_Pend (Código.gs v60 + syncAll).</div>';
-    if(o.sinFechaEntrega)h+='<div class="cbz-muted" style="font-size:11px">'+o.sinFechaEntrega+' orden(es) por despachar no tienen fecha de entrega en inFlow (no cuentan como atrasadas).</div>';
+    if(o.sinFechaEntrega)h+='<div class="cbz-muted" style="font-size:11px">'+o.sinFechaEntrega+' orden(es) por despachar no tienen fecha de entrega (no cuentan como atrasadas).</div>';
     if(opsAbierto&&o[opsAbierto]){
       var g=o[opsAbierto];
       h+='<div class="cbz-card" style="padding:6px 10px">'+(g.lista.length?g.lista.map(function(x){
@@ -4618,7 +4619,7 @@ var Users = (function(){
         '<div class="cbz-card-row"><input class="uinput" id="f-emp" style="flex:1" placeholder="Empresa (lo que declaró el usuario)" value="'+String(u.empresa||'').replace(/"/g,'&quot;')+'">'+
         '<button class="cbz-btn-sec" onclick="Users.matchEmp()">🔎 Buscar coincidencia</button></div>'+
         '<div id="f-emp-sug"></div>'+
-        (esCli&&u.empresa&&clientes.length&&clientes.indexOf(u.empresa)<0?'<div class="cbz-muted" style="color:#f0c040">⚠ "'+u.empresa+'" no coincide exacto con ningún cliente de inFlow — usa 🔎 y elige el correcto</div>':'')+
+        (esCli&&u.empresa&&clientes.length&&clientes.indexOf(u.empresa)<0?'<div class="cbz-muted" style="color:#f0c040">⚠ "'+u.empresa+'" no coincide exacto con ningún cliente — usa 🔎 y elige el correcto</div>':'')+
         '<label class="cbz-esc"><input type="checkbox" id="f-master" '+(u.master?'checked':'')+'> Máster de su organización (puede invitar y administrar a su equipo)</label>'+
         '<label class="cbz-esc"><input type="checkbox" id="f-aprobado" '+(u.aprobado?'checked':'')+'> ✅ Aprobado (habilita estado de cuenta y consignación de la organización)</label>'+
       '</div>'+
@@ -4676,7 +4677,7 @@ var Users = (function(){
     var cand=clientes.filter(function(c){var n=norm(c);return toks.every(function(t){return n.indexOf(t)>=0;});}).slice(0,3);
     box.innerHTML=cand.length?('<div class="cbz-card-row" style="flex-wrap:wrap">'+cand.map(function(c){
       return '<button class="chip" onclick="document.getElementById(\'f-emp\').value=this.getAttribute(\'data-c\')" data-c="'+c.replace(/"/g,'&quot;')+'">'+c+'</button>';
-    }).join('')+'</div>'):'<div class="cbz-muted">Sin coincidencias en inFlow.</div>';
+    }).join('')+'</div>'):'<div class="cbz-muted">Sin coincidencias.</div>';
   }
   function nuevo(){editing='new';render();}
   function edit(i){editing=(editing===i)?null:i;render();}
@@ -5136,7 +5137,7 @@ var Inv = (function(){
       }
     } else {
       h+='<div class="cbz-muted" style="margin-bottom:6px">🧾 Crear solicitud de cotización directa para un cliente:</div>'+
-      '<input class="uinput" id="cart-cli" list="cart-clis" placeholder="Escribe el nombre del cliente de inFlow...">'+
+      '<input class="uinput" id="cart-cli" list="cart-clis" placeholder="Escribe el nombre del cliente...">'+
       '<datalist id="cart-clis"></datalist>'+
       '<div class="cbz-card-row" style="margin-top:8px"><button class="cbz-btn" onclick="Inv.crearSolInterna()">🧾 Crear solicitud de cotización</button></div>'+
       '<div class="cbz-muted">La solicitud llega a Cotizaciones como «Solicitud cliente» y se copia sola a inFlow; el cliente ve precios cuando la editas o la marcas como enviada.</div>';
@@ -5857,7 +5858,7 @@ var Inv = (function(){
   function crearSolInterna(){
     var inp=document.getElementById('cart-cli');
     var cli=inp?inp.value.trim():'';
-    if(!cli){alert('Escribe o elige el cliente de inFlow.');return;}
+    if(!cli){alert('Escribe o elige el cliente.');return;}
     var items2=Object.keys(carrito).map(function(sku){return {sku:sku,nombre:carrito[sku].nombre,cantidad:carrito[sku].cantidad};});
     if(!items2.length){alert('El carrito está vacío.');return;}
     aCotSupabase(cli,items2);
@@ -6671,7 +6672,7 @@ var Cot = (function(){
   function tabsHtml(){
     function b(t,txt){return '<button class="chip '+(cotTab===t?'on':'')+'" onclick="Cot.setTab(\''+t+'\')">'+txt+'</button>';}
     return '<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap">'+
-      b('cotz','🧮 Cotizador')+b('pre','📥 Pre-cotizaciones')+b('iq','🧾 Cotizaciones inFlow')+b('io','📦 Órdenes de venta')+'</div>';
+      b('cotz','🧮 Cotizador')+b('pre','📥 Pre-cotizaciones')+b('iq','🧾 Cotizaciones')+b('io','📦 Órdenes de venta')+'</div>';
   }
   /* ---------- 🧮 EL COTIZADOR: todo en un solo carril ---------- */
   function renderCotizador(){
@@ -7018,7 +7019,7 @@ var Cot = (function(){
           '<button class="chip" style="color:#e05c5c" onclick="Cot.czQuitar(\''+czJs(it.id)+'\')">🗑</button></div>';
       }).join('')+
       '<div class="cbz-card-row" style="margin-top:10px"><button class="cbz-btn" style="width:100%" onclick="Cot.czFinalizar()">➡ Revisar precios y descuentos</button></div>'+
-      '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">Cada línea es un producto de la cotización. «Otra línea» agrega el mismo producto otra vez. Los plazos se eligen al revisar la cotización: «Dividir entrega» parte solo la planilla, sin duplicar la línea en inFlow.</div></div>';
+      '<div class="cbz-muted" style="font-size:10.5px;margin-top:4px">Cada línea es un producto de la cotización. «Otra línea» agrega el mismo producto otra vez. Los plazos se eligen al revisar la cotización: «Dividir entrega» parte solo la planilla, sin duplicar la línea en la cotización.</div></div>';
   }
   function czCartPinta(){var c=document.getElementById('cz-cart');if(c)c.innerHTML=czCartHtml();}
   /* v210: el editor aparece al instante; crearSolicitudInterna y el detalle siguen en segundo plano. */
@@ -7198,7 +7199,7 @@ var Cot = (function(){
     mm.style.cssText='position:fixed;inset:0;z-index:250;background:rgba(4,10,18,.88);display:flex;align-items:center;justify-content:center;padding:16px';
     mm.innerHTML='<div class="cbz-card" style="max-width:420px;width:100%;padding:18px">'+
       '<div class="cbz-card-name" style="margin-bottom:8px">🧾 Nueva cotización — ¿para qué cliente?</div>'+
-      '<input class="uinput" id="pick-cli" list="pick-clis" placeholder="Escribe el nombre del cliente de inFlow..." autocomplete="off">'+
+      '<input class="uinput" id="pick-cli" list="pick-clis" placeholder="Escribe el nombre del cliente..." autocomplete="off">'+
       '<datalist id="pick-clis">'+clientes.map(function(c){return '<option value="'+String(c.nombre).replace(/"/g,'&quot;')+'">';}).join('')+'</datalist>'+
       '<div class="cbz-card-row" style="gap:8px;margin-top:10px">'+
       '<button class="cbz-btn" onclick="Cot.pickGo()">➡ Elegir productos del inventario</button>'+
@@ -7251,8 +7252,8 @@ var Cot = (function(){
     if(!esAdminCot())return '';
     var nPend=pendCount();
     var h='<div class="cbz-card-row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap">';
-    if(limp===null)h+='<span class="cbz-muted" style="font-size:11px">Buscando pre-cotizaciones ya pasadas a inFlow…</span>';
-    else if(limp.n)h+='<button class="cbz-btn" style="background:#5a1f1f;border-color:#e05c5c" onclick="Cot.borrarConvertidas()">🧹 Borrar precotizaciones ya pasadas a inFlow ('+limp.n+')</button>';
+    if(limp===null)h+='<span class="cbz-muted" style="font-size:11px">Buscando pre-cotizaciones ya convertidas en cotización…</span>';
+    else if(limp.n)h+='<button class="cbz-btn" style="background:#5a1f1f;border-color:#e05c5c" onclick="Cot.borrarConvertidas()">🧹 Borrar precotizaciones ya convertidas ('+limp.n+')</button>';
     if(nPend)h+='<button class="chip" style="color:#e05c5c;font-size:11px" onclick="Cot.borrarTodasPre()">Borrar TODAS las pendientes ('+nPend+')</button>';
     return h+'</div>';
   }
@@ -7270,13 +7271,13 @@ var Cot = (function(){
     if(!limp||!limp.n)return;
     var ids=limp.filas.slice();
     var muestra=ids.slice(0,12).map(function(f){var d=limp.detalle[String(f)]||{};return '• '+(d.empresa||'')+' · '+(d.fecha||'')+' → '+(d.inflowNum||'');}).join('\n');
-    if(!confirm('¿Borrar '+ids.length+(ids.length===1?' pre-cotización que ya está creada':' pre-cotizaciones que ya están creadas')+' en inFlow?\n\n'+muestra+(ids.length>12?'\n… y '+(ids.length-12)+' más':'')+'\n\nLas cotizaciones de inFlow NO se tocan.'))return;
+    if(!confirm('¿Borrar '+ids.length+(ids.length===1?' pre-cotización que ya está creada':' pre-cotizaciones que ya están creadas')+' como cotización?\n\n'+muestra+(ids.length>12?'\n… y '+(ids.length-12)+' más':'')+'\n\nLas cotizaciones NO se tocan.'))return;
     borrarLote({action:'borrarPrecotsConvertidas',filas:ids}, ids);
   }
   function borrarTodasPre(){
     var ids=(lista||[]).filter(esPendPre).map(function(x){return x.id;});
     if(!ids.length)return;
-    if(!confirm('⚠ Esto borra TODAS las '+ids.length+' pre-cotizaciones pendientes, incluidas las que todavía NO están en inFlow (pedidos de clientes, liquidación).\n\n¿Continuar?'))return;
+    if(!confirm('⚠ Esto borra TODAS las '+ids.length+' pre-cotizaciones pendientes, incluidas las que todavía NO son cotización (pedidos de clientes, liquidación).\n\n¿Continuar?'))return;
     var t=prompt('Para confirmar escribe: BORRAR TODAS');
     if(String(t||'').trim().toUpperCase()!=='BORRAR TODAS'){alert('No se borró nada.');return;}
     borrarLote({action:'borrarPrecotsConvertidas',todas:true,confirmar:'BORRAR TODAS',filas:ids}, ids);
@@ -7345,7 +7346,7 @@ var Cot = (function(){
           '<div class="cbz-card-row cbz-muted" style="font-size:11px;justify-content:space-between">'+
           '<span>'+s.fecha+' · '+s.usuario+(s.contacto?' · '+s.contacto:'')+'</span>'+
           '<span>'+s.n+' ítem'+(s.n===1?'':'s')+'</span></div>'+
-          (dl?'<div class="cbz-muted" style="font-size:11px;color:#e0a05c">⚠ Ya está en inFlow: '+esc(dl.motivo||dl.inflowNum||'')+'</div>':'')+'</div>';
+          (dl?'<div class="cbz-muted" style="font-size:11px;color:#e0a05c">⚠ Ya es cotización: '+esc(dl.motivo||dl.inflowNum||'')+'</div>':'')+'</div>';
       }).join('');
   }
   function detalleFallo(id, msg){
@@ -7386,18 +7387,18 @@ var Cot = (function(){
     if(!det||!det.cot){el().innerHTML='<div class="cbz-error">Detalle no disponible.</div><div class="cbz-card-row" style="margin-top:8px"><button class="chip" onclick="Cot.volver()">← Solicitudes</button></div>';return;}
     try{migrarEntregas();asegurarIdsUnicos(det.lineas);}catch(eM){}
     var c=det.cot, creada=(c.estado==='CREADA'||c.estado==='ORDEN')&&!editandoCreada;
-    var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">'+(origenTab==='io'?'← Órdenes de venta':(origenTab==='iq'?'← Cotizaciones inFlow':'← Solicitudes'))+'</button></div>';
+    var h='<div class="cbz-card-row" style="margin-bottom:8px"><button class="chip" onclick="Cot.volver()">'+(origenTab==='io'?'← Órdenes de venta':(origenTab==='iq'?'← Cotizaciones':'← Solicitudes'))+'</button></div>';
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
       '<div class="cbz-card-name">🏢 '+c.empresa+'</div>'+badge(c.estado)+'</div>'+
       '<div class="cbz-muted" style="font-size:11px">'+c.fecha+' · Solicitó: '+c.usuario+(c.contacto?' · '+c.contacto:'')+'</div>'+
-      (c.inflowNum?'<div style="color:#6fd68f;margin-top:4px">✔ Creada en inFlow: <b>'+c.inflowNum+'</b>'+(c.estado==='ORDEN'&&c.numOV?' → 📦 Orden de Venta <b>'+c.numOV+'</b>':'')+'</div>':'')+
+      (c.inflowNum?'<div style="color:#6fd68f;margin-top:4px">✔ Cotización creada: <b>'+c.inflowNum+'</b>'+(c.estado==='ORDEN'&&c.numOV?' → 📦 Orden de Venta <b>'+c.numOV+'</b>':'')+'</div>':'')+
       (det._mailNota?'<div class="cbz-muted" style="font-size:11px;margin-top:4px">'+esc(det._mailNota)+'</div>':'')+
       vinculoHtml()+'</div>';
     if(det._pendiente){
       h+='<div id="cot-abriendo" class="cbz-card" style="border-color:#f0c040;margin:6px 0"><div class="cbz-card-name" style="font-size:13px;color:#f0c040">Abriendo la pre-cotización…</div><div class="cbz-muted" style="font-size:12px">'+(c.id?'Afinando precios de referencia. Ya puedes ajustar esta cotización.':'Ya puedes revisar precios y descuentos. En un momento queda guardada.')+'</div></div>';
     }
     if(det._creando){
-      h+='<div id="cot-creando" class="cbz-card" style="border-color:#5cc8ff;margin:6px 0"><div class="cbz-card-name" style="font-size:13px;color:#5cc8ff">Creando en inFlow…</div><div class="cbz-muted" style="font-size:12px">Ya puedes imprimir la planilla. El número aparece aquí en cuanto inFlow responda.</div></div>';
+      h+='<div id="cot-creando" class="cbz-card" style="border-color:#5cc8ff;margin:6px 0"><div class="cbz-card-name" style="font-size:13px;color:#5cc8ff">Creando cotización…</div><div class="cbz-muted" style="font-size:12px">Ya puedes imprimir la planilla. El número aparece aquí en cuanto se cree.</div></div>';
     }
     if(c.estado==='CREADA'||c.estado==='APROBADA'||c.estado==='ORDEN'){
       var esOrdenT=(c.estado==='ORDEN'), esAprobT=(c.estado==='APROBADA');
@@ -7428,7 +7429,7 @@ var Cot = (function(){
       var refCli=coti+' · '+vend;
       var refP=l.ultCotCliente?l.ultCotCliente.p:(l.ultCliente?l.ultCliente.p:0);
       var alerta=(refP&&l.lista<refP)?'<span style="color:#f0c040"> ⚠ lista por debajo del último '+(l.ultCotCliente?'cotizado':'vendido')+'</span>':'';
-      var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en inFlow — esta línea no se puede cotizar</div>':'';
+      var sinPid=!l.productId?'<div style="color:#e05c5c;font-size:11px">⚠ SKU no encontrado en el inventario — esta línea no se puede cotizar</div>':'';
       h+='<div class="cbz-card'+(esLineaEditable()?' cot-linea':'')+'" data-idx="'+i+'">'+
         '<div class="cbz-card-row" style="gap:8px;align-items:flex-start">'+
         (esLineaEditable()?'<div class="cot-grip" title="Arrastra para reordenar" onpointerdown="Cot.dragStart(event,'+i+')">⠿</div>':'')+
@@ -7461,7 +7462,7 @@ var Cot = (function(){
     }
     var tot=0;det.lineas.forEach(function(l){tot+=finU(l)*(parseInt(l.cantidad,10)||0);});
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between"><span class="cbz-card-name">Subtotal (sin IVA)</span><span class="cbz-card-name">'+fmt(tot)+'</span></div>'+
-      '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales los calcula inFlow según el esquema del cliente.</div></div>';
+      '<div class="cbz-muted" style="font-size:11px">El IVA y los totales finales se calculan según el esquema del cliente.</div></div>';
     if(puedeEscribir()&&!creada){
       h+=camposHtml();
       var tieneProd=false;
@@ -7471,9 +7472,9 @@ var Cot = (function(){
       h+='<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email al crear (con la tabla de precios)</label>'+
         '<div class="cbz-card-row" style="gap:8px;margin-top:6px;flex-wrap:wrap">'+
         '<button class="cbz-btn-sec" '+(puedeGuardar?'':'disabled ')+'onclick="Cot.guardar()">💾 Guardar borrador</button>'+
-        '<button class="cbz-btn" id="cot-crear" '+(puedeCrear?'':'disabled ')+'onclick="Cot.crear()">⚡ Crear cotización en inFlow</button>'+
+        '<button class="cbz-btn" id="cot-crear" '+(puedeCrear?'':'disabled ')+'onclick="Cot.crear()">⚡ Crear cotización</button>'+
         (c.id?'<button class="chip" style="color:#e05c5c" onclick="Cot.borrarPre('+c.id+',\''+c.estado+'\')">🗑 Borrar</button>':'')+'</div>'+
-        (!puedeCrear?'<div class="cbz-muted" style="font-size:11px;margin-top:4px">'+(c.id?'El botón se activa al vincular el cliente de inFlow.':'Se está guardando la pre-cotización. El botón se activa en un momento.')+'</div>':'');
+        (!puedeCrear?'<div class="cbz-muted" style="font-size:11px;margin-top:4px">'+(c.id?'El botón se activa al vincular el cliente.':'Se está guardando la pre-cotización. El botón se activa en un momento.')+'</div>':'');
     }
     if(creada){
       var esAprob=(c.estado==='APROBADA'), esOrden=(c.estado==='ORDEN');
@@ -7486,7 +7487,7 @@ var Cot = (function(){
         '</div>';
     }
     if(editandoCreada&&enInflow()){
-      h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la '+tipoDoc()+' '+numDoc()+': precios, cantidades, descuentos y también líneas (agregar, quitar, arrastrar). Al guardar, se actualiza en inFlow. «Dividir entrega» y los plazos solo cambian la planilla; no agregan líneas.</div>'+
+      h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-muted" style="font-size:11px">✏️ Editando la '+tipoDoc()+' '+numDoc()+': precios, cantidades, descuentos y también líneas (agregar, quitar, arrastrar). Al guardar, se actualiza la cotización. «Dividir entrega» y los plazos solo cambian la planilla; no agregan líneas.</div>'+
         '<label class="cbz-muted" style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0"><input type="checkbox" id="cot-avisar"> 📧 Avisar al cliente por email del cambio</label>'+
         '<div class="cbz-card-row" style="gap:8px;margin-top:8px">'+
         '<button class="cbz-btn" onclick="Cot.guardarEdicion()">💾 Guardar cambios</button>'+
@@ -7759,7 +7760,7 @@ var Cot = (function(){
     var col=e.partesOk?'#9fc3e8':(e.resto<=0?'#6fd68f':(e.ahora>0?'#f0c040':'#e05c5c'));
     var warn=(!e.partes.length&&e.ahora>e.disp+e.arm)?' <span style="color:#e05c5c">⚠ supera el stock de '+b+'</span>':'';
     var sinPlazo=(e.resto>0&&e.plazo===PLAZOS[0]);
-    var stock='<span class="cbz-muted" style="font-size:11px">📦 '+b+': <b style="color:'+col+'">'+e.disp+'</b>'+(sinDetalleBodega(l)?' <span title="Sin detalle por bodega: se usa el stock total">(total)</span>':'')+(e.arm>0?' · <span style="color:#f0c040" title="Se arma en casa con componentes en bodega; al pasar a OV se crea la orden de fabricación en inFlow">🔧 Armable '+e.arm+'</span>':'')+((e.disp+e.arm<e.cant)?' · '+MCpedTxt(l,true):'')+'</span>';
+    var stock='<span class="cbz-muted" style="font-size:11px">📦 '+b+': <b style="color:'+col+'">'+e.disp+'</b>'+(sinDetalleBodega(l)?' <span title="Sin detalle por bodega: se usa el stock total">(total)</span>':'')+(e.arm>0?' · <span style="color:#f0c040" title="Se arma en casa con componentes en bodega; al pasar a OV se crea la orden de fabricación">🔧 Armable '+e.arm+'</span>':'')+((e.disp+e.arm<e.cant)?' · '+MCpedTxt(l,true):'')+'</span>';
     if(e.partes.length>=2){
       var ok=e.partesOk;
       var filas=e.partes.map(function(p,pi){
@@ -7891,7 +7892,7 @@ var Cot = (function(){
     if(!det||!det.cot||det._creando)return Promise.resolve(false);
     if(!det.cot.id||det._pendiente){draftBackup();return Promise.resolve(false);}
     if(editandoCreada&&enInflow()){ // v135: en edición de un documento YA en inFlow, todo se manda junto con "Guardar cambios"
-      draftBackup();ultimoGuardado='✏️ Cambios pendientes: toca 💾 Guardar cambios para enviarlos a inFlow';pintaEstado();
+      draftBackup();ultimoGuardado='✏️ Cambios pendientes: toca 💾 Guardar cambios para guardarlos';pintaEstado();
       return Promise.resolve(true);
     }
     var p=payloadPrecios();
@@ -7959,7 +7960,7 @@ var Cot = (function(){
   function quitarLinea(i){
     var l=det.lineas[i];if(!l)return;
     if(det.lineas.length<=1){alert('La cotización debe tener al menos un producto.');return;}
-    if(!confirm('¿Quitar "'+l.nombre+'" de esta '+tipoDoc()+'?'+(enInflow()?'\n(Se aplicará en inFlow al tocar 💾 Guardar cambios.)':'')))return;
+    if(!confirm('¿Quitar "'+l.nombre+'" de esta '+tipoDoc()+'?'+(enInflow()?'\n(Se aplicará al tocar 💾 Guardar cambios.)':'')))return;
     activaEdicion();
     migrarEntregas();
     var key=l.lineKey;
@@ -8154,7 +8155,7 @@ var Cot = (function(){
     return '<div class="cbz-card" style="border-color:#2e5c3e"><div class="cbz-card-row" style="gap:8px;align-items:center;flex-wrap:wrap">'+
       '<span class="cbz-card-name" style="font-size:12px">📦 Stock desde:</span>'+
       (bs.length?'<select class="uinput" style="padding:6px;width:auto" onchange="Cot.setBodega(this.value)">'+bs.map(function(x){return '<option'+(x===b?' selected':'')+'>'+x+'</option>';}).join('')+'</select>':'<b>'+b+'</b>')+
-      '<span class="cbz-muted" style="font-size:10.5px">Por defecto Bodega Principal. Cambia solo si esta cotización sale de consignación o alquiler. Se usa en el stock, la planilla PDF y como ubicación de la cotización en inFlow al crearla.</span></div></div>';
+      '<span class="cbz-muted" style="font-size:10.5px">Por defecto Bodega Principal. Cambia solo si esta cotización sale de consignación o alquiler. Se usa en el stock, la planilla PDF y como ubicación de la cotización al crearla.</span></div></div>';
   }
   function setDesc(i,v){var d=parseFloat(v)||0;if(d<0)d=0;if(d>=100)d=99;det.lineas[i].descuento=d;tocado();renderDet();}
   var camposOpen=false;
@@ -8164,7 +8165,7 @@ var Cot = (function(){
   function camposHtml(){
     if(!det.campos)det.campos={};
     var h2='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center;cursor:pointer" onclick="Cot.togCampos()">'+
-      '<div class="cbz-card-name" style="font-size:13px">'+(camposOpen?'▾':'▸')+' 📋 Campos de inFlow (opcional)</div>'+
+      '<div class="cbz-card-name" style="font-size:13px">'+(camposOpen?'▾':'▸')+' 📋 Campos personalizados (opcional)</div>'+
       '<span class="cbz-muted" style="font-size:11px">factura, anticipo, entrega, pesos...</span></div>';
     if(camposOpen){
       h2+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'+
@@ -8237,7 +8238,7 @@ var Cot = (function(){
   var ioOpen={}, ioNota='';
   function preIdDe(num){num=String(num||'').trim().toUpperCase();var src=lista||MCWarm.getCotAdmin()||[];if(!src||!num)return 0;for(var i=0;i<src.length;i++){if(String(src[i].inflowNum||'').trim().toUpperCase()===num||String(src[i].numOV||'').trim().toUpperCase()===num)return src[i].id;}return 0;}
   function renderInflowLista(){
-    var tit=cotTab==='io'?'📦 Órdenes de venta en inFlow':'🧾 Cotizaciones en inFlow';
+    var tit=cotTab==='io'?'📦 Órdenes de venta':'🧾 Cotizaciones';
     var h=tabsHtml()+'<div class="cbz-muted" style="margin-bottom:8px">'+tit+' — las últimas '+ioLista.length+'. Toca una para desplegarla.'+(ioNota?' <span style="color:#f0c040">'+ioNota+'</span>':'')+'</div>';
     if(!ioLista.length)h+='<div class="cbz-card" style="text-align:center;padding:20px"><div class="cbz-muted">No hay documentos recientes de este tipo.</div></div>';
     h+=ioLista.map(function(o,ix){
@@ -8253,9 +8254,9 @@ var Cot = (function(){
         '<div class="io-menu-list" id="io-menu-'+ix+'">'+
         '<button onclick="Cot.ioMenuCerrar();Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>'+
         (puedeEscribir()&&preIdH?'<button onclick="Cot.ioMenuCerrar();Cot.abrirDesde('+preIdH+',\''+cotTab+'\')">✏️ Editar '+(o.isQuote?'cotización':'orden')+' (precios, entregas, líneas)</button>':'')+
-        (puedeEscribir()?'<button onclick="Cot.ioMenuCerrar();Cot.abrirInflow('+ix+')">'+(preIdH?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas)')+'</button>':'')+
+        (puedeEscribir()?'<button onclick="Cot.ioMenuCerrar();Cot.abrirInflow('+ix+')">'+(preIdH?'⚙️ Editor simple':'✏️ Editar (sin entregas)')+'</button>':'')+
         (o.isQuote&&puedeEscribir()?'<button style="color:#6fd68f" onclick="Cot.ioMenuCerrar();Cot.ioConvertir('+ix+')">📦 Convertir en Orden de Venta</button>':'')+
-        (!o.isQuote&&puedeEscribir()?(isFulfilled?'<button onclick="Cot.ioMenuCerrar();Cot.ioFulfill('+ix+',false)">Desmarcar fulfilled</button>':'<button onclick="Cot.ioMenuCerrar();Cot.ioFulfill('+ix+',true)">Marcar fulfilled</button>'):'')+
+        (!o.isQuote&&puedeEscribir()?(isFulfilled?'<button onclick="Cot.ioMenuCerrar();Cot.ioFulfill('+ix+',false)">↩ Deshacer despacho</button>':'<button onclick="Cot.ioMenuCerrar();Cot.ioFulfill('+ix+',true)">Marcar fulfilled</button>'):'')+
         (!o.isQuote?'<button onclick="Cot.ioMenuCerrar();Cot.ioPickList('+ix+')">⬇ Lista de preparación</button>':'')+
         '<button onclick="Cot.ioMenuCerrar();Cot.ioToggle('+ix+')">'+(abierta?'▴ Contraer':'▾ Ver líneas')+'</button>'+
         '</div></div>';
@@ -8285,8 +8286,8 @@ var Cot = (function(){
         c+='<div class="cbz-card-row" style="gap:8px;margin-top:8px;flex-wrap:wrap">'+
           '<button class="cbz-btn" onclick="Cot.ioPdf('+ix+')">🧾 Planilla (imprimir / PDF)</button>'+
           (puedeEscribir()&&preId?'<button class="cbz-btn-sec" onclick="Cot.abrirDesde('+preId+',\''+cotTab+'\')">✏️ Editar '+(o.isQuote?'cotización':'orden')+' (precios, entregas, líneas)</button>':'')+
-          (puedeEscribir()?'<button class="chip" onclick="Cot.abrirInflow('+ix+')">'+(preId?'⚙️ Editor simple inFlow':'✏️ Editar en inFlow (sin entregas: no nació en la app)')+'</button>':'')+
-          (!o.isQuote&&puedeEscribir()?(isFulfilled?'<button class="cbz-btn-sec" onclick="Cot.ioFulfill('+ix+',false)">Desmarcar fulfilled</button>':'<button class="cbz-btn" onclick="Cot.ioFulfill('+ix+',true)">Marcar fulfilled</button>'):'')+
+          (puedeEscribir()?'<button class="chip" onclick="Cot.abrirInflow('+ix+')">'+(preId?'⚙️ Editor simple':'✏️ Editar (sin entregas: no nació en la app)')+'</button>':'')+
+          (!o.isQuote&&puedeEscribir()?(isFulfilled?'<button class="cbz-btn-sec" onclick="Cot.ioFulfill('+ix+',false)">↩ Deshacer despacho</button>':'<button class="cbz-btn" onclick="Cot.ioFulfill('+ix+',true)">Marcar fulfilled</button>'):'')+
           '</div>';
       }
       return c+'</div>';
@@ -8303,8 +8304,8 @@ var Cot = (function(){
     if(!puedeEscribir()){alert('Sin permiso de escritura en Cotizaciones');return;}
     if(window._ioBusy)return;
     var msg=fulfilled
-      ?'Esto descuenta stock en inFlow. ¿Continuar?'
-      :'¿Desmarcar fulfilled en inFlow?';
+      ?'Esto despacha la orden en Minecore (descuenta stock). ¿Continuar?'
+      :'¿Deshacer el despacho? Antes de confirmar te muestro qué stock vuelve y a dónde.';
     if(!confirm(msg))return;
     window._ioBusy=true;
     api({action:'setOrderFulfillment',orderId:o.salesOrderId,fulfilled:!!fulfilled}).then(function(res){
@@ -8360,14 +8361,14 @@ var Cot = (function(){
     var o=ioLista[ix];if(!o||!o.isQuote)return;
     if(!o._bloqOk){mcBloqGuard(o.cliente,o.customerId,'convertir en Orden de Venta',parseFloat(o.total)||0).then(function(ok){if(ok){o._bloqOk=1;ioConvertir(ix);o._bloqOk=0;}});return;}
     var preId=preIdDe(o.num);
-    if(!confirm('¿Convertir la cotización '+o.num+' ('+o.cliente+') en ORDEN DE VENTA en inFlow?\n'+o.lineas.length+' línea(s) · Subtotal '+fmt(o.total)))return;
+    if(!confirm('¿Convertir la cotización '+o.num+' ('+o.cliente+') en ORDEN DE VENTA?\n'+o.lineas.length+' línea(s) · Subtotal '+fmt(o.total)))return;
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Convirtiendo '+o.num+' en Orden de Venta...</div>';
     var p={action:'convertirCotOrden'};if(preId)p.id=preId;else p.salesOrderId=o.salesOrderId;
     api(p).then(function(res){
       if(!res.ok){alert('Error: '+res.error);renderInflowLista();return;}
-      alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despacharla.'+MCmoTxt(res));
+      alert('📦 ¡Lista! Orden de Venta: '+res.numOV+'\nYa puedes despacharla.'+MCmoTxt(res));
       ioDet=null;MCWarm.markStale('both');cargarInflow({fresh:true, invalidateOther:true});
-    }).catch(function(e){alert(MCerr(e)+'\nVerifica en inFlow antes de reintentar.');renderInflowLista();});
+    }).catch(function(e){alert(MCerr(e)+'\nVerifica en Ventas antes de reintentar.');renderInflowLista();});
   }
   /* v142: menú ⋯ por documento (sin desplegar las líneas) */
   function ioMenuCerrar(){var ab=document.querySelectorAll('.io-menu-list.open');for(var i=0;i<ab.length;i++)ab[i].classList.remove('open');document.removeEventListener('click',ioMenuCerrar);}
@@ -8439,7 +8440,7 @@ var Cot = (function(){
         }
         return {nombre:l.nombre,codigo:p.codigo||l.codigo||'',sku:l.sku,categoria:p.categoria||l.categoria||'',cantidad:l.cantidad,precioLista:pu,descuento:d,precioFinal:fin,img:l.img||p.img||'',partesEntrega:(e&&e.partes)||null,ent:e||null};
       });
-      if(sinPlazos&&!confirm('⚠ Plazos de entrega no marcados — esta cotización se creó directo en inFlow.\n\nMárcalos en el Cotizador (abrir la cotización → plazos) para que salgan bien.\n\nSi descargas ahora, la página 2 dirá «Inmediata» en lo que cubre el stock o lo armable de Bodega Principal y «Por confirmar» en el resto.\n\n¿Descargar igual?'))return;
+      if(sinPlazos&&!confirm('⚠ Plazos de entrega no marcados — esta cotización se creó fuera del Cotizador.\n\nMárcalos en el Cotizador (abrir la cotización → plazos) para que salgan bien.\n\nSi descargas ahora, la página 2 dirá «Inmediata» en lo que cubre el stock o lo armable de Bodega Principal y «Por confirmar» en el resto.\n\n¿Descargar igual?'))return;
       MCPlanillaCot({num:o.num,titulo:tituloDoc,fecha:o.fecha,cliente:cli,contacto:'',lineas:lineas,subtotal:Math.round(sub*100)/100});
     }).catch(function(e){alert(MCerr(e));}).then(function(){for(var b2=0;b2<btns.length;b2++)btns[b2].disabled=false;renderInflowLista();});
   }
@@ -8450,7 +8451,7 @@ var Cot = (function(){
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between;align-items:center">'+
       '<div class="cbz-card-name">'+(o.isQuote?'🧾 ':'📦 ')+o.num+'</div>'+
       '<span class="cbz-muted" style="font-size:11px">'+o.fecha+'</span></div>'+
-      '<div class="cbz-muted" style="font-size:11px">🏢 '+o.cliente+' · Documento REAL de inFlow: lo que guardes aquí se guarda allá.</div></div>';
+      '<div class="cbz-muted" style="font-size:11px">🏢 '+o.cliente+' · Documento real: lo que guardes aquí cambia la cotización.</div></div>';
     var tot=0;
     o.lineas.forEach(function(l,i){
       var fin=Math.round((parseFloat(l.precio)||0)*(1-(parseFloat(l.descuento)||0)/100)*100)/100;
@@ -8475,9 +8476,9 @@ var Cot = (function(){
       '<input class="uinput" id="io-add" list="io-prods" placeholder="➕ Agregar producto: escribe SKU o nombre..." style="flex:1;min-width:200px;padding:8px">'+
       '<datalist id="io-prods"></datalist>'+
       '<button class="cbz-btn-sec" onclick="Cot.ioAgregar()">➕ Agregar</button></div>'+
-      '<div class="cbz-muted" style="font-size:10.5px;margin-top:6px">Cada línea de aquí es una línea real de inFlow. «Otra línea» agrega el mismo producto otra vez. Para partir solo los plazos de la planilla, abre la cotización y usa «Dividir entrega».</div></div>';
+      '<div class="cbz-muted" style="font-size:10.5px;margin-top:6px">Cada línea de aquí es una línea real de la cotización. «Otra línea» agrega el mismo producto otra vez. Para partir solo los plazos de la planilla, abre la cotización y usa «Dividir entrega».</div></div>';
     h+='<div class="cbz-card"><div class="cbz-card-row" style="justify-content:space-between"><span class="cbz-card-name">Subtotal (sin IVA)</span><span class="cbz-card-name">'+fmt(tot)+'</span></div></div>';
-    if(puedeEscribir())h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px"><button class="cbz-btn" onclick="Cot.ioGuardar()">💾 Guardar cambios en inFlow</button></div>';
+    if(puedeEscribir())h+='<div class="cbz-card-row" style="gap:8px;margin-top:6px"><button class="cbz-btn" onclick="Cot.ioGuardar()">💾 Guardar cambios</button></div>';
     el().innerHTML=h;
     cargarProdsDatalist();
   }
@@ -8520,21 +8521,21 @@ var Cot = (function(){
     renderInflowDet();
   }
   function ioGuardar(){
-    if(!confirm('¿Guardar los cambios de '+ioDet.num+' DIRECTO en inFlow?'))return;
-    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Guardando en inFlow...</div>';
+    if(!confirm('¿Guardar los cambios de '+ioDet.num+'?'))return;
+    el().innerHTML=tabsHtml()+'<div class="cbz-loading">Guardando...</div>';
     asegurarIdsUnicos(ioDet.lineas);
     api({action:'editarOrdenInflow',salesOrderId:ioDet.salesOrderId,
          lineas:ioDet.lineas.map(lineaApi)
     }).then(function(res){
       if(!res.ok){alert('Error: '+res.error);renderInflowDet();return;}
-      alert('✔ Guardado en inFlow.'+(res.aviso?'\n⚠ '+res.aviso:''));
+      alert('✔ Guardado.'+(res.aviso?'\n⚠ '+res.aviso:''));
       ioDet=null;MCWarm.markStale(docTipo());cargarInflow({fresh:true});
-    }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow.');renderInflowDet();});
+    }).catch(function(e){alert(MCerr(e)+'. Verifica en Cotizaciones.');renderInflowDet();});
   }
   function vinculoHtml(){
-    if(det.vinculo)return '<div class="cbz-muted" style="font-size:11px;margin-top:4px">🔗 Cliente inFlow: <b style="color:#9fc3e8">'+det.vinculo.nombre+'</b></div>';
-    if(!det.candidatos.length)return '<div style="color:#f0c040;font-size:11px;margin-top:4px">⚠ Sin cliente de inFlow vinculado ni candidatos por nombre. Corre el sync o revisa el nombre de la empresa.</div>';
-    return '<div style="margin-top:6px"><div style="color:#f0c040;font-size:11px">⚠ Confirma con qué cliente de inFlow se empareja esta empresa (una sola vez):</div>'+
+    if(det.vinculo)return '<div class="cbz-muted" style="font-size:11px;margin-top:4px">🔗 Cliente: <b style="color:#9fc3e8">'+det.vinculo.nombre+'</b></div>';
+    if(!det.candidatos.length)return '<div style="color:#f0c040;font-size:11px;margin-top:4px">⚠ Sin cliente vinculado ni candidatos por nombre. Revisa el nombre de la empresa.</div>';
+    return '<div style="margin-top:6px"><div style="color:#f0c040;font-size:11px">⚠ Confirma con qué cliente se empareja esta empresa (una sola vez):</div>'+
       '<div class="cbz-card-row" style="gap:6px;margin-top:4px;flex-wrap:wrap">'+
       det.candidatos.map(function(cd,i){
         return '<button class="chip'+(cd.exacto?' on':'')+'" onclick="Cot.vincular('+i+')">'+(cd.exacto?'✔ ':'')+cd.nombre+'</button>';
@@ -8542,7 +8543,7 @@ var Cot = (function(){
   }
   function vincular(i){
     var cd=det.candidatos[i];
-    if(!confirm('¿Vincular "'+det.cot.empresa+'" con el cliente de inFlow "'+cd.nombre+'"? Quedará memorizado para todas sus cotizaciones.'))return;
+    if(!confirm('¿Vincular "'+det.cot.empresa+'" con el cliente "'+cd.nombre+'"? Quedará memorizado para todas sus cotizaciones.'))return;
     api({action:'vincularClienteCot',empresa:det.cot.empresa,customerId:cd.customerId,nombre:cd.nombre}).then(function(res){
       if(!res.ok){alert(res.error);return;}
       det.vinculo={customerId:cd.customerId,nombre:cd.nombre};renderDet();
@@ -8645,13 +8646,13 @@ var Cot = (function(){
   function crear(){
     if(!det||!det.cot||det._creando)return;
     if(!det.cot.id){alert('Espera un momento: se está abriendo la pre-cotización.');return;}
-    if(!det.vinculo){alert('Primero vincula la empresa con su cliente de inFlow (botones amarillos arriba).');return;}
+    if(!det.vinculo){alert('Primero vincula la empresa con su cliente (botones amarillos arriba).');return;}
     if(!det._bloqOk){mcBloqGuard(det.vinculo.nombre,det.vinculo.customerId,'crear la cotización').then(function(ok){if(ok){det._bloqOk=1;crear();det&&(det._bloqOk=0);}});return;}
     var lineas=det.lineas.filter(function(l){return l.productId;});
-    if(!lineas.length){alert('Ninguna línea tiene producto de inFlow.');return;}
+    if(!lineas.length){alert('Ninguna línea tiene producto del inventario.');return;}
     var omitidas=det.lineas.length-lineas.length;
-    var msg='¿Crear la cotización en inFlow para '+det.vinculo.nombre+' con '+lineas.length+' línea'+(lineas.length===1?'':'s')+'?'+
-      (omitidas?'\n(Se omitirán '+omitidas+' línea(s) sin producto de inFlow.)':'');
+    var msg='¿Crear la cotización para '+det.vinculo.nombre+' con '+lineas.length+' línea'+(lineas.length===1?'':'s')+'?'+
+      (omitidas?'\n(Se omitirán '+omitidas+' línea(s) sin producto del inventario.)':'');
     if(!confirm(msg))return;
     var avisar=!!(document.getElementById('cot-avisar')&&document.getElementById('cot-avisar').checked);
     // v173: cancel pending autosave so it cannot demote CREADA→EN REVISION after create
@@ -8684,7 +8685,7 @@ var Cot = (function(){
       if(mYa)res={ok:true,orderNumber:mYa[1],yaExistia:true};
       if(res&&res.ok)quitarDeLista(res.precotsBorradas||[], {id:cotIdPartes,inflowNum:res.orderNumber||''});
       if(!res||!res.ok){
-        if(aqui){det._creando=false;det.cot.estado=estadoAntes;renderDet();alert('Error: '+((res&&res.error)||'no se pudo crear en inFlow'));}
+        if(aqui){det._creando=false;det.cot.estado=estadoAntes;renderDet();alert('Error: '+((res&&res.error)||'no se pudo crear la cotización'));}
         return;
       }
       var num=res.orderNumber||'';
@@ -8710,13 +8711,13 @@ var Cot = (function(){
         det._creando=false;
         det.cot.estado=estadoAntes;
         renderDet();
-        alert(MCerr(e)+'. Verifica en inFlow si se creó antes de reintentar.');
+        alert(MCerr(e)+'. Verifica en Cotizaciones si se creó antes de reintentar.');
       }
     });
   }
   function borrarPre(id,estado){
     var msg='¿Borrar esta pre-cotización definitivamente?';
-    if(estado==='CREADA'||estado==='APROBADA')msg='⚠ Esta cotización YA está en inFlow y el cliente la ve en su módulo.\nBorrarla aquí NO la borra de inFlow, pero el cliente dejará de verla en la app.\n\n¿Borrar de todas formas?';
+    if(estado==='CREADA'||estado==='APROBADA')msg='⚠ Esta cotización YA está creada y el cliente la ve en su módulo.\nBorrarla aquí NO borra la cotización, pero el cliente dejará de verla en la app.\n\n¿Borrar de todas formas?';
     if(!confirm(msg))return;
     api({action:'borrarPreCot',id:id}).then(function(res){
       if(!res.ok){alert(res.error);return;}
@@ -8728,7 +8729,7 @@ var Cot = (function(){
   function guardarEdicion(){
     var lineas=det.lineas.filter(function(l){return l.productId;});
     asegurarIdsUnicos(lineas);
-    if(!confirm('¿Guardar los cambios de '+numDoc()+'?\nSe actualizará en inFlow.'))return;
+    if(!confirm('¿Guardar los cambios de '+numDoc()+'?\nSe actualizará la cotización.'))return;
     el().innerHTML='<div class="cbz-loading">Actualizando '+tipoDoc()+'...</div>';
     var avisar=!!(document.getElementById('cot-avisar')&&document.getElementById('cot-avisar').checked);
     api({action:'editarCotCreada',id:det.cot.id,avisar:avisar,
@@ -8736,23 +8737,23 @@ var Cot = (function(){
     }).then(function(res){
       editandoCreada=false;
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
-      alert('✔ Cotización '+res.orderNumber+' actualizada en inFlow.'+(res.emailEnviado?'\n📧 Aviso enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale por tu canal habitual)'));
+      alert('✔ Cotización '+res.orderNumber+' actualizada.'+(res.emailEnviado?'\n📧 Aviso enviado a '+res.emailEnviado:'\n(Sin email a la mano: avísale por tu canal habitual)'));
       abrir(det.cot.id);
-    }).catch(function(){editandoCreada=false;alert('Sin conexión. Verifica en inFlow antes de reintentar.');abrir(det.cot.id);});
+    }).catch(function(){editandoCreada=false;alert('Sin conexión. Verifica en Cotizaciones antes de reintentar.');abrir(det.cot.id);});
   }
   function convertirOV(){
     var _v=det.vinculo||{};mcBloqGuard(_v.nombre||det.cot.empresa,_v.customerId,'convertir en Orden de Venta',(det.lineas||[]).reduce(function(a,l){return a+(parseFloat(l.precio)||0)*(1-(parseFloat(l.descuento)||0)/100)*(parseInt(l.cantidad,10)||0);},0)).then(function(ok){if(ok)convertirOV_();});
   }
   function convertirOV_(){
-    var msg=det.cot.estado==='APROBADA'?'¿Convertir la cotización '+det.cot.inflowNum+' en ORDEN DE VENTA en inFlow?'
+    var msg=det.cot.estado==='APROBADA'?'¿Convertir la cotización '+det.cot.inflowNum+' en ORDEN DE VENTA?'
       :'El cliente aún no ha aprobado esta cotización.\n¿Convertirla en ORDEN DE VENTA de todas formas?';
     if(!confirm(msg))return;
     el().innerHTML='<div class="cbz-loading">Convirtiendo en Orden de Venta...</div>';
     api({action:'convertirCotOrden',id:det.cot.id}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
-      alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despachar.'+MCmoTxt(res));
+      alert('📦 ¡Lista! Orden de Venta: '+res.numOV+'\nYa puedes despachar.'+MCmoTxt(res));
       abrir(det.cot.id);
-    }).catch(function(e){alert(MCerr(e)+'. Verifica en inFlow.');abrir(det.cot.id);});
+    }).catch(function(e){alert(MCerr(e)+'. Verifica en Cotizaciones.');abrir(det.cot.id);});
   }
   function filtrar(e2){filtroEmp=e2;renderLista();}
   var origenTab='pre';
@@ -9592,7 +9593,7 @@ var Sols = (function(){
         '<div class="cbz-card-top"><div class="cbz-card-name">'+u.nombre+
         (u.master?' <span class="tagx" style="background:#3a2c1c;color:#f0c040">MÁSTER</span>':'')+
         (u.solicitud?' <span class="tagx tn">🔔 '+u.solicitud+'</span>':'')+'</div></div>'+
-        '<div class="cbz-muted" style="margin:4px 0">Empresa declarada: <b>'+(u.empresa||'(no indicó)')+'</b>'+(exacta?' ✅ coincide con inFlow':'')+'</div>'+
+        '<div class="cbz-muted" style="margin:4px 0">Empresa declarada: <b>'+(u.empresa||'(no indicó)')+'</b>'+(exacta?' ✅ coincide con un cliente':'')+'</div>'+
         '<div class="cbz-card-row"><input class="uinput" id="s-emp-'+i+'" style="flex:1" placeholder="Empresa a vincular (nombre exacto)" value="'+String(u.empresa||'').replace(/"/g,'&quot;')+'"></div>'+
         (sugs.length&&!exacta?'<div class="cbz-card-row" style="flex-wrap:wrap">'+sugs.map(function(c){
           return '<button class="chip" onclick="document.getElementById(\'s-emp-'+i+'\').value=this.getAttribute(\'data-c\')" data-c="'+c.replace(/"/g,'&quot;')+'">'+c+'</button>';
@@ -9606,7 +9607,7 @@ var Sols = (function(){
     var u=pend[i];
     var emp=(document.getElementById('s-emp-'+i).value||'').trim();
     if(!emp){alert('Vincula primero la empresa (usa las sugerencias).');return;}
-    if(clientes.length&&clientes.indexOf(emp)<0&&!confirm('"'+emp+'" no coincide exacto con ningún cliente de inFlow. ¿Aprobar de todos modos? El estado de cuenta saldrá vacío hasta que coincida.'))return;
+    if(clientes.length&&clientes.indexOf(emp)<0&&!confirm('"'+emp+'" no coincide exacto con ningún cliente. ¿Aprobar de todos modos? El estado de cuenta saldrá vacío hasta que coincida.'))return;
     if(btn){btn.disabled=true;btn.textContent='Aprobando...';}
     api({action:'saveUser',nombre:u.nombre,userPin:u.pin,rol:u.rol,modulos:u.modulos,
       activo:u.activo,empresa:emp,master:u.master,aprobado:true})
@@ -9891,7 +9892,7 @@ var Compras=(function(){
         '<label class="cbz-muted" style="font-size:11px">Costo unit.<input class="uinput" id="cf-p'+i+'" type="number" step="0.0001" style="width:100%;box-sizing:border-box" value="'+l.unit_price+'" onchange="Compras.re()"></label><label class="cbz-muted" style="font-size:11px">Desc %<input class="uinput" id="cf-d'+i+'" type="number" step="0.5" style="width:100%;box-sizing:border-box" value="'+(l.discount_pct||0)+'" onchange="Compras.re()"></label></div>'+
         '<div style="text-align:right;font-size:12px">= <b>'+money(st)+'</b></div></div>';}).join('')+
       '<input class="uinput" style="width:100%;margin-top:8px" placeholder="Agregar producto: SKU o nombre…" oninput="Compras.buscarProd(this.value)"><div id="cf-pres"></div>'+
-      '<div style="text-align:right;margin-top:6px">Subtotal <b>'+money(tot)+'</b> <span class="cbz-muted" style="font-size:11px">(impuestos según el proveedor en inFlow)</span></div></div>'+
+      '<div style="text-align:right;margin-top:6px">Subtotal <b>'+money(tot)+'</b> <span class="cbz-muted" style="font-size:11px">(impuestos según el proveedor)</span></div></div>'+
       '<button class="cbz-btn" onclick="Compras.guardar()">💾 Guardar OC</button>';
     el().innerHTML=h;}
   function re(){leer();renderForm();}
@@ -10584,11 +10585,11 @@ var Prov = (function(){
         '<div id="oc-lines">'+(po.lines||[]).map(ocLineRow).join('')+'</div>'+
         '<div class="cbz-card-row" style="margin-top:8px;flex-wrap:wrap">'+
         '<button class="chip" onclick="Prov.addOcLine()">＋ Línea</button>'+
-        '<button class="cbz-btn" id="oc-save" onclick="Prov.guardarOC()">Guardar en inFlow</button>'+
+        '<button class="cbz-btn" id="oc-save" onclick="Prov.guardarOC()">Guardar</button>'+
         (po.purchaseOrderId&&!po.isCancelled?'<button class="chip" id="oc-approve" onclick="Prov.aprobarOC()">✅ Aprobar</button>':'')+
         (po.purchaseOrderId&&!po.isCancelled?'<button class="chip" id="oc-cancel" onclick="Prov.cancelarOC()">✖ Cancelar</button>':'')+
         '</div>'+dl+
-        '<div class="cbz-muted" style="font-size:11px;margin-top:8px">MVP: productId libre (UUID). Datalist sugiere SKU→id si hay inventario. Totales los calcula inFlow.</div>'+
+        '<div class="cbz-muted" style="font-size:11px;margin-top:8px">MVP: productId libre (UUID). Datalist sugiere SKU→id si hay inventario. Totales los calcula Minecore.</div>'+
         '</div></div>';
       el().innerHTML=h;
     });
@@ -10664,18 +10665,18 @@ var Prov = (function(){
     if(btn){btn.disabled=true;btn.textContent='Guardando...';}
     api(payload).then(function(res){
       ocSaving=false;
-      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}alert(res.error||'Error');return;}
-      alert(res.created?'OC creada en inFlow.':'OC actualizada.');
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar';}alert(res.error||'Error');return;}
+      alert(res.created?'OC creada.':'OC actualizada.');
       ocVista='list';ocQ='';cargarOCs();
     }).catch(function(e){
       ocSaving=false;
-      if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}
+      if(btn){btn.disabled=false;btn.textContent='Guardar';}
       alert(MCerr(e));
     });
   }
   function cancelarOC(){
     if(!ocCur||!ocCur.purchaseOrderId)return;
-    if(!confirm('¿Cancelar esta OC en inFlow (quick-cancel)?'))return;
+    if(!confirm('¿Cancelar esta OC?'))return;
     var btn=document.getElementById('oc-cancel');
     if(btn){btn.disabled=true;btn.textContent='Cancelando...';}
     api({action:'cancelPurchaseOrder',purchaseOrderId:ocCur.purchaseOrderId}).then(function(res){
@@ -10686,7 +10687,7 @@ var Prov = (function(){
   }
   function aprobarOC(){
     if(!ocCur||!ocCur.purchaseOrderId)return;
-    if(!confirm('¿Aprobar esta OC en inFlow (quick-approve)?'))return;
+    if(!confirm('¿Aprobar esta OC?'))return;
     var btn=document.getElementById('oc-approve');
     if(btn){btn.disabled=true;btn.textContent='Aprobando...';}
     api({action:'approvePurchaseOrder',purchaseOrderId:ocCur.purchaseOrderId}).then(function(res){
@@ -10820,7 +10821,7 @@ var Transf = (function(){
         '<div id="tf-lines">'+(t.lines||[]).map(lineRow).join('')+'</div>'+
         '<div class="cbz-card-row" style="margin-top:8px">'+
         '<button class="chip" onclick="Transf.addLine()">＋ Línea</button>'+
-        '<button class="cbz-btn" id="tf-save" onclick="Transf.guardar()">Guardar en inFlow</button></div>'+
+        '<button class="cbz-btn" id="tf-save" onclick="Transf.guardar()">Guardar</button></div>'+
         dl+
         '<div class="cbz-muted" style="font-size:11px;margin-top:8px">MVP: productId libre (UUID). Si cargó inventario, el datalist sugiere SKU→id.</div>'+
         '</div></div>';
@@ -10907,12 +10908,12 @@ var Transf = (function(){
     if(btn){btn.disabled=true;btn.textContent='Guardando...';}
     api(payload).then(function(res){
       saving=false;
-      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}alert(res.error||'Error');return;}
-      alert(res.created?'Transfer creado en inFlow.':'Transfer actualizado.');
+      if(!res.ok){if(btn){btn.disabled=false;btn.textContent='Guardar';}alert(res.error||'Error');return;}
+      alert(res.created?'Transfer creado.':'Transfer actualizado.');
       vista='list';cargar();
     }).catch(function(e){
       saving=false;
-      if(btn){btn.disabled=false;btn.textContent='Guardar en inFlow';}
+      if(btn){btn.disabled=false;btn.textContent='Guardar';}
       alert(MCerr(e));
     });
   }
@@ -12015,7 +12016,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
         '<button class="chip" onclick="Ventas.etiquetas()">🏷 Etiquetas DYMO (19×51)</button>'+((cur.cajas||[]).length?'<button class="chip" onclick="Ventas.setDv(\'ship\')">🚚 Ship →</button>':'')+'</div>');}
     else {
       h+=seccion('Ship · envíos',(((cur.envios||[]).length?mcGT([{k:'f',h:'Fecha',w:'86px'},{k:'car',h:'Transportista',w:'minmax(0,1fr)'},{k:'g',h:'Guía',w:'minmax(0,1fr)'},{k:'cj',h:'Cajas',b:1},{k:'x',h:'&nbsp;',w:'64px',cls:'x'}],cur.envios.map(function(s){return {f:d10(s.shipped_date),car:esc(s.carrier||''),g:s.tracking_number?'<b>'+esc(s.tracking_number)+'</b>':'',cj:esc((s.containers||[]).join(', ')),
-  x:ab?'<button title="Editar" onclick="Ventas.shipEd(\''+s.id+'\')">✏️</button><button class="del" title="Deshacer envío" onclick="Ventas.shipUndo(\''+s.id+'\')">↩️</button>':''};})):'')||'<div class="cbz-muted">Aún no se ha enviado.</div>')+
+  x:ab?'<button title="Editar" onclick="Ventas.shipEd(\''+s.id+'\')">✏️</button><button class="del" title="Deshacer envío" onclick="Ventas.shipUndo(\''+s.id+'\')">↩️</button>':''};})):'')||'<div class="cbz-muted">Aún no se ha enviado.</div>')+(ab&&(cur.envios||[]).length?'<div style="margin-top:8px">'+edBtn("MCoffDeshacerUI('"+esc(cur.orden.order_number)+"')",'↩ Deshacer despacho completo','#f0c040')+'</div>':'')+ /* b434-off */
         (ab&&st.ship_estado!=='enviado'?'<div style="margin-top:8px"><button class="cbz-btn" onclick="Ventas.enviar()">🚚 Registrar envío</button></div>':''));}
     return h;}
   function pickFilas(ab){var P=cur.picks||[];if(!P.length)return '';var bloq=(cur.envios||[]).length?'envío':(cur.cajas||[]).length?'empaque':'';
@@ -12044,7 +12045,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     var h='<div class="cbz-card" style="max-width:520px;width:100%;margin:0"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><b style="flex:1">⏱ Entrega · '+esc(l.sku||'')+' · '+q+' und.</b><button class="chip" onclick="Ventas.plzX()">✕</button></div><div class="cbz-muted" style="font-size:11.5px;margin-bottom:8px">'+esc(l.nombre||l.description||'')+'</div>';
     if(P.length<2){h+='<label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="cbz-muted" style="font-size:12px">Plazo de entrega</span><select class="uinput" id="vt-plz-s" style="width:auto" onchange="Ventas.plzSet(this.value)">'+opt(PLZ.plazo)+'</select></label>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'+(q>=2?'<button class="chip" onclick="Ventas.plzDiv()">✂ Dividir entrega</button>':'')+(q>=2?'<button class="chip" onclick="Ventas.plzOtra()">＋ Otra línea (mismo producto)</button>':'')+'</div>';}
-    else{h+='<div class="cbz-muted" style="font-size:11.5px;margin-bottom:4px">Entrega dividida: las partes deben sumar '+q+' (en inFlow sigue una línea)</div>'+P.map(function(p,i){return '<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px;min-width:52px">Parte '+(i+1)+'</span><input class="uinput" type="number" min="1" style="width:70px;text-align:center" value="'+p.cantidad+'" onchange="Ventas.plzP('+i+',\'cantidad\',this.value)"><span class="cbz-muted" style="font-size:11px">und.</span><select class="uinput" style="width:auto" onchange="Ventas.plzP('+i+',\'plazo\',this.value)">'+opt(p.plazo)+'</select>'+(P.length>2?'<button class="chip" style="color:#e05c5c" onclick="Ventas.plzQ('+i+')">🗑</button>':'')+'</div>';}).join('')+
+    else{h+='<div class="cbz-muted" style="font-size:11.5px;margin-bottom:4px">Entrega dividida: las partes deben sumar '+q+' (la orden sigue con una línea)</div>'+P.map(function(p,i){return '<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap"><span class="cbz-muted" style="font-size:11px;min-width:52px">Parte '+(i+1)+'</span><input class="uinput" type="number" min="1" style="width:70px;text-align:center" value="'+p.cantidad+'" onchange="Ventas.plzP('+i+',\'cantidad\',this.value)"><span class="cbz-muted" style="font-size:11px">und.</span><select class="uinput" style="width:auto" onchange="Ventas.plzP('+i+',\'plazo\',this.value)">'+opt(p.plazo)+'</select>'+(P.length>2?'<button class="chip" style="color:#e05c5c" onclick="Ventas.plzQ('+i+')">🗑</button>':'')+'</div>';}).join('')+
       '<div style="margin-top:6px;font-size:12px;color:'+(suma===q?'#6fd68f':'#e05c5c')+'">Suma: '+suma+' / '+q+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="chip" onclick="Ventas.plzMas()">＋ Parte</button><button class="chip" onclick="Ventas.plzSin()">Quitar división</button></div>';}
     h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="cbz-btn" onclick="Ventas.plzX()">Cancelar</button><button class="cbz-btn cbz-btn-primary" id="vt-plz-ok" onclick="Ventas.plzOk()">Aplicar</button></div></div>';m.innerHTML=h;}
   function plz(id){var l=(cur.lineas||[]).filter(function(x){return x.id===id;})[0];if(!l)return;var e=l.entrega||{},P=(e.partes||[]).filter(function(p){return p&&p.cantidad>0;}).map(function(p){return {cantidad:+p.cantidad,plazo:p.plazo||'Por confirmar'};});
@@ -12347,7 +12348,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function entHtml(l,i){if(!l.product_id)return '';var e=entDe(l),b=bodNombre();
     var col=e.partesOk?'#9fc3e8':(e.resto<=0?'#6fd68f':(e.ahora>0?'#f0c040':'#e05c5c'));
     var h='<div class="vt-lent" style="margin-top:6px;padding-top:6px;border-top:1px solid #1c2a3a"><div style="font-size:11px;line-height:1.5"><span class="cbz-muted">📦 '+esc(b)+': <b style="color:'+col+'">'+e.disp+'</b>'+(e.arm>0?' · <span style="color:#f0c040">🔧 Armable '+e.arm+'</span>':'')+'</span></div><div style="font-size:11px;line-height:1.5">'+pedTxt(prodDe(l))+'</div>';
-    if(e.partes.length>=2){h+='<div class="cbz-muted" style="font-size:11px;margin-top:4px">Entrega dividida (solo planilla; en inFlow sigue una línea)'+(e.partesOk?'':' <span style="color:#e05c5c">⚠ las partes deben sumar '+e.cant+'</span>')+'</div>'+
+    if(e.partes.length>=2){h+='<div class="cbz-muted" style="font-size:11px;margin-top:4px">Entrega dividida (solo planilla; la orden sigue con una línea)'+(e.partesOk?'':' <span style="color:#e05c5c">⚠ las partes deben sumar '+e.cant+'</span>')+'</div>'+
       e.partes.map(function(p,pi){return '<div style="display:flex;gap:6px;align-items:center;margin-top:3px"><span class="cbz-muted" style="font-size:11px;min-width:52px">Parte '+(pi+1)+'</span><input class="uinput" type="number" min="1" style="width:64px" value="'+p.cantidad+'" onchange="Ventas.setParte('+i+','+pi+',\'cantidad\',this.value)"><select class="uinput" style="width:auto" onchange="Ventas.setParte('+i+','+pi+',\'plazo\',this.value)">'+PLAZOS.map(function(z){return '<option'+(z===p.plazo?' selected':'')+'>'+z+'</option>';}).join('')+'</select></div>';}).join('')+
       '<button class="chip" style="margin-top:4px;padding:2px 8px;font-size:11px" onclick="Ventas.quitarPartes('+i+')">Quitar división</button>';}
     else h+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px"><span class="cbz-muted" style="font-size:11px">Inmediata:</span><input class="uinput" type="number" min="0" style="width:60px" value="'+e.ahora+'" onchange="Ventas.setEnt('+i+',\'ahora\',this.value)">'+
@@ -13050,7 +13051,7 @@ function renderHome(){
 function doSyncNow(){
   var b=document.getElementById('syncBtn');
   if(b.disabled)return;
-  if(!confirm('¿Sincronizar ahora con inFlow? Puede tardar 2-4 minutos.'))return;
+  if(!confirm('Minecore ya es la fuente de datos: no hace falta sincronizar. ¿Recargar?'))return;
   b.disabled=true; b.innerHTML='⏳<span class="lbl">Sincronizando...</span>';
   MCpost({action:'syncNow',user:getUserName(),pin:getPin()}).then(function(res){
     b.disabled=false; b.innerHTML='⟳<span class="lbl">Sync</span>';
@@ -13304,6 +13305,7 @@ function MC_NAVCAT(){
     {k:'alq',ico:'antenna',t:'Alquiler',col:'#7a4fd6',items:[['📡','Alquiler','alq',CO,function(){cs('alq');},'consignacion']]},
     {k:'fin',ico:'bank',t:'Finanzas',col:'#1e6fd9',items:[
       ['💰','Cobranza','cbz',CB,function(){openMod('cbz');},'cobranza'],
+      ['🧾','Facturas SRI y retenciones','conta',CB,function(){MCConta.abrir();},'cobranza'], /* b434-off */
       ['📄','Estado de cuenta','edc',function(H){return H.can('estadocuenta');},function(){openMod('edc');},'estadocuenta'],
       ['💵','Caja chica','caja',function(H){return H.can('caja');},function(){openMod('caja');},'caja'],
       ['🏦','Banco','banco',function(H){return H.can('banco');},function(){openMod('banco');},'banco']]},
@@ -14298,7 +14300,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
   function el(){return document.getElementById('maes-screen');}
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Error');return r;});}
-  function sync(s){var M={sincronizado:['En inFlow','#3f6212'],pendiente:['Copiando a inFlow','#a16207'],error:['Error inFlow','#b91c1c'],local:['Solo Minecore','#334155']};var c=M[s]||['En inFlow','#3f6212'];return '<span class="ms-chip" style="background:'+c[1]+';color:#fff">'+c[0]+'</span>';}
+  function sync(s){var M={sincronizado:['Sincronizado','#3f6212'],pendiente:['Copiando a inFlow','#a16207'],error:['Error inFlow','#b91c1c'],local:['Solo Minecore','#334155']};var c=M[s]||['Sincronizado','#3f6212'];return '<span class="ms-chip" style="background:'+c[1]+';color:#fff">'+c[0]+'</span>';}
   function act(a){return a===false?'<span class="ms-chip" style="background:#374151;color:#fff">Inactivo</span>':'';}
   function v(id){var e=document.getElementById(id);return e?(e.type==='checkbox'?e.checked:(e.value||'').trim()):'';}
   function inp(id,lab,val,extra){return '<label>'+lab+'<input class="uinput" id="'+id+'" value="'+esc(val)+'" '+(extra||'')+'></label>';}
@@ -17305,6 +17307,256 @@ var MCCuenta=(function(){
    msg.style.color='#c0392b';msg.textContent=(r&&r.error)||'No se pudo eliminar. Intenta de nuevo.';
   }).catch(function(e){msg.style.color='#c0392b';msg.textContent='Sin conexión. Intenta de nuevo.';});}
  return {abrir:abrir,cerrar:cerrar,paso:paso,confirmar:confirmar};})();
+</script>
+<script>
+/* ===== b434-off (17/18-oct-2026): inFlow queda SOLO como espejo. Ninguna acción del portal va a Apps Script → inFlow. =====
+   - Despachar (setOrderFulfillment) → ventas-api fulfill. Deshacer despacho → ops-api deshacer_despacho (Ship→Pack→Pick, devuelve stock).
+   - Detalle de OV (getOrderDetail) → ventas-api get.  Detalle para clientes (miOrden) → ops-api mi_orden.
+   - PDF de OV (getOrderPdf) → ventas-api doc + MCInflowDoc (mismo PDF que Ventas, con fotos).
+   - Últimas cotizaciones/OV (getInflowOrdenes, pestañas viejas del Cotizador) → ops-api ordenes_recientes.
+   - Estado de cuenta PDF del cliente (miEstadoCuentaPdf) → portal-api cli_estado + MCEcPdf (mismo PDF que Cobranza).
+   - Vincular empresa (matchMiEmpresa/confirmarMiEmpresa) → ops-api mi_empresa_*.  «Sincronizar con inFlow» (syncNow) → ya no aplica.
+   - Respaldo a Google de pantallas Supabase-first (getDashboard, getLandingHome, getEstadoCuenta, getConsignacion, getDespieces, teamList,
+     solicitarExtension, resolverExtension) → apagado: si Supabase falla se muestra el error, no se lee la hoja que llenaba inFlow.
+   - OC / transfers / proveedores viejos de inFlow → bloqueados con aviso (sus pantallas nuevas ya son Supabase).
+   - Cotizaciones y editarOrdenInflow/getClienteInflowData: ya los atiende portal-api v94 (b433), no se tocan aquí.
+   - Ronda 3: PDF de consignación (getConsignacionPdf) → consig_data + jsPDF; equipo del cliente (teamSave/teamDelete) y preview (previewUserView) → ops-api sobre app.portal_users;
+     fotos (proxyImagen) → Supabase Storage directo (URLs viejas de inFlow se traducen con ops-api fotos_url).
+   - 🧾 Facturas SRI y retenciones (Conta): ops-api conta_* (nº SRI + PDF/XML + facturada, total ±$0.05; retención ≤ saldo+$0.05). */
+var MC_OPS_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ops-api';
+var MC_OFF_RX=/^(setOrderFulfillment|getOrderDetail|getOrderPdf|getInflowOrdenes|miOrden|listPurchaseOrders|getPurchaseOrder|savePurchaseOrder|approvePurchaseOrder|cancelPurchaseOrder|listVendors|listLocations|listStockTransfers|getStockTransfer|saveStockTransfer|getPickListPdf|getVendor|saveVendor|syncNow|miEstadoCuentaPdf|matchMiEmpresa|confirmarMiEmpresa|getDashboard|getLandingHome|getEstadoCuenta|getConsignacion|getDespieces|teamList|solicitarExtension|resolverExtension|getConsignacionPdf|teamSave|teamDelete|previewUserView|proxyImagen)$/;
+var MC_OFF_FALLBACK=/^(getDashboard|getLandingHome|getEstadoCuenta|getConsignacion|getDespieces|teamList|solicitarExtension|resolverExtension)$/;
+function MCops(p,_r){p=p||{};var s=MCsbGet();
+  if(!s){if(_r)return Promise.resolve({ok:false,error:'Sesión vencida. Vuelve a ingresar con tu usuario y PIN.'});return Promise.resolve(MCsbRenew()).then(function(){return MCops(p,1);},function(){return MCops(p,1);});}
+  var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user'&&k!=='action')body[k]=p[k];}
+  return fetch(MC_OPS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)})
+    .then(function(r){if(r.status===401&&!_r){try{sessionStorage.removeItem('mc_sbt');}catch(e){}MCsbRefresh();return Promise.resolve(MC_SB_REF).then(function(){return MCops(p,1);});}return r.json();})
+    .catch(function(e){return {ok:false,error:(typeof MCnetMsg==='function'?MCnetMsg(e):'Sin conexión con el servidor de Minecore.')};});}
+function MCoffAbrirOV(num){if(!num)return;try{openMod('vov');setTimeout(function(){try{Ventas.abrirNum(num);}catch(e){}},350);}catch(e){}}
+function MCoffGet(id){id=String(id||'').trim();if(!id)return Promise.resolve({ok:false,error:'Falta la orden'});
+  var uuid=/^[0-9a-f-]{36}$/i.test(id);
+  var q=uuid?{action:'ventas',op:'get',inflow_id:id}:{action:'ventas',op:'get',order_number:id};
+  return MCpost(q).then(function(r){if(r&&r.ok)return r;if(uuid)return MCpost({action:'ventas',op:'get',id:id});return r;});}
+function MCoffMsg(a){var H={listPurchaseOrders:'usa Compras › Órdenes de compra',getPurchaseOrder:'usa Compras › Órdenes de compra',savePurchaseOrder:'usa Compras › Órdenes de compra',approvePurchaseOrder:'usa Compras › Órdenes de compra',cancelPurchaseOrder:'usa Compras › Órdenes de compra',
+    listStockTransfers:'usa Inventario › Stock transfers',getStockTransfer:'usa Inventario › Stock transfers',saveStockTransfer:'usa Inventario › Stock transfers',listVendors:'usa Compras › Proveedores',listLocations:'usa Inventario',getVendor:'usa Compras › Proveedores',saveVendor:'usa Compras › Proveedores',getPickListPdf:'usa Ventas › la orden › Pick list'};
+  return {ok:false,_off:true,error:'Esto ya no se hace en inFlow: '+(H[a]||'usa el módulo de Minecore (Supabase).')};}
+/* Deshacer despacho completo: vista previa (qué stock vuelve y a dónde) → confirmación → ejecutar. */
+function MCoffDeshacer(so,preguntar){
+  return MCops({op:'deshacer_despacho',so:so}).then(function(pv){if(!pv||!pv.ok)return pv||{ok:false,error:'Sin respuesta'};
+    if(pv.ya)return {ok:true,ya:true,ov:pv.ov,mensaje:pv.mensaje,inventoryStatus:'Unfulfilled'};
+    if(pv.mock)return {ok:false,error:'Usuario de prueba: no se deshace nada (vista previa).'};
+    var det=(pv.devuelve||[]).map(function(d){return '• '+d.cantidad+' × '+d.sku+' '+String(d.nombre||'').slice(0,60)+' → '+d.bodega+(d.sububicacion?' · '+d.sububicacion:'');}).join('\n');
+    var txt='Deshacer el despacho de '+pv.ov+' ('+pv.cliente+'):\n'+(pv.envios?pv.envios+' envío(s), ':'')+(pv.cajas?pv.cajas+' caja(s), ':'')+pv.picks+' pick(s).\n\nVuelve al stock:\n'+(det||'—')+(pv.aviso?'\n\n⚠ '+pv.aviso:'')+'\n\n¿Continuar?';
+    if(preguntar!==false&&!confirm(txt))return {ok:false,cancelado:true,error:'Cancelado'};
+    return MCops({op:'deshacer_despacho',so:so,confirmar:true}).then(function(r){if(r&&r.ok){r.inventoryStatus='Unfulfilled';try{MC_STK_V++;window.dispatchEvent(new Event('mc-stock'));}catch(e){}}return r;});});}
+function MCoffDeshacerUI(num){MCoffDeshacer(num).then(function(r){if(r&&r.cancelado)return;if(!r||!r.ok){alert('No se deshizo: '+((r&&r.error)||'error'));return;}
+  alert(r.ya?r.mensaje:'Despacho de '+r.ov+' deshecho. El stock volvió a su ubicación; inFlow se actualiza por la cola.');try{Ventas.abrirNum(num);}catch(e){}});}
+/* Últimas cotizaciones / OV desde Supabase (formato de getInflowOrdenes) */
+function MCoffOrdenes(tipo,count){return MCops({op:'ordenes_recientes',tipo:tipo==='orden'?'orden':'quote',count:count||15});}
+/* PDF de la OV / cotización: el mismo documento que imprime Ventas (réplica del formato inFlow, con fotos). */
+function MCoffPdf(id){return MCoffGet(id).then(function(g){if(!g||!g.ok||!g.orden)return g||{ok:false,error:'Orden no existe'};var o=g.orden;
+  return MCpost({action:'ventas',op:'doc',id:o.id}).then(function(r){if(!r||!r.ok||!r.doc)return r||{ok:false,error:'No se pudo armar el PDF'};
+    return MCInflowDoc(o.is_quote?'sq':'so',r.doc).then(function(blob){return {ok:true,b64:blob,filename:(o.is_quote?'Cotización ':'Orden de venta ')+o.order_number+'.pdf',fuente:'supabase'};});});})
+  .catch(function(e){return {ok:false,error:'No se pudo generar el PDF: '+((e&&e.message)||e)};});}
+/* Estado de cuenta del cliente: datos de portal-api cli_estado (Supabase) y el mismo PDF que Cobranza (MCEcPdf) */
+function MCoffEdcPdf(){return MCpost({action:'cli_estado'}).then(function(r){if(!r||!r.ok)return r||{ok:false,error:'No se pudo cargar el estado de cuenta'};
+  var hoy=new Date(Date.now()-5*3600e3).toISOString().slice(0,10),emp=r.empresa||r.cliente||'Cliente';
+  var F=(r.ordenes||[]).filter(function(x){return x.facturada&&x.saldo>0.005;}).map(function(x){var d=x.vence?Math.round((Date.parse(hoy)-Date.parse(x.vence))/864e5):0;
+    return {factura:x.factura,ov:x.ov,fecha:x.fechaFactura||x.fecha,vence:x.vence,total:x.total,pagado:x.pagado,retencion:0,saldo:x.saldo,dias:d};});
+  if(!F.length)return {ok:false,error:'Tu empresa no tiene cartera pendiente'};
+  return MCEcPdf({cliente:emp,facturas:F}).then(function(o){return {ok:true,b64:o.blob,filename:o.nombre,fuente:'supabase'};});})
+  .catch(function(e){return {ok:false,error:'No se pudo generar el estado de cuenta: '+((e&&e.message)||e)};});}
+/* ---------- b434 ronda 3: consignación PDF, equipo del cliente, preview y fotos sin Apps Script ---------- */
+/* Fotos (antes proxyImagen en Apps Script): toda foto de producto vive en Supabase Storage (bucket público «fotos», CORS abierto).
+   Las URL viejas de inFlow se traducen a su copia en Supabase (ops-api fotos_url) y se leen directo desde el navegador. */
+function MCoffB64(u){return fetch(u,{mode:'cors',credentials:'omit'}).then(function(r){if(!r.ok)throw new Error('img');return r.blob();}).then(function(b){
+  /* fotos de varios MB → se reducen a 800 px (JPEG) para PDF/planilla; si el navegador no puede, va el archivo original */
+  if(b.size>350000&&typeof createImageBitmap==='function')return createImageBitmap(b).then(function(bm){var sc=Math.min(1,800/Math.max(bm.width,bm.height)),c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(bm.width*sc));c.height=Math.max(1,Math.round(bm.height*sc));var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(bm,0,0,c.width,c.height);
+    var d=c.toDataURL('image/jpeg',0.85);return {mime:'image/jpeg',b64:d.slice(d.indexOf(',')+1)};}).catch(function(){return MCoffB64raw(b);});
+  return MCoffB64raw(b);});}
+function MCoffB64raw(b){
+  return new Promise(function(ok,bad){var fr=new FileReader();fr.onload=function(){var s=String(fr.result||''),i=s.indexOf(',');ok({mime:(b.type&&b.type.indexOf('image/')===0)?b.type:'image/jpeg',b64:s.slice(i+1)});};fr.onerror=bad;fr.readAsDataURL(b);});}
+function MCoffFotos(p){var lote=!!(p.urls&&p.urls.length),L=(lote?p.urls:[p.url]).map(function(u){return String(u||'').trim();}).filter(Boolean).slice(0,40);
+  var esSb=function(u){return /^https:\/\/bklbvwpkrdaojbezljsd\.supabase\.co\/storage\//i.test(u)||/^data:image\//i.test(u);};
+  var pedir=L.filter(function(u){return !esSb(u);});
+  return (pedir.length?MCops({op:'fotos_url',urls:pedir}):Promise.resolve({ok:true,fotos:[]})).then(function(m){var M={};((m&&m.fotos)||[]).forEach(function(f){if(f&&f.supabase)M[f.url]=f.supabase;});
+    return Promise.all(L.map(function(u){var s=esSb(u)?u:M[u];if(!s)return Promise.resolve({url:u,ok:false,error:'Foto sin copia en Supabase'});
+      if(/^data:image\//i.test(s)){var i=s.indexOf(',');return Promise.resolve({url:u,ok:true,mime:s.slice(5,s.indexOf(';')),b64:s.slice(i+1)});}
+      return MCoffB64(s).then(function(x){return {url:u,ok:true,mime:x.mime,b64:x.b64,fuente:'supabase'};},function(){return {url:u,ok:false,error:'No se pudo leer la foto'};});}));})
+  .then(function(R){if(lote)return {ok:true,imgs:R,fuente:'supabase'};var r=R[0]||{ok:false,error:'Falta la URL'};return r.ok?{ok:true,mime:r.mime,b64:r.b64,fuente:'supabase'}:{ok:false,error:r.error};});}
+/* PDF de consignación/alquiler: datos de portal-api consig_data (Supabase) y el mismo formato que armaba Apps Script. */
+function MCoffConsigPdf(p){var vista=String(p.vista||'ambos').toLowerCase();if(vista!=='consig'&&vista!=='alq')vista='ambos';
+  var norm=function(s){return String(s||'').toUpperCase().replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/Ñ/g,'N');};
+  return MCpost({action:'consig_data'}).then(function(data){if(!data||!data.ok)return data||{ok:false,error:'No se pudo cargar consignación'};
+    var nombreCli='',consig=[],alq=[];
+    if(data.admin){var want=String(p.cliente||'').trim(),wn=norm(want),cli=null;
+      (data.clientes||[]).forEach(function(c){if(!cli&&(!want||c.cliente===want||norm(c.cliente)===wn||(wn.indexOf('KLUANE')>=0&&norm(c.cliente).indexOf('KLUANE')>=0)))cli=c;});
+      if(!cli&&data.clientes&&data.clientes.length)cli=data.clientes[0];
+      if(!cli)return {ok:false,error:'Sin datos de consignación/alquiler para ese cliente'};
+      nombreCli=cli.cliente;consig=cli.consignacion||[];alq=cli.alquiler||[];}
+    else{nombreCli=data.empresa||'Cliente';consig=data.consignacion||[];alq=data.alquiler||[];}
+    var lim1=data.limiteDias||30,lim2=data.limiteExtendido||60,hoyS=new Date(Date.now()-5*3600e3).toISOString().slice(0,10);
+    var usaC=(vista!=='alq'),usaA=(vista!=='consig');
+    var todos=[];if(usaC)consig.forEach(function(it){todos.push(it);});if(usaA)alq.forEach(function(pr){(pr.items||[]).forEach(function(it){todos.push(it);});});
+    var urls=[];todos.forEach(function(it){if(it.img&&urls.indexOf(it.img)<0)urls.push(it.img);});
+    return Promise.all([loadJsPDF(),Promise.all(urls.map(function(u){return mcLoadImg(u).catch(function(){return null;});}))]).then(function(pk){
+      var jsPDF=pk[0],IM={};urls.forEach(function(u,i){if(pk[1][i]&&String(pk[1][i]).indexOf('data:image/')===0)IM[u]=pk[1][i];});
+      var doc=new jsPDF({unit:'pt',format:'a4',compress:true}),W=595.28,H=841.89,M=28,CW=W-2*M,y=M,OL=[60,68,37],bot=H-M;
+      var t=function(s){return String(s==null?'':s).replace(/[“”«»]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').replace(/…/g,'...').replace(/[^\x00-\xFF]/g,'?');};
+      var f=function(b,sz,c){doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(sz);c=c||[26,26,26];doc.setTextColor(c[0],c[1],c[2]);};
+      var hr=function(yy,w,c){doc.setDrawColor(c[0],c[1],c[2]);doc.setLineWidth(w);doc.line(M,yy,W-M,yy);};
+      var nueva=function(){doc.addPage();y=M;};
+      var cabe=function(h){if(y+h>bot&&y>M+1)nueva();};
+      var dur=function(d){d=Math.max(0,parseInt(d,10)||0);var a=Math.floor(d/365),m=Math.floor((d%365)/30),dd=(d%365)%30,P=[];if(a)P.push(a+' año'+(a===1?'':'s'));if(m)P.push(m+' mes'+(m===1?'':'es'));if(dd||!P.length)P.push(dd+' día'+(dd===1?'':'s'));return P.join(', ');};
+      var est=function(d){return d>lim2?['A FACTURAR',[192,57,43]]:d>lim1?['ATENCIÓN',[230,126,34]]:['AL DÍA',[30,132,73]];};
+      var foto=function(u,x,yy){var d=u&&IM[u];if(!d)return;try{doc.addImage(d,d.indexOf('image/png')>0?'PNG':'JPEG',x,yy,52,52);doc.setDrawColor(221,221,221);doc.setLineWidth(0.75);doc.roundedRect(x,yy,52,52,3,3,'S');}catch(e){}};
+      var caja=function(titulo,plazo){hr(y,2,OL);y+=19;f(1,15,OL);doc.text(titulo,M,y);y+=8;
+        var fila=function(k,v){y+=14;f(1,11);doc.text(k,M,y);f(0,11);doc.text(t(v),W-M,y,{align:'right'});};
+        fila('Cliente',nombreCli);fila('Fecha',hoyS);if(plazo)fila('Plazo consignación',lim1+' días · ext. '+lim2);y+=9;hr(y,1,[197,201,184]);y+=14;};
+      /* encabezado: logo + empresa */
+      var lw=0;try{if(typeof MC_PICK_LOGO!=='undefined'){doc.addImage(MC_PICK_LOGO,'PNG',M,y,96,59.8);lw=108;}}catch(e){}
+      var E=['RUC 1793194965001','Alpallana y Diego de Almagro','Quito, Pichincha','170518 Ecuador','www.minecore.ec'];
+      f(1,12,OL);doc.text('MINECORE S.A.S',M+lw,y+11);f(0,10,[51,51,51]);E.forEach(function(s,i){doc.text(s,M+lw,y+24+i*11.5);});y+=Math.max(62,24+5*11.5)+10;
+      caja(vista==='alq'?'Reporte de alquiler':'Reporte de consignación',vista!=='alq');
+      f(0,10,[85,85,85]);doc.text(vista==='alq'?'Equipos en alquiler agrupados por proyecto.':'Agrupado por producto. Bajo cada producto: despachos/lotes con acta, fecha, cantidad y tiempo.',M,y);y+=6;
+      var sec=function(tit){cabe(40);y+=18;f(1,14,OL);doc.text(t(tit),M,y);y+=8;};
+      var bloqueNombre=function(it,x,ancho){f(1,12);var ln=doc.splitTextToSize(t(it.nombre||''),ancho);return ln;};
+      var hayC=false,hayA=false;
+      if(usaC&&consig.length){hayC=true;sec('Consignación');
+        var cw=[.28,.16,.12,.18,.26].map(function(r){return r*CW;}),cx=[M];for(var i=1;i<5;i++)cx[i]=cx[i-1]+cw[i-1];
+        consig.forEach(function(it){var ln=bloqueNombre(it,0,CW-60),lot=it.lotes||[],hCab=Math.max(56,ln.length*14+16)+6,hT=22+lot.length*22;
+          if(y+hCab+hT>bot&&hCab+hT<bot-M)nueva();else cabe(hCab+44);
+          y+=10;foto(it.img,M,y);f(1,12);doc.text(ln,M+60,y+(56-ln.length*14-12)/2+11);
+          f(0,10,[102,102,102]);doc.text(t((it.sku?'SKU '+it.sku+' · ':'')+it.total+' und.'),M+60,y+(56-ln.length*14-12)/2+11+ln.length*14);y+=hCab-4;
+          var th=function(){f(1,9.5);var H2=['Acta / despacho','Fecha','Cant.','Días','Tiempo / estado'];H2.forEach(function(h,j){if(j<2)doc.text(h,cx[j]+4,y+12);else doc.text(h,cx[j]+cw[j]/2,y+12,{align:'center'});});y+=18;hr(y,2,[51,51,51]);};
+          th();
+          lot.forEach(function(l,ix){if(y+22>bot){nueva();th();}
+            if(ix%2===1){doc.setFillColor(245,245,245);doc.rect(M,y,CW,22,'F');}
+            f(0,10);doc.text(t(l.acta||'—').slice(0,40),cx[0]+4,y+14);doc.text(t(l.fecha||'—'),cx[1]+4,y+14);doc.text(String(l.qty),cx[2]+cw[2]/2,y+14,{align:'center'});doc.text(String(l.dias||0),cx[3]+cw[3]/2,y+14,{align:'center'});
+            var e=est(+l.dias||0),a=t(dur(l.dias))+' · ',fz=10;f(0,10);var wa=doc.getTextWidth(a);f(1,10);var wb=doc.getTextWidth(t(e[0]));if(wa+wb>cw[4]-6){fz=Math.max(6.5,10*(cw[4]-6)/(wa+wb));wa=wa*fz/10;wb=wb*fz/10;}var x0=cx[4]+cw[4]/2-(wa+wb)/2;
+            f(0,fz);doc.text(a,x0,y+14);f(1,fz,e[1]);doc.text(t(e[0]),x0+wa,y+14);y+=22;hr(y,0.75,[224,224,224]);});
+          y+=6;});}
+      else if(usaC&&vista==='consig'){y+=16;f(0,11,[102,102,102]);doc.text('Sin productos en consignación.',M,y);}
+      if(usaA&&alq.length){hayA=true;if(hayC){nueva();caja('Reporte de alquiler',false);}
+        alq.forEach(function(pr){var its=pr.items||[];if(!its.length)return;sec('Alquiler'+(pr.proyecto?' — '+pr.proyecto:''));
+          var th=function(){f(1,9.5);doc.text('Foto',M+4,y+12);doc.text('Producto',M+64,y+12);doc.text('Cant.',W-M-CW*.06,y+12,{align:'center'});y+=18;hr(y,2,[51,51,51]);};th();
+          its.forEach(function(it,ix){f(1,12);var ln=doc.splitTextToSize(t(it.nombre||''),CW*.88-70),h=Math.max(64,ln.length*14+28);if(y+h>bot){nueva();th();}
+            if(ix%2===1){doc.setFillColor(245,245,245);doc.rect(M,y,CW,h,'F');}
+            foto(it.img,M+4,y+(h-52)/2);var ty=y+(h-(ln.length*14+12))/2+11;f(1,12);doc.text(ln,M+64,ty);f(0,10,[102,102,102]);doc.text(t((it.sku?'SKU '+it.sku+' · ':'')+(it.total!=null?it.total:'')+' und.'),M+64,ty+ln.length*14);
+            f(0,10);doc.text(String(it.total!=null?it.total:''),W-M-CW*.06,y+h/2+4,{align:'center'});y+=h;hr(y,0.75,[224,224,224]);});});}
+      else if(usaA&&vista==='alq'){y+=16;f(0,11,[102,102,102]);doc.text('Sin equipos en alquiler.',M,y);}
+      var safe=String(nombreCli||'Cliente').replace(/[\\\/:\*\?"<>\|]/g,' ').replace(/ +/g,' ').trim()||'Cliente';
+      return {ok:true,b64:doc.output('blob'),filename:'CONSIGNACIÓN Y ALQUILER - '+safe+' '+hoyS+'.pdf',fuente:'supabase',fotos:Object.keys(IM).length+'/'+urls.length};});})
+  .catch(function(e){return {ok:false,error:'No se pudo generar el PDF de consignación: '+((e&&e.message)||e)};});}
+function MCoffInflow(p){var a=String((p&&p.action)||'');
+  if(!MC_OFF_RX.test(a))return null;
+  try{console.info('b434-off: '+a+' → Supabase');}catch(e){}
+  if(MC_OFF_FALLBACK.test(a))return Promise.resolve({ok:false,_off:true,error:'El servidor de Minecore no respondió. Vuelve a intentar en un momento.'});
+  if(a==='miOrden')return MCops({op:'mi_orden',ov:p.ov});
+  if(a==='getConsignacionPdf')return MCoffConsigPdf(p);
+  if(a==='proxyImagen')return MCoffFotos(p);
+  if(a==='teamSave')return MCops({op:'team_guardar',nombre:p.nombre,modulos:p.modulos,activo:p.activo});
+  if(a==='teamDelete')return MCops({op:'team_borrar',nombre:p.nombre});
+  if(a==='previewUserView')return MCops({op:'preview_usuario',targetUser:p.targetUser});
+  if(a==='getInflowOrdenes')return MCoffOrdenes(p.tipo,p.count||p.limit);
+  if(a==='getOrderPdf')return MCoffPdf(p.orderId||p.salesOrderId);
+  if(a==='miEstadoCuentaPdf')return MCoffEdcPdf();
+  if(a==='matchMiEmpresa')return MCops({op:'mi_empresa_match'});
+  if(a==='confirmarMiEmpresa')return MCops({op:'mi_empresa_confirmar',empresa:p.empresa});
+  if(a==='syncNow')return Promise.resolve({ok:true,ovs:0,ocs:0,segundos:0,hora:new Date(Date.now()-5*3600e3).toISOString().slice(11,19),mensaje:'Ya no hace falta sincronizar: Minecore es la fuente de datos.'});
+  if(a==='getOrderDetail')return MCoffGet(p.orderId||p.salesOrderId).then(function(g){if(!g||!g.ok)return g||{ok:false,error:'Orden no existe'};var o=g.orden||{},dt=0;
+    var lines=(g.lineas||[]).filter(function(l){return !l.is_discarded;}).map(function(l){var q=+l.quantity||0,pu=+l.unit_price||0,pc=+l.discount_pct||0,dm=pc>0?Math.round(q*pu*pc)/100:0;dt+=dm;
+      return {producto:l.nombre||l.description||'',sku:l.sku||'',cantidad:String(q),precio:Math.round(pu*100)/100,subtotal:Math.round((+l.subtotal||0)*100)/100,desc:pc>0?pc+'%':'',descMonto:dm,img:l.img||''};});
+    return {ok:true,ov:o.order_number||'',cliente:(g.cliente&&g.cliente.name)||'',fecha:String(o.order_date||'').slice(0,10),inventoryStatus:o.inventory_status||'',isInvoiced:!!o.is_invoiced,isQuote:!!o.is_quote,lines:lines,
+      resumen:{subtotal:+o.subtotal||0,iva:+o.tax1||0,total:+o.total||0,descuento:Math.round(dt*100)/100,costo:null,utilidad:null,margen:null},notas:String(o.order_remarks||o.remarks||'').trim(),fuente:'supabase'};});
+  if(a==='setOrderFulfillment')return MCoffGet(p.orderId||p.salesOrderId).then(function(g){if(!g||!g.ok)return g||{ok:false,error:'Orden no existe'};var o=g.orden||{};
+    var want=(p.fulfilled===true||p.fulfilled==='true'||p.fulfilled===1||p.fulfilled==='1');
+    if(!want)return MCoffDeshacer(o.id).then(function(r){if(r&&r.ok)return {ok:true,orderId:p.orderId||p.salesOrderId,orderNumber:o.order_number,inventoryStatus:'Unfulfilled',fulfilled:false,fuente:'supabase'};return r;});
+    var fin=function(){return {ok:true,orderId:p.orderId||p.salesOrderId,orderNumber:o.order_number,inventoryStatus:'Fulfilled',fulfilled:true,isInvoiced:!!o.is_invoiced,fuente:'supabase'};};
+    return MCpost({action:'ventas',op:'fulfill',id:o.id}).then(function(pv){if(!pv||!pv.ok)return pv;if(pv.ya)return fin();
+      if(pv.faltantes&&pv.faltantes.length)return {ok:false,error:'Falta stock: '+pv.faltantes.map(function(f){return f.sku+' '+String(f.nombre||'').slice(0,40)+' (faltan '+f.falta+')';}).join(', ')+'. Abre '+o.order_number+' en Ventas para un despacho parcial.'};
+      return MCpost({action:'ventas',op:'fulfill',id:o.id,confirmar:true,clave:'b434off-'+o.id+'-'+Date.now()}).then(function(r){return (r&&r.ok)?fin():r;});});});
+  return Promise.resolve(MCoffMsg(a));}
+/* Pestañas viejas del Cotizador (🧾 Cotizaciones / 📦 Órdenes de venta): ahora leen Supabase en vez de devolver vacío. */
+(function(){function arma(){if(typeof MCWarm==='undefined'||!MCWarm||MCWarm._off434)return false;MCWarm._off434=1;
+  MCWarm.loadInflow=function(tipo){var t=tipo==='orden'?'orden':'quote';return MCoffOrdenes(t,(MCWarm.RECENT||5)).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'No se pudo cargar');var rows=r.ordenes||[];try{MCWarm.absorbInflow(t,rows);}catch(e){}return rows;});};return true;}
+  if(!arma())document.addEventListener('DOMContentLoaded',arma);})();
+/* ---------- 🧾 Facturas SRI y retenciones (Conta) ---------- */
+var MCConta=(function(){
+  var D=null,tab='fac',abierto=null,busy=false,arch=null,lectura=null;
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function m(n){return '$'+(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function hoy(){return new Date(Date.now()-5*3600e3).toISOString().slice(0,10);}
+  function css(){if(document.getElementById('mcct-css'))return;var st=document.createElement('style');st.id='mcct-css';st.textContent=
+    '#mcct{position:fixed;inset:0;z-index:9000;background:#0b1219;color:#dce6f0;overflow:auto;font-family:-apple-system,"Segoe UI",Roboto,sans-serif}'+
+    '#mcct .hd{position:sticky;top:0;background:#0b1219;display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1c2a3a;z-index:2}#mcct h2{margin:0;font-size:17px;flex:1}'+
+    '#mcct .x{background:none;border:0;color:#8fa3b8;font-size:22px;cursor:pointer}#mcct .bd{padding:10px 16px 60px;max-width:1280px;margin:0 auto}'+
+    '#mcct table{width:100%;border-collapse:collapse;font-size:13px}#mcct th{text-align:left;color:#8fa3b8;font-weight:600;padding:6px 8px;border-bottom:1px solid #1c2a3a;white-space:nowrap}'+
+    '#mcct td{padding:7px 8px;border-bottom:1px solid #13202d;vertical-align:top}#mcct td.r,#mcct th.r{text-align:right;white-space:nowrap}#mcct td.n{color:#8fa3b8;width:28px}'+
+    '#mcct .ln{background:none;border:0;border-bottom:1px solid #2a3d52;color:#dce6f0;padding:5px 2px;font:inherit;min-width:0}#mcct .ln:focus{outline:none;border-bottom-color:#E8FF00}'+
+    '#mcct .f{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;padding:8px 0}#mcct .f label{display:flex;flex-direction:column;font-size:11px;color:#8fa3b8;gap:2px}'+
+    '#mcct .btn{background:#E8FF00;color:#0b1219;border:0;border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer}#mcct .btn2{background:none;color:#9fc3e8;border:0;cursor:pointer;padding:6px 8px;font:inherit}'+
+    '#mcct .ok{color:#6fd68f}#mcct .er{color:#ff8a80}#mcct .mu{color:#8fa3b8;font-size:12px}#mcct .tabs{display:flex;gap:6px;margin:6px 0 10px}#mcct a{color:#9fc3e8;text-decoration:none}'+
+    '@media(max-width:700px){#mcct td,#mcct th{padding:6px 4px;font-size:12px}#mcct .bd{padding:8px 8px 60px}#mcct .f input.ln{max-width:150px}}';document.head.appendChild(st);}
+  function el(){return document.getElementById('mcct-b');}
+  function abrir(){css();var d=document.getElementById('mcct');if(!d){d=document.createElement('div');d.id='mcct';document.body.appendChild(d);}
+    d.innerHTML='<div class="hd"><h2>🧾 Facturas SRI y retenciones</h2><label class="btn2">📎 Leer XML del SRI<input type="file" accept=".xml,text/xml" style="display:none" onchange="MCConta.xml(this)"></label><button class="x" onclick="MCConta.cerrar()" title="Cerrar">✕</button></div><div class="bd" id="mcct-b"><div class="mu">Cargando…</div></div>';
+    cargar();}
+  function cerrar(){var d=document.getElementById('mcct');if(d)d.remove();}
+  function cargar(){MCops({op:'conta_pendientes',dias:150}).then(function(r){if(!r||!r.ok){el().innerHTML='<div class="er">'+e(r&&r.error||'No se pudo cargar')+'</div>';return;}D=r;pinta();});}
+  function chip(t,txt){return '<button class="chip '+(tab===t?'on':'')+'" onclick="MCConta.tab(\''+t+'\')">'+txt+'</button>';}
+  function pinta(){if(!D||!el())return;var h='<div class="tabs">'+chip('fac','Por facturar ('+D.por_facturar.length+')')+chip('ret','Facturadas sin retención ('+D.sin_retencion.length+')')+'</div>';
+    if(lectura)h+=lecturaHtml();
+    if(tab==='fac'){h+='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>OV</th><th>Cliente</th><th>Fecha</th><th class="r">Total</th><th>Despacho</th><th class="r">Adjuntos</th><th></th></tr></thead><tbody>';
+      D.por_facturar.forEach(function(x,i){h+='<tr><td class="n">'+(i+1)+'</td><td><a href="#" onclick="MCoffAbrirOV(\''+e(x.ov)+'\');return false;">'+e(x.ov)+'</a></td><td>'+e(x.cliente)+'</td><td>'+e(x.fecha)+'</td><td class="r">'+m(x.total)+'</td><td>'+e(x.inv||x.estado)+'</td><td class="r">'+x.adjuntos+'</td><td class="r"><button class="btn2" onclick="MCConta.form(\'fac\',\''+x.id+'\')">Facturar</button></td></tr>';
+        if(abierto&&abierto.id===x.id&&abierto.t==='fac')h+='<tr><td></td><td colspan="7">'+formFac(x)+'</td></tr>';});
+      if(!D.por_facturar.length)h+='<tr><td colspan="8" class="mu">Nada pendiente de facturar.</td></tr>';h+='</tbody></table></div>';}
+    else{h+='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>OV</th><th>Cliente</th><th>Factura</th><th>Fecha factura</th><th class="r">Total</th><th class="r">Saldo</th><th></th></tr></thead><tbody>';
+      D.sin_retencion.forEach(function(x,i){h+='<tr><td class="n">'+(i+1)+'</td><td><a href="#" onclick="MCoffAbrirOV(\''+e(x.ov)+'\');return false;">'+e(x.ov)+'</a></td><td>'+e(x.cliente)+'</td><td>'+e(x.factura)+'</td><td>'+e(x.ffact)+'</td><td class="r">'+m(x.total)+'</td><td class="r">'+m(x.saldo)+'</td><td class="r"><button class="btn2" onclick="MCConta.form(\'ret\',\''+x.id+'\')">Retención</button></td></tr>';
+        if(abierto&&abierto.id===x.id&&abierto.t==='ret')h+='<tr><td></td><td colspan="7">'+formRet(x)+'</td></tr>';});
+      if(!D.sin_retencion.length)h+='<tr><td colspan="8" class="mu">Todas las facturas del período tienen retención o están pagadas.</td></tr>';h+='</tbody></table></div>';}
+    el().innerHTML=h;}
+  function v(id){var x=document.getElementById(id);return x?x.value.trim():'';}
+  function pre(k,d){return abierto&&abierto.pre&&abierto.pre[k]!=null?abierto.pre[k]:d;}
+  function formFac(x){return '<div class="f"><label>Nº factura SRI<input class="ln" id="ct-num" placeholder="001-001-000001270" value="'+e(pre('numero',''))+'" style="width:170px"></label>'+
+    '<label>Fecha<input class="ln" id="ct-fec" type="date" value="'+e(pre('fecha',hoy()))+'"></label><label>Total factura<input class="ln" id="ct-mon" inputmode="decimal" value="'+e(pre('total',''))+'" placeholder="'+(+x.total).toFixed(2)+'" style="width:110px"></label>'+
+    '<label>Días crédito<input class="ln" id="ct-cd" inputmode="numeric" placeholder="ficha" style="width:70px"></label><label>PDF / XML<input id="ct-arch" type="file" accept=".pdf,.xml,image/*" onchange="MCConta.arch(this)"></label>'+
+    '<button class="btn2" onclick="MCConta.enviar(true)">Revisar</button><button class="btn" onclick="MCConta.enviar(false)">Registrar factura</button></div><div id="ct-msg" class="mu">El total debe cuadrar con la OV ('+m(x.total)+') ±$0.05. inFlow se actualiza solo por la cola.</div>';}
+  function formRet(x){return '<div class="f"><label>Nº comprobante<input class="ln" id="ct-num" placeholder="001-999-000034800" value="'+e(pre('numero',''))+'" style="width:170px"></label>'+
+    '<label>Fecha<input class="ln" id="ct-fec" type="date" value="'+e(pre('fecha',hoy()))+'"></label><label>Monto retenido<input class="ln" id="ct-mon" inputmode="decimal" value="'+e(pre('total',''))+'" style="width:110px"></label>'+
+    '<label>Detalle<input class="ln" id="ct-det" placeholder="Renta 312 2% · IVA 30%" value="'+e(pre('detalle',''))+'" style="width:220px"></label><label>PDF / XML<input id="ct-arch" type="file" accept=".pdf,.xml,image/*" onchange="MCConta.arch(this)"></label>'+
+    '<button class="btn2" onclick="MCConta.enviar(true)">Revisar</button><button class="btn" onclick="MCConta.enviar(false)">Registrar retención</button></div><div id="ct-msg" class="mu">Máximo: saldo '+m(x.saldo)+' + $0.05. Se registra como pago RETENCIÓN.</div>';}
+  function form(t,id,pre0){abierto=(abierto&&abierto.id===id&&abierto.t===t&&!pre0)?null:{t:t,id:id,pre:pre0||null};arch=null;tab=t;pinta();}
+  function leeArch(inp,cb){var f=inp.files&&inp.files[0];if(!f)return cb(null);if(f.size>15*1024*1024){alert('Máximo 15 MB');inp.value='';return cb(null);}
+    var rd=new FileReader();rd.onload=function(){cb({nombre:f.name,base64:String(rd.result).split(',')[1]});};rd.readAsDataURL(f);}
+  function setArch(inp){leeArch(inp,function(a){arch=a;});}
+  function msg(t,cl){var x=document.getElementById('ct-msg');if(x){x.className=cl||'mu';x.innerHTML=t;}}
+  function enviar(mock){if(busy||!abierto)return;var t=abierto.t,p={op:t==='fac'?'conta_facturar':'conta_retencion',so:abierto.id,fecha:v('ct-fec'),mock:!!mock};
+    if(t==='fac'){p.numero_sri=v('ct-num');p.monto_factura=v('ct-mon').replace(',','.');if(v('ct-cd')!=='')p.credit_days=v('ct-cd');}
+    else{p.comprobante=v('ct-num');p.monto=v('ct-mon').replace(',','.');p.detalle=v('ct-det');}
+    if(arch)p.archivo=arch;
+    if(!mock&&!confirm(t==='fac'?'¿Registrar la factura '+(p.numero_sri||'(del XML)')+'? Queda en Minecore y se copia a inFlow por la cola.':'¿Registrar la retención '+(p.comprobante||'(del XML)')+'?'))return;
+    busy=true;msg('<span class="mc-spin"></span> '+(mock?'Revisando…':'Guardando…'));
+    MCops(p).then(function(r){busy=false;if(!r||!r.ok){msg('✖ '+e(r&&r.error||'No se pudo'),'er');return;}
+      if(mock){msg('✓ Todo cuadra: '+(t==='fac'?'factura '+e(r.factura)+' · '+e(r.fecha)+' · '+r.credit_days+' días · total '+m(r.total_factura)+' vs OV '+m(r.total_ov)+' (dif '+(+r.diferencia).toFixed(2)+')'+(r.refacturar?' · reemplaza '+e(r.refacturar):''):'retención '+e(r.comprobante)+' · '+m(r.monto)+' · saldo '+m(r.saldo_antes)+' → '+m(r.saldo_despues))+(arch?' · adjunto '+e(arch.nombre):''),'ok');return;}
+      try{MCsaved();}catch(x){}abierto=null;arch=null;lectura=null;cargar();})
+    .catch(function(x){busy=false;msg('✖ '+e(x&&x.message||x),'er');});}
+  function xml(inp){leeArch(inp,function(a){inp.value='';if(!a)return;arch=null;MCops({op:'conta_leer_xml',base64:a.base64}).then(function(r){if(!r||!r.ok){alert(r&&r.error||'No pude leer el XML');return;}r._arch=a;lectura=r;pinta();});});}
+  function lecturaHtml(){var r=lectura,h='<div style="padding:8px 0 12px;border-bottom:1px solid #1c2a3a;margin-bottom:8px"><b>XML: '+(r.tipo==='factura'?'Factura ':r.tipo==='retencion'?'Retención ':'documento ')+e(r.numero||'')+'</b> <span class="mu">'+e(r.fecha||'')+' · '+m(r.total)+(r.tipo==='retencion'?' · sustenta '+e((r.facturas||[]).join(', ')):'')+'</span>';
+    if(r.aviso)h+='<div class="er">'+e(r.aviso)+'</div>';if(r.ya_registrada_en)h+='<div class="er">Ya está registrada en '+e(r.ya_registrada_en)+'.</div>';
+    var C=r.candidatas||[];if(!C.length)h+='<div class="mu">No encontré una OV que cuadre (RUC y total ±$0.05, o factura sustento).</div>';
+    else C.forEach(function(c){h+='<div style="margin-top:4px">'+e(c.ov)+' · '+m(c.total)+(c.factura?' · fac '+e(c.factura):'')+(c.saldo!=null?' · saldo '+m(c.saldo):'')+' <button class="btn2" onclick="MCConta.usar(\''+c.id+'\')">Usar esta</button></div>';});
+    return h+' <button class="btn2" onclick="MCConta.quitarXml()">Quitar</button></div>';}
+  function usar(id){var r=lectura;if(!r)return;var t=r.tipo==='retencion'?'ret':'fac';
+    var L=t==='fac'?D.por_facturar:D.sin_retencion,ok=L.some(function(x){return x.id===id;});
+    if(!ok&&t==='fac'){var o=(r.candidatas||[]).filter(function(c){return c.id===id;})[0];if(o&&o.facturada){alert(o.ov+' ya está facturada ('+(o.factura||'sin nº')+'). Ábrela en Ventas para corregir la factura.');MCoffAbrirOV(o.ov);return;}}
+    if(!ok){alert('Esa OV no está en la lista de pendientes (¿ya tiene '+(t==='fac'?'factura':'retención')+'?).');return;}
+    form(t,id,{numero:r.numero,fecha:r.fecha,total:r.total,detalle:(r.detalle||[]).map(function(d){return (d.codigo==='1'?'Renta':d.codigo==='2'?'IVA':'Imp')+' '+d.cod_ret+' '+d.pct+'% s/'+d.base.toFixed(2)+'='+d.valor.toFixed(2);}).join('; ')});arch=r._arch;}
+  function quitarXml(){lectura=null;pinta();}
+  return {abrir:abrir,cerrar:cerrar,tab:function(t){tab=t;abierto=null;pinta();},form:function(t,id){form(t,id);},arch:setArch,enviar:enviar,xml:xml,usar:usar,quitarXml:quitarXml};
+})();
+
 </script>
 </body>
 </html>
