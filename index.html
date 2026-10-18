@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='432';
+  var MC_BUILD='433';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -642,7 +642,7 @@ var MC_SB_LECT=/^(nav_reorden|nav_auditoria|meta|clientes|catalogos|productos|li
 /* b344: escrituras de bodega/recepción/stock directo a Supabase (portal-api → ventas-api), sin el salto por Apps Script; Apps Script solo si no hay sesión o Supabase no responde */
 var MC_SB_ESCR=/^(pick|pack|ship|fulfill|pick_edit|pick_undo|pack_undo|ship_edit|ship_undo|po_receive|stk_transfer|stk_adjust|stk_count_start|stk_count_save|stk_count_complete|stk_cancel)$/;
 var MC_SB_DOWN=0,MC_SB_REF=null;
-var MC_SB_ONLY=/^(cli_nombres|precot_bandeja|costeo)$/ /* b364: costeo solo Supabase (Apps Script no conoce 'costeo') */; /* b360-gas-cot: cotizador solo Supabase */
+var MC_SB_ONLY=/^(cli_nombres|precot_bandeja|costeo|getCotDetalle|guardarCotizacion|guardarEntregasCot|guardarItemsCot|crearCotInflow|vincularClienteCot|getClienteInflowData|crearSolicitudInterna|editarCotCreada|editarOrdenInflow|convertirCotOrden|borrarPreCot|getUbicacionesCot|getPrecotsConvertidas|borrarPrecotsConvertidas|misCotizaciones|aprobarCotCliente|enviarCarrito)$/ /* b433: Cotizaciones 100 % Supabase (sin Apps Script ni hoja) */;var MC_COT_W=/^(crearCotInflow|editarCotCreada|editarOrdenInflow|convertirCotOrden|crearSolicitudInterna|enviarCarrito|aprobarCotCliente|borrarPrecotsConvertidas)$/ /* b364: costeo solo Supabase (Apps Script no conoce 'costeo') */; /* b360-gas-cot: cotizador solo Supabase */
 var MC_CAJA_RX=/^(getRutas|getGastos|getEntregas|getBalanceCaja|getConfig|updateConfig|crearRuta|editarRuta|aprobarRuta|rechazarRuta|crearGasto|aprobarGasto|rechazarGasto|crearEntrega|eliminarLineaCaja|eliminarEntrega|eliminarGasto|eliminarRuta|cerrarCorte|savePhoto)$/;
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
 function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
@@ -832,7 +832,7 @@ function MCpost0(p){
   if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var esW=p.action==='ventas'&&!MC_SB_LECT2.test(String(p.op||''));var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},esW?90000:Math.min(p._timeout||20000,20000)):null;
+  var esW=(p.action==='ventas'&&!MC_SB_LECT2.test(String(p.op||'')))||MC_COT_W.test(String(p.action||'')); /* b433: escrituras de cotización sin reintento automático (90 s) */var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},esW?90000:Math.min(p._timeout||20000,20000)):null;
   var t0=Date.now();
   return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl?ctl.signal:undefined})
     .then(function(r){if(timer)clearTimeout(timer);
@@ -8363,8 +8363,7 @@ var Cot = (function(){
     if(!confirm('¿Convertir la cotización '+o.num+' ('+o.cliente+') en ORDEN DE VENTA en inFlow?\n'+o.lineas.length+' línea(s) · Subtotal '+fmt(o.total)))return;
     el().innerHTML=tabsHtml()+'<div class="cbz-loading">Convirtiendo '+o.num+' en Orden de Venta...</div>';
     var p={action:'convertirCotOrden'};if(preId)p.id=preId;else p.salesOrderId=o.salesOrderId;
-    p.user=getUserName();p.pin=getPin();
-    mcConvVentas({inflow_id:o.salesOrderId,order_number:o.salesOrderId?'':o.num},p).then(function(res){
+    api(p).then(function(res){
       if(!res.ok){alert('Error: '+res.error);renderInflowLista();return;}
       alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despacharla.'+MCmoTxt(res));
       ioDet=null;MCWarm.markStale('both');cargarInflow({fresh:true, invalidateOther:true});
@@ -8749,7 +8748,7 @@ var Cot = (function(){
       :'El cliente aún no ha aprobado esta cotización.\n¿Convertirla en ORDEN DE VENTA de todas formas?';
     if(!confirm(msg))return;
     el().innerHTML='<div class="cbz-loading">Convirtiendo en Orden de Venta...</div>';
-    mcConvVentas({order_number:det.cot.inflowNum},{action:'convertirCotOrden',id:det.cot.id,user:getUserName(),pin:getPin()}).then(function(res){
+    api({action:'convertirCotOrden',id:det.cot.id}).then(function(res){
       if(!res.ok){alert('Error: '+res.error);abrir(det.cot.id);return;}
       alert('📦 ¡Lista! Orden de Venta en inFlow: '+res.numOV+'\nYa puedes despachar.'+MCmoTxt(res));
       abrir(det.cot.id);
