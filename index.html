@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='434';
+  var MC_BUILD='435';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2302,7 +2302,7 @@ function MCInflowDoc(kind, d, opt){
     }
     /* ---------- bloque de datos (etiqueta oliva + valor) ---------- */
     function grid(xs,rows,top){var y=top;
-      rows.forEach(function(r){var maxL=1;r.forEach(function(c,i){if(!c)return;var w=(i+1<xs.length?xs[i+1]-xs[i]:RIGHT-xs[i])-8;
+      rows.forEach(function(r){if(window.MC_PDF_OCULTA&&MC_PDF_OCULTA[kind]){r=r.map(function(c){return c&&(c[1]==null||String(c[1]).trim()===''||(Array.isArray(c[1])&&!c[1].filter(Boolean).length))?null:c;});if(!r.some(Boolean))return;}var maxL=1;r.forEach(function(c,i){if(!c)return;var w=(i+1<xs.length?xs[i+1]-xs[i]:RIGHT-xs[i])-8;
           txt(c[0],xs[i],y,10.3,1,OLIVE);var v=Array.isArray(c[1])?c[1]:[c[1]];var ls=[];v.forEach(function(s){ls=ls.concat(wrap(s,w,8.9,0));});if(!ls.length)ls=[''];
           ls.forEach(function(s,j){txt(s,xs[i],y+11.8+j*10.5,8.9,0);});maxL=Math.max(maxL,ls.length);});
         y+=11.8+maxL*10.5+12.2;});
@@ -2339,7 +2339,7 @@ function MCInflowDoc(kind, d, opt){
         });
         rect(LEFT,y+h-0.4,RIGHT-LEFT-(A4?0:4),0.8,HAIR);y+=h;});
       return {y:y,total:tot};}
-    function totalQty(y,t){var bx=403,bw=209,bh=24;if(y+bh+20>BOTTOM){doc.addPage();y=20;}rect(bx,y+18,bw,bh,OLIVE);txt('Total quantity',bx+6,y+18+6.5,10.3,1,WHITE);txt(qty(t),bx+bw-6,y+18+6.5,10.3,1,WHITE,'right');return y+18+bh;}
+    function totalQty(y,t){var bx=403,bw=209,bh=24;if(y+bh+20>BOTTOM){doc.addPage();y=20;}rect(bx,y+18,bw,bh,OLIVE);txt('Cantidad total',bx+6,y+18+6.5,10.3,1,WHITE);txt(qty(t),bx+bw-6,y+18+6.5,10.3,1,WHITE,'right');return y+18+bh;}
     /* condiciones + caja de totales oliva + línea bancaria + marcas (OV y cotización) */
     function cierre(y,conTotales){var need=230;if(y+need>BOTTOM){doc.addPage();y=30.7;}else y+=24;
       if(conTotales){txt('CONDICIONES COMERCIALES',28.5,y,8.9,0);
@@ -2352,7 +2352,7 @@ function MCInflowDoc(kind, d, opt){
       opt.__endY=y+72;opt.__endP=doc.getNumberOfPages();txt('Minecore S.A.S - RUC 1793194965001 - Banco Pichincha - Cuenta Corriente - 2100267034',PW/2,y,8.9,0,INK,'center');
       if(typeof MC_DOC_BRANDS!=='undefined'){var cx=[124,297,470];MC_DOC_BRANDS.forEach(function(b,i){var w=72,h=w*b.h/b.w;if(h>30){h=30;w=h*b.w/b.h;}image(b.img,cx[i]-w/2,y+50-h/2,w,h);});}
     }
-    var TITLES={po:'ORDEN DE COMPRA',so:'ORDEN DE VENTA',sq:'COTIZACIÓN DE VENTAS',sq_noprice:'COTIZACIÓN DE VENTAS',sq_nocat:'COTIZACIÓN DE VENTAS',receipt:'Receipt',pick:'Lista de preparación',packing:'Packing List',boxlabel:'Box label',boxcontent:'Box content list',invoice:'Invoice',pend:'Informe de pendientes',acta:'Acta de entrega y recepción'};
+    var TITLES={po:'ORDEN DE COMPRA',so:'ORDEN DE VENTA',sq:'COTIZACIÓN DE VENTAS',sq_noprice:'COTIZACIÓN DE VENTAS',sq_nocat:'COTIZACIÓN DE VENTAS',receipt:'Recibo',pick:'Lista de preparación',packing:'Lista de empaque',boxlabel:'Etiqueta de caja',boxcontent:'Contenido de caja',invoice:'Factura',pend:'Informe de pendientes',acta:'Acta de entrega y recepción'};
     var dir=d.direccion||[];
     var prodRows=lineas.filter(function(l){return kind==='so'||kind.indexOf('sq')===0||kind==='invoice'||l.item_type!=='service';});
     if(kind==='po'){ /* b389: OC con el mismo formato aprobado de OV/cotización */
@@ -2372,11 +2372,11 @@ function MCInflowDoc(kind, d, opt){
         rows.push([['Términos de pago',d.terminos],['Factura',d.factura],d.cotizacion?['Viene de cotización',d.cotizacion]:null]);}
       else rows.push([['Email',d.email],['Representante de ventas',d.representante],['Términos de pago',d.terminos]]);
       var y=grid([28.5,206.4,384.4],rows,134.4);
-      txt('A CONTINUACIÓN PRESENTAMOS NUESTRA OFERTA, QUE ESPERAMOS SEA DE SU CONFORMIDAD'+(kind==='so'?'.':''),28.5,y-1.5,8.9,0);
+      if(kind!=='so')txt('A CONTINUACIÓN PRESENTAMOS NUESTRA OFERTA, QUE ESPERAMOS SEA DE SU CONFORMIDAD',28.5,y-1.5,8.9,0);
       var cols=[{type:'num',x:34.5},{type:'prod',key:'p',head:'Producto',x:45.6,w:250,img:26}];
       if(kind!=='sq_nocat')cols.push({type:'text',key:'categoria',head:'Categoria',x:304.1,w:62});
       cols.push({type:'qty',key:'cantidad',head:'Cantidad',x:368.3,pad:2});
-      if(opt.entregas&&kind.indexOf('sq')===0){cols[cols.length-1].head='Cant.';if(kind!=='sq_noprice'){prodRows.forEach(function(l){var c=parseFloat(l.cantidad)||0;l._pf=c?Math.round((parseFloat(l.subtotal)||0)/c*100)/100:(parseFloat(l.precio)||0);});cols.push({type:'money',key:'_pf',head:'P. unitario',x:440,w:56,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:508,w:54,align:'right'});}}
+      if(opt.entregas&&kind.indexOf('sq')===0&&window.MC_SQ_PNETO){cols[cols.length-1].head='Cant.';if(kind!=='sq_noprice'){prodRows.forEach(function(l){var c=parseFloat(l.cantidad)||0;l._pf=c?Math.round((parseFloat(l.subtotal)||0)/c*100)/100:(parseFloat(l.precio)||0);});cols.push({type:'money',key:'_pf',head:'P. unitario',x:440,w:56,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:508,w:54,align:'right'});}}
       else if(kind!=='sq_noprice')cols.push({type:'money',key:'precio',head:'Precio\nunitario',x:410,w:51.8,align:'right'},{type:'pct',key:'descuento',head:'Descuento',x:465,w:46.8,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:515,w:46.7,align:'right'});
       if(kind==='sq_nocat'){cols[1].w=310;}
       cols[1].x=45.6;var t=prodRows.length?table(cols,prodRows,y+30):{y:y+20};
@@ -2386,7 +2386,7 @@ function MCInflowDoc(kind, d, opt){
         ty+=18;if(ty+30>BOTTOM){doc.addPage();ty=30.7;}txt('NOTAS',28.5,ty,8.9,1,OLIVE);ty+=15;
         OL.forEach(function(l){if(ty+12>BOTTOM){doc.addPage();ty=30.7;}txt(l,34.5,ty,8.9,0);ty+=12;});}
       cierre(ty,kind!=='sq_noprice');
-      if(opt.entregas&&kind.indexOf('sq')===0){txt('Tiempos de entrega por producto: ver página 2.',28.5,BOTTOM-4,8.9,0,QTYC);entregasPag(opt.entregas);}
+      if(opt.entregas&&(kind.indexOf('sq')===0||kind==='so')&&opt.entregas.length){txt('Tiempos de entrega por producto: ver página 2.',28.5,BOTTOM-4,8.9,0,QTYC);entregasPag(opt.entregas);}
     } else if(kind==='pend'){
       /* b341: Informe de pendientes por recibir (OC) / por entregar (OV), formato Stock Pilot */
       var so=d.tipo==='so',G={},ord=[];lineas.forEach(function(l){if(!G[l.num]){G[l.num]={num:l.num,fecha:l.fecha,ls:[]};ord.push(l.num);}G[l.num].ls.push(l);});
@@ -2428,32 +2428,32 @@ function MCInflowDoc(kind, d, opt){
         [28.5,306].forEach(function(fx,k){var f=F[k];if(!f)return;txt(f[0],fx,y,10.3,1,OLIVE);rect(fx,y+48,k?261:230,0.6,RULE);txt('Firma',fx,y+52,8.9,0,QTYC);txt(f[1]||'',fx,y+64,8.9,0,f[2]?QTYC:INK);});}
       var np=doc.getNumberOfPages();for(var pg=1;pg<=np;pg++){doc.setPage(pg);txt('Minecore S.A.S · '+(d.num||'')+' · pág. '+pg+'/'+np,PW/2,BOTTOM+20,7.6,0,QTYC,'center');}
     } else if(kind==='receipt'||kind==='invoice'){
-      letterhead(TITLES[kind],kind==='receipt'?[['Order number',d.num],['Invoiced date',fmtD(d.facturado)]]:[['Order number',d.num],['Invoiced date',fmtD(d.facturado)],['Fecha de vencimiento',fmtD(d.vence)]]);
+      letterhead(TITLES[kind],kind==='receipt'?[['Número de orden',d.num],['Fecha de factura',fmtD(d.facturado)]]:[['Número de orden',d.num],['Fecha de factura',fmtD(d.facturado)],['Fecha de vencimiento',fmtD(d.vence)]]);
       var rr=[[['Dirección de Envio',dir],['Dirección de envío',dir]],[['Contacto',d.contacto],['Teléfono',d.telefono]],[['Email',d.email],['Representante de ventas',d.representante]]];
       if(kind==='invoice')rr.push([['Fecha de vencimiento',fmtD(d.vence)],['Términos de pago',d.terminos]]);
-      rr.push([['FACTURA',d.factura],d.cotizacion?['Viene de cotización',d.cotizacion]:null]);
+      rr.push([['Factura',d.factura],d.cotizacion?['Viene de cotización',d.cotizacion]:null]);
       var y2=grid([0,306],rr,kind==='invoice'?93.9:87.9);
-      if(kind==='receipt'){table([{type:'num',x:6},{type:'prod',key:'p',head:'Product',x:17.1,w:410,img:16},{type:'text',key:'categoria',head:'Category',x:435.6,w:112},{type:'qty',key:'cantidad',head:'Cantidad',x:555.4,pad:4}],prodRows,y2+5);}
-      else{var ti=table([{type:'prod',key:'p',head:'Product',x:6,w:262,img:14},{type:'qty',key:'cantidad',head:'Cantidad',x:275.3,pad:4},{type:'money',key:'precio',head:'Precio unitario',x:370,w:67.7,align:'right'},{type:'pct',key:'descuento',head:'Discount',x:460,w:45,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:540,w:66,align:'right'}],prodRows,y2+5);
+      if(kind==='receipt'){table([{type:'num',x:6},{type:'prod',key:'p',head:'Producto',x:17.1,w:410,img:16},{type:'text',key:'categoria',head:'Categoría',x:435.6,w:112},{type:'qty',key:'cantidad',head:'Cantidad',x:555.4,pad:4}],prodRows,y2+5);}
+      else{var ti=table([{type:'prod',key:'p',head:'Producto',x:6,w:262,img:14},{type:'qty',key:'cantidad',head:'Cantidad',x:275.3,pad:4},{type:'money',key:'precio',head:'Precio unitario',x:370,w:67.7,align:'right'},{type:'pct',key:'descuento',head:'Discount',x:460,w:45,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:540,w:66,align:'right'}],prodRows,y2+5);
         var ty=ti.y+20;if(ty+70>BOTTOM){doc.addPage();ty=20;}
         txt('Subtotal',412,ty,8.9,0,[90,90,90]);txt(money(d.subtotal),606,ty,8.9,0,[90,90,90],'right');
         if(parseFloat(d.iva)>0){txt('IVA '+qty(d.iva_pct)+'%',412,ty+19,8.9,0,[90,90,90]);txt(money(d.iva),606,ty+19,8.9,0,[90,90,90],'right');}
         rect(412,ty+35,194,0.7,RULE);txt('Total',412,ty+42,10.3,1);txt(money(d.total),606,ty+42,10.3,1,INK,'right');}
     } else if(kind==='pick'){
-      letterhead('Lista de preparación',[['Order number',d.num],['Fecha',fmtD(d.fecha)],['Cliente',d.cliente],['RUC',d.ruc]]);
-      var y3=grid([0,201.9,403.9],[[['Cliente',d.cliente],['Contacto',d.contacto],['Teléfono',d.telefono]],[['Email',d.email],['Representante de ventas',d.representante],['FACTURA',d.factura]],[['Fecha de vencimiento',fmtD(d.vence)]]],105.9);
+      letterhead('Lista de preparación',[['Número de orden',d.num],['Fecha',fmtD(d.fecha)],['Cliente',d.cliente],['RUC',d.ruc]]);
+      var y3=grid([0,201.9,403.9],[[['Cliente',d.cliente],['Contacto',d.contacto],['Teléfono',d.telefono]],[['Email',d.email],['Representante de ventas',d.representante],['Factura',d.factura]],[['Fecha de vencimiento',fmtD(d.vence)]]],105.9);
       /* inFlow ordena el pick list por sububicación para recorrer la bodega */
       var pr=prodRows.slice().sort(function(a,b){return String(a.sububicacion||'~').localeCompare(String(b.sububicacion||'~'),'es',{numeric:true});});
-      var tp=table([{type:'num',x:6},{type:'check',x:16},{type:'prod',key:'p',head:'Product',x:32.1,w:330,img:38},{type:'text',key:'categoria',head:'Category',x:366.2,w:54},{type:'text',key:'ubicacion',head:'Ubicación',x:421.9,w:62},{type:'text',key:'sububicacion',head:'Sububicación',x:485.5,w:68},{type:'qty',key:'cantidad',head:'Cantidad',x:556.3,pad:4}],pr,y3+5);
+      var tp=table([{type:'num',x:6},{type:'check',x:16},{type:'prod',key:'p',head:'Producto',x:32.1,w:330,img:38},{type:'text',key:'categoria',head:'Categoría',x:366.2,w:54},{type:'text',key:'ubicacion',head:'Ubicación',x:421.9,w:62},{type:'text',key:'sububicacion',head:'Sububicación',x:485.5,w:68},{type:'qty',key:'cantidad',head:'Cantidad',x:556.3,pad:4}],pr,y3+5);
       totalQty(tp.y,tp.total);
     } else if(kind==='packing'||kind==='boxlabel'||kind==='boxcontent'){
       var groups=cajas.length?cajas.map(function(k){return {k:k,ls:k.lineas};}):[{k:null,ls:prodRows}];
       groups.forEach(function(g,gi){if(gi>0)doc.addPage();
-        var sub=kind==='packing'?null:('Box '+(gi+1)+' of '+groups.length);
-        if(kind==='packing'){letterhead('Packing List',[['Order number',d.num],['Date',fmtD(d.fecha)],['Customer',d.cliente],['Customer ID',d.ruc]]);
-          var y4=grid([0,201.9,403.9],[[['Customer',d.cliente],['Id number',d.ruc],['Address',dir]],[['Contact name',d.contacto],['Telephone',d.telefono],['Email',d.email]]],105.9);
+        var sub=kind==='packing'?null:('Caja '+(gi+1)+' de '+groups.length);
+        if(kind==='packing'){letterhead('Lista de empaque',[['Número de orden',d.num],['Fecha',fmtD(d.fecha)],['Cliente',d.cliente],['RUC',d.ruc]]);
+          var y4=grid([0,201.9,403.9],[[['Cliente',d.cliente],['RUC',d.ruc],['Dirección',dir]],[['Contacto',d.contacto],['Teléfono',d.telefono],['Email',d.email]]],105.9);
           var ls=g.ls.map(function(l){var o={};for(var k in l)o[k]=l[k];o.peso_tot=(l.peso!=null&&l.peso!=='')?(parseFloat(l.peso)||0)*(parseFloat(l.cantidad)||0):null;return o;});
-          var tk=table([{type:'num',x:6},{type:'prod',key:'p',head:'Product',x:17.1,w:395,img:36},{type:'kg',key:'peso',head:'Weight',x:422.1},{type:'qty',key:'cantidad',head:'Cantidad',x:485.4,pad:2},{type:'kg',key:'peso_tot',head:'Total weight',x:548.8}],ls,y4+5);
+          var tk=table([{type:'num',x:6},{type:'prod',key:'p',head:'Producto',x:17.1,w:395,img:36},{type:'kg',key:'peso',head:'Peso',x:422.1},{type:'qty',key:'cantidad',head:'Cantidad',x:485.4,pad:2},{type:'kg',key:'peso_tot',head:'Peso total',x:548.8}],ls,y4+5);
           var pw=0;ls.forEach(function(l){pw+=l.peso_tot||0;});var gk=g.k||{};var vol=(gk.largo&&gk.ancho&&gk.alto)?gk.largo*gk.ancho*gk.alto:0;
           var yy=tk.y+15;txt('Estimated Order Weight',311,yy,10.3,1,OLIVE);txt('Estimated Order Volume',462,yy,10.3,1,OLIVE);
           txt(qty(gk.peso||pw)+'kg',311,yy+12,8.9,0);txt(qty(Math.round(vol*1000)/1000)+'m³',462,yy+12,8.9,0);
@@ -2461,9 +2461,9 @@ function MCInflowDoc(kind, d, opt){
           if(gk.peso||gk.largo)txt((gk.peso?qty(gk.peso)+' kg':'')+(gk.largo?'   '+qty(gk.largo)+' × '+qty(gk.ancho)+' × '+qty(gk.alto)+' m':''),306,yy+120,8.9,0,INK,'center');
           rect(0,yy+155,612,0.7,[170,170,170]);
         } else {
-          letterhead(kind==='boxlabel'?'Box label':'Box content list',[['Order number',d.num],['Fecha',fmtD(d.fecha)],['Cliente',d.cliente],['RUC',d.ruc]],sub);
-          var y5=grid([0,153,306,459],[[['Dirección de envío',dir],['Contacto',d.contacto],['Teléfono',d.telefono],['Email',d.email]],[['FACTURA',d.factura]]],116.4);
-          if(kind==='boxcontent'){var tb=table([{type:'num',x:6},{type:'prod',key:'p',head:'Product',x:17.1,w:430,img:38},{type:'qty',key:'cantidad',head:'Cantidad',x:453.6,pad:2},{type:'barcode',key:'barcode',head:'Barcode',x:503,w:106}],g.ls,y5+5);totalQty(tb.y,tb.total);}
+          letterhead(kind==='boxlabel'?'Etiqueta de caja':'Contenido de caja',[['Número de orden',d.num],['Fecha',fmtD(d.fecha)],['Cliente',d.cliente],['RUC',d.ruc]],sub);
+          var y5=grid([0,153,306,459],[[['Dirección de envío',dir],['Contacto',d.contacto],['Teléfono',d.telefono],['Email',d.email]],[['Factura',d.factura]]],116.4);
+          if(kind==='boxcontent'){var tb=table([{type:'num',x:6},{type:'prod',key:'p',head:'Producto',x:17.1,w:430,img:38},{type:'qty',key:'cantidad',head:'Cantidad',x:453.6,pad:2},{type:'barcode',key:'barcode',head:'Código de barras',x:503,w:106}],g.ls,y5+5);totalQty(tb.y,tb.total);}
         }
       });
     } else if(kind==='labels'){
@@ -4094,10 +4094,10 @@ var DashV2=(function(){
     h+='<div id="dvx"></div>';
     host.innerHTML=h;try{MCDashX.mount(r);}catch(ex){try{console.warn('dvx',ex);}catch(_){}}var sc=document.getElementById('dv-hscroll');if(sc)sc.scrollLeft=(sx!==undefined&&det.indexOf('h:')===0)?sx:sc.scrollWidth;
   }
-  function load(){var rg=rango(tab),ck='mc_dash_sb_'+tab+'_'+rg.from+'_'+rg.to,t0=Date.now();
+  function load(){var rg=rango(tab),ck='mc_dash_l_'+tab+'_'+rg.from+'_'+rg.to,t0=Date.now();
     /* b258: Supabase primero (dash_cfo), se pinta al instante lo último guardado y se refresca; Google (getCfo) solo si Supabase falla */
-    try{var c0=JSON.parse(localStorage.getItem(ck)||'null');if(c0&&c0.ok&&Date.now()-(c0._t||0)<6*3600e3){data=c0;cargando=false;render();}else{cargando=true;render();}}catch(x){cargando=true;render();}
-    var pedir=function(){return MCpost({action:'ventas',op:'dash_cfo',tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'sin datos');
+    try{var c0=JSON.parse(localStorage.getItem(ck)||'null');if(c0&&c0.ok&&Date.now()-(c0._t||0)<6*3600e3){data=c0;window.MC_DASH_R=c0;cargando=false;render();}else{cargando=true;render();}}catch(x){cargando=true;render();}
+    var pedir=function(){return MCpost({action:'ventas',op:'dash_cfo',lite:true,tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'sin datos');r._q={tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to};window.MC_DASH_R=r;
         try{window.MC_DASH_MS=Date.now()-t0;r._t=Date.now();localStorage.setItem(ck,JSON.stringify(r));}catch(x){try{localStorage.removeItem(ck);}catch(y){}}return r;})
       .catch(function(e1){return {ok:false,error:(e1&&e1.message)||'Sin conexión con Minecore (Supabase)'};});}; /* b363-notif: sin getCfo de Google */
     pedir().then(function(r){if(rango(tab).from!==rg.from)return;cargando=false;if(!(r&&r.ok)&&data)return;data=(r&&r.ok)?r:null;
@@ -6827,6 +6827,7 @@ var Cot = (function(){
     czCliente=v;czCliQ='';czQ='';czCat='';czLin='';czDesc='';czMm='';czModo='buscar';czUbic='BP';
     czCartSet(window.MC_czPreL||[]);window.MC_czPreL=null; // cada cotización nace en CERO (salvo precarga del Planificador)
     renderCotizador();
+    try{MCcliGate(v,null,function(){if(czCliente===v){czCliente='';renderCotizador();}});}catch(e){} /* b435 */
   }
   function czElegir(){
     var v=(document.getElementById('cz-cli')||{}).value||'';
@@ -9443,11 +9444,11 @@ var Consig = (function(){
     }
     el.innerHTML=extBanner+h;
   }
-  function descargar(){
+  function descargar(nm){
     if(!data){alert('Aún no hay datos de consignación');return;}
     var pdfTab=mcArmPdfTab();
     var cli=data.admin?data.clientes[cliSel]:data;
-    var nombreCli=data.admin?cli.cliente:data.empresa;
+    var nombreCli=(typeof nm==='string'&&nm)||(data.admin?cli.cliente:data.empresa);
     api({action:'getConsignacionPdf',cliente:nombreCli,vista:'ambos'}).then(function(res){
       if(!res.ok){mcClosePdfTab_(pdfTab);alert(res.error||'No se pudo generar el PDF');return;}
       if(!res.b64){mcClosePdfTab_(pdfTab);alert('El servidor no devolvió el PDF (sin datos). Reintenta o avisa a soporte.');return;}
@@ -9458,6 +9459,9 @@ var Consig = (function(){
     }).catch(function(e){mcClosePdfTab_(pdfTab);alert(MCerr(e)+'.');});
   }
 
+  function pdfCli(ci){var c=(data&&data.clientes||[])[ci];if(c)descargar(c.cliente);}
+  function pdfResumen(){if(!data)return;if(!data.admin){descargar();return;}var todos=(data.clientes||[]).filter(function(c){return (c.consignacion||[]).length||(c.alquiler||[]).length;}).map(function(c){return c.cliente;});
+    var sel=rsCli.filter(function(n){return todos.indexOf(n)>=0;});if(sel.length===1){descargar(sel[0]);return;}if(!todos.length){alert('No hay clientes con consignación ni alquiler.');return;}MCconsigElegirPdf(sel.length?sel:todos,function(n){descargar(n);});}
   function subsHtml(cli){
     if(!data.admin||!data.sububicaciones)return '';
     var amb=vistaC==='alq'?'alq':'consig';
@@ -9532,7 +9536,7 @@ var Consig = (function(){
             todos.map(function(n){return '<label style="display:block;padding:4px 2px;font-size:13px;cursor:pointer"><input type="checkbox" '+(rsCli.indexOf(n)>=0?'checked':'')+' onchange="Consig.rsCli(\''+escH(n).replace(/'/g,"\\'")+'\',this.checked)"> '+escH(n)+'</label>';}).join('')+'</div>':'')+'</div>'+
         '<input class="cbz-search" placeholder="🔍 Producto, SKU, acta o proyecto" value="'+escH(rsQ)+'" oninput="Consig.rsQ(this.value)" id="rs-q" style="flex:2 1 200px;margin:0">'+
         '<select class="uinput" style="flex:0 1 150px;margin:0" onchange="Consig.rsEst(this.value)">'+[['','Todos los estados'],['ok','🟢 Al día'],['tom','🟠 Atención'],['red','🔴 '+(alq?'+'+data.limiteExtendido+' días':'A facturar')]].map(function(o){return '<option value="'+o[0]+'"'+(rsEst===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'+
-        '<select class="uinput" style="flex:0 1 150px;margin:0" onchange="Consig.rsOrd(this.value)">'+[['dias','Más antiguo'],['cliente','Cliente A→Z'],['producto','Producto A→Z']].map(function(o){return '<option value="'+o[0]+'"'+(rsOrd===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div></div>'+
+        '<select class="uinput" style="flex:0 1 150px;margin:0" onchange="Consig.rsOrd(this.value)">'+[['dias','Más antiguo'],['cliente','Cliente A→Z'],['producto','Producto A→Z']].map(function(o){return '<option value="'+o[0]+'"'+(rsOrd===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select><button class="chip" style="flex:0 0 auto;margin:0" onclick="Consig.pdfResumen()">⬇ Descargar PDF</button></div></div>'+
       '<div class="cbz-card" id="rs-res">'+rsTabla(V,alq)+'</div>';
     return h;}
   function rsTabla(V,alq){if(!V.length)return '<div class="cbz-muted" style="padding:12px;text-align:center">Sin '+(alq?'equipos en alquiler':'productos en consignación')+' con estos filtros.</div>';
@@ -9540,7 +9544,7 @@ var Consig = (function(){
     return '<style>.rs-t{width:100%;border-collapse:collapse;font-size:12.5px}.rs-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px;border-bottom:1px solid #26405c;white-space:nowrap}.rs-t td{padding:6px;border-bottom:1px solid #1c2a3a;vertical-align:middle}.rs-t .n{text-align:right}'+
       '@media(max-width:760px){.rs-t thead{display:none}.rs-t tr{display:block;border-bottom:1px solid #26405c;padding:8px 0}.rs-t td{display:flex;justify-content:space-between;gap:8px;border:0;padding:2px 0}.rs-t td:before{content:attr(data-l);color:#8fa3b8;font-size:11px}.rs-t td.pr:before{content:none}}</style>'+
       '<table class="rs-t"><thead><tr><th>Cliente</th>'+(alq?'<th>Proyecto</th>':'')+'<th>Producto</th><th class="n">Cant.</th><th>Acta</th><th>Entregado</th><th>Tiempo</th></tr></thead><tbody>'+
-      V.map(function(f){return '<tr><td data-l="Cliente"><a href="#" style="color:#9fc3e8;text-decoration:none" onclick="Consig.rsAbrir('+f.ci+');return false;">'+escH(f.cliente)+'</a></td>'+(alq?'<td data-l="Proyecto">'+escH(f.proyecto)+'</td>':'')+
+      V.map(function(f){return '<tr><td data-l="Cliente"><a href="#" style="color:#9fc3e8;text-decoration:none" onclick="Consig.rsAbrir('+f.ci+');return false;">'+escH(f.cliente)+'</a> <a href="#" title="Descargar PDF de este cliente" style="color:#e6ff00;text-decoration:none;font-size:11px;white-space:nowrap" onclick="Consig.pdfCli('+f.ci+');return false;">⬇ PDF</a></td>'+(alq?'<td data-l="Proyecto">'+escH(f.proyecto)+'</td>':'')+
         '<td class="pr"><div style="display:flex;gap:8px;align-items:center">'+(f.it.img?'<img src="'+f.it.img+'" class="pimg" loading="lazy" style="width:36px;height:36px" onerror="this.style.display=\'none\'">':'')+'<div><div style="font-weight:600">'+escH(f.it.nombre)+'</div><div class="pmeta">'+escH(f.it.sku)+'</div></div></div></td>'+
         '<td class="n" data-l="Cant.">'+fmtQty(f.l.qty)+'</td><td data-l="Acta">'+escH(f.l.acta)+'</td><td data-l="Entregado">'+escH(f.l.fecha||'—')+'</td><td data-l="Tiempo">'+est(f)+'</td></tr>';}).join('')+'</tbody></table>';}
   var rsT=null;
@@ -9549,7 +9553,7 @@ var Consig = (function(){
   function toggle(k){abiertos[k]=!abiertos[k];render();}
   function setCli(i){cliSel=i;abiertos={};render();}
   function setV(v){vistaC=v;abiertos={};actaSel=null;render();}
-  return {rsTogDrop:function(){rsDrop=!rsDrop;render();},rsCliTodos:function(on){rsCli=on?[]:['__ninguno__'];try{localStorage.setItem('mc_consig_cli',JSON.stringify(rsCli));}catch(e){}render();},rsCli:function(n,on){rsCli=rsCli.filter(function(x){return x!=='__ninguno__';});rsCliSet(n,on);},rsQ:rsQset,rsEst:function(v){rsEst=v;render();},rsOrd:function(v){rsOrd=v;render();},
+  return {pdfResumen:pdfResumen,pdfCli:pdfCli,rsTogDrop:function(){rsDrop=!rsDrop;render();},rsCliTodos:function(on){rsCli=on?[]:['__ninguno__'];try{localStorage.setItem('mc_consig_cli',JSON.stringify(rsCli));}catch(e){}render();},rsCli:function(n,on){rsCli=rsCli.filter(function(x){return x!=='__ninguno__';});rsCliSet(n,on);},rsQ:rsQset,rsEst:function(v){rsEst=v;render();},rsOrd:function(v){rsOrd=v;render();},
     rsAbrir:function(ci){modo='cliente';cliSel=ci;abiertos={};render();},rsVolver:function(){modo='resumen';if(vistaC==='actas')vistaC='consig';render();},init:init,setV:setV,setCli:setCli,filterCli:filterCli,toggle:toggle,descargar:descargar,pedirExt:pedirExt,resolverExt:resolverExt,asignar:asignar,verActa:verActa,qActa:qActa,todos:todos};
 
 })();
@@ -11857,7 +11861,7 @@ var Ventas = (function(){
     cerrarOv();document.body.appendChild(m);try{history.pushState({vtov:1},'');}catch(e){}}
   function cerrarOv(){var m=document.getElementById('vt-ov');if(m)m.remove();}
   window.addEventListener('popstate',function(){cerrarOv();});
-  function pdfBlob(prom,nombre){var tab=mcArmPdfTab();return prom.then(function(blob){return mcDownloadBlob(blob,nombre,'application/pdf',tab);}).catch(function(e){mcClosePdfTab_(tab);err(e);});}
+  function pdfBlob(prom,nombre){try{toast('Generando PDF…');}catch(e){}prom=MCtimeout(prom,60000,new Error('El PDF tardó más de 60 s. Reintenta.'));var tab=mcArmPdfTab();return prom.then(function(blob){return mcDownloadBlob(blob,nombre,'application/pdf',tab);}).catch(function(e){mcClosePdfTab_(tab);err(e);});}
   function titulo(){return tipo==='SQ'?'COTIZACIONES':'ÓRDENES DE VENTA';}
   function init(t){tipo=t==='SO'?'SO':'SQ';cur=null;form=null;f={cliente:'',estado:tipo==='SQ'?'cotizacion':'',desde:'',hasta:'',q:''};try{var fs=JSON.parse(localStorage.getItem('mc_lst_filt_'+tipo)||'null');if(fs&&typeof fs==='object')for(var k in fs)f[k]=fs[k];}catch(e){} /* b295: filtros recordados por usuario */
     if(!cat)api({op:'catalogos'}).then(function(r){if(r.ok)cat=r;}).catch(function(){});
@@ -11966,13 +11970,13 @@ var Ventas = (function(){
     el().style.opacity='.6';api({op:'save',orden:O,lineas:L,forzar_facturada:(o.is_invoiced&&!o.is_quote)||undefined}).then(function(r){el().style.opacity='';if(!r.ok)throw new Error(r.error);var dv=r.stock_devuelto||[];if(dv.length)alert('Stock devuelto automáticamente a su ubicación de origen:\n'+dv.map(function(x){return '• '+x.q+' u. vuelven a '+(x.sublocation||'(sin sububicación)');}).join('\n'));cb();}).catch(function(e){el().style.opacity='';alert(e.message||e);});}
   function abrir(id,quiet){if(quiet===undefined&&cur&&cur.orden&&cur.orden.id===id)quiet=true; /* b373 */if(DIRTY){return mcDirtyAsk(function(){ieGuardar(function(){abrir(id);});},function(){DIRTY=null;abrir(id);});}MD=true;
     var _sy=window.scrollY,_sc=el().scrollTop;if(quiet!==true)el().innerHTML='<div class="cbz-loading">Cargando orden...</div>';
-    api({op:'get',id:id}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Respuesta vacía del servidor');if(!r.orden||!r.orden.id)throw new Error('El servidor no devolvió la orden');var prev=cur;if(!cur||cur.orden.id!==r.orden.id)dv='orden';cur=r;/* b318: lo recién creado/duplicado/dividido aparece en la lista al instante */if(lista&&lista.length&&!lista.some(function(x){return x.id===r.orden.id;})&&!!r.orden.is_quote===(tipo==='SQ')){lista.unshift({id:r.orden.id,order_number:r.orden.order_number,cliente:(r.cliente||{}).name,total:r.orden.total,balance:r.orden.balance,payment_status:r.orden.payment_status,estado:r.orden.estado,order_date:r.orden.order_date,is_quote:r.orden.is_quote});setTimeout(function(){cargar(true);},400);}try{renderDetalle();if(quiet===true){try{el().scrollTop=_sc;window.scrollTo(0,_sy);}catch(_){}if(typeof quiet==='function')quiet();}}catch(x){cur=prev;throw x;}if(quiet===true&&abrir._cb){var c=abrir._cb;abrir._cb=null;c();}}).catch(function(e){detErr(e,'Ventas.abrir(\''+String(id).replace(/[^0-9a-f-]/gi,'')+'\')');});
+    api({op:'get',id:id}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Respuesta vacía del servidor');if(!r.orden||!r.orden.id)throw new Error('El servidor no devolvió la orden');var prev=cur;if(!cur||cur.orden.id!==r.orden.id)dv='orden';cur=MCentNormDoc(r);/* b318: lo recién creado/duplicado/dividido aparece en la lista al instante */if(lista&&lista.length&&!lista.some(function(x){return x.id===r.orden.id;})&&!!r.orden.is_quote===(tipo==='SQ')){lista.unshift({id:r.orden.id,order_number:r.orden.order_number,cliente:(r.cliente||{}).name,total:r.orden.total,balance:r.orden.balance,payment_status:r.orden.payment_status,estado:r.orden.estado,order_date:r.orden.order_date,is_quote:r.orden.is_quote});setTimeout(function(){cargar(true);},400);}try{renderDetalle();if(quiet===true){try{el().scrollTop=_sc;window.scrollTo(0,_sy);}catch(_){}if(typeof quiet==='function')quiet();}}catch(x){cur=prev;throw x;}if(quiet===true&&abrir._cb){var c=abrir._cb;abrir._cb=null;c();}}).catch(function(e){detErr(e,'Ventas.abrir(\''+String(id).replace(/[^0-9a-f-]/gi,'')+'\')');});
   }
   /* b308: si la orden no se puede abrir, se muestra el error en la pantalla (sin alert ni pantalla colgada) */
   function detErr(e,retry){cur=null;form=null;var m=typeof e==='string'?e:(e&&e.message?e.message:MCerr(e));el().innerHTML='<div class="cbz-card" style="border-color:#e05c5c"><b style="color:#e05c5c">⚠ No se pudo abrir la orden</b><div class="cbz-muted" style="font-size:12.5px;margin:6px 0 10px">'+esc(m)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" onclick="Ventas.lista()">← Volver a la lista</button>'+(retry?'<button class="cbz-btn" onclick="'+retry+'">⟳ Reintentar</button>':'')+'</div></div>';}
   function abrirNum(ov){ /* b270: abrir por número (desde el Dashboard) */
     el().innerHTML='<div class="cbz-loading">Cargando '+esc(ov)+'...</div>';
-    api({op:'get',order_number:ov}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Respuesta vacía del servidor');if(!r.orden||!r.orden.id)throw new Error('No se encontró '+ov);dv=window._mcTabIni||'orden';window._mcTabIni='';cur=r;renderDetalle();}).catch(function(e){detErr(e,'Ventas.abrirNum(\''+esc(String(ov).replace(/[^A-Za-z0-9-]/g,''))+'\')');});}
+    api({op:'get',order_number:ov}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Respuesta vacía del servidor');if(!r.orden||!r.orden.id)throw new Error('No se encontró '+ov);dv=window._mcTabIni||'orden';window._mcTabIni='';cur=MCentNormDoc(r);renderDetalle();}).catch(function(e){detErr(e,'Ventas.abrirNum(\''+esc(String(ov).replace(/[^A-Za-z0-9-]/g,''))+'\')');});}
   function recargar(){if(cur)abrir(cur.orden.id);}
   /* b244: vista tipo inFlow — Orden | Pick | Pack | Ship (tablas con foto y nombre; en celular se apilan) */
   var dv='orden';
@@ -12016,7 +12020,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
         '<button class="chip" onclick="Ventas.etiquetas()">🏷 Etiquetas DYMO (19×51)</button>'+((cur.cajas||[]).length?'<button class="chip" onclick="Ventas.setDv(\'ship\')">🚚 Ship →</button>':'')+'</div>');}
     else {
       h+=seccion('Ship · envíos',(((cur.envios||[]).length?mcGT([{k:'f',h:'Fecha',w:'86px'},{k:'car',h:'Transportista',w:'minmax(0,1fr)'},{k:'g',h:'Guía',w:'minmax(0,1fr)'},{k:'cj',h:'Cajas',b:1},{k:'x',h:'&nbsp;',w:'64px',cls:'x'}],cur.envios.map(function(s){return {f:d10(s.shipped_date),car:esc(s.carrier||''),g:s.tracking_number?'<b>'+esc(s.tracking_number)+'</b>':'',cj:esc((s.containers||[]).join(', ')),
-  x:ab?'<button title="Editar" onclick="Ventas.shipEd(\''+s.id+'\')">✏️</button><button class="del" title="Deshacer envío" onclick="Ventas.shipUndo(\''+s.id+'\')">↩️</button>':''};})):'')||'<div class="cbz-muted">Aún no se ha enviado.</div>')+(ab&&(cur.envios||[]).length?'<div style="margin-top:8px">'+edBtn("MCoffDeshacerUI('"+esc(cur.orden.order_number)+"')",'↩ Deshacer despacho completo','#f0c040')+'</div>':'')+ /* b434-off */
+  x:ab?'<button title="Editar" onclick="Ventas.shipEd(\''+s.id+'\')">✏️</button><button class="del" title="Deshacer envío" onclick="Ventas.shipUndo(\''+s.id+'\')">↩️</button>':''};})):'')||'<div class="cbz-muted">Aún no se ha enviado.</div>')+(ab&&((cur.envios||[]).length||st.ship_estado==='enviado')?'<div style="margin-top:8px">'+edBtn("MCoffDeshacerUI('"+esc(cur.orden.order_number)+"')",'↩ Deshacer despacho completo','#f0c040')+'</div>':'')+ /* b434-off */
         (ab&&st.ship_estado!=='enviado'?'<div style="margin-top:8px"><button class="cbz-btn" onclick="Ventas.enviar()">🚚 Registrar envío</button></div>':''));}
     return h;}
   function pickFilas(ab){var P=cur.picks||[];if(!P.length)return '';var bloq=(cur.envios||[]).length?'envío':(cur.cajas||[]).length?'empaque':'';
@@ -12114,7 +12118,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     var h=VCSS+mcBloqStrip(c.name||c.nombre||'',o.customer_id)+'<div class="cbz-card-row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px"><button class="chip" onclick="Ventas.volver()">'+(window.MC_VOLVER_DASH?'← Volver al Dashboard':'← Lista')+'</button>'+
       (DIRTY?'<div style="position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;background:#3a2f0b;border:1px solid #c9a227;border-radius:8px;padding:6px 10px;margin:6px 0"><b style="color:#f5d36b;font-size:12px">● Cambios sin guardar</b><button class="cbz-btn cbz-btn-primary" onclick="Ventas.ieG()">Guardar</button><button class="cbz-btn" onclick="Ventas.ieD()">Descartar</button></div>':'')+(w&&abierta?'<button class="cbz-btn" onclick="Ventas.editar(1)">＋ Agregar producto</button>':(w&&!o.is_cancelled&&!esQ?'<span class="cbz-muted" style="font-size:11px;align-self:center">✏️ Facturada: para editar líneas quita la factura</span>':''))+(!esQ&&wb&&!o.is_cancelled&&(st.pick_estado!=='completo'||st.ship_estado!=='enviado')&&st.pick_estado!=='n/a'?'<button class="cbz-btn" style="background:#5cc8ff" onclick="Ventas.fulfill()">⚡ Fulfill</button>':'')+
       (w&&esQ&&!o.is_cancelled?'<button class="cbz-btn" onclick="Ventas.convertir()">➜ Convertir en OV</button>':'')+
-      (w&&abierta&&!(cur.picks||[]).length?'<button class="chip" onclick="Ventas.dividir()">✂️ Dividir</button>':'')+(w?'<button class="chip" onclick="Ventas.duplicar()">📋 Duplicar</button>':'')+
+      (w&&abierta&&!(cur.picks||[]).length?'<button class="chip" onclick="Ventas.dividir()">✂️ Dividir</button>':'')+(!esQ&&wb&&!o.is_cancelled&&(st.ship_estado==='enviado'||(cur.envios||[]).length)?'<button class="chip" style="color:#f0c040" onclick="MCoffDeshacerUI(\''+esc(o.order_number)+'\')">↩ Deshacer despacho</button>':'')+(w?'<button class="chip" onclick="Ventas.duplicar()">📋 Duplicar</button>':'')+
       (!o.is_quote&&!o.is_cancelled?(function(){var n=+cur.wa_conta_n||0; /* b326 (EFCH t515u): sin pill; botón siempre activo; reenvíos ilimitados; leyenda N envío(s) */
   return '<span style="display:inline-flex;flex-direction:column;align-items:center;vertical-align:top"><button class="chip" id="vt-solfac" onclick="Ventas.solFac()">🧾 Solicitar factura</button>'+(n?'<span class="cbz-muted" style="font-size:10.5px;margin-top:2px">'+n+' envío'+(n>1?'s':'')+'</span>':'')+'</span>';})():'')+'<button class="chip" onclick="Ventas.email()">✉ Email</button><span style="position:relative;display:inline-block"><button class="chip" onclick="Ventas.printMenu(event)">🖨 Print ▾</button><div id="vt-print" style="display:none;position:absolute;z-index:50;top:100%;left:0;min-width:210px;background:#13202e;border:1px solid #26405c;border-radius:10px;padding:4px;margin-top:4px">'+
         (esQ?[['sq','Cotización de ventas'],['sq_noprice','Cotización sin precio'],['sq_nocat','Cotización sin categoría']]:[['so','Orden de venta'],['planilla','Planilla con plazos y fotos (Cotizador)'],['receipt','Recibo'],['pick','Lista de preparación'],['packing','Packing list'],['boxlabel','Box label'],['boxcontent','Box content list'],['invoice','Factura'],['labels','Labels (DYMO 19×51 mm)']]).map(function(x){return '<div class="chip" style="display:block;margin:2px 0;border:none;text-align:left" onclick="Ventas.imprimir(\''+x[0]+'\')">'+x[1]+'</div>';}).join('')+'</div></span>'+
@@ -12154,7 +12158,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function volver(){if(DIRTY){return mcDirtyAsk(function(){ieGuardar(function(){volver();});},function(){DIRTY=null;volver();});}/* b344: al volver, reflejar al instante el estado de la orden abierta en la lista y refrescar en segundo plano (antes pintaba la lista vieja en memoria) */
     try{if(cur&&cur.orden){var oo=cur.orden;lista.forEach(function(x,i){if(x.id===oo.id){for(var k in oo)if(typeof oo[k]!=='object'||oo[k]===null)x[k]=oo[k];}});}}catch(_){}
     cur=null;form=null;if(window.MC_VOLVER_DASH&&DashV2.volverDash())return;renderLista();try{cargar(true);}catch(_){}}
-  function run(p,msg,after){if(busy)return;busy=true;api(p).then(function(r){busy=false;if(!r.ok){err(r.error);return;}if(msg)try{toast(msg);}catch(e){}if(after)after(r);else recargar();}).catch(function(e){busy=false;err(e);});}
+  function run(p,msg,after){if(busy&&Date.now()-(window._vtBusyT||0)<100000){try{toast('Aún se está procesando la acción anterior…');}catch(e){}return;}busy=true;window._vtBusyT=Date.now();try{if(p&&/^(save|convert|split|cancel)$/.test(p.op))toast(p.op==='save'?'Guardando…':'Procesando…');}catch(e){}api(p).then(function(r){busy=false;if(!r.ok){err(r.error);return;}if(msg)try{toast(msg);}catch(e){}if(after)after(r);else recargar();}).catch(function(e){busy=false;err(e);});}
   function convertir(){var _bc=cur.cliente&&(cur.cliente.name||cur.cliente.nombre);mcBloqGuard(_bc,cur.orden.customer_id,'convertir la cotización',parseFloat(cur.orden.total)||0).then(function(ok){if(ok)convertir_();});}function convertir_(){if(!confirm('¿Convertir '+cur.orden.order_number+' en orden de venta?'))return;run({op:'convert',id:cur.orden.id},'Convertida',function(r){alert('Orden de venta '+r.order_number+' creada desde '+r.quote_number);tipo='SO';abrir(r.id);});}
   function cancelar(){if(!confirm('¿Cancelar '+cur.orden.order_number+'?'))return;run({op:'cancel',id:cur.orden.id},'Cancelada');}
   /* ===== b272: Fulfill en un paso + edición en Pick/Pack/Ship/Pagos (Supabase original → espejo inFlow) ===== */
@@ -12258,20 +12262,17 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function verAdjunto(id){var w=window.open('','_blank');api({op:'attachmentUrl',file_id:id}).then(function(r){if(!r.ok){w&&w.close();err(r.error);return;}if(w)w.location=r.url;else location.href=r.url;}).catch(function(e){w&&w.close();err(e);});}
   function adjuntar(inp){var fl=inp.files&&inp.files[0];if(!fl||busy)return;if(fl.size>15*1024*1024){alert('Máximo 15 MB');return;}var rd=new FileReader();rd.onload=function(){run({op:'so_adjuntar',id:cur.orden.id,nombre:fl.name,base64:String(rd.result).split(',')[1]},'Adjunto subido',function(r){if(r.duplicado)alert('Ese archivo ya estaba adjunto');recargar();});};rd.readAsDataURL(fl);}
   /* ---------- dividir ---------- */
-  function dividir(){
-    var o=cur.orden,ls=cur.lineas||[];
-    var h='<div class="cbz-card"><div class="cbz-card-name">Dividir '+esc(o.order_number)+'</div><div class="cbz-muted" style="margin:6px 0">La orden quedará como '+esc(o.root_number)+'-1 con lo que no muevas; cada parte nueva toma el siguiente consecutivo ('+esc(o.root_number)+'-2, -3…). Indica cuánto pasa a cada parte.</div>'+
-      '<div style="overflow-x:auto"><table class="vt-table" style="width:100%;font-size:12px"><tr><th>SKU</th><th>Descripción</th><th>Cant.</th><th>Parte A</th><th>Parte B</th></tr>'+
-      ls.map(function(l,i){return '<tr><td>'+esc(l.sku||'')+'</td><td>'+esc(l.description||'')+'</td><td>'+l.quantity+'</td><td><input class="uinput" type="number" min="0" max="'+l.quantity+'" id="vt-sa'+i+'" style="width:70px"></td><td><input class="uinput" type="number" min="0" max="'+l.quantity+'" id="vt-sb'+i+'" style="width:70px"></td></tr>';}).join('')+
-      '</table></div><div style="margin-top:10px;display:flex;gap:6px"><button class="chip" onclick="Ventas.recargar()">Cancelar</button><button class="cbz-btn" onclick="Ventas.dividirOk()">✂️ Dividir</button></div></div>';
-    el().innerHTML=h;
-  }
-  function dividirOk(){
-    var ls=cur.lineas||[],A=[],B=[],bad='';
-    ls.forEach(function(l,i){var a=parseFloat($('vt-sa'+i).value)||0,b=parseFloat($('vt-sb'+i).value)||0;if(a+b>l.quantity)bad=l.sku||l.description;if(a>0)A.push({line_id:l.id,quantity:a});if(b>0)B.push({line_id:l.id,quantity:b});});
-    if(bad){alert('Cantidad mayor a la de la línea: '+bad);return;}var partes=[A,B].filter(function(p){return p.length;});if(!partes.length){alert('Indica cantidades');return;}
-    run({op:'split',id:cur.orden.id,partes:partes},'Dividida',function(r){alert('Órdenes: '+r.ordenes.map(function(x){return x.order_number;}).join(', '));abrir(cur.orden.id);});
-  }
+  /* b435: división automática. -1 (o la orden actual) se queda con lo que hay en stock; lo pendiente va a UNA parte nueva con su plazo. Sin Parte A/B manual. */
+  function dividir(){var o=cur.orden;el().innerHTML='<div class="cbz-loading">Revisando stock para dividir '+esc(o.order_number)+'…</div>';
+    api({op:'split',id:o.id,auto:true,preview:true}).then(function(r){if(!r||!r.ok){alert((r&&r.error)||'No se pudo revisar el stock');renderDetalle();return;}
+      var L=r.lineas||[],raiz=o.root_number||o.order_number,queda=o.split_path?o.order_number:raiz+'-1',nueva=o.split_path?'una parte nueva (siguiente consecutivo)':raiz+'-2';
+      var th='text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px;border-bottom:1px solid #26405c;white-space:nowrap',td='padding:6px;border-bottom:1px solid #1c2a3a;vertical-align:top';
+      var h='<div style="padding:4px 0"><div style="font-weight:700;font-size:15px">✂️ Dividir '+esc(o.order_number)+'</div><div class="cbz-muted" style="margin:6px 0 10px">Lo que hay en stock se queda en <b>'+esc(queda)+'</b>; lo pendiente pasa a <b>'+esc(nueva)+'</b>, con el plazo de entrega ofrecido en la cotización.</div>'+
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr><th style="'+th+'">#</th><th style="'+th+'">Producto</th><th style="'+th+';text-align:right">Cant.</th><th style="'+th+';text-align:right">Se queda (en stock)</th><th style="'+th+';text-align:right">Pasa a la parte nueva</th></tr></thead><tbody>'+
+        L.map(function(x,i){return '<tr><td style="'+td+'">'+(i+1)+'</td><td style="'+td+'"><b>'+esc(x.nombre||'')+'</b><div class="cbz-muted" style="font-size:11px">'+esc(x.sku||'')+'</div></td><td style="'+td+';text-align:right">'+x.cantidad+'</td><td style="'+td+';text-align:right">'+x.disponible+'</td><td style="'+td+';text-align:right;'+(x.pendiente>0?'color:#f0c040;font-weight:700':'')+'">'+x.pendiente+'</td></tr>';}).join('')+'</tbody></table></div>'+
+        '<div style="margin-top:12px;display:flex;gap:6px"><button class="chip" onclick="Ventas.recargar()">Cancelar</button><button class="cbz-btn" onclick="Ventas.dividirOk()">✂️ Dividir</button></div></div>';
+      el().innerHTML=h;}).catch(function(e){alert(MCerr(e));renderDetalle();});}
+  function dividirOk(){run({op:'split',id:cur.orden.id,auto:true},'Dividida',function(r){alert('Órdenes: '+(r.ordenes||[]).map(function(x){return x.order_number;}).join(', '));abrir(cur.orden.id);});}
   /* ---------- crear / editar ---------- */
   function nuevo(){refs={};descCli=0;histOpen={};form={orden:{is_quote:tipo==='SQ',order_date:hoy(),tax1_rate:mcIvaDef(),custom_fields:{},location_id:MCNotif.defBod()||undefined},lineas:[],cliente:null};cargarCats();renderForm();
     var dc=MCNotif.defCli();if(dc&&dc.id)api({op:'clientes',q:dc.name}).then(function(r){if(!form||form.cliente||form.orden.id)return;cliRes=r.clientes||[];var i=cliRes.map(function(c){return c.id;}).indexOf(dc.id);if(i>=0)elegirCliente(i);}).catch(function(){});}
@@ -12292,7 +12293,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     var credTxt=(function(){var tt=((cat&&cat.terminos)||[]).filter(function(x){return x.id===o.payment_terms_id;})[0],d=tt&&tt.days_due!=null?tt.days_due:(form.cliente&&form.cliente.credit_days);return d!=null&&form.cliente?'<div class="vf-hint">Crédito '+d+' días · vence = fecha de factura + '+d+(form._descCli?' · desc. cliente '+form._descCli+'%':'')+'</div>':'';})();
     var h=VF_CSS+'<div class="vf"><div class="vf-hd"><div style="min-width:0"><div class="vf-kind">'+(o.is_quote?'Cotización':'Orden de venta')+'</div><div class="vf-title">'+(o.id?'Editar '+esc(cur.orden.order_number):(o.is_quote?'Nueva cotización':'Nueva orden de venta'))+'</div>'+(cl?'<div class="vf-hcli">'+esc(cl.name)+'</div>':'')+'</div><div class="vf-htot"><span class="cbz-muted" style="font-size:12px">Total</span><b id="vt-htot">'+money(t.t)+'</b></div></div>'+
       vfS('cli','Cliente',esc(cl?cl.name:'Sin cliente')+(function(){var tt=((cat&&cat.terminos)||[]).filter(function(x){return x.id===o.payment_terms_id;})[0];return tt?' · '+esc(tt.name):'';})())+'<div class="vf-g">'+
-      (!o.id?vfF('Número '+(o.is_quote?'de cotización':'de orden'),'<input class="uinput" id="vt-num" value="'+esc(o.order_number||'')+'" placeholder="'+esc(form._numSug||'siguiente número')+'" style="text-transform:uppercase" oninput="Ventas._numEd(this.value)"><div class="vf-hint">Sugerido '+esc(form._numSug||'…')+' · puedes escribir otro (ej. MCOR-SO-001044-4-4-1)</div>','w2'):'')+
+      (!o.id?vfF('Número '+(o.is_quote?'de cotización':'de orden'),'<input class="uinput" id="vt-num" value="'+esc(o.order_number||form._numSug||'')+'" placeholder="'+esc(form._numSug||'siguiente número')+'" style="text-transform:uppercase" oninput="Ventas._numEd(this.value)">','w2'):'')+
       vfF('Cliente',(cl?'<span class="vf-cli pf2-v pf2-can" title="Cambiar cliente" onclick="Ventas.cambiarCliente()">'+esc(cl.name)+'</span>':'<input class="uinput" id="vt-cq" placeholder="Buscar cliente…" oninput="Ventas.buscarCliente(this.value)"><div id="vt-cres"></div>'),'w2')+
       vfF('Contacto','<input class="uinput" id="vt-ct" list="vt-ctl" value="'+esc(o.contact_name||'')+'"><datalist id="vt-ctl">'+((cl&&cl.contactos)||[]).map(function(k){return '<option value="'+esc(k.name)+'">';}).join('')+'</datalist>')+
       vfF('Términos','<select class="uinput" id="vt-pt"><option value="">—</option>'+opt(cat&&cat.terminos,o.payment_terms_id||(cl&&cl.payment_terms_id)||null,function(x){return x.name;})+'</select>'+credTxt)+
@@ -12390,8 +12391,8 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function quitarPartes(i){leerForm();var l=form.lineas[i];l.entrega={};sincEnt(l);renderForm();}
   function otraLinea(i){leerForm();var l=form.lineas[i],c={};for(var k in l)if(k!=='id')c[k]=l[k];c.entrega={};c.quantity=1;form.lineas.splice(i+1,0,c);sincEnt(c);renderForm();}
   function moverA(i,v){leerForm();var j=Math.max(0,Math.min(form.lineas.length-1,(parseInt(v,10)||1)-1));var x=form.lineas.splice(i,1)[0];form.lineas.splice(j,0,x);histOpen={};renderForm();}
-  function numSug(){var o=form&&form.orden;if(!o||o.id||form._numSugQ)return;form._numSugQ=1;api({op:'get',next_number:o.is_quote?'SQ':'SO'}).then(function(r){if(!form||form.orden!==o)return;form._numSug=r.numero;if(!o.order_number||o._numAuto){o.order_number=r.numero;o._numAuto=true;}var x=$('vt-num');if(x){x.value=o.order_number;x.placeholder=r.numero;var n=x.nextSibling;if(n)n.textContent='Sugerido '+r.numero+' · puedes escribir otro (ej. MCOR-SO-001044-4-4-1)';}}).catch(function(){});}
-  function leerForm(){var o=form.orden;if(!$('vt-loc'))return;if($('vt-num')){var nv=$('vt-num').value.trim().toUpperCase();o.order_number=nv||form._numSug||undefined;}o.contact_name=$('vt-ct').value.trim();o.location_id=$('vt-loc').value||null;o.payment_terms_id=$('vt-pt').value||null;o.requested_ship_date=$('vt-req').value||null;o.po_number=$('vt-po').value.trim();if($('vt-fel')){o.facturar_el=$('vt-fel').value||null;o.nota_facturacion=$('vt-nfac').value.trim()||null;}o.tax1_rate=mcIva($('vt-iva').value);o.order_remarks=$('vt-rem').value;}
+  function numSug(){var o=form&&form.orden;if(!o||o.id||form._numSugQ)return;form._numSugQ=1;api({op:'get',next_number:o.is_quote?'SQ':'SO'}).then(function(r){if(!form||form.orden!==o)return;form._numSug=r.numero;if(!o.order_number||o._numAuto){o.order_number=r.numero;o._numAuto=true;}var x=$('vt-num');if(x){x.value=o.order_number;x.placeholder=r.numero;}}).catch(function(){});}
+  function leerForm(){var o=form.orden;if(!$('vt-loc'))return;if($('vt-num')){var nv=$('vt-num').value.trim().toUpperCase();o.order_number=(nv&&nv!==form._numSug)?nv:undefined; /* b435: el sugerido no se manda; el servidor reserva el número al guardar */}o.contact_name=$('vt-ct').value.trim();o.location_id=$('vt-loc').value||null;o.payment_terms_id=$('vt-pt').value||null;o.requested_ship_date=$('vt-req').value||null;o.po_number=$('vt-po').value.trim();if($('vt-fel')){o.facturar_el=$('vt-fel').value||null;o.nota_facturacion=$('vt-nfac').value.trim()||null;}o.tax1_rate=mcIva($('vt-iva').value);o.order_remarks=$('vt-rem').value;}
   function sync(){leerForm();var e=$('vt-tot');if(e)e.innerHTML=totHtml();}
   function setL(i,k,v,re){form.lineas[i][k]=v;form.lineas[i]._tocado=true;if(re){leerForm();sincEnt(form.lineas[i]);renderForm();return;}var l=form.lineas[i],s=Math.round((parseFloat(l.quantity)||0)*(parseFloat(l.unit_price)||0)*(1-(parseFloat(l.discount_pct)||0)/100)*100)/100;var c=$('vt-ls'+i);if(c)c.textContent=money(s);sync();}
   function delL(i){leerForm();form.lineas.splice(i,1);renderForm();}
@@ -12399,7 +12400,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function buscarCliente(q){clearTimeout(tmr);tmr=setTimeout(function(){if(q.trim().length<2)return;api({op:'clientes',q:q}).then(function(r){cliRes=r.clientes||[];var b=$('vt-cres');if(b)b.innerHTML=cliRes.slice(0,8).map(function(c,i){return '<div class="chip" style="margin:2px 0;display:block" onclick="Ventas.elegirCliente('+i+')">'+esc(c.name)+' · '+esc(c.terminos||'')+'</div>';}).join('');});},300);}
   function elegirCliente(i){leerForm();var c=cliRes[i];form.cliente=c;form.orden.customer_id=c.id;if(!form.orden.location_id)form.orden.location_id=c.default_location_id;/* b279: descuento y crédito SOLO desde la ficha del cliente */var dPrev=form._descCli||0,dN=parseFloat(c.discount)||0;form._descCli=dN;descCli=dN;form.lineas.forEach(function(l){if((parseFloat(l.discount_pct)||0)===dPrev)l.discount_pct=dN;});
   form.orden.payment_terms_id=c.payment_terms_id||null;form.orden._credito=c.credit_days;if(!form.orden.sales_rep&&c.default_sales_rep)form.orden.sales_rep=c.default_sales_rep;
-  try{toast('Cliente: crédito '+(c.credit_days!=null?c.credit_days:0)+' días'+(dN?' · descuento '+dN+'%':'')+(c.esquema?' · precios '+c.esquema:''));}catch(e){}var pk=(c.contactos||[]).filter(function(k){return k.primary;})[0];if(pk&&!form.orden.contact_name){form.orden.contact_name=pk.name;form.orden.email=pk.email;form.orden.phone=pk.phone;}refs={};form.lineas.forEach(function(l){if(!l._tocado)l._nuevo=true;});renderForm();cargarRefs();}
+  try{toast('Cliente: crédito '+(c.credit_days!=null?c.credit_days:0)+' días'+(dN?' · descuento '+dN+'%':'')+(c.esquema?' · precios '+c.esquema:''));}catch(e){}var pk=(c.contactos||[]).filter(function(k){return k.primary;})[0];if(pk&&!form.orden.contact_name){form.orden.contact_name=pk.name;form.orden.email=pk.email;form.orden.phone=pk.phone;}refs={};form.lineas.forEach(function(l){if(!l._tocado)l._nuevo=true;});renderForm();cargarRefs();try{MCcliGate(c.name||c.nombre,c.id,function(){if(form&&form.orden.customer_id===c.id)cambiarCliente();});}catch(e){}}
   function cambiarCliente(){leerForm();form.cliente=null;form.orden.customer_id=null;renderForm();}
   function buscarProd(q){if(q===undefined){var x=$('vt-pq');q=x?x.value:'';}var c=$('vt-pcat');pcat=c?c.value:'';var sn=$('vt-psin');psin=sn?sn.checked:false;
     clearTimeout(tmr);tmr=setTimeout(function(){if(q.trim().length<2&&!pcat)return;api({op:'productos',q:q,categoria:pcat||undefined,limit:60,customer_id:(form&&form.orden&&form.orden.customer_id)||undefined}).then(function(r){var b=bodNombre();
@@ -12420,7 +12421,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function agregarConsulta(cods){if(!form)return;form.lineas.push({product_id:null,sku:'',nombre:'CONSULTA A FÁBRICA',img:'',description:'CONSULTA A FÁBRICA · código'+(cods.length>1?'s ':' ')+cods.join(', '),quantity:1,unit_price:0,discount_pct:0,_nuevo:true,entrega:{}});}
   function despieces(){if(!form)return;leerForm();MCdespAVentas();}
   function volverForm(){if(form){renderForm();cargarRefs();}}
-  function guardar(){leerForm();if(!form.orden.customer_id){alert('Elige el cliente');return;}var _bn=form.cliente&&(form.cliente.name||form.cliente.nombre);if(!form.orden.id&&!form._bloqOk){mcBloqGuard(_bn,form.orden.customer_id,'crear la orden').then(function(ok){if(ok){form._bloqOk=1;guardar();form._bloqOk=0;}});return;}if(!form.orden.id&&mcBloq(_bn,form.orden.customer_id)){alert('⛔ Cliente BLOQUEADO ('+_bn+'): '+(mcBloq(_bn).motivo||'compromiso de pago incumplido')+'.\nNo se pueden crear cotizaciones ni órdenes hasta que administración lo desbloquee.');return;}if(!form.lineas.length){alert('Agrega al menos una línea');return;}
+  function guardar(){if(form&&form._guardando){try{toast('Un momento: verificando el crédito del cliente…');}catch(e){}return;}leerForm();if(!form.orden.customer_id){alert('Elige el cliente');return;}var _bn=form.cliente&&(form.cliente.name||form.cliente.nombre);if(!form.orden.id&&!form._bloqOk){var _gf=form;_gf._guardando=1;try{toast('Verificando crédito del cliente…');}catch(e){}mcBloqGuard(_bn,form.orden.customer_id,'crear la orden').then(function(ok){_gf._guardando=0;if(ok&&form===_gf){form._bloqOk=1;guardar();form._bloqOk=0;}},function(){_gf._guardando=0;});return;}if(!form.orden.id&&mcBloq(_bn,form.orden.customer_id)){alert('⛔ Cliente BLOQUEADO ('+_bn+'): '+(mcBloq(_bn).motivo||'compromiso de pago incumplido')+'.\nNo se pueden crear cotizaciones ni órdenes hasta que administración lo desbloquee.');return;}if(!form.lineas.length){alert('Agrega al menos una línea');return;}
     var fz=!!(cur&&cur.orden&&cur.orden.id===form.orden.id&&cur.orden.is_invoiced&&!cur.orden.is_quote);
     run({op:'save',orden:form.orden,forzar_facturada:fz||undefined,lineas:form.lineas.map(function(l){var o={};for(var k in l)if(k.charAt(0)!=='_'&&k!=='img'&&k!=='nombre')o[k]=l[k];return o;})},'Guardado',function(r){form=null;
       var dv=r.stock_devuelto||[];if(dv.length||r.facturada){var t=dv.map(function(x){return '• '+x.q+' u. vuelven a '+(x.sublocation||'(sin sububicación)');}).join('\n');
@@ -12461,7 +12462,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     if(kind==='mc_so')kind='so';if(kind==='mc_packing')kind='packing';
     if(false)return pdfBlob(MCOvPdf(kind,cur),mcSanitizeFilename((kind==='mc_so'?'Orden de venta':'Packing slip')+' - '+num+'.pdf'));
     if((kind==='boxlabel'||kind==='boxcontent')&&cur&&cur.orden.id===id&&!(cur.cajas||[]).length&&!confirm('La orden aún no tiene cajas: se imprimirá una sola caja con todo. ¿Continuar?'))return;
-    pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc);}),mcSanitizeFilename(DOCN[kind]+' - '+num+'.pdf'));}
+    pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc,kind==='so'&&cur&&cur.orden&&cur.orden.id===id?{entregas:cotEntregas()}:undefined);}),mcSanitizeFilename(DOCN[kind]+' - '+num+'.pdf'));}
   /* Planilla del Cotizador viejo (MCPlanillaCot): fotos, precio lista, descuento, final y plazos por línea (incluida la entrega dividida) */
   function cotEntregas(){return (cur.lineas||[]).filter(function(l){return l.product_id;}).map(function(l){var e=l.entrega||{},cant=+l.quantity||0,pe=String(l.plazo_entrega||'');
       var P=(e.partes||[]).filter(function(p){return p&&p.cantidad>0;}),filas=[],ahora;
@@ -13374,7 +13375,7 @@ function mcColsPanel(k,names,ctx){var h=mcColsGet(k),m=document.getElementById('
 function mcColsSet(k,n,on,ctx){var h=mcColsGet(k).filter(function(x){return x!==n;});if(!on)h.push(n);try{localStorage.setItem('mc_lst_filt_cols_'+k,JSON.stringify(h));}catch(e){}try{window[ctx].lista();}catch(e){}}
 /* b319: plazo en días laborables (lun–vie) desde la fecha de la orden */
 function mcBD(a,b){var d=new Date(String(a).slice(0,10)+'T12:00:00'),e=new Date(String(b).slice(0,10)+'T12:00:00'),n=0;if(isNaN(d)||isNaN(e))return null;var sg=e<d?-1:1;while((sg>0&&d<e)||(sg<0&&d>e)){d.setDate(d.getDate()+sg);var w=d.getDay();if(w&&w<6)n+=sg;}return n;}
-function mcPlazo(txt,o,shipDate){var t=String(txt||'').trim(),m=t.match(/(\d+)/);if(!t)return '—';if(!m||!o||o.is_quote||!o.order_date)return t.replace(/[<>&]/g,'');var N=+m[1],sp=function(c,x,ti){return '<span title="'+ti+'" style="font-weight:700;white-space:nowrap;color:'+c+'">'+x+'</span>';},ti=t.replace(/"/g,'')+' · días laborables desde '+String(o.order_date).slice(0,10);
+function mcPlazo(txt,o,shipDate){var t=String(txt||'').trim(),m=mcPlzDias(t);if(!t)return '—';if(!m||!o||o.is_quote||!o.order_date)return t.replace(/[<>&]/g,'');var N=+m[1],sp=function(c,x,ti){return '<span title="'+ti+'" style="font-weight:700;white-space:nowrap;color:'+c+'">'+x+'</span>';},ti=t.replace(/"/g,'')+' · días laborables desde '+String(o.order_date).slice(0,10);
   if(shipDate){var d=mcBD(o.order_date,shipDate),df=N-d;return df>=0?sp('#6fd68f','+'+df+' adelantado',ti+' · enviado día '+d):sp('#e05c5c',(-df)+' atrasado',ti+' · enviado día '+d);}
   var x=mcBD(o.order_date,mcHoy()),left=N-x;return left<0?sp('#e05c5c','día '+x+' de '+N+' · '+(-left)+' atrasado',ti):sp(left<=2?'#f0c040':'#6fd68f','día '+x+' de '+N,ti);}
 (function(){var st=document.createElement('style');st.textContent='#caja-screen .cj-home-head,#caja-screen .cj-home-greet{display:none!important}';document.head.appendChild(st);})();/* b323: sin cabecera vieja en Caja (logo, Hola, Período, avatar) */
@@ -17509,7 +17510,7 @@ var MCConta=(function(){
   function pinta(){if(!D||!el())return;var h='<div class="tabs">'+chip('fac','Por facturar ('+D.por_facturar.length+')')+chip('ret','Facturadas sin retención ('+D.sin_retencion.length+')')+'</div>';
     if(lectura)h+=lecturaHtml();
     if(tab==='fac'){h+='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>OV</th><th>Cliente</th><th>Fecha</th><th class="r">Total</th><th>Despacho</th><th class="r">Adjuntos</th><th></th></tr></thead><tbody>';
-      D.por_facturar.forEach(function(x,i){h+='<tr><td class="n">'+(i+1)+'</td><td><a href="#" onclick="MCoffAbrirOV(\''+e(x.ov)+'\');return false;">'+e(x.ov)+'</a></td><td>'+e(x.cliente)+'</td><td>'+e(x.fecha)+'</td><td class="r">'+m(x.total)+'</td><td>'+e(x.inv||x.estado)+'</td><td class="r">'+x.adjuntos+'</td><td class="r"><button class="btn2" onclick="MCConta.form(\'fac\',\''+x.id+'\')">Facturar</button></td></tr>';
+      D.por_facturar.forEach(function(x,i){h+='<tr><td class="n">'+(i+1)+'</td><td><a href="#" onclick="MCoffAbrirOV(\''+e(x.ov)+'\');return false;">'+e(x.ov)+'</a></td><td>'+e(x.cliente)+'</td><td>'+e(x.fecha)+'</td><td class="r">'+m(x.total)+'</td><td>'+e(MCdespTxt(x.inv||x.estado))+'</td><td class="r">'+x.adjuntos+'</td><td class="r"><button class="btn2" onclick="MCConta.form(\'fac\',\''+x.id+'\')">Facturar</button></td></tr>';
         if(abierto&&abierto.id===x.id&&abierto.t==='fac')h+='<tr><td></td><td colspan="7">'+formFac(x)+'</td></tr>';});
       if(!D.por_facturar.length)h+='<tr><td colspan="8" class="mu">Nada pendiente de facturar.</td></tr>';h+='</tbody></table></div>';}
     else{h+='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>OV</th><th>Cliente</th><th>Factura</th><th>Fecha factura</th><th class="r">Total</th><th class="r">Saldo</th><th></th></tr></thead><tbody>';
@@ -17556,6 +17557,67 @@ var MCConta=(function(){
   function quitarXml(){lectura=null;pinta();}
   return {abrir:abrir,cerrar:cerrar,tab:function(t){tab=t;abierto=null;pinta();},form:function(t,id){form(t,id);},arch:setArch,enviar:enviar,xml:xml,usar:usar,quitarXml:quitarXml};
 })();
+
+</script>
+<style id="mc-b435-css">.ov-lt td.mc-p,.ov-lt td.mc-p *{white-space:normal!important;overflow-wrap:anywhere}.ov-lt td.mc-p{min-width:200px}.ov-lt td[data-l="Sububic."]{white-space:nowrap;padding-left:12px!important}.vt-lt td.c,.vt-lt td.c *{white-space:normal!important;overflow-wrap:anywhere}.cbz-card:has(> .ov-lt){container-type:inline-size}@container (max-width:760px){.ov-lt{display:none!important}.ov-lc{display:block!important}}</style>
+<script>
+var MC_PDF_OCULTA={so:1,pick:1,packing:1,boxcontent:1};
+/* ===================== b435 (EFCH 18-oct) ===================== */
+var MC_B435=1;
+function MCtimeout(p,ms,val){var t;return Promise.race([Promise.resolve(p),new Promise(function(res,rej){t=setTimeout(function(){if(val instanceof Error)rej(val);else res(val);},ms);})]).then(function(x){clearTimeout(t);return x;},function(e){clearTimeout(t);throw e;});}
+/* ---- ítem 4: nada se queda colgado. Antes: cobranza (ngrok), token, fotos, jsPDF y fuentes sin límite de tiempo ---- */
+(function(){
+  if(typeof mcCobPost==='function'){var _cp=mcCobPost;mcCobPost=function(path,body){return MCtimeout(_cp(path,body),12000,new Error('El servidor de cobranza no respondió en 12 s'));};}
+  if(typeof mcGateSrv==='function'){var _gs=mcGateSrv;mcGateSrv=function(n,id){return MCtimeout(_gs(n,id),15000,new Error('Supabase no respondió en 15 s'));};}
+  if(typeof mcCupoAviso==='function'){var _ca=mcCupoAviso;mcCupoAviso=function(n,id,m){return MCtimeout(_ca(n,id,m),10000,true);};}
+  if(typeof mcLoadImg==='function'){var _li=mcLoadImg;mcLoadImg=function(src){return MCtimeout(_li(src),12000,null);};}
+  if(typeof mcPickFonts==='function'){var _pf=mcPickFonts;mcPickFonts=function(){return MCtimeout(_pf(),15000,null);};}
+  if(typeof loadJsPDF==='function'){var _lj=loadJsPDF;loadJsPDF=function(){return MCtimeout(_lj(),25000,new Error('No se pudo cargar el generador de PDF (25 s). Revisa la conexión y reintenta.'));};}
+})();
+/* ---- ítem 3: aviso de crédito/bloqueo AL ELEGIR EL CLIENTE (antes solo al guardar/convertir). El servidor sigue validando al convertir. ---- */
+function MCcliGate(n,id,alRechazar){n=String(n||'').trim();if(!n||/\brumi\b/i.test(n))return Promise.resolve(true); /* RUMI excluido de la escalera de mora */
+  var dlgBloq=function(x){return new Promise(function(res){var d=document.createElement('div');d.id='mc-bloq-dlg';d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+    var B='display:block;width:100%;margin:6px 0;padding:10px;border:0;border-radius:8px;font-weight:700;cursor:pointer;text-align:left';
+    d.innerHTML='<div style="background:#1f2329;color:#e8e8e8;max-width:420px;width:92%;padding:18px;border-radius:12px;text-align:left"><b style="color:#e05c5c">⛔ Cliente BLOQUEADO</b><div style="margin:10px 0;font-size:13.5px">'+String(x.cliente||n).replace(/</g,'&lt;')+': '+String(x.motivo||'compromiso de pago incumplido').replace(/</g,'&lt;')+'.<br>No se pueden crear cotizaciones ni órdenes hasta que administración lo desbloquee.</div>'+
+      (typeof mcEsAdmin==='function'&&mcEsAdmin()?'<button data-a="desb" style="'+B+';background:#e6ff00;color:#111">🔓 Desbloquear (admin)</button>':'')+'<button data-a="otro" style="'+B+';background:#2a3442;color:#e8eef6">Elegir otro cliente</button><button data-a="" style="'+B+';background:transparent;color:#8fa3b8">Cerrar</button></div>';
+    document.body.appendChild(d);d.onclick=function(ev){var b=ev.target.closest('button');if(!b)return;var a=b.getAttribute('data-a');d.remove();
+      if(a==='desb'){var i=MC_DESB.push([n,id||x.customer_id])-1;mcDesbloquear(i);res(false);return;}
+      if(a==='otro'&&alRechazar){try{alRechazar();}catch(e){}}res(false);};});};
+  return mcGateSrv(n,id).then(function(xs){if(xs)return dlgBloq(xs);
+    return mcBloqLoad(true).then(function(){var x=mcBloq(n,id);if(x)return dlgBloq(x);
+      return mcMoraPrompt(n,id,true).then(function(ok){if(!ok&&alRechazar){try{alRechazar();}catch(e){}}return ok;});});
+  }).catch(function(e){try{console.warn('MCcliGate',e);}catch(_){}return true;});}
+/* ---- ítem 10: plazos de entrega desde el texto de la cotización cuando la línea no trae el reparto (jsonb) ---- */
+function MCentPartesTxt(t,q){t=String(t||'').trim();if(!/\d+\s*und\./i.test(t))return null;var out=[];t.split(/\s\+\s/).forEach(function(seg){var m=seg.match(/^\s*(\d+(?:[.,]\d+)?)\s*und\.\s*(?:·\s*)?(.*)$/i);if(!m)return;var pz=m[2].trim().replace(/\s*\(\d+\s*por ensamblar\)\s*/i,'').trim();if(!pz||(/^inmediat/i.test(pz)&&!/ensamblar/i.test(pz)))pz='Inmediato';out.push({cantidad:+String(m[1]).replace(',','.'),plazo:pz});});
+  var s=0;out.forEach(function(p){s+=p.cantidad;});return out.length&&(!q||Math.abs(s-q)<1e-6)?out:null;}
+function MCentPlz(z){z=String(z||'');return /^inmediat[ao]$/i.test(z.trim())?'Inmediato':z;}
+function MCentNormDoc(r){try{(r&&r.lineas||[]).forEach(function(l){var e=l.entrega;if(e&&typeof e==='object'&&((e.partes||[]).length||e.plazo||e.manual)){if(e.plazo)e.plazo=MCentPlz(e.plazo);(e.partes||[]).forEach(function(x){if(x)x.plazo=MCentPlz(x.plazo);});return;}var P=MCentPartesTxt(l.plazo_entrega,+l.quantity||0);
+    if(P&&P.length>=2)l.entrega={partes:P,plazo:P[P.length-1].plazo};else if(P&&P.length===1)l.entrega={plazo:P[0].plazo};else if(l.plazo_entrega&&!/confirmar/i.test(l.plazo_entrega))l.entrega={plazo:MCentPlz(l.plazo_entrega)};});}catch(e){}return r;}
+/* días del plazo: «5 und. · 7-10 días + 5 und. · 30-40 días» → 40 (antes tomaba el 5 de las unidades: «día 0 de 5») */
+function mcPlzDias(t){t=String(t||'').replace(/\d+(?:[.,]\d+)?\s*und\.\s*·?/gi,' ');var re=/(\d+)\s*(?:-\s*(\d+))?\s*(d[ií]as|semanas?)/gi,m,mx=null;while((m=re.exec(t))){var n=+(m[2]||m[1]);if(/semana/i.test(m[3]))n*=5;mx=mx==null?n:Math.max(mx,n);}if(mx==null){var m2=t.match(/^\s*(\d+)\s*$/);if(m2)mx=+m2[1];}return mx==null?null:[String(mx),String(mx)];}
+/* ---- ítem 12b: MCConta · columna Despacho en español ---- */
+function MCdespTxt(v){var s=String(v||'').toLowerCase();return ({fulfilled:'Despachada',unfulfilled:'Pendiente',partial:'Parcial',partially_fulfilled:'Parcial',started:'En preparación',quote:'Cotización',cerrada:'Cerrada',abierta:'Abierta'})[s]||String(v||'—');}
+/* ---- ítem 1: Dashboard liviano + detalle bajo demanda ---- */
+function MCdashDet(r){if(!r||!r._lite||r._detOk)return Promise.resolve(r);if(r._detP)return r._detP;var q=r._q||{};
+  try{toast('Cargando detalle…');}catch(e){}
+  r._detP=MCpost({action:'ventas',op:'dash_cfo',parte:'det',tab:q.tab||'',fromDate:q.fromDate,toDate:q.toDate,user:getUserName(),pin:getPin()}).then(function(d){r._detP=null;if(!d||!d.ok)throw new Error((d&&d.error)||'sin detalle');
+    r.stockQuedado=r.stockQuedado||{};r.stockQuedado.items=(d.stockQuedado&&d.stockQuedado.items)||[];var ex=r.extras=r.extras||{},P=ex.productos=ex.productos||{},I=ex.inventario=ex.inventario||{},dx=d.extras||{};
+    if(dx.productos){if(dx.productos.abcItems)P.abcItems=dx.productos.abcItems;if(dx.productos.ranks)P.ranks=dx.productos.ranks;}if(dx.inventario&&dx.inventario.stockBajo)I.stockBajo=dx.inventario.stockBajo;r._detOk=true;return r;})
+    .catch(function(e){r._detP=null;try{toast('No se pudo cargar el detalle: '+(e&&e.message||e));}catch(_){}return r;});return r._detP;}
+(function(){
+  try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&k.indexOf('mc_dash_sb_')===0)localStorage.removeItem(k);}}catch(e){} /* cachés viejos de ~1 MB por pestaña */
+  if(window.DashV2&&DashV2.ver){var _v=DashV2.ver;DashV2.ver=function(k){var r=window.MC_DASH_R;if(k&&/^sq/.test(k)&&r&&r._lite&&!r._detOk){MCdashDet(r).then(function(){_v(k);});return;}return _v(k);};}
+  if(window.MCDashX&&MCDashX.tog){var _t=MCDashX.tog;MCDashX.tog=function(k){var r=window.MC_DASH_R;if((k==='sb'||/^abc/.test(k))&&r&&r._lite&&!r._detOk){MCdashDet(r).then(function(){try{MCDashX.mount(r);}catch(e){}_t(k);});return;}return _t(k);};}
+})();
+/* ---- ítem 12: Consignación · PDF por cliente desde el resumen ---- */
+function MCconsigElegirPdf(nombres,alElegir){var d=document.createElement('div');d.id='mc-consig-pdf';d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+  var e=function(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');};
+  d.innerHTML='<div style="background:#1f2329;color:#e8e8e8;max-width:460px;width:92%;max-height:80vh;overflow:auto;padding:18px;border-radius:12px"><b style="color:#e6ff00">⬇ Descargar PDF de consignación</b><div style="margin:8px 0 10px;font-size:13px;color:#8fa3b8">Elige el cliente:</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;color:#8fa3b8;font-size:11px;padding:4px">#</th><th style="text-align:left;color:#8fa3b8;font-size:11px;padding:4px">Cliente</th><th></th></tr></thead><tbody>'+
+    nombres.map(function(n,i){return '<tr style="border-top:1px solid #2a3442"><td style="padding:6px 4px;color:#8fa3b8">'+(i+1)+'</td><td style="padding:6px 4px">'+e(n)+'</td><td style="padding:6px 4px;text-align:right"><button data-i="'+i+'" style="background:#e6ff00;color:#111;border:0;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer">PDF</button></td></tr>';}).join('')+
+    '</tbody></table><button data-x="1" style="margin-top:12px;background:transparent;color:#8fa3b8;border:0;cursor:pointer">Cerrar</button></div>';
+  document.body.appendChild(d);d.onclick=function(ev){var b=ev.target.closest('button');if(ev.target===d){d.remove();return;}if(!b)return;if(b.getAttribute('data-x')){d.remove();return;}var i=+b.getAttribute('data-i');d.remove();alElegir(nombres[i]);};}
+/* ===================== fin b435 ===================== */
 
 </script>
 </body>
