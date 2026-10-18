@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='427';
+  var MC_BUILD='428';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -2970,6 +2970,14 @@ var MCCred=(function(){
       ['Crédito usado vs cupo',money(u.usado)+(x.cupo!=null?' de '+money(x.cupo)+(pctUso!=null?' ('+pctUso+'%)':''):' · cupo sin definir'),''],
       ['Compras últimos 12 meses',money(H.ventas_12m),'Primera compra '+fd(H.primera)],
       ['Bloqueos y extensiones (12 meses)',String(H.eventos_12m||0),'']];
+    /* b428 t881: Resumen de la empresa (SRI + Supercias + financiero) */
+    var RS=F.resumen;if(RS){var num=function(v){return v==null||v===''?'—':money(+v);};
+      var gen=[['Estado SRI',esc(RS.estado_sri||'—')],['Situación legal (Supercias)',esc(RS.situacion_legal||'—')],['Antigüedad',RS.antiguedad_anios!=null?esc(RS.antiguedad_anios)+' años'+(RS.fecha_constitucion||RS.fecha_inicio?' (desde '+fd(RS.fecha_constitucion||RS.fecha_inicio)+')':''):'—'],
+        ['Tipo de compañía',esc(RS.tipo||'—')],['Capital suscrito',num(RS.capital_suscrito)],['Gerente',esc(RS.gerente||'—')],['Presidente',esc(RS.presidente||'—')],['Expediente',esc(RS.expediente||'—')],['Actividad (CIIU)',esc(RS.ciiu||'—')]];
+      h+='<div class="cr-h">Resumen de la empresa</div>'+tabla(id+':rs',[['Dato'],['Valor']],gen,true);
+      var AC=(RS.accionistas||[]);if(AC.length)h+='<div class="cr-h">Accionistas</div>'+tabla(id+':acc',[['Accionista'],['Capital',1],['%',1]],AC.map(function(a){return [esc(a.nombre||''),num(a.capital),a.pct!=null?esc(a.pct)+'%':'—'];}),true);
+      var FN=(RS.financiero||[]);if(FN.length)h+='<div class="cr-h">Ingresos por año (Supercias)</div>'+tabla(id+':fin',[['Año'],['Ingresos',1],['Crec.',1],['Utilidad',1],['Patrimonio',1]],FN.map(function(f){return [String(f.anio),num(f.ingresos),f.crec_pct!=null?'<span style="color:'+(f.crec_pct>=0?'#6fd68f':'#ff6b6b')+'">'+(f.crec_pct>0?'+':'')+f.crec_pct+'%</span>':'—','<span style="color:'+((+f.utilidad||0)<0?'#ff6b6b':'inherit')+'">'+num(f.utilidad)+'</span>',num(f.patrimonio)];}),true);
+      if(RS.fuente_fecha)h+='<div style="color:#8fa3b8;font-size:12px;margin-top:4px">Fuente: SRI (consulta pública) y Superintendencia de Compañías, consultado '+fd(RS.fuente_fecha)+'.</div>';}
     h+='<div class="cr-h">Historial de pago</div>'+tabla(id+':his',[['Indicador'],['Valor'],['Referencia']],hist,true);
     var FF=(F.facturas||[]).slice().sort(function(a,b){return (b.dias||0)-(a.dias||0);});
     h+='<div class="cr-h">Facturas abiertas</div>'+tabla(id+':fac',[['Factura'],['Vence'],['Días mora',1],['Saldo',1]],FF.map(function(f){return [esc(f.factura||f.ov||'—'),fd(f.vence),'<span style="color:'+((f.dias||0)>0?'#ff6b6b':'#6fd68f')+'">'+Math.max(0,f.dias||0)+'</span>',money(f.saldo)];}));
