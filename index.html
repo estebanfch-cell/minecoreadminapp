@@ -491,7 +491,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='444';
+  var MC_BUILD='445';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -663,7 +663,7 @@ function MCsbFail(e){MC_SB_REF=null;try{if(e&&(e.name==='AbortError'||e.name==='
 function MCsbOffBar(on){var b=document.getElementById('mc-sb-off');if(!on){if(b)b.remove();return;}if(b||!document.body)return;b=document.createElement('div');b.id='mc-sb-off';
   b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:100000;background:#2a1414;color:#ffb4b4;padding:10px 14px;font-size:14px;display:flex;gap:12px;align-items:center;justify-content:center';
   b.innerHTML='<span>Sin conexión</span><button class="chip" style="color:#E8FF00;border-color:#E8FF00" onclick="MCsbReconectar(this)">Reintentar</button>';document.body.appendChild(b);}
-function MCsbReconectar(bt){if(bt){bt.disabled=true;bt.textContent='Conectando…';}MC_SB_REF=null;try{sessionStorage.removeItem('mc_sbt');}catch(e){}MCsbRefresh();
+function MCsbReconectar(bt){try{MCauthManual();}catch(_){}if(bt){bt.disabled=true;bt.textContent='Conectando…';}MC_SB_REF=null;try{sessionStorage.removeItem('mc_sbt');}catch(e){}MCsbRefresh();
   Promise.resolve(MC_SB_REF).then(function(){var s=null;try{s=MCsbGet();}catch(e){}if(s){MCsbOffBar(false);try{location.reload();}catch(e){}}else if(bt){bt.disabled=false;bt.textContent='Reintentar';}});}
 function MCsbTok(){return MCsbFetch({action:'sbToken',user:getUserName(),pin:getPin()}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){if(!(e1&&(e1.name==='TypeError'||e1.name==='AbortError')))return {ok:false,error:(e1&&e1.error)||'sin token'};MCsbFail(e1);return {ok:false,net:true,error:'No hay conexión con el servidor de Minecore (Supabase).'};} /* b361-login: sin token por Apps Script */);}
 /* b340: escalera de cobranza — clientes Bloqueados (compromiso incumplido). Fuente: webhook cobranza (Supabase app.customers.bloqueado). */
@@ -14076,14 +14076,14 @@ var MCperm=(function(){var PV=null,busy=0,T=null;
   return {sync:sync,pv:pv,start:start,fuera:fuera};})();
 /* b349: Supabase es la ÚNICA fuente de acceso: login y token sin respaldo por Apps Script; si Supabase no responde, error claro */
 var MC_SB_CAIDO='No hay conexión con el servidor de Minecore (Supabase). Intenta de nuevo en un momento.';
-MCping=function(usr,pin){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'login',v2:true,user:usr,pin:pin})})
+MCping=function(usr,pin){return MCsbFetch({action:'login',v2:true,user:usr,pin:pin}) /* b445: 15 s */
   .then(function(r){return r.json().catch(function(){return {};}).then(function(j){return {st:r.status,j:j};});}).then(function(x){var r=x.j||{};
     if(r.ok&&r.t){MCsbSet(r.t);try{window.MC_LOGIN_VIA='supabase';}catch(e){}var pf=r.perfil||{};
       return {ok:true,auth:true,user:pf.nombre||usr,rol:pf.rol||'usuario',modulos:pf.modulos||[],empresa:pf.empresa||'',master:!!pf.master,aprobado:pf.aprobado!==false,vinculada:pf.vinculada!==false,via:'supabase'};}
     if(x.st===401||x.st===429)return {ok:false,error:r.error||'Usuario o PIN incorrecto'};return {ok:false,error:MC_SB_CAIDO};})
   .catch(function(){return {ok:false,error:MC_SB_CAIDO};});};
 MCloginAlt=MCping;
-MCsbTok=function(){return fetch(MC_SB_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'sbToken',user:getUserName(),pin:getPin()})})
+MCsbTok=function(){return MCsbFetch({action:'sbToken',user:getUserName(),pin:getPin()}) /* b445: 15 s */
   .then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;return {ok:false,error:(r&&r.error)||'sin token'};}).catch(function(){return {ok:false,error:MC_SB_CAIDO};});};
 (function(){var _as=MCpostAS;function elig(c){var d=MC_SB_DOWN;MC_SB_DOWN=0;try{return MCsbEligible(c);}catch(e){return false;}finally{MC_SB_DOWN=d;}}
   MCpostAS=function(p){var a=String((p&&p.action)||'');if(a==='ping'||a==='sbToken'||MC_USR_RX.test(a)||elig(p||{}))return Promise.resolve({ok:false,error:MC_SB_CAIDO});return _as(p);};})();
@@ -17857,6 +17857,30 @@ function MCactFin(){}
 /* ---- 3) Ventas: lista + título siempre del tipo del documento abierto ---- */
 function MCvtTitulo(t){try{document.getElementById('title').textContent=t==='SQ'?'COTIZACIONES DE VENTAS':'ÓRDENES DE VENTA';}catch(e){}}
 
+</script>
+<script>
+/* b445 · freno de reintentos de sesión: un token rechazado ya no dispara un bucle de sbToken/login/ping con el PIN guardado
+   (5 PIN fallidos bloqueaban al usuario 15 min). Regla: como máximo 1 reingreso AUTOMÁTICO; si el servidor rechaza el PIN -> pantalla de login;
+   si no hay red -> «Sin conexión — Reintentar». Nunca se reintenta el PIN solo. Un login manual (doLogin / Reintentar) reabre el permiso. */
+(function(){if(window.MC_AUTH_GUARD)return;var of=window.fetch.bind(window),st={n:0,dead:false,man:0,stop:0};try{if(sessionStorage.getItem('mc_auth_stop')==='1'){st.dead=true;st.stop=1;}}catch(_){};window.MC_AUTH_GUARD=st;
+  var RX=/"action"\s*:\s*"(sbToken|login|ping)"/;
+  window.MCauthManual=function(){st.man=2;st.dead=false;st.n=0;st.stop=0;try{sessionStorage.removeItem('mc_auth_stop');}catch(_){}};
+  function parar(rechazo){if(st.stop)return;st.stop=1;try{if(rechazo){try{sessionStorage.setItem('mc_auth_stop','1');sessionStorage.removeItem('mc_sbt');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_sess');window._pinSesion='';}catch(_){}setTimeout(function(){location.reload();},50);}else if(typeof MCsbOffBar==='function')MCsbOffBar(true);}catch(e){}}
+  function negado(){return Promise.resolve(new Response(JSON.stringify({ok:false,auth:false,error:'Sesión vencida. Vuelve a ingresar con tu usuario y PIN.'}),{status:401,headers:{'Content-Type':'application/json'}}));}
+  var AU=/"action"\s*:\s*"(sbToken|login|ping|sb_renew)"/;
+  function tmo(u,o){if(o&&!o.signal&&typeof AbortController!=='undefined'&&AU.test(String(o.body||''))){var c=new AbortController(),o2={};for(var k in o)o2[k]=o[k];o2.signal=c.signal;var t=setTimeout(function(){try{c.abort();}catch(_){}},15000);
+      return of(u,o2).then(function(r){clearTimeout(t);return r;},function(e){clearTimeout(t);throw e;});}return of(u,o);}
+  window.fetch=function(u,o){var b=(o&&typeof o.body==='string')?o.body:'';
+    if(!b||!RX.test(b)||!/"pin"\s*:/.test(b))return tmo(u,o);
+    var manual=st.man>0;if(manual)st.man--;
+    if(!manual){if(st.dead||st.n>=1){parar(st.dead);return negado();}st.n++;}
+    return tmo(u,o).then(function(r){r.clone().json().then(function(j){
+        if(j&&(j.sbt||j.t||j.auth===true)){st.n=0;st.dead=false;st.stop=0;st.man=0;try{sessionStorage.removeItem('mc_auth_stop');}catch(_){}}
+        else if(j&&(j.auth===false||/PIN|bloque/i.test(String(j.error||'')))){st.dead=true;if(!manual)parar(true);}
+      },function(){});return r;},
+      function(e){if(!manual)parar(false);throw e;});};
+  if(typeof doLogin==='function'){var dl=doLogin;window.doLogin=function(){MCauthManual();return dl.apply(this,arguments);};}
+})();
 </script>
 </body>
 </html>
