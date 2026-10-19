@@ -491,7 +491,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='443';
+  var MC_BUILD='444';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -662,8 +662,8 @@ function MCsbFetch(body){var ctl=typeof AbortController!=='undefined'?new AbortC
 function MCsbFail(e){MC_SB_REF=null;try{if(e&&(e.name==='AbortError'||e.name==='TypeError')||navigator.onLine===false)MCsbOffBar(true);}catch(_){}}
 function MCsbOffBar(on){var b=document.getElementById('mc-sb-off');if(!on){if(b)b.remove();return;}if(b||!document.body)return;b=document.createElement('div');b.id='mc-sb-off';
   b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:100000;background:#2a1414;color:#ffb4b4;padding:10px 14px;font-size:14px;display:flex;gap:12px;align-items:center;justify-content:center';
-  b.innerHTML='<span>Sin conexión</span><button class="chip" style="color:#E8FF00;border-color:#E8FF00" onclick="MCsbRetry(this)">Reintentar</button>';document.body.appendChild(b);}
-function MCsbRetry(bt){if(bt){bt.disabled=true;bt.textContent='Conectando…';}MC_SB_REF=null;try{sessionStorage.removeItem('mc_sbt');}catch(e){}MCsbRefresh();
+  b.innerHTML='<span>Sin conexión</span><button class="chip" style="color:#E8FF00;border-color:#E8FF00" onclick="MCsbReconectar(this)">Reintentar</button>';document.body.appendChild(b);}
+function MCsbReconectar(bt){if(bt){bt.disabled=true;bt.textContent='Conectando…';}MC_SB_REF=null;try{sessionStorage.removeItem('mc_sbt');}catch(e){}MCsbRefresh();
   Promise.resolve(MC_SB_REF).then(function(){var s=null;try{s=MCsbGet();}catch(e){}if(s){MCsbOffBar(false);try{location.reload();}catch(e){}}else if(bt){bt.disabled=false;bt.textContent='Reintentar';}});}
 function MCsbTok(){return MCsbFetch({action:'sbToken',user:getUserName(),pin:getPin()}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){if(!(e1&&(e1.name==='TypeError'||e1.name==='AbortError')))return {ok:false,error:(e1&&e1.error)||'sin token'};MCsbFail(e1);return {ok:false,net:true,error:'No hay conexión con el servidor de Minecore (Supabase).'};} /* b361-login: sin token por Apps Script */);}
 /* b340: escalera de cobranza — clientes Bloqueados (compromiso incumplido). Fuente: webhook cobranza (Supabase app.customers.bloqueado). */
@@ -4118,7 +4118,8 @@ var DashV2=(function(){
     var pedir=function(){return MCpost({action:'ventas',op:'dash_cfo',lite:true,tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'sin datos');r._q={tab:tab==='rango'?'':tab,fromDate:rg.from,toDate:rg.to};window.MC_DASH_R=r;
         try{window.MC_DASH_MS=Date.now()-t0;r._t=Date.now();localStorage.setItem(ck,JSON.stringify(r));}catch(x){try{localStorage.removeItem(ck);}catch(y){}}return r;})
       .catch(function(e1){return {ok:false,error:(e1&&e1.message)||'Sin conexión con Minecore (Supabase)'};});}; /* b363-notif: sin getCfo de Google */
-    pedir().then(function(r){if(rango(tab).from!==rg.from)return;cargando=false;if(!(r&&r.ok)&&data)return;data=(r&&r.ok)?r:null;
+    var wd=setTimeout(function(){if(!cargando||rango(tab).from!==rg.from)return;var host=document.getElementById(hostId);if(!host||data)return;var L=window.MC_SB_LAST||{},s0=null;try{s0=MCsbGet();}catch(x){}host.innerHTML='<div class="cbz-error">El dashboard no respondió en 30 s ('+(s0?'sesión ok':'sin sesión')+(L.op?' · última respuesta: '+e(L.op)+' '+L.ms+' ms':'')+(Date.now()<MC_SB_DOWN||localStorage.getItem("mc_sb_off")==="1"?' · modo respaldo Google':'')+'). <button class="chip" onclick="DashV2.setTab(\''+tab+'\')">Reintentar</button></div>';},30000); /* b444 */
+    pedir().then(function(r){clearTimeout(wd);if(rango(tab).from!==rg.from)return;cargando=false;if(!(r&&r.ok)&&data)return;data=(r&&r.ok)?r:null;
       if(!data){var host=document.getElementById(hostId);if(host)host.innerHTML='<div class="cbz-error">'+e((r&&r.error)||'Sin datos')+'</div>';return;}render();})
     .catch(function(x){cargando=false;var host=document.getElementById(hostId);if(host)host.innerHTML='<div class="cbz-error">'+e(typeof MCerr==='function'?MCerr(x):String(x))+'</div>';});}
   function irOV(ov){var sc=document.scrollingElement||document.documentElement,sh=document.querySelector('.dv-sheet');
