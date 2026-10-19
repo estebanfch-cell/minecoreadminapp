@@ -483,7 +483,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='438';
+  var MC_BUILD='439';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -11459,10 +11459,12 @@ var LiqMod = (function(){
    El esqueleto (buscador, cuadro de texto) solo se reconstruye al cambiar de chat / estado de ventana,
    así el polling no quita el foco ni cierra el teclado del celular. */
 var WA = (function(){
-  var POLL_MS=12000;
+  var POLL_MS=5000; /* b439: bandeja 100 % Supabase (ops-api wa_*), refresco cada 5 s */
+  var WA_OPS={waChats:'wa_chats',waThread:'wa_thread',waSend:'wa_send',waSendTemplate:'wa_send_template',waTemplates:'wa_templates',waMarkRead:'wa_mark_read',waSetName:'wa_set_name'};
+  var older={};
   var chats=[], rev='', sel=null, thread=null, q='', timer=null, busy=false, sending=false, reqId='';
   var tpls=null, tplOpen=false, errMsg='', drafts={}, layout='';
-  function api(p){p.user=getUserName();p.pin=getPin();return MCpost(p);}
+  function api(p){var op=WA_OPS[p.action];if(op){var q={op:op};for(var k in p)if(k!=='action'&&k.charAt(0)!=='_')q[k]=p[k];return MCops(q);}p.user=getUserName();p.pin=getPin();return MCpost(p);} /* b439: sin Apps Script */
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function $(id){return document.getElementById(id);}
   function el(){return $('wa-screen');}
@@ -11570,11 +11572,21 @@ var WA = (function(){
       if(sel!==want)return;
       if(!res.ok){errMsg=res.error||'error';render();return;}
       var prevLast=thread&&thread.messages&&thread.messages.length?thread.messages[thread.messages.length-1].id:'';
+      var od=older[want]; if(od&&od.length&&res.messages.length){var f0=res.messages[0].ts_ms;res.messages=od.filter(function(m){return m.ts_ms<f0;}).concat(res.messages);res.truncated=!!older[want+'_more'];}
       thread=res;
       var nowLast=res.messages.length?res.messages[res.messages.length-1].id:'';
       render(scrollEnd||prevLast!==nowLast);
       if(res.unread>0)markRead(want);
     }).catch(function(e){errMsg=MCerr(e);render();});
+  }
+  function loadOlder(){
+    if(!sel||!thread||!thread.messages.length)return; var w=sel, first=thread.messages[0].ts_ms;
+    api({action:'waThread',wa_id:w,before_ms:first,limit:150}).then(function(res){
+      if(!res.ok||sel!==w)return; older[w]=(res.messages||[]).concat(older[w]||[]).filter(function(m,i,a){return a.findIndex(function(x){return x.id===m.id;})===i;}).sort(function(a,b){return a.ts_ms-b.ts_ms;});
+      older[w+'_more']=!!res.hasMore; var box=$('wa-msgs'), h0=box?box.scrollHeight:0;
+      thread.messages=(res.messages||[]).concat(thread.messages); thread.truncated=!!res.hasMore; render(false);
+      if(box)box.scrollTop=box.scrollHeight-h0;
+    });
   }
   function markRead(w){
     api({action:'waMarkRead',wa_id:w,_retries:0}).then(function(){
@@ -11769,7 +11781,7 @@ var WA = (function(){
     if(box&&thread){
       var nearEnd=box.scrollHeight-box.scrollTop-box.clientHeight<80;
       var h='';
-      if(thread.truncated)h+='<div class="wa-day"><span>Mostrando los últimos '+thread.messages.length+' mensajes</span></div>';
+      if(thread.truncated)h+='<div class="wa-day"><span style="cursor:pointer" onclick="WA.older()">⬆ Ver mensajes anteriores</span></div>';
       var lastDay='';
       thread.messages.forEach(function(m){
         var dl=dayLabel(m.ts_ms); if(dl!==lastDay){lastDay=dl;h+='<div class="wa-day"><span>'+esc(dl)+'</span></div>';}
@@ -11809,7 +11821,7 @@ var WA = (function(){
     }
   }
   return {init:init,stop:stop,open:open,back:back,onSearch:onSearch,send:send,onKey:onKey,onInput:onInput,
-    toggleTpl:toggleTpl,tplChange:tplChange,sendTpl:sendTpl,refresh:refresh,rename:rename};
+    toggleTpl:toggleTpl,tplChange:tplChange,sendTpl:sendTpl,refresh:refresh,rename:rename,older:loadOlder};
 })();
 
 /* ===================== COTIZACIONES y ÓRDENES DE VENTA (b239, nativo Minecore · Supabase) =====================
