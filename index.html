@@ -17883,5 +17883,24 @@ function MCvtTitulo(t){try{document.getElementById('title').textContent=t==='SQ'
   if(typeof doLogin==='function'){var dl=doLogin;window.doLogin=function(){MCauthManual();return dl.apply(this,arguments);};}
 })();
 </script>
+<script>
+/* r467: en el teléfono, tocar un adjunto PDF (URL firmada de Storage) abre la hoja con el ARCHIVO
+   «Recibido MCOR-SO-xxxx.pdf»: así Compartir manda solo el documento, nunca el enlace largo. */
+(function(){
+  function movil(){try{return (typeof mcIsIOS==='function'&&mcIsIOS())||/Android|iPhone|iPad/i.test(navigator.userAgent);}catch(e){return false;}}
+  document.addEventListener('click',function(ev){
+    var a=ev.target&&ev.target.closest?ev.target.closest('a[href*="/storage/v1/object/sign/"]'):null;
+    if(!a||!movil())return;
+    var u=a.href,seg='';
+    try{seg=decodeURIComponent(u.split('?')[0].split('/').pop());}catch(e){seg=u.split('?')[0].split('/').pop();}
+    if(!/\.pdf$/i.test(seg))return;
+    ev.preventDefault();ev.stopPropagation();
+    var nom=seg.replace(/^[0-9a-f]{10}_/i,'');
+    fetch(u).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+      .then(function(b){if(typeof mcPdfSaveSheet_==='function')mcPdfSaveSheet_(b,nom);else window.open(u,'_blank');})
+      .catch(function(){window.open(u,'_blank');});
+  },true);
+})();
+</script>
 </body>
 </html>
