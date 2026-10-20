@@ -526,7 +526,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='471';
+  var MC_BUILD='472';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -9983,7 +9983,7 @@ var Compras=(function(){
       '<input class="uinput" style="width:100%" placeholder="Buscar proveedor…" oninput="Compras.buscarVendor(this.value)"><div id="cf-vres"></div>')+
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px">'+(!f.orden.id?'<label class="cbz-muted" style="font-size:11px">Número de '+(f.orden.is_quote?'cotización':'OC')+'<input class="uinput" id="cf-num" style="width:100%;text-transform:uppercase" value="'+esc(f.orden.order_number||'')+'" placeholder="'+esc(f._numSug||'siguiente número')+'"></label>':'')+'<label class="cbz-muted" style="font-size:11px">N° del proveedor<input class="uinput" id="cf-vn" style="width:100%" value="'+esc(f.orden.vendor_order_number||'')+'"></label>'+
       '<label class="cbz-muted" style="font-size:11px">Fecha esperada<input class="uinput" id="cf-due" type="date" style="width:100%" value="'+esc(f.orden.due_date||'')+'"></label></div>'+
-      '<input class="uinput" id="cf-rem" style="width:100%;margin-top:6px" placeholder="Notas" value="'+esc(f.orden.order_remarks||'')+'">'+
+      '<textarea class="uinput" id="cf-rem" rows="1" style="width:100%;margin-top:6px;box-sizing:border-box" placeholder="Notas">'+esc(f.orden.order_remarks||'')+'</textarea>'+
       (function(){var nv=f.orden.non_vendor_costs||{},nvv=nv.value!=null&&+nv.value?+nv.value:'';return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:flex-end"><label class="cbz-muted" style="font-size:11px;flex:1 1 110px">Flete (del proveedor)<input class="uinput" id="cf-fr" type="number" step="any" min="0" style="width:100%" value="'+esc(+f.orden.freight?+f.orden.freight:'')+'"></label>'+
         '<label class="cbz-muted" style="font-size:11px;flex:2 1 170px">Costos no-proveedor (aduana, transporte…)<span style="display:flex;gap:4px"><input class="uinput" id="cf-nv" type="number" step="any" min="0" style="flex:1" value="'+esc(nvv)+'"><select class="uinput" id="cf-nvp" style="width:64px"><option value="0"'+(nv.isPercent?'':' selected')+'>$</option><option value="1"'+(nv.isPercent?' selected':'')+'>%</option></select></span></label></div><div class="cbz-muted" style="font-size:10.5px;margin-top:2px">Se prorratean al costo de los productos al recibir; no se suman a lo que se le debe al proveedor.</div>';})()+'</div>';
     h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px">Líneas ('+f.lineas.length+')</div>'+f.lineas.map(function(l,i){var st=Math.round(l.quantity*l.unit_price*(1-(l.discount_pct||0)/100)*100)/100;tot+=st;
@@ -10290,7 +10290,7 @@ var Stk=(function(){
       (t==='ajuste'?'<label class="cbz-muted" style="font-size:11px">Motivo<select class="uinput" id="sf-rs" style="width:100%">'+cat.motivos.map(function(m){return '<option value="'+m.id+'"'+(f.rs===m.id||(!f.rs&&m.name==='Correction')?' selected':'')+'>'+esc(m.name)+'</option>';}).join('')+'</select></label>':'')+
       (t==='conteo'?'<label class="cbz-muted" style="font-size:11px">Sububicaciones (prefijo; varias separadas por coma = una hoja por cada una)<input class="uinput" id="sf-pre" style="width:100%;text-transform:uppercase" placeholder="ej. 7-C, 5-E" value="'+esc(f.pre||'')+'"></label><label class="cbz-muted" style="font-size:11px">Asignado a'+MCUsrSel.html('sf-asg',f.asg||'')+'</label>':'')+
       '</div>'+(t==='transfer'&&f.cliN?'<div class="cbz-muted" style="font-size:12px;margin-top:6px">📄 Acta de entrega-recepción · <b style="color:#e8eef5">'+esc(f.cliN)+'</b>'+(f.ruc?' · RUC '+esc(f.ruc):'')+(f.cliO&&f.cliO.email?' · '+esc(f.cliO.email):'')+(f.cliO&&f.cliO.phone?' · '+esc(f.cliO.phone):'')+'</div>':'')+
-      (t==='transfer'?'<textarea class="uinput" id="sf-rem" rows="'+(f.cliN?6:2)+'" style="width:100%;margin-top:6px;box-sizing:border-box;font-size:12px" placeholder="Notas">'+esc(f.rem||'')+'</textarea>':'<input class="uinput" id="sf-rem" style="width:100%;margin-top:6px" placeholder="Notas" value="'+esc(f.rem||'')+'">'+((function(){try{return getProfile().rol==='admin';}catch(e){return false;}})()?'<label style="display:block;margin-top:6px;font-size:12px"><input type="checkbox" id="sf-solo"'+(f.solo?' checked':'')+'> Solo Minecore (no enviar a inFlow) — requiere motivo en Notas</label>':''))+'</div>';
+      (t==='transfer'?'<textarea class="uinput" id="sf-rem" rows="'+(f.cliN?6:2)+'" style="width:100%;margin-top:6px;box-sizing:border-box;font-size:12px" placeholder="Notas">'+esc(f.rem||'')+'</textarea>':'<textarea class="uinput" id="sf-rem" rows="1" style="width:100%;margin-top:6px;box-sizing:border-box" placeholder="Notas">'+esc(f.rem||'')+'</textarea>'+((function(){try{return getProfile().rol==='admin';}catch(e){return false;}})()?'<label style="display:block;margin-top:6px;font-size:12px"><input type="checkbox" id="sf-solo"'+(f.solo?' checked':'')+'> Solo Minecore (no enviar a inFlow) — requiere motivo en Notas</label>':''))+'</div>';
     h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px">'+(t==='conteo'?'Productos a contar (vacío = todo lo que tiene stock en esa bodega/sububicación)':'Líneas')+'</div>'+f.lineas.map(function(l,i){
       return '<div style="padding:6px 0;border-bottom:1px solid #1c2a3a"><div style="display:flex;gap:8px;align-items:center">'+(l.img?'<img src="'+esc(l.img)+'" alt="" loading="lazy" style="width:44px;height:44px;object-fit:contain;background:#fff;border-radius:8px;flex:0 0 44px">':'<div style="width:44px;height:44px;border-radius:8px;background:#1c2a3a;flex:0 0 44px"></div>')+'<div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;word-break:break-word">'+esc(l.nombre)+' <span class="cbz-muted" style="font-weight:400">'+esc(l.sku)+'</span></div><button class="chip" style="color:#e05c5c;padding:3px 8px" onclick="Stk.quitar('+i+')">🗑</button></div>'+
         (t==='conteo'?'':'<div style="display:grid;grid-template-columns:repeat('+(t==='transfer'?3:2)+',minmax(0,1fr));gap:6px;margin-top:4px"><label class="cbz-muted" style="font-size:11px">'+(t==='ajuste'?'Cantidad (+ entra / − sale)':'Cantidad')+'<input class="uinput" id="sf-q'+i+'" type="number" step="any" style="width:100%;box-sizing:border-box" value="'+esc(l.quantity)+'"></label>'+
@@ -10873,7 +10873,7 @@ var Transf = (function(){
           '<span class="tagx">'+(t.isCancelled?'Cancelado':esc(t.status||'—'))+'</span></div>'+
           '<div class="pmeta">'+(esc(t.transferDate)||'—')+' · '+esc(t.fromLocationName||'?')+' → '+esc(t.toLocationName||'?')+
           ' · '+(t.linesCount||0)+' líneas · qty '+(t.qtyTotal||0)+'</div>'+
-          (t.remarks?'<div class="cbz-muted" style="font-size:11px;margin-top:4px">'+esc(t.remarks).slice(0,120)+'</div>':'')+
+          (t.remarks?'<div class="cbz-muted mc-longtext" style="font-size:11px;margin-top:4px">'+esc(t.remarks)+'</div>':'')+
           '</div>';
       }).join('');
     }
@@ -18167,6 +18167,28 @@ d.innerHTML='<div style="background:#fff;border-radius:16px;max-width:440px;widt
 '<button type="button" data-k="si" style="flex:1 1 140px;min-height:48px;border:0;border-radius:12px;background:#b91c1c;color:#fff;font-size:16px;font-weight:700;white-space:nowrap;padding:0 18px">Sí, aprobar</button></div></div>';
 d.addEventListener('click',function(e){var k=e.target&&e.target.getAttribute&&e.target.getAttribute('data-k');if(!k&&e.target!==d)return;d.remove();if(k==='si')si();});
 document.body.appendChild(d);return d;};
+</script>
+<style id="mc-autosize-css">/* b472 REGLA GLOBAL: textareas y notas muestran TODO su texto */
+textarea{overflow-y:hidden!important;max-height:none!important;resize:none;box-sizing:border-box;field-sizing:content;min-height:2.4em}
+textarea#wa-text{max-height:140px!important;overflow-y:auto!important}
+.mc-longtext,[id*="notas"]>div:not(.cbz-muted),[data-longtext]{white-space:pre-wrap!important;overflow-wrap:anywhere;overflow:visible!important;text-overflow:clip!important;-webkit-line-clamp:unset!important;line-clamp:none!important;max-height:none!important;display:block}
+</style>
+<script>/* b472 MCautosize: regla global — todo textarea crece/encoge a su contenido */
+(function(){
+  function fit(t){if(!t||t.tagName!=='TEXTAREA'||t.id==='wa-text')return;if(!t.offsetParent&&t.style.display!=='contents'){t._mcPend=1;return;}
+    var cs=getComputedStyle(t),b=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
+    t.style.height='auto';var h=t.scrollHeight+b;t.style.height=h+'px';t._mcPend=0;}
+  function all(r){(r||document).querySelectorAll&&(r||document).querySelectorAll('textarea').forEach(fit);if(r&&r.tagName==='TEXTAREA')fit(r);}
+  window.MCautosize=fit;window.MCautosizeAll=function(){all(document);};
+  document.addEventListener('input',function(e){fit(e.target);},true);
+  document.addEventListener('focusin',function(e){if(e.target.tagName==='TEXTAREA')fit(e.target);},true);
+  var d=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');
+  if(d&&d.set)Object.defineProperty(HTMLTextAreaElement.prototype,'value',{get:d.get,set:function(v){d.set.call(this,v);var t=this;requestAnimationFrame(function(){fit(t);});},configurable:true});
+  var q=0;function sch(){if(q)return;q=1;requestAnimationFrame(function(){q=0;document.querySelectorAll('textarea').forEach(function(t){if(t._mcPend||!t.style.height||t.scrollHeight>t.clientHeight+1||t._mcW!==t.clientWidth){t._mcW=t.clientWidth;fit(t);}});});}
+  function start(){new MutationObserver(sch).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','open','hidden']});all(document);}
+  if(document.body)start();else document.addEventListener('DOMContentLoaded',start);
+  window.addEventListener('resize',function(){document.querySelectorAll('textarea').forEach(fit);});
+})();
 </script>
 </body>
 </html>
