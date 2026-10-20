@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=454">
+<link rel="apple-touch-icon" sizes="180x180" href="https://portal.minecore.ec/apple-touch-icon.png?v=455">
+<link rel="apple-touch-icon" href="https://portal.minecore.ec/apple-touch-icon.png?v=455">
 <meta name="apple-mobile-web-app-title" content="Minecore">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="/manifest.webmanifest?v=454">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=454">
-<link rel="icon" href="/favicon.ico?v=454" sizes="any">
+<link rel="manifest" href="/manifest.webmanifest?v=455">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=455">
+<link rel="icon" href="/favicon.ico?v=455" sizes="any">
 <title>Minecore Admin</title>
 <meta name="theme-color" content="#0b1219">
 <link rel="stylesheet" href="caja.css?v=329">
@@ -446,7 +447,7 @@ table.mc-nw.mc-nofill{width:auto!important;min-width:0}
 <div id="mc-update-banner" role="alert" aria-live="polite"></div>
 
 <div id="invite" style="display:none;max-width:360px;margin:0 auto;text-align:center;padding:14vh 24px 40px;background:#fff;min-height:100vh;box-sizing:border-box">
-  <img id="invLogo" src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore" style="width:230px;max-width:80%;display:block;margin:0 auto 6px;">
+  <img id="invLogo" src="logo-login.png?v=455" alt="Minecore" width="640" height="118" style="width:230px;max-width:80%;height:auto;display:block;margin:0 auto 6px;">
   <p style="color:#5a6a7a;font-size:12px;margin-bottom:20px">Crea tu usuario del portal Minecore</p>
   <input id="inv-full" placeholder="Nombre completo" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
   <input id="inv-nombre" placeholder="Nombre de usuario (corto, para entrar)" style="width:100%;background:#f2f5f8;border:1px solid #ccd6e0;border-radius:10px;color:#0b1219;font-size:15px;padding:12px;margin-bottom:10px;text-align:center">
@@ -463,8 +464,8 @@ table.mc-nw.mc-nofill{width:auto!important;min-width:0}
 </div>
 
 <div id="login"><div class="box">
-  <img id="loginLogo" src="https://pmv.agency/fotos_firmas_2026/Minecore.gif" alt="Minecore"
-       style="width:320px;max-width:92%;display:block;margin:0 auto 26px;"
+  <img id="loginLogo" src="logo-login.png?v=455" alt="Minecore" width="640" height="118"
+       style="width:300px;max-width:88%;height:auto;aspect-ratio:640/118;object-fit:contain;display:block;margin:0 auto 26px;"
        onerror="this.style.display='none';document.getElementById('loginTitle').style.display='block';">
   <h1 id="loginTitle" style="display:none">MINECORE</h1>
   <div id="saludo" style="display:none;color:#0b1219;font-size:16px;font-weight:700;margin-bottom:12px"></div>
@@ -495,7 +496,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='454';
+  var MC_BUILD='455';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -549,6 +550,8 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
 
 <script>
 window.onerror=function(msg,src,line,col){
+  /* b455: «Script error.» sin línea = error opaco de un script de otro dominio (Google Maps / cdnjs / extensión de Safari); no afecta al portal, no se muestra */
+  if(!line&&/^Script error\.?$/i.test(String(msg||'')))return true;
   try{
     var er=document.getElementById('loginErr');
     if(er){er.textContent='⚠ '+msg+' [línea '+line+':'+col+']';}
@@ -6357,7 +6360,7 @@ function MCPlanillaCotOld(cfg){
   var _plPdfName=mcPlanillaPdfFilename(cfg);
   var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(_plPdfName)+'</title>'+
     '<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'+
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"><\/script>'+
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js" crossorigin="anonymous"><\/script>'+
     '<style>'+
     '*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Roboto,Arial,sans-serif;font-size:9.6pt;color:#000;margin:0;background:#f4f4f4}'+
     'tr{page-break-inside:avoid;break-inside:avoid}thead{display:table-header-group}.pie,.tot,.marcas,.banco,.leyenda,.nota2{page-break-inside:avoid;break-inside:avoid}'+
