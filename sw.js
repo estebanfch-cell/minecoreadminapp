@@ -7,7 +7,7 @@ self.addEventListener('push',function(e){
   var p=[];
   if(self.navigator&&self.navigator.setAppBadge){p.push(n>0?self.navigator.setAppBadge(n).catch(function(){}):self.navigator.clearAppBadge().catch(function(){}));}
   /* iOS exige mostrar una notificación por cada push; las de solo-contador usan la misma etiqueta y van en silencio */
-  p.push(self.registration.showNotification(d.title||'Minecore',{body:d.body||(n?n+' avisos pendientes':'Sin avisos pendientes'),tag:d.silent?'mc-badge':'mc-aviso-'+Date.now(),silent:!!d.silent,icon:'apple-touch-icon.png',badge:'favicon-32.png',data:{url:'./'}}));
+  p.push(self.registration.showNotification(d.title||'Minecore',{body:d.body||(n?n+' avisos pendientes':'Sin avisos pendientes'),tag:d.silent?'mc-badge':'mc-aviso-'+Date.now(),silent:!!d.silent,icon:'icon-192.png',badge:'favicon-32.png',data:{url:'./'}}));
   e.waitUntil(Promise.all(p));
 });
 self.addEventListener('notificationclick',function(e){e.notification.close();
