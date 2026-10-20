@@ -523,7 +523,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='460';
+  var MC_BUILD='461';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -6615,7 +6615,8 @@ var Cot = (function(){
   function czUbicActualNombre(){if(czDestino==='det'&&det)return bodegaSel();return czUbicNombreDe(czUbic);}
   function czUbicActualKey(){return czUbicKeyDe(czUbicActualNombre())||'BP';}
   function czLocIdDe(nombre){var k=czUbicKeyDe(nombre);if(!k||!czUbicInfo)return '';for(var i=0;i<czUbicInfo.length;i++)if(czUbicInfo[i].key===k)return czUbicInfo[i].locationId||'';return '';}
-  function czStockEn(p,b){
+  function czStockEn(p,b){return Math.max(0,czStockFis(p,b)-MCComp.q(p&&p.sku,b));}
+  function czStockFis(p,b){
     var sp=p.stockPor||{},has=false;for(var k in sp){has=true;break;}
     // Producto sin filas en Stock_Ubicacion: su total cuenta como Bodega principal (igual que la planilla de entregas)
     if(!has)return czUbicKeyDe(b)==='BP'?(parseFloat(p.stockTotal!==undefined?p.stockTotal:p.stock)||0):0;
@@ -7027,7 +7028,7 @@ var Cot = (function(){
   }
   function czCardHtml(p){
     var thumb=(p.img?'<img src="'+p.img+'" class="pimg" style="width:38px;height:38px;flex:none;cursor:zoom-in" loading="lazy" onclick="MCfoto(\''+p.img+'\',event)" onerror="this.style.display=\'none\'">':'<div class="pimg pimg-ph" style="width:38px;height:38px;flex:none">📦</div>');
-    var metaT=czEsc(p.sku)+(function(){var q=czStock(p),u=czUbicDef(czUbicActualKey()).l;var a=MCarmDe(p,czUbicActualNombre());var aT=a>0?' · <span style="color:#f0c040">🔧 Armable '+a+'</span>':'';var pd=(q<=0||p.enPedido)?' · '+MCpedTxt(p,true):'';return (q>0?' · <span style="color:#6fd68f">'+(q%1?q:Math.round(q))+' und. en '+u+'</span>':' · <span style="color:'+(a>0?'#9aa4b2':'#e05c5c')+'">'+(a>0?'Stock 0':'sin stock')+' en '+u+'</span>')+aT+pd;})()+(p.precio?' · '+fmt(p.precio):'');
+    var metaT=czEsc(p.sku)+(function(){var q=czStock(p),u=czUbicDef(czUbicActualKey()).l;if(MCComp.q(p.sku,czUbicActualNombre())>0){var a0=MCarmDe(p,czUbicActualNombre());return ' · '+u+': '+MCComp.lbl(p.sku,czUbicActualNombre(),czStockFis(p,czUbicActualNombre()),0)+(a0>0?' · <span style="color:#f0c040">🔧 Armable '+a0+'</span>':'')+((q<=0||p.enPedido)?' · '+MCpedTxt(p,true):'');}var a=MCarmDe(p,czUbicActualNombre());var aT=a>0?' · <span style="color:#f0c040">🔧 Armable '+a+'</span>':'';var pd=(q<=0||p.enPedido)?' · '+MCpedTxt(p,true):'';return (q>0?' · <span style="color:#6fd68f">'+(q%1?q:Math.round(q))+' und. en '+u+'</span>':' · <span style="color:'+(a>0?'#9aa4b2':'#e05c5c')+'">'+(a>0?'Stock 0':'sin stock')+' en '+u+'</span>')+aT+pd;})()+(p.precio?' · '+fmt(p.precio):'');
     if(czDestino==='det'){
       var n=0,u=0;if(det&&det.lineas)det.lineas.forEach(function(l){if(l.sku===p.sku){n++;u+=parseFloat(l.cantidad)||0;}});
       var accion=MCpk.row("Cot.pkAddDet('"+czJs(p.sku)+"',",u,n); /* b452 */
@@ -7795,10 +7796,11 @@ var Cot = (function(){
   function dispLinea(l){
     var b=bodegaSel();
     // Sin detalle por bodega (Stock_Ubicacion aún no lo trae): en la bodega por defecto usamos el stock total
-    if(sinDetalleBodega(l))return /principal/i.test(b)?Math.max(0,Math.floor(parseFloat(l.stock)||0)):0;
+    if(sinDetalleBodega(l))return /principal/i.test(b)?Math.max(0,Math.floor((parseFloat(l.stock)||0)-MCComp.q(l.sku,b))):0;
     var sp=l.stockPor||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===b.toLowerCase()){v=sp[k];break;}}}
-    return Math.max(0,Math.floor(parseFloat(v)||0));
+    return Math.max(0,Math.floor((parseFloat(v)||0)-MCComp.q(l.sku,b)));
   }
+  function fisLinea(l){var b=bodegaSel();if(sinDetalleBodega(l))return /principal/i.test(b)?Math.floor(parseFloat(l.stock)||0):0;return Math.floor(MCstockDe(l,b));}
   function armLinea(l){return MCarmDe(l,bodegaSel());} // v231: unidades armables (BOM) en la bodega de la cotización
   function entLinea(l){
     var sv=entGuardado(l);
@@ -7835,7 +7837,7 @@ var Cot = (function(){
     var col=e.partesOk?'#9fc3e8':(e.resto<=0?'#6fd68f':(e.ahora>0?'#f0c040':'#e05c5c'));
     var warn=(!e.partes.length&&e.ahora>e.disp+e.arm)?' <span style="color:#e05c5c">⚠ supera el stock de '+b+'</span>':'';
     var sinPlazo=(e.resto>0&&e.plazo===PLAZOS[0]);
-    var stock='<span class="cbz-muted" style="font-size:11px">📦 '+b+': <b style="color:'+col+'">'+e.disp+'</b>'+(sinDetalleBodega(l)?' <span title="Sin detalle por bodega: se usa el stock total">(total)</span>':'')+(e.arm>0?' · <span style="color:#f0c040" title="Se arma en casa con componentes en bodega; al pasar a OV se crea la orden de fabricación">🔧 Armable '+e.arm+'</span>':'')+((e.disp+e.arm<e.cant)?' · '+MCpedTxt(l,true):'')+'</span>';
+    var stock='<span class="cbz-muted" style="font-size:11px">📦 '+b+': '+MCComp.lbl(l.sku,b,fisLinea(l),e.cant)+(sinDetalleBodega(l)?' <span title="Sin detalle por bodega: se usa el stock total">(total)</span>':'')+(e.arm>0?' · <span style="color:#f0c040" title="Se arma en casa con componentes en bodega; al pasar a OV se crea la orden de fabricación">🔧 Armable '+e.arm+'</span>':'')+((e.disp+e.arm<e.cant)?' · '+MCpedTxt(l,true):'')+'</span>';
     if(e.partes.length>=2){
       var ok=e.partesOk;
       var filas=e.partes.map(function(p,pi){
@@ -8510,7 +8512,7 @@ var Cot = (function(){
         }else if(e)e.partes=partesOk;
         if(!e){ // b232: sin plazos marcados (creada en inFlow): inmediato lo que cubre stock+armable de Bodega Principal; el resto «Por confirmar»
           var spk='';for(var kk in (p.stockPor||{})){if(/principal/i.test(kk)){spk=kk;break;}}
-          var disp=p.sku?(spk?MCstockDe(p,spk):(p.stockPor&&Object.keys(p.stockPor).length?0:(parseFloat(p.stock)||0))):0;
+          var disp=p.sku?(spk?MCdispDe(p,spk):(p.stockPor&&Object.keys(p.stockPor).length?0:(parseFloat(p.stock)||0))):0;
           var arm=p.sku?MCarmDe(p,'*'):0;
           e={cant:cantDoc,ahora:Math.min(Math.max(0,Math.floor(disp)+arm),cantDoc),plazo:'Por confirmar',partes:null,auto:true};
           sinPlazos=true;
@@ -12436,7 +12438,9 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   var CAMPOS=[['custom1','Factura'],['custom2','Anticipo'],['custom3','Orden consignada a'],['custom6','Entrega'],['custom8','Tipo de empaque'],['custom4','Peso bruto (kg)'],['custom9','Peso neto (kg)'],['custom5','Bulto L×A×H (m)']];
   var refs={},descCli=0,cats=null,pcat='',psin=false,camposOpen=false,histOpen={};
   function bodNombre(){var b=(cat&&cat.bodegas||[]).filter(function(x){return x.id===form.orden.location_id;})[0];return b?b.name:'BODEGA PRINCIPAL';}
-  function stockEn(pr,b){var sp=(pr&&pr.stockPor)||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}
+  function stockEn(pr,b){return Math.max(0,stockFis(pr,b)-MCComp.q(pr&&pr.sku,b,soEx()));}
+  function soEx(){return form&&form.orden&&form.orden.id?form.orden.order_number:'';}
+  function stockFis(pr,b){var sp=(pr&&pr.stockPor)||{};var v=sp[b];if(v===undefined){for(var k in sp){if(k.toLowerCase()===String(b).toLowerCase()){v=sp[k];break;}}}
     if(v===undefined&&!Object.keys(sp).length&&/principal/i.test(b))v=pr&&pr.stock;return Math.max(0,Math.floor(parseFloat(v)||0));}
   function pedTxt(pr){try{return MCpedTxt({enPedido:pr&&pr.enPedido},true);}catch(e){return '';}}
   function prodDe(l){var r=refs[l.product_id];return (r&&r.prod)||l._prod||{};}
@@ -12466,7 +12470,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
         r.historial.map(function(h){return '<tr><td>'+h.tipo+'</td><td>'+esc(h.n)+'</td><td>'+esc(h.f)+'</td><td style="text-align:right">'+h.q+'</td><td style="text-align:right">'+money(h.lista)+'</td><td style="text-align:right">'+(h.d?h.d+'%':'')+'</td><td style="text-align:right"><b>'+money(h.p)+'</b></td></tr>';}).join('')+'</table>':'')+'</div>';}
   function entHtml(l,i){if(!l.product_id)return '';var e=entDe(l),b=bodNombre();
     var col=e.partesOk?'#9fc3e8':(e.resto<=0?'#6fd68f':(e.ahora>0?'#f0c040':'#e05c5c'));
-    var h='<div class="vt-lent" style="margin-top:6px;padding-top:6px;border-top:1px solid #1c2a3a"><div style="font-size:11px;line-height:1.5"><span class="cbz-muted">📦 '+esc(b)+': <b style="color:'+col+'">'+e.disp+'</b>'+(e.arm>0?' · <span style="color:#f0c040">🔧 Armable '+e.arm+'</span>':'')+'</span></div><div style="font-size:11px;line-height:1.5">'+pedTxt(prodDe(l))+'</div>';
+    var h='<div class="vt-lent" style="margin-top:6px;padding-top:6px;border-top:1px solid #1c2a3a"><div style="font-size:11px;line-height:1.5"><span class="cbz-muted">📦 '+esc(b)+': '+MCComp.lbl(prodDe(l).sku||l.sku,b,stockFis(prodDe(l),b),e.cant,soEx())+(e.arm>0?' · <span style="color:#f0c040">🔧 Armable '+e.arm+'</span>':'')+'</span></div><div style="font-size:11px;line-height:1.5">'+pedTxt(prodDe(l))+'</div>';
     if(e.partes.length>=2){h+='<div class="cbz-muted" style="font-size:11px;margin-top:4px">Entrega dividida (solo planilla; la orden sigue con una línea)'+(e.partesOk?'':' <span style="color:#e05c5c">⚠ las partes deben sumar '+e.cant+'</span>')+'</div>'+
       e.partes.map(function(p,pi){return '<div style="display:flex;gap:6px;align-items:center;margin-top:3px"><span class="cbz-muted" style="font-size:11px;min-width:52px">Parte '+(pi+1)+'</span><input class="uinput" type="number" min="1" style="width:64px" value="'+p.cantidad+'" onchange="Ventas.setParte('+i+','+pi+',\'cantidad\',this.value)"><select class="uinput" style="width:auto" onchange="Ventas.setParte('+i+','+pi+',\'plazo\',this.value)">'+PLAZOS.map(function(z){return '<option'+(z===p.plazo?' selected':'')+'>'+z+'</option>';}).join('')+'</select></div>';}).join('')+
       '<button class="chip" style="margin-top:4px;padding:2px 8px;font-size:11px" onclick="Ventas.quitarPartes('+i+')">Quitar división</button>';}
@@ -12530,7 +12534,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function pintaRes(){var bx=$('vt-pres');if(!bx||!form)return;var b=bodNombre();
     
       bx.innerHTML=(prodRes.length?MCpk.listo('Ventas.pkListo()'):'')+prodRes.slice(0,25).map(function(p,i){var st=stockEn(p,b),a=MCarmDe(p,b),L0=form.lineas.filter(function(l){return l.product_id===p.id;}),n=L0.length,u=L0.reduce(function(a,l){return a+(parseFloat(l.quantity)||0);},0);
-        return '<div class="vf-row">'+MCpk.card(th(p.img,38),esc(p.name),esc(p.sku)+(p.codigo?' · '+esc(p.codigo):'')+' · '+esc(b)+': <b style="color:'+(st>0?'#6fd68f':'#e05c5c')+'">'+st+'</b>'+(a>0?' · <span style="color:#f0c040">🔧 Armable '+a+'</span>':'')+((st<=0||p.enPedido)?' · '+pedTxt(p):'')+(p.precio!=null?' · '+money(p.precio):''),MCpk.row('Ventas.pkAdd('+i+',',u,n))+'</div>';}).join('')||'<div class="cbz-muted">Sin resultados'+(psin?'':' con stock (marca «incluir sin stock»)')+'</div>';}
+        return '<div class="vf-row">'+MCpk.card(th(p.img,38),esc(p.name),esc(p.sku)+(p.codigo?' · '+esc(p.codigo):'')+' · '+esc(b)+': '+MCComp.lbl(p.sku,b,stockFis(p,b),0,soEx())+(a>0?' · <span style="color:#f0c040">🔧 Armable '+a+'</span>':'')+((st<=0||p.enPedido)?' · '+pedTxt(p):'')+(p.precio!=null?' · '+money(p.precio):''),MCpk.row('Ventas.pkAdd('+i+',',u,n))+'</div>';}).join('')||'<div class="cbz-muted">Sin resultados'+(psin?'':' con stock (marca «incluir sin stock»)')+'</div>';}
   function pkAdd(i,q){leerForm();var p=prodRes[i];if(!p)return;q=MCpk.q(q);var l={product_id:p.id,sku:p.sku,nombre:p.name,img:p.img||'',description:p.name,quantity:q,unit_price:p.precio||0,discount_pct:descCli||(form.cliente&&parseFloat(form.cliente.discount))||0,_nuevo:true,_prod:p,entrega:{}};
     form.lineas.push(l);sincEnt(l);renderForm();cargarRefs();}
   function pkListo(){pkQ='';prodRes=[];renderForm();try{var x=document.querySelector('#vt-pq');if(x)x.closest('.vf-sec').previousElementSibling.scrollIntoView({block:'start'});}catch(e){}}
@@ -14755,7 +14759,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     if(sb)return esc(sb)+(df&&String(sb).split(', ').indexOf(df)<0?' <span class="ms-sub">· pred. '+esc(df)+'</span>':'');
     if(df)return esc(df)+' <span class="ms-sub">(predeterminada)</span>';return '—';}
   function pfPedLn(p){if(!(p.ped_q>0))return '';return '<div class="pf-ped" style="color:#5cc8ff;font-size:12px;margin-top:2px;white-space:nowrap">📦 En pedido '+(Math.round(p.ped_q*100)/100)+(p.ped_oc?' · llega '+MCllega(p.ped_oc):p.ped_llega?' · llega '+pfLlega(p.ped_llega,true):' · sin fecha')+'</div>';} /* b443 */
-  function celda(p,k){if(k==='ubicacion'||k==='sububicacion'){var u=pfUbiB(p,k);if(u!=null)return u;}if(k==='tipo')return TIPO2[p.item_type]||esc(p.item_type||'');if(k==='stock')return String(Math.round(pfStock(p)*100)/100);if(k==='costo')return p.costo==null?'—':money2(p.costo);
+  function celda(p,k){if(k==='ubicacion'||k==='sububicacion'){var u=pfUbiB(p,k);if(u!=null)return u;}if(k==='tipo')return TIPO2[p.item_type]||esc(p.item_type||'');if(k==='stock'){var c0=MCComp.q(p.sku,pfBod()[0]==='todas'?'*':pfBod()[2]);var f0=Math.round(pfStock(p)*100)/100;return c0>0?'On hand '+f0+' · Disp. '+Math.max(0,f0-c0)+' ⚠':String(f0);}if(k==='costo')return p.costo==null?'—':money2(p.costo);
     if(k==='pedido')return p.ped_q>0?'<span style="color:#5cc8ff">'+(Math.round(p.ped_q*100)/100)+'</span>':'—';if(k==='llega')return p.ped_q>0&&p.ped_oc?MCllega(p.ped_oc):pfLlega(p.ped_llega,p.ped_q>0); /* b440 */
     if(k.charAt(0)==='$'){var x=(p.precios||{})[k.slice(1)];return x==null?'—':money2(x);}return esc(p[k]==null||p[k]===''?'—':p[k]);}
   function pfDmy(d){d=String(d||'').slice(0,10);return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'';}
@@ -14778,7 +14782,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     var th=function(k,t,c){var S=PF.sort||{},on=S.k===k;return '<th class="'+(c||'')+'" style="cursor:pointer;user-select:none" onclick="MCProd.orden(\''+esc(k)+'\')">'+t+(on?(S.d>0?' ▲':' ▼'):'')+'</th>';};
     var h=(PF.f.desp?'<div style="margin:2px 0 6px"><b style="color:#a3e635">📐 Despiece: '+esc(PF.f.desp)+'</b></div>':'')+'<div class="ms-sub" style="margin-bottom:6px">'+L.length+' productos</div><div style="overflow-x:auto" data-nosort><table class="ms-t pf-n"><thead><tr><th class="n">#</th><th></th>'+th('name','Producto')+C.map(function(k){return th(k,lbl(k),num(k)?'n':'');}).join('')+'</tr></thead><tbody>'+
       L.slice(0,PF.max).map(function(p,i){return '<tr class="r" onclick="MCProd.abrir('+i+')"><td class="n pf-i">'+(i+1)+'</td><td style="width:52px">'+img(p)+'</td><td>'+pfPos(p)+'<b>'+esc(p.name)+'</b> '+act(p.is_active)+' '+syncMini(p.sync_status)+pfPedLn(p)+'</td>'+C.map(function(k){return '<td class="'+(num(k)?'n':'')+'">'+celda(p,k)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
-    h+='<div class="ms-cards">'+L.slice(0,PF.max).map(function(p,i){return '<div class="ms-card" onclick="MCProd.abrir('+i+')">'+img(p)+'<div style="flex:1;min-width:0"><div class="nm">'+pfPos(p)+esc(p.name)+' '+act(p.is_active)+' '+syncMini(p.sync_status)+'</div>'+pfPedLn(p)+'<div class="ms-sub">'+esc(p.sku||'')+(p.categoria?' · '+esc(p.categoria):'')+'</div></div><div class="ms-stk'+(pfStock(p)>0?' ok':'')+'">'+(Math.round(pfStock(p)*100)/100)+'</div></div>';}).join('')+'</div>';
+    h+='<div class="ms-cards">'+L.slice(0,PF.max).map(function(p,i){return '<div class="ms-card" onclick="MCProd.abrir('+i+')">'+img(p)+'<div style="flex:1;min-width:0"><div class="nm">'+pfPos(p)+esc(p.name)+' '+act(p.is_active)+' '+syncMini(p.sync_status)+'</div>'+pfPedLn(p)+(MCComp.q(p.sku,pfBod()[0]==='todas'?'*':pfBod()[2])>0?'<div class="ms-sub">'+MCComp.lbl(p.sku,pfBod()[0]==='todas'?'*':pfBod()[2],pfStock(p),0)+'</div>':'')+'<div class="ms-sub">'+esc(p.sku||'')+(p.categoria?' · '+esc(p.categoria):'')+'</div></div><div class="ms-stk'+(pfStock(p)>0?' ok':'')+'">'+(Math.round(pfStock(p)*100)/100)+'</div></div>';}).join('')+'</div>';
     if(L.length>PF.max)h+='<div style="text-align:center;margin:12px"><button class="chip" onclick="MCProd.mas()">Mostrar más ('+(L.length-PF.max)+' restantes)</button></div>';
     b.innerHTML=h;var mb=window.matchMedia&&matchMedia('(max-width:700px)').matches;var sb=document.getElementById('pf-sortm');if(sb)sb.remove();
     if(mb){var d=document.createElement('div');d.id='pf-sortm';d.className='pf-filt';d.innerHTML='<select class="uinput" onchange="MCProd.orden(this.value,1)"><option value="">Ordenar…</option>'+[['name','Producto']].concat(C.map(function(k){return [k,lbl(k)];})).map(function(o){var S=PF.sort||{};return '<option value="'+esc(o[0])+'"'+(S.k===o[0]?' selected':'')+'>'+o[1]+(S.k===o[0]?(S.d>0?' ▲':' ▼'):'')+'</option>';}).join('')+'</select>';b.insertBefore(d,b.firstChild);}}
@@ -18020,6 +18024,29 @@ function MCvtTitulo(t){try{document.getElementById('title').textContent=t==='SQ'
 <script>
 /* ===================== b453 r475: badge del ícono (avisos abiertos) + Web Push + desplegable «Asignado a» ===================== */
 var MC_PUSH_URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/push-api';
+/* b461: stock comprometido (OV abiertas no piqueadas) — On hand vs Disponible, como inFlow */
+window.MCComp=(function(){
+  var M={},T=0,P=null;
+  function nb(b){return String(b||'').trim().toLowerCase();}
+  function cargar(f){if(P)return P;if(!f&&Date.now()-T<60000)return Promise.resolve(M);
+    try{if(!getUserName())return Promise.resolve(M);}catch(e){return Promise.resolve(M);}
+    P=fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'comprometidos',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){
+      if(r&&r.ok){var N={};(r.items||[]).forEach(function(x){(N[x.sku]=N[x.sku]||[]).push(x);});M=N;T=Date.now();try{document.dispatchEvent(new Event('mc-comp'));}catch(e){}}P=null;return M;}).catch(function(){P=null;return M;});return P;}
+  function docs(sku,b,ex){return (M[sku]||[]).filter(function(x){return (!b||b==='*'||b==='todas'||nb(x.bodega)===nb(b))&&(!ex||x.so!==ex);});}
+  function q(sku,b,ex){return docs(sku,b,ex).reduce(function(t,x){return t+(+x.q||0);},0);}
+  function cli(c){c=String(c||'').replace(/\b(S\.?A\.?S?|CIA\.? LTDA|DRILLING|SUPPLIES|ECUADOR)\b\.?/gi,'').replace(/\s+/g,' ').trim();return c.split(' ').slice(0,2).join(' ');}
+  function det(sku,b,ex){return docs(sku,b,ex).map(function(x){return (+x.q)+' comprometido en '+x.so+' ('+cli(x.cliente)+')';}).join(' · ');}
+  function n(v){v=+v||0;return v%1?Math.round(v*100)/100:v;}
+  /* html: «On hand 4 · Disponible 3» + color (verde/amarillo/rojo según lo pedido) + detalle */
+  function lbl(sku,b,fis,req,ex){fis=+fis||0;var c=q(sku,b,ex),d=Math.max(0,fis-c);req=+req||0;
+    var col=req>0?(d>=req?'#6fd68f':(fis>=req?'#f0c040':'#e05c5c')):(d>0?'#6fd68f':(fis>0?'#f0c040':'#e05c5c'));
+    var t=det(sku,b,ex);
+    return '<span class="mc-oh" style="white-space:normal">On hand <b>'+n(fis)+'</b> · <span style="color:'+col+'">Disponible <b>'+n(d)+'</b></span>'+(c>0?' <span class="mc-cmt" title="'+t.replace(/"/g,'&quot;')+'" style="color:#f0c040;display:inline-block">⚠ '+t+'</span>':'')+'</span>';}
+  setInterval(function(){if(document.visibilityState==='visible')cargar();},60000);
+  (function w(){var u='';try{u=getUserName();}catch(e){}if(u)cargar(true);else setTimeout(w,3000);})();
+  return {cargar:cargar,q:q,det:det,lbl:lbl,_M:function(){return M;},_set:function(x){M=x;T=Date.now();}};
+})();
+function MCdispDe(it,b,ex){return Math.max(0,MCstockDe(it,b)-MCComp.q(it&&it.sku,b,ex));}
 var MC_VAPID='BMVGhu5rROBmgFCFpHtnG0MkfNyuMy8tIfCARH0DtsBeCuvoFTwcrtCdoSEv84Hsf00ahYFp2EeImEuIcR6Pdqc';
 var MCUsrSel=(function(){
   var L=null,P=null;
