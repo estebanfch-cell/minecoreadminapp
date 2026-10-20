@@ -492,7 +492,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='449';
+  var MC_BUILD='450';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -1287,6 +1287,19 @@ var MCWarm = (function(){
     RECENT:IO_RECENT,loadInflow:loadInflow,getInflow:getInflow,loadCotAdmin:loadCotAdmin,getCotAdmin:getCotAdmin,dropPre:dropPre,absorbInflow:absorbInflow,markStale:markStale};
 })();
 function MCmoTxt(r){var m=r&&r.mo;if(!m)return '';var a=[];(m.mos||[]).forEach(function(x){if(x.resultado==='CREADA')a.push('🔧 Orden de fabricación '+(x.numero||'')+': armar '+x.armar+' × '+x.sku);else if(x.resultado==='YA_EXISTIA')a.push('🔧 Orden de fabricación ya existía: '+x.sku);else if(x.resultado==='DRYRUN')a.push('🔧 (prueba) se armaría '+x.armar+' × '+x.sku);});if(m.errores&&m.errores.length)a.push('⚠ Orden de fabricación no creada: '+m.errores[0]);return a.length?'\n'+a.join('\n'):'';}
+/* b450 EFCH: referencias de precio como lista limpia (precio BRUTO) con «Usar este»; on(v) = js que fija el precio unitario */
+function MCrefLista(items,on,fmt){fmt=fmt||function(v){return '$'+(+v).toFixed(2);};var e=function(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+  if(!document.getElementById('mc-rfl-css'))document.head.insertAdjacentHTML('beforeend','<style id="mc-rfl-css">.mc-rfl{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 10px;align-items:center;margin:6px 0;font-size:12px}.mc-rfl .l{min-width:0;white-space:normal;color:#c9d4e0}.mc-rfl .l small{color:#7d8ba0;font-size:11px}.mc-rfl .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.mc-rfl .def{color:#a3e635;font-size:10.5px;font-weight:700;margin-left:4px;white-space:nowrap}.mc-rfl button{background:transparent;border:0;color:#5cc8ff;font:inherit;font-size:11.5px;cursor:pointer;padding:4px 0;white-space:nowrap}.mc-rfl .na{color:#7d8ba0;font-weight:400}</style>');
+  return '<div class="mc-rfl">'+items.map(function(x){var has=x.p!=null&&+x.p>0;return '<div class="l">'+e(x.lbl)+(x.sub?' <small>('+e(x.sub)+')</small>':'')+(x.def?'<span class="def">● predeterminado</span>':'')+'</div><div class="v">'+(has?fmt(+x.p):'<span class="na">—</span>')+'</div><div>'+(has&&on?'<button type="button" onclick="'+on(Math.round(x.p*100)/100)+'">Usar este</button>':'')+'</div>';}).join('')+'</div>';}
+function MCrefItems(o){var sub=function(r,tipo){return r?[r.f,r.n].filter(Boolean).join(' · '):tipo;};var L=[
+  {k:'lista',lbl:'Precio de lista',p:o.lista},
+  {k:'cot',lbl:'Último cotizado al cliente',p:o.cot&&o.cot.p,sub:o.cot?sub(o.cot):'sin cotización previa'},
+  {k:'vend',lbl:'Último vendido al cliente',p:o.vend&&o.vend.p,sub:o.vend?sub(o.vend):'nunca vendido'},
+  {k:'mxc',lbl:'Más alto vendido al cliente',p:o.mxc&&o.mxc.p,sub:o.mxc?sub(o.mxc):''},
+  {k:'mxg',lbl:'Más alto vendido global',p:o.mxg&&o.mxg.p,sub:o.mxg?sub(o.mxg):''},
+  {k:'cotg',lbl:'Último cotizado global',p:o.cotg&&o.cotg.p,sub:o.cotg?sub(o.cotg):''},
+  {k:'vendg',lbl:'Último vendido global',p:o.vendg&&o.vendg.p,sub:o.vendg?sub(o.vendg):''}];
+  L.forEach(function(x){x.def=x.k===o.def;});return L;}
 /* b448 EFCH: llega = 20 a 30 días desde la fecha de la OC (la más antigua abierta) */
 function MCllega(f){f=String(f||'').slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(f))return '';var M=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   var d0=new Date(f+'T12:00:00Z'),a=new Date(d0.getTime()+20*864e5),b=new Date(d0.getTime()+30*864e5),ad=a.getUTCDate(),bd=b.getUTCDate(),am=a.getUTCMonth(),bm=b.getUTCMonth(),ay=a.getUTCFullYear(),by=b.getUTCFullYear();
@@ -7103,6 +7116,7 @@ var Cot = (function(){
       if(match.ultGlobal)local.ultGlobal=match.ultGlobal;
       if(match.ultCotCliente)local.ultCotCliente=match.ultCotCliente;
       if(match.ultCotGlobal)local.ultCotGlobal=match.ultCotGlobal;
+      if(match.maxVendCli)local.maxVendCli=match.maxVendCli;if(match.maxVendGlob)local.maxVendGlob=match.maxVendGlob; /* b450 */
       if(match.codigo)local.codigo=match.codigo;
       if(match.categoria)local.categoria=match.categoria;
       if(match.img&&!local.img)local.img=match.img;
@@ -7468,7 +7482,7 @@ var Cot = (function(){
           '<button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Cot.quitarLinea('+i+')">🗑</button></div>':'')+
         '</div>'+
         '<div class="cbz-muted" style="font-size:11px">SKU: '+l.sku+' · Stock: '+l.stock+'</div>'+sinPid+
-        '<div class="cbz-muted" style="font-size:11px;margin:4px 0">Lista: <b>'+fmt(l.lista)+'</b>'+alerta+' · '+refCli+'</div>'+
+        (alerta?'<div style="font-size:11px">'+alerta+'</div>':'')+MCrefLista(MCrefItems({lista:l.lista,cot:l.ultCotCliente,vend:l.ultCliente,mxc:l.maxVendCli,mxg:l.maxVendGlob,cotg:l.ultCotGlobal,vendg:l.ultGlobal,def:(refP>(+l.lista||0))?(l.ultCotCliente?'cot':'vend'):'lista'}),creada?null:function(v){return 'Cot.setPrecio('+i+','+v+')';},fmt)+
         '<div class="cbz-card-row" style="gap:10px;align-items:center;flex-wrap:wrap">'+
         '<span class="cbz-muted" style="font-size:11px">Cant:</span>'+
         '<input type="number" min="1" inputmode="numeric" class="uinput" style="width:64px;text-align:center;padding:6px" value="'+l.cantidad+'" '+(creada?'disabled':'onchange="Cot.setCant('+i+',this.value)"')+'>'+
@@ -12383,7 +12397,11 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function sincEnt(l){l.plazo_entrega=entTexto(l);}
   function lineaFinal(l){return Math.round((parseFloat(l.unit_price)||0)*(1-(parseFloat(l.discount_pct)||0)/100)*100)/100;}
   function totHtml(){var t=totales();var ht=document.getElementById('vt-htot');if(ht)ht.textContent=money(t.t);var fr=parseFloat(form.orden.freight)||0;return '<table><tr><td>Subtotal</td><td><b>'+money(t.st)+'</b></td></tr><tr><td>IVA</td><td>'+money(t.iva)+'</td></tr>'+(fr?'<tr><td>Flete</td><td>'+money(fr)+'</td></tr>':'')+'<tr class="t"><td>Total</td><td>'+money(t.t)+'</td></tr></table>';}
-  function refTxt(l){var r=refs[l.product_id];if(!r)return '<span class="cbz-muted">Cargando referencias…</span>';
+  function refTxt(l,i){var r=refs[l.product_id];if(!r)return '<span class="cbz-muted">Cargando referencias…</span>';
+    /* b450: lista limpia; predeterminado = regla actual (mayor entre lista y último cotizado, si no hay, último vendido; precio bruto) */
+    var rf=r.ultCotCli||r.ultVendCli,dk=(rf&&rf.lista!=null&&r.lista!=null?rf.lista>r.lista:(rf&&r.lista==null))?(r.ultCotCli?'cot':'vend'):'lista';
+    var al0=(rf&&r.lista!=null&&r.lista<rf.lista)?'<div style="color:#f0c040;font-size:11px">⚠ lista por debajo del último '+(r.ultCotCli?'cotizado':'vendido')+'</div>':'';
+    if(i!=null)return al0+MCrefLista(MCrefItems({lista:r.lista,cot:r.ultCotCli,vend:r.ultVendCli,mxc:r.maxVendCli,mxg:r.maxVendGlob,cotg:r.ultCotGlob,vendg:r.ultVendGlob,def:dk}),function(v){return "Ventas.setL("+i+",'unit_price',"+v+",1)";},money);
     var x=function(o,lbl){return lbl+': <b>'+money(o.p)+'</b> ('+esc(o.f)+(o.n?' · '+esc(o.n):'')+')';};
     var coti=r.ultCotCli?x(r.ultCotCli,'Últ. <b>cotizado</b>'):'<span style="color:#7d8ba0">Sin cotización previa a este cliente</span>'+(r.ultCotGlob?' · global: '+money(r.ultCotGlob.p)+' ('+esc(r.ultCotGlob.f)+')':'');
     var vend=r.ultVendCli?x(r.ultVendCli,'Últ. <b>vendido</b>'):'<span style="color:#f0c040">Nunca vendido a este cliente</span>'+(r.ultVendGlob?' · global: '+money(r.ultVendGlob.p)+' ('+esc(r.ultVendGlob.f)+')':'');
@@ -12407,13 +12425,13 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   var VT_LCSS='<style>.vt-lnum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:8px;align-items:end;margin-top:6px}.vt-lnum label{display:flex;flex-direction:column;gap:2px;min-width:0}.vt-lnum label span{font-size:11px}.vt-lnum input{width:100%;box-sizing:border-box;min-width:0}.vt-lfin{white-space:nowrap;align-self:center;text-align:right}'+
     '.vt-lent select{max-width:100%}.vt-lent .uinput{box-sizing:border-box}@media(max-width:560px){.vt-lnum{grid-template-columns:repeat(3,minmax(0,1fr))}.vt-lfin{grid-column:1/-1;white-space:normal}.vt-lacc .chip{flex:1 1 auto;text-align:center}}</style>';
   function lineasHtml(){var n=form.lineas.length;
-    return VT_LCSS+vfS('lin','Líneas ('+n+')',n+' · '+money(totales().st))+'<div class="cbz-muted" style="font-size:11px;margin-bottom:6px">Precio propuesto = el MAYOR entre la lista del esquema del cliente y su referencia (último cotizado; si no hay, último vendido). Descuento pre-cargado = el del cliente ('+(descCli||0)+'%). Tú tienes la última palabra en cada línea.</div>'+
+    return VT_LCSS+vfS('lin','Líneas ('+n+')',n+' · '+money(totales().st))+'<div class="cbz-muted" style="font-size:11px;margin-bottom:6px">Precio propuesto (● predeterminado) = el MAYOR entre la lista del esquema del cliente y su referencia (último cotizado; si no hay, último vendido). Todos los precios de referencia son SIN descuento; «Usar este» lo pone en la línea. Descuento pre-cargado = el del cliente ('+(descCli||0)+'%). Tú tienes la última palabra en cada línea.</div>'+
       form.lineas.map(function(l,i){var pr=prodDe(l),fin=lineaFinal(l);
         var L=window._vfL||{};return '<div class="vf-line'+(L[i]?'':' vf-lc')+'"><div class="vf-lsum" onclick="vfTogL(this,'+i+')"><span class="n">'+esc(l.nombre||pr.nombre||l.description||'')+'</span><span class="q">'+(parseFloat(l.quantity)||0)+' × '+money(fin)+'</span><span class="t">'+money(Math.round(fin*(parseFloat(l.quantity)||0)*100)/100)+'</span><span class="vf-chev">▾</span></div><div class="vf-ld"><div style="display:flex;gap:8px;align-items:flex-start">'+th(l.img||pr.img,48)+
           '<div style="flex:1;min-width:0"><div style="font-weight:700;word-break:break-word">'+esc(l.nombre||pr.nombre||l.description||'')+'</div><div class="cbz-muted" style="font-size:11px;word-break:break-word">SKU '+esc(l.sku||'')+(pr.codigo?' · '+esc(pr.codigo):'')+(pr.categoria?' · '+esc(pr.categoria):'')+'</div></div></div>'+
           '<div class="vt-lacc" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px"><span class="cbz-muted" style="font-size:11px">Pos.</span><input class="uinput" type="number" min="1" max="'+n+'" title="Posición" style="width:46px;text-align:center;padding:4px" value="'+(i+1)+'" onchange="Ventas.moverA('+i+',this.value)">'+
           '<button class="chip" style="padding:4px 8px" onclick="Ventas.dividirEnt('+i+')">Dividir entrega</button><button class="chip" style="padding:4px 8px" onclick="Ventas.otraLinea('+i+')">Otra línea</button><button class="chip" style="padding:4px 8px;color:#e05c5c" onclick="Ventas.delL('+i+')">🗑</button></div>'+
-          '<div class="cbz-muted" style="font-size:11px;margin:4px 0;line-height:1.5">'+refTxt(l)+'</div>'+histHtml(l,i)+
+          '<div style="margin:4px 0">'+refTxt(l,i)+'</div>'+histHtml(l,i)+
           '<div class="vt-lnum"><label><span class="cbz-muted">Cant.</span><input class="uinput" type="number" min="1" style="text-align:center" value="'+l.quantity+'" onchange="Ventas.setL('+i+',\'quantity\',this.value,1)">'+
           '</label><label><span class="cbz-muted">Precio</span><input class="uinput" type="number" step="0.01" style="text-align:center" value="'+(parseFloat(l.unit_price)||0).toFixed(2)+'" onchange="Ventas.setL('+i+',\'unit_price\',this.value,1)">'+
           '</label><label><span class="cbz-muted">Desc %</span><input class="uinput" type="number" step="0.5" min="0" max="99" style="text-align:center" value="'+(parseFloat(l.discount_pct)||0)+'" onchange="Ventas.setL('+i+',\'discount_pct\',this.value,1)"></label>'+
