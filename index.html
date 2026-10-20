@@ -492,7 +492,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='446';
+  var MC_BUILD='447';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -14656,7 +14656,7 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     if(k==='ubicacion')return (st||sb||df)?esc(b[1]):'—';
     if(sb)return esc(sb)+(df&&String(sb).split(', ').indexOf(df)<0?' <span class="ms-sub">· pred. '+esc(df)+'</span>':'');
     if(df)return esc(df)+' <span class="ms-sub">(predeterminada)</span>';return '—';}
-  function pfPedLn(p){if(!(p.ped_q>0))return '';return '<div style="color:#5cc8ff;font-size:12px;margin-top:2px;white-space:nowrap">📦 En pedido '+(Math.round(p.ped_q*100)/100)+(p.ped_llega?' · llega '+pfLlega(p.ped_llega,true):' · sin fecha')+'</div>';} /* b443 */
+  function pfPedLn(p){if(!(p.ped_q>0))return '';return '<div class="pf-ped" style="color:#5cc8ff;font-size:12px;margin-top:2px;white-space:nowrap">📦 En pedido '+(Math.round(p.ped_q*100)/100)+(p.ped_llega?' · llega '+pfLlega(p.ped_llega,true):' · sin fecha')+'</div>';} /* b443 */
   function celda(p,k){if(k==='ubicacion'||k==='sububicacion'){var u=pfUbiB(p,k);if(u!=null)return u;}if(k==='tipo')return TIPO2[p.item_type]||esc(p.item_type||'');if(k==='stock')return String(Math.round(pfStock(p)*100)/100);if(k==='costo')return p.costo==null?'—':money2(p.costo);
     if(k==='pedido')return p.ped_q>0?'<span style="color:#5cc8ff">'+(Math.round(p.ped_q*100)/100)+'</span>':'—';if(k==='llega')return pfLlega(p.ped_llega,p.ped_q>0); /* b440 */
     if(k.charAt(0)==='$'){var x=(p.precios||{})[k.slice(1)];return x==null?'—':money2(x);}return esc(p[k]==null||p[k]===''?'—':p[k]);}
@@ -14672,8 +14672,8 @@ window.gm_authFailure=function(){window._mcMapsAuthFail=true;};
     if(!L.length){b.innerHTML='<p class="ms-sub">Sin resultados.</p>';return;}
     var num=function(k){return k==='stock'||k==='pedido'||k==='costo'||k.charAt(0)==='$';};
     var th=function(k,t,c){var S=PF.sort||{},on=S.k===k;return '<th class="'+(c||'')+'" style="cursor:pointer;user-select:none" onclick="MCProd.orden(\''+esc(k)+'\')">'+t+(on?(S.d>0?' ▲':' ▼'):'')+'</th>';};
-    var h='<div class="ms-sub" style="margin-bottom:6px">'+L.length+' productos</div><div style="overflow-x:auto" data-nosort><table class="ms-t"><thead><tr><th></th>'+th('name','Producto')+C.map(function(k){return th(k,lbl(k),num(k)?'n':'');}).join('')+'</tr></thead><tbody>'+
-      L.slice(0,PF.max).map(function(p,i){return '<tr class="r" onclick="MCProd.abrir('+i+')"><td style="width:52px">'+img(p)+'</td><td><b>'+esc(p.name)+'</b> '+act(p.is_active)+' '+syncMini(p.sync_status)+pfPedLn(p)+'</td>'+C.map(function(k){return '<td class="'+(num(k)?'n':'')+'">'+celda(p,k)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
+    var h='<div class="ms-sub" style="margin-bottom:6px">'+L.length+' productos</div><div style="overflow-x:auto" data-nosort><table class="ms-t pf-n"><thead><tr><th class="n">#</th><th></th>'+th('name','Producto')+C.map(function(k){return th(k,lbl(k),num(k)?'n':'');}).join('')+'</tr></thead><tbody>'+
+      L.slice(0,PF.max).map(function(p,i){return '<tr class="r" onclick="MCProd.abrir('+i+')"><td class="n pf-i">'+(i+1)+'</td><td style="width:52px">'+img(p)+'</td><td><b>'+esc(p.name)+'</b> '+act(p.is_active)+' '+syncMini(p.sync_status)+pfPedLn(p)+'</td>'+C.map(function(k){return '<td class="'+(num(k)?'n':'')+'">'+celda(p,k)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
     h+='<div class="ms-cards">'+L.slice(0,PF.max).map(function(p,i){return '<div class="ms-card" onclick="MCProd.abrir('+i+')">'+img(p)+'<div style="flex:1;min-width:0"><div class="nm">'+esc(p.name)+' '+act(p.is_active)+' '+syncMini(p.sync_status)+'</div>'+pfPedLn(p)+'<div class="ms-sub">'+esc(p.sku||'')+(p.categoria?' · '+esc(p.categoria):'')+'</div></div><div class="ms-stk'+((+p.stock||0)>0?' ok':'')+'">'+(+p.stock||0)+'</div></div>';}).join('')+'</div>';
     if(L.length>PF.max)h+='<div style="text-align:center;margin:12px"><button class="chip" onclick="MCProd.mas()">Mostrar más ('+(L.length-PF.max)+' restantes)</button></div>';
     b.innerHTML=h;var mb=window.matchMedia&&matchMedia('(max-width:700px)').matches;var sb=document.getElementById('pf-sortm');if(sb)sb.remove();
@@ -17265,6 +17265,15 @@ var MCCostos=(function(){
  #maes-screen .ms-card .ms-img{width:34px;height:34px;border-radius:6px}
  #maes-screen .ms-card .nm{font-size:13px;font-weight:700;white-space:normal;overflow:visible;text-overflow:clip;word-break:normal}
  #maes-screen .ms-card .ms-sub{font-size:11.5px;white-space:normal;overflow:visible;text-overflow:clip}}
+/* b447: la fila crece con su contenido (nombre de 2-3 líneas + código + «En pedido»); nada recortado */
+@media (max-width:700px){#maes-screen .ms-card{display:flex;height:auto!important;min-height:48px;padding:8px 4px;align-items:center}
+ #maes-screen .ms-card>div:nth-child(2){flex:1;min-width:0}
+ #maes-screen .ms-card .pf-ped{white-space:normal!important}}
+/* b447: columna # en la tabla de Productos (la tabla pf-n tiene una columna más al inicio) */
+#maes-screen .ms-t.pf-n td.pf-i{width:1%;white-space:nowrap;color:#8a94a6;font-variant-numeric:tabular-nums;max-width:none;min-width:0}
+#maes-screen .ms-t.pf-n td:nth-child(2){min-width:0;max-width:none}
+#maes-screen .ms-t.pf-n td:nth-child(3){min-width:220px;max-width:none;white-space:normal}
+@media (min-width:701px) and (max-width:1100px){#maes-screen .ms-t.pf-n td:nth-child(3){min-width:170px;max-width:none;font-size:inherit}#maes-screen .ms-t.pf-n td:nth-child(4){max-width:84px}}
 </style>
 <script>
 /* t605: MCnw — marca tablas/tarjetas para que nada se aplaste (ver patch_nowrap.py) */
