@@ -526,7 +526,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='470';
+  var MC_BUILD='471';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -12707,7 +12707,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     if(!confirm('¿Confirmar la preparación de '+ls.length+' producto(s)? Se descuenta de cada sububicación elegida y se copia a inFlow.'))return;pqEnviar(ls);}
   function pqEnviar(ls,apNeg){var o=pq.ordenes[pq.sel];var cj=pqCajasSel(o,ls);if(cj===false)return;
     if(busy&&Date.now()-(window._vtBusyT||0)<100000){try{toast('Aún se está procesando la acción anterior…');}catch(e){}return;}busy=true;window._vtBusyT=Date.now();
-    MCtimeout(api({op:'pick',id:o.so,lineas:ls,aprobar_negativo:!!apNeg}),100000,new Error('Sin respuesta en 100 s. Recarga antes de reintentar.')).then(function(r){busy=false;if(!r.ok&&r.necesita_aprobacion&&!apNeg&&window.MCnegConfirm){MCnegConfirm(r,function(){pqEnviar(ls,true);});return;}if(!r.ok){err(r.error);return;}try{toast('Preparación registrada');}catch(e){}
+    MCtimeout(api({op:'pick',id:o.so,lineas:ls,aprobar_negativo:!!apNeg,cajas_linea:cj}),100000,new Error('Sin respuesta en 100 s. Recarga antes de reintentar.')).then(function(r){busy=false;if(!r.ok&&r.necesita_aprobacion&&!apNeg&&window.MCnegConfirm){MCnegConfirm(r,function(){pqEnviar(ls,true);});return;}if(!r.ok){err(r.error);return;}try{toast('Preparación registrada');}catch(e){}
       return pqAutoPack(o.so,cj).then(function(){
         if(pq.inline===o.so){pq.inline=null;abrir(o.so);return;}
         return api({op:'paraPiquear'}).then(function(r2){pq.ordenes=r2.ordenes||[];var k=-1;pq.ordenes.forEach(function(x,i){if(x.so===o.so)k=i;});if(k<0)renderPq();else pqAbrir(k);});});}).catch(function(e){busy=false;err(e);});}
