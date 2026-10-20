@@ -2,15 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<link rel="apple-touch-icon" sizes="180x180" href="https://portal.minecore.ec/apple-touch-icon.png?v=455">
-<link rel="apple-touch-icon" href="https://portal.minecore.ec/apple-touch-icon.png?v=455">
+<title>Minecore</title>
 <meta name="apple-mobile-web-app-title" content="Minecore">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="/manifest.webmanifest?v=455">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=455">
-<link rel="icon" href="/favicon.ico?v=455" sizes="any">
-<title>Minecore Admin</title>
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" href="/favicon.ico" sizes="any">
 <meta name="theme-color" content="#0b1219">
 <link rel="stylesheet" href="caja.css?v=329">
 <style>
@@ -496,7 +496,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='455';
+  var MC_BUILD='456';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
