@@ -523,7 +523,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='459';
+  var MC_BUILD='460';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -12589,8 +12589,14 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     if((kind==='boxlabel'||kind==='boxcontent')&&cur&&cur.orden.id===id&&!(cur.cajas||[]).length&&!confirm('La orden aún no tiene cajas: se imprimirá una sola caja con todo. ¿Continuar?'))return;
     pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc,kind==='so'&&cur&&cur.orden&&cur.orden.id===id?{entregas:cotEntregas()}:undefined);}),mcSanitizeFilename(DOCN[kind]+' - '+num+'.pdf'));}
   /* Planilla del Cotizador viejo (MCPlanillaCot): fotos, precio lista, descuento, final y plazos por línea (incluida la entrega dividida) */
+  /* b460 (regla EFCH t1005): si la línea no trae partes en entrega JSON, se leen del texto plazo_entrega «14 und. inmediata + 6 und. 10-15 días» (lo que guarda «Entrega ▾»). */
+  function mcPartesLinea(l){var e=l.entrega||{},q=+l.quantity||0;var P=(e.partes||[]).filter(function(p){return p&&+p.cantidad>0;}).map(function(p){return {cantidad:+p.cantidad,plazo:String(p.plazo||'Por confirmar')};});if(P.length>=2)return P;
+    var t=String(l.plazo_entrega||'').trim();if(/\d+\s*und\./i.test(t)){var out=[];t.split(/\s\+\s/).forEach(function(seg){var m=seg.match(/^\s*(\d+(?:[.,]\d+)?)\s*und\.\s*(?:·\s*)?(.*)$/i);if(!m)return;var pz=m[2].trim().replace(/\s*\(\d+\s*por ensamblar\)\s*/i,'').trim();if(/^inmediat/i.test(pz)||!pz)pz='Inmediato';out.push({cantidad:+m[1].replace(',','.'),plazo:pz});});
+      var sm=0;out.forEach(function(x){sm+=x.cantidad;});if(out.length>=2&&Math.abs(sm-q)<1e-6)return out;}
+    if(e.manual&&+e.ahora>0&&+e.ahora<q)return [{cantidad:+e.ahora,plazo:'Inmediato'},{cantidad:q-e.ahora,plazo:String(e.plazo||'Por confirmar')}];return [];}
+  window.mcPartesLinea=mcPartesLinea;
   function cotEntregas(){return (cur.lineas||[]).filter(function(l){return l.product_id;}).map(function(l){var e=l.entrega||{},cant=+l.quantity||0,pe=String(l.plazo_entrega||'');
-      var P=(e.partes||[]).filter(function(p){return p&&p.cantidad>0;}),filas=[],ahora;
+      var P=mcPartesLinea(l),filas=[],ahora;
       var fr=function(n,p){return /^inmediat/i.test(p)&&!/ensamblar/i.test(p)?n+' inmediata':(/ensamblar/i.test(p)?n+' '+p.toLowerCase():n+' en '+p);};
       if(P.length>=2){ahora=0;P.forEach(function(p){if(/^inmediat/i.test(p.plazo||'')&&!/ensamblar/i.test(p.plazo))ahora+=+p.cantidad;filas.push(fr(p.cantidad,p.plazo||'Por confirmar'));});}
       else{var pz=e.plazo||pe||'Por confirmar';ahora=e.manual?Math.min(cant,+e.ahora||0):(/^inmediat/i.test(pz)?cant:0);
@@ -12602,7 +12608,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     MCPlanillaCot({num:o.order_number,titulo:o.is_quote?'COTIZACIÓN DE VENTAS':'ORDEN DE VENTA',fecha:o.order_date,
       cliente:{nombre:c.name||d.cliente,ruc:c.ruc||d.ruc,direccion:(d.direccion||[]).slice(1).join(', '),contacto:o.contact_name||d.contacto,telefono:d.telefono,email:d.email,terminos:d.terminos},contacto:o.contact_name||'',
       lineas:ls.map(function(l){var e=l.entrega||{};var pf=Math.round((+l.unit_price||0)*(1-(+l.discount_pct||0)/100)*100)/100;sub+=pf*(+l.quantity||0);
-        var dl=(d.lineas||[]).filter(function(x){return x.line_id===l.id;})[0]||{};var cant=+l.quantity||0;var partes=(e.partes||[]).filter(function(p){return p.cantidad>0;});
+        var dl=(d.lineas||[]).filter(function(x){return x.line_id===l.id;})[0]||{};var cant=+l.quantity||0;var partes=mcPartesLinea(l);
         return {nombre:l.nombre||l.description,codigo:dl.codigo||'',sku:l.sku,categoria:dl.categoria||'',cantidad:cant,precioLista:+l.unit_price||0,descuento:+l.discount_pct||0,precioFinal:pf,img:l.img||dl.img||'',
           ent:{cant:cant,ahora:e.manual?Math.min(cant,+e.ahora||0):(/^Inmediat/.test(l.plazo_entrega||'')?cant:0),plazo:e.plazo||(l.plazo_entrega&&!/inmediat/i.test(l.plazo_entrega)?l.plazo_entrega:'Por confirmar'),partes:partes.length>=2?partes:null}};}),
       subtotal:Math.round(sub*100)/100});}).catch(err);}
