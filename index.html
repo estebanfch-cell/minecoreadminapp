@@ -525,7 +525,9 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='468';
+  var MC_BUILD='469';
+  /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
+  window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
   (function(){if(document.getElementById('mc-kpi-css'))return;var st=document.createElement('style');st.id='mc-kpi-css';st.textContent='.mc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}'+'.mc-kpi{box-sizing:border-box;min-width:0;border:1px solid var(--c,#223142);border-radius:12px;padding:8px 10px;background:#0f1720;display:flex;flex-direction:column;gap:3px;color:var(--c,#dce6f0)}'+'.mc-kpi[onclick]{cursor:pointer}.mc-kl{font-size:11.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.92}'+'.mc-kv{font-size:15px;line-height:1.2;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}.mc-ks{font-size:11px;color:#8fa3b8;white-space:nowrap}'+'@media(max-width:420px){.mc-kpis{grid-template-columns:1fr 1fr}.mc-kpi:last-child:nth-child(odd){grid-column:1/-1}.mc-kv{font-size:14px}}';document.head.appendChild(st);})();
   window.mcKpi=function(l,v,c,sub){return '<div class="mc-kpi"'+(c?' style="--c:'+c+'"':'')+'><span class="mc-kl">'+l+'</span><b class="mc-kv">'+v+'</b>'+(sub?'<span class="mc-ks">'+sub+'</span>':'')+'</div>';};
@@ -12126,8 +12128,8 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   function ubSel(id,v){cur._sel=cur._sel||{};cur._sel[id]=v;}
   function ubDividir(){if((cur.picks||[]).length){alert('La orden ya tiene productos preparados: no se puede dividir.');return;}var b=[];
     (cur.lineas||[]).forEach(function(l){if(l.item_type==='service'||!l.product_id)return;var x=cur._ub&&cur._ub[l.id],disp=x?Math.min(x.disponible,x.pendiente):0,f=l.quantity-disp;if(f>0)b.push({line_id:l.id,quantity:f});});
-    if(!b.length){alert('No hay nada que dividir');return;}if(!confirm('Lo que no hay en stock ('+b.length+' línea(s)) pasa a una OV hija ('+cur.orden.order_number+'-…). Las dos se copian a inFlow. ¿Continuar?'))return;
-    var id=cur.orden.id;api({op:'split',id:id,partes:[b],mantener:true}).then(function(r){if(!r.ok){err(r.error);return;}try{toast('Orden dividida: '+(r.ordenes||[]).map(function(x){return x.order_number;}).join(', '));}catch(e){}abrir(id);}).catch(err);}
+    if(!b.length){alert('No hay nada que dividir');return;}if(!confirm('Lo que no hay en stock ('+b.length+' línea(s)): '+mcSplitTxt(cur.orden.order_number)+'. Las dos se copian a inFlow. ¿Continuar?'))return;
+    var id=cur.orden.id;api({op:'split',id:id,partes:[b]}).then(function(r){if(!r.ok){err(r.error);return;}try{toast('Orden dividida: '+(r.ordenes||[]).map(function(x){return x.order_number;}).join(', '));}catch(e){}abrir(id);}).catch(err);}
   function ppsVista(st,wb,o){var ls=(cur.lineas||[]).filter(function(l){return l.item_type!=='service'&&l.product_id;}),ab=wb&&!o.is_cancelled,h=VRT;
     var lp=function(pid){return ls.filter(function(l){return l.product_id===pid;})[0]||{};};
     if(dv==='pick'){var pk={},ub={};(cur.picks||[]).forEach(function(k){pk[k.product_id]=(pk[k.product_id]||0)+k.quantity;(ub[k.product_id]=ub[k.product_id]||[]).push((k.sublocation||'—')+' ×'+k.quantity);});
@@ -12646,7 +12648,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   /* ===================== PREPARAR ORDEN (b276, antes «Para piquear») — como el pick de inFlow =====================
      Selector rápido con buscador → solo líneas con stock disponible (bodega + sububicación) → tocar cada línea para marcarla → Confirmar
      descuenta de esa bodega/sububicación exacta (regla de sububicación en el servidor) y se copia a inFlow. «Dividir orden» pasa lo que
-     no hay a una OV hija (mismo número -1, -2…), también copiada a inFlow. Las OV ya preparadas salen de la lista. */
+     no hay a una OV hija (b469: original → -1, nueva → -2…), también copiada a inFlow. Las OV ya preparadas salen de la lista. */
   var pq={ordenes:[],sel:null,cant:{},sub:{},mk:{},q:''};
   function initPick(_x){pq.inline=null;return initPick0(_x);}
   function initPick0(){tipo='SO';cur=null;form=null;cerrarOv();try{document.getElementById('title').textContent='PREPARAR ORDEN';}catch(e){}
@@ -12683,7 +12685,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center" onclick="event.stopPropagation()"><span class="cbz-muted" style="font-size:12px">📍 '+esc(o.bodega||'')+'</span>'+
         '<select class="uinput" style="flex:1;min-width:150px;font-size:16px" onchange="Ventas.pqSub(\''+l.line_id+'\',this.value)">'+(subs.length?subs.map(function(u){return '<option value="'+esc(u.sub||'')+'"'+(pq.sub[l.line_id]===(u.sub||'')?' selected':'')+'>'+esc(u.sub||'Sin sububicación')+' ('+u.stock+')</option>';}).join(''):'<option value="">Sin sububicación</option>')+'</select></div>'+pqCajaHtml(l)+'</div>';}).join('');
     if(falta.length)h+='<div class="cbz-card" style="border-color:#f0c040"><div class="cbz-card-name" style="font-size:13px">⚠ Sin stock suficiente ('+falta.length+')</div><div class="pmeta">'+falta.map(function(l){return esc(l.sku)+' · faltan '+(l.pendiente-l.disponible);}).join(' · ')+'</div>'+
-      '<div class="cbz-muted" style="font-size:11.5px;margin-top:4px">«Dividir orden» pasa lo que falta a una OV hija ('+esc(o.order_number)+'-1, -2…) y esta se queda con lo disponible.</div></div>';
+      '<div class="cbz-muted" style="font-size:11.5px;margin-top:4px">«Dividir orden»: '+esc(mcSplitTxt(o.order_number))+'.</div></div>';
     h+='<div class="pq-bar"><button class="cbz-btn" onclick="Ventas.pqConfirmar()"'+(nm?'':' disabled')+'>✔ Confirmar preparación ('+nm+')</button>'+pqCajaBar()+'<button class="chip" onclick="Ventas.pqTodos()">'+(nm===L.length&&L.length?'Desmarcar todo':'Marcar todo')+'</button>'+
       (falta.length?'<button class="chip" onclick="Ventas.pqSplit()">✂️ Dividir orden</button>':'')+'</div>';
     if(inl){document.getElementById('pq-inline').innerHTML=h.replace('position:sticky;bottom:0;','');return;}
@@ -12738,12 +12740,12 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
       return api({op:'pack',id:id,cajas:cajas}).then(function(r){if(r&&r.ok){var e=r.estados||{};try{toast(e.pack_estado==='completo'?'📦 Empacada en '+cajas.length+' caja(s) · lista para entregar':'📦 Lo preparado quedó en '+cajas.length+' caja(s)');}catch(x){}}
         else err('La preparación quedó registrada, pero no se pudieron armar las cajas: '+((r&&r.error)||'error')+'. Usa la pestaña Pack.');});
     }).catch(function(e){err('La preparación quedó registrada, pero no se pudieron armar las cajas: '+MCerr(e)+'. Usa la pestaña Pack.');});}
-  /* Dividir: lo que no hay se va a una OV hija (mismo número -1, -2…); esta OV se queda con lo disponible y conserva su número */
+  /* Dividir (b469): esta OV pasa a -1 con lo disponible y lo que no hay va a -2 (o al siguiente hermano libre si ya tiene sufijo) */
   function pqSplit(){var o=pq.ordenes[pq.sel];if(o.lineas.some(function(l){return l.pickeado>0;})){alert('La orden ya tiene productos preparados: no se puede dividir.');return;}
     var b=[];o.lineas.forEach(function(l){var f=l.pedido-Math.min(l.disponible,l.pendiente);if(f>0)b.push({line_id:l.line_id,quantity:f});});
     if(!b.length){alert('No hay nada que dividir');return;}
-    if(!confirm('Lo que no hay en stock ('+b.length+' línea(s)) pasa a una OV hija ('+o.order_number+'-…). '+o.order_number+' se queda con lo disponible. Las dos se copian a inFlow. ¿Continuar?'))return;
-    if(busy&&Date.now()-(window._vtBusyT||0)<100000){try{toast('Aún se está procesando la acción anterior…');}catch(e){}return;}busy=true;window._vtBusyT=Date.now();MCtimeout(api({op:'split',id:o.so,partes:[b],mantener:true}),100000,new Error('Sin respuesta en 100 s')).then(function(r){busy=false;if(!r.ok){err(r.error);return;}try{toast('Orden dividida: '+((r.ordenes||[]).map(function(x){return x.order_number;}).join(', ')||'OV hija creada'));}catch(e){}
+    if(!confirm('Lo que no hay en stock ('+b.length+' línea(s)): '+mcSplitTxt(o.order_number)+'. Las dos se copian a inFlow. ¿Continuar?'))return;
+    if(busy&&Date.now()-(window._vtBusyT||0)<100000){try{toast('Aún se está procesando la acción anterior…');}catch(e){}return;}busy=true;window._vtBusyT=Date.now();MCtimeout(api({op:'split',id:o.so,partes:[b]}),100000,new Error('Sin respuesta en 100 s')).then(function(r){busy=false;if(!r.ok){err(r.error);return;}try{toast('Orden dividida: '+((r.ordenes||[]).map(function(x){return x.order_number;}).join(', ')||'OV hija creada'));}catch(e){}
       if(pq.inline===o.so){pq.inline=null;abrir(o.so);return;}
       api({op:'paraPiquear'}).then(function(r2){pq.ordenes=r2.ordenes||[];var k=-1;pq.ordenes.forEach(function(x,i){if(x.so===o.so)k=i;});if(k<0)renderPq();else pqAbrir(k);});}).catch(function(e){busy=false;err(e);});}
   function pqPickList(){var o=pq.ordenes[pq.sel];imprimir('pick',o.so,o.order_number);}
