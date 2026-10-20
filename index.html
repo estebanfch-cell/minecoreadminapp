@@ -438,7 +438,9 @@ table.mc-nw td.mc-fill>*{max-width:100%}
 table.mc-nw td:not(.mc-fill),table.mc-nw td:not(.mc-fill) *{text-overflow:clip!important;max-width:none!important;overflow:visible!important}
 table.mc-nw.mc-nofill{width:auto!important;min-width:0}
 .mc-nwi{white-space:nowrap!important}
-</style><style>/*mc-resp-v1*/#cc .cc-mL,#cc .cc-mR{min-width:0}#cc .cc-mL .cbz-card{overflow-x:auto;-webkit-overflow-scrolling:touch}.cbz-card,.cbz-card-row>*,[style*="display:grid"]>*,[style*="display:flex"]>*{min-width:0}.cbz-card{max-width:100%;box-sizing:border-box}.cbz-card:has(>table),.cbz-card:has(>div>table){overflow-x:auto}img,canvas,video{max-width:100%}@media(max-width:1000px){[style*="grid-template-columns:1fr 1fr"]:not(.mc-keep2){grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important}[style*="grid-template-columns:repeat(3,1fr)"],[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))!important}[style*="grid-template-columns:200px 1fr"]{grid-template-columns:minmax(0,1fr)!important}[style*="width:560px"],[style*="width:620px"],[style*="width:700px"]{width:auto!important;max-width:100%!important}}</style><style id="mc-cli-css">/* b459 EFCH: campo CLIENTE destacado (cotizaciones y órdenes de venta) — banda + barra lima, sin cajas */
+</style><style>/*mc-resp-v1*/#cc .cc-mL,#cc .cc-mR{min-width:0}#cc .cc-mL .cbz-card{overflow-x:auto;-webkit-overflow-scrolling:touch}.cbz-card,.cbz-card-row>*,[style*="display:grid"]>*,[style*="display:flex"]>*{min-width:0}.cbz-card{max-width:100%;box-sizing:border-box}.cbz-card:has(>table),.cbz-card:has(>div>table){overflow-x:auto}img,canvas,video{max-width:100%}@media(max-width:1000px){[style*="grid-template-columns:1fr 1fr"]:not(.mc-keep2){grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important}[style*="grid-template-columns:repeat(3,1fr)"],[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))!important}[style*="grid-template-columns:200px 1fr"]{grid-template-columns:minmax(0,1fr)!important}[style*="width:560px"],[style*="width:620px"],[style*="width:700px"]{width:auto!important;max-width:100%!important}}</style></head>
+<body>
+<style id="mc-cli-css">/* b459 EFCH: campo CLIENTE destacado (cotizaciones y órdenes de venta) — banda + barra lima, sin cajas */
 .mc-clif{background:linear-gradient(90deg,rgba(230,255,0,.13),rgba(230,255,0,.03) 70%,transparent);border-left:4px solid #e6ff00;border-radius:4px;padding:10px 14px 12px}
 html body .mc-clif>label,html body .vf .vf-f.mc-clif>label,html body .mc-clif .mc-clil{display:block;font-size:14px!important;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#e6ff00!important;margin-bottom:6px!important;text-align:left}
 html body .mc-clif input.uinput:not(#mc-z):not(#mc-z2){font-size:18px!important;font-weight:600;color:#fff!important;background:transparent!important;border:0!important;border-bottom:2px solid #e6ff00!important;border-radius:0!important;padding:8px 2px!important;width:100%;box-sizing:border-box;outline:none}
@@ -447,8 +449,6 @@ html body .mc-clif input.uinput:not(#mc-z):not(#mc-z2):focus{border-bottom:3px s
 html body .mc-clif .vf-cli,html body .mc-clisel{font-size:20px!important;font-weight:800;color:#fff!important;line-height:1.3;word-break:break-word;border-bottom:2px solid rgba(230,255,0,.5)!important;padding:4px 0!important}
 .mc-clif .vf-cli::after{content:" ✎";font-size:14px;color:#e6ff00;font-weight:600}
 </style>
-</head>
-<body>
 <div id="mc-update-banner" role="alert" aria-live="polite"></div>
 
 <div id="invite" style="display:none;max-width:360px;margin:0 auto;text-align:center;padding:14vh 24px 40px;background:#fff;min-height:100vh;box-sizing:border-box">
@@ -523,7 +523,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='461';
+  var MC_BUILD='462';
   (function(){var el=document.getElementById('mc-login-build');if(el)el.textContent='index v'+MC_BUILD;})();
   </script>
   <div id="cambiarUsr" style="display:none;margin-top:14px">
@@ -18071,44 +18071,8 @@ var MCUsrSel=(function(){
     lista().then(function(){document.getElementById('mc-usrsel-s').innerHTML=opts(cur,up);}).catch(function(x){document.getElementById('mc-usrsel-s').innerHTML=opts(cur,up);alert('No se pudo cargar la lista de usuarios: '+(x.message||x));});}
   return {lista:lista,html:html,fill:fill,pick:pick,_set:function(x){L=x;}};
 })();
-var MCPush=(function(){
-  var SK='mc_push_estado';
-  function ok(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;}
-  function standalone(){return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;}
-  function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
-  var reg=null;
-  function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
-  /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
-  function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
-  function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
-  function b64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');s+='===='.slice(0,(4-s.length%4)%4);var r=atob(s),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a;}
-  function post(o){return fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
-  function suscribir(){return registrar().then(function(r){if(!r)throw new Error('Este navegador no permite notificaciones');
-      return r.pushManager.getSubscription().then(function(s){return s||r.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(MC_VAPID)});});})
-    .then(function(s){return post({action:'subscribe',user:getUserName(),pin:getPin(),sub:s.toJSON(),ua:navigator.userAgent});})
-    .then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'No se pudo activar');try{localStorage.setItem(SK,'on');}catch(e){}return r;});}
-  /* iOS exige que el permiso se pida con un toque del usuario */
-  function activar(){var b=document.getElementById('mc-push-bar');if(b)b.querySelector('button').disabled=true;
-    return Notification.requestPermission().then(function(p){if(p!=='granted')throw new Error('Permiso de notificaciones no concedido. Puedes activarlo en Ajustes › Notificaciones › Minecore.');return suscribir();})
-      .then(function(r){quitarBar();badge(r.n);alert('✓ Notificaciones activadas. El ícono mostrará el número de avisos pendientes.');})
-      .catch(function(x){quitarBar();alert(x.message||x);});}
-  function quitarBar(){var b=document.getElementById('mc-push-bar');if(b)b.remove();}
-  function noAhora(){try{localStorage.setItem(SK,'no');}catch(e){}quitarBar();}
-  function bar(){if(document.getElementById('mc-push-bar'))return;var d=document.createElement('div');d.id='mc-push-bar';
-    d.style.cssText='position:fixed;left:8px;right:8px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:9997;background:#13202e;color:#e8eef5;padding:10px 12px;border-radius:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.45)';
-    d.innerHTML='<span style="flex:1 1 140px;min-width:0">🔔 Ver en el ícono cuántos avisos tienes pendientes, aunque la app esté cerrada.</span><button class="cbz-btn" style="white-space:nowrap;width:auto;flex:none" onclick="MCPush.activar()">Activar notificaciones</button><button class="chip" style="white-space:nowrap;flex:none" onclick="MCPush.noAhora()" title="No volver a mostrar">✕</button>';
-    document.body.appendChild(d);}
-  function init(){if(!ok()||!esAdmin())return;registrar().then(function(){
-      var st='';try{st=localStorage.getItem(SK)||'';}catch(e){}
-      if(Notification.permission==='granted'){suscribir().catch(function(){});return;} /* re-sincroniza la suscripción (por si cambió) */
-      if(Notification.permission==='default'&&st!=='no'&&standalone())bar();});}
-  /* el badge del ícono sigue al contador de la campana */
-  try{var _b=MCAvisos.badge;MCAvisos.badge=function(){var r=_b.apply(this,arguments);badge();return r;};}catch(e){}
-  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&esAdmin()){try{MCAvisos.cargar().then(function(){badge();});}catch(e){}}});
-  window.addEventListener('load',function(){setTimeout(init,2500);});
-  return {init:init,activar:activar,noAhora:noAhora,badge:badge,conteo:conteo,suscribir:suscribir,_bar:bar};
-})();
+/* b462: notificaciones push revertidas; limpieza única de service workers ya instalados */
+try{if('serviceWorker' in navigator&&!localStorage.getItem('mc_sw_clean462')){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister().catch(function(){});});try{localStorage.setItem('mc_sw_clean462','1');}catch(e){}}).catch(function(){});}}catch(e){}
 </script>
 
 </body>
