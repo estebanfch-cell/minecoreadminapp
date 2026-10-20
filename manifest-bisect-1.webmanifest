@@ -1,0 +1,1 @@
+{"name": "Minecore B1", "short_name": "Minecore", "start_url": "bisect-1.html", "scope": "./", "display": "standalone", "background_color": "#0b1219", "theme_color": "#0b1219", "lang": "es", "icons": [{"src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png"}, {"src": "favicon-32.png", "sizes": "32x32", "type": "image/png"}]}
