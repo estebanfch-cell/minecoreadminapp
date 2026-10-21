@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='473';
+  var MC_BUILD='474';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -14018,7 +14018,7 @@ var MCEnt=(function(){
   function lista(){var r=S.list,h='<div id="ent">'+css()+'<div class="cbz-muted" style="margin:4px 0 8px">Órdenes empacadas o enviadas, listas para entregar. Toca una para registrar la entrega.</div><div class="cbz-card" style="padding:0">';
     if(!r.ordenes.length)h+='<div class="cbz-muted" style="padding:14px">No hay órdenes pendientes de entregar.</div>';
     r.ordenes.forEach(function(o){h+='<div class="e-r" onclick="MCEnt.abrir(\''+o.id+'\')"><div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center"><span class="e-n">'+esc(o.order_number)+'</span>'+(o.ship_estado==='enviado'?'<span class="tagx tf">ENVIADA</span>':'<span class="tagx tn">EMPACADA</span>')+(o.fotos?'<span class="e-t">📷 '+o.fotos+'</span>':'')+'</div><div class="e-c">'+esc(o.cliente||'')+'</div></div><span class="e-t">'+o.lineas+' líneas ›</span></div>';});
-    h+='</div>';if(r.entregadas&&r.entregadas.length){h+='<div class="cbz-card-name" style="margin:14px 0 6px">✅ Entregadas (últimos 3 días)</div><div class="cbz-card" style="padding:0">'+r.entregadas.map(function(o){return '<div class="e-r" style="cursor:default"><span class="e-n">'+esc(o.order_number)+'</span><span class="e-c">'+esc(o.cliente||'')+' · recibió '+esc(o.receptor||'')+'</span><span class="e-t">'+esc(String(o.entregado_at).slice(0,10))+'</span></div>';}).join('')+'</div>';}
+    h+='</div>';if(r.entregadas&&r.entregadas.length){h+='<div class="cbz-card-name" style="margin:14px 0 6px">✅ Entregadas (últimos 3 días)</div><div class="cbz-card" style="padding:0">'+r.entregadas.map(function(o){return '<div class="e-r"'+MCDocs.attr(o.id,o.order_number,'entr')+'><span class="e-n">'+esc(o.order_number)+'</span><span class="e-c">'+esc(o.cliente||'')+' · recibió '+esc(o.receptor||'')+'</span><span class="e-t">'+esc(String(o.entregado_at).slice(0,10))+' · Acta ›</span></div>';}).join('')+'</div>';}
     el().innerHTML=h+'</div>';}
   function abrir(id){el().innerHTML='<div id="ent">'+css()+'<div class="cbz-loading">Abriendo…</div></div>';
     api({op:'ent_get',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);S.cur=r;S.cur.rec=(r.entrega&&r.entrega.receptor)||'';S.cur.ced=(r.entrega&&r.entrega.cedula)||'';S.cur.firma=r.entrega&&r.entrega.firma_url?{url:r.entrega.firma_url,ts:r.entrega.firma_ts}:null;det();}).catch(function(x){alert(MCerr(x));init();});}
@@ -17328,10 +17328,10 @@ var MCHist=(function(){
   function f(d){if(!d)return '—';var x=new Date(d);if(isNaN(x))return String(d).slice(0,10);return x.toLocaleString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
   function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p);}
   function prods(L){return '<div class="mh-pr">'+(L||[]).map(function(x){return '<div><span class="mh-q">'+(+x.cant)+'</span><span><b>'+e(x.sku||'')+'</b> '+e(x.nombre||'')+(x.sub?' <span class="mh-s">'+e(x.sub)+'</span>':'')+'</span></div>';}).join('')+'</div>';}
-  function fila(x,i){if(tipo==='entr')return '<div class="mh-c"><div class="mh-h"><b>'+e(x.numero)+'</b><span class="mh-d">'+f(x.fecha)+'</span></div><div class="mh-m">'+e(x.cliente||'')+'</div><div class="mh-m">Recibió: <b>'+e(x.receptor||'—')+'</b>'+(x.por?' · entregó '+e(x.por):'')+'</div>'+
-      (x.pdf_url?'<button class="cbz-btn" style="margin-top:8px" onclick="MCHist.pdf('+i+',this)">⬇ Descargar PDF</button>':'<div class="mh-m" style="color:#f0c040">Sin PDF de recibido</div>')+'</div>';
-    var n=(x.productos||[]).length;return '<div class="mh-c"><div class="mh-h"><b>'+e(x.numero)+'</b><span class="mh-d">'+f(x.fecha)+'</span></div>'+(x.proveedor?'<div class="mh-m">'+e(x.proveedor)+'</div>':'')+
-      '<details'+(i<3?' open':'')+'><summary class="mh-m" style="cursor:pointer">'+n+' producto'+(n===1?'':'s')+(x.por?' · '+e(x.por):'')+'</summary>'+prods(x.productos)+'</details></div>';}
+  function fila(x,i){if(tipo==='entr')return '<div class="mh-c"'+(x.pdf_url?MCDocs.attr(x.id,x.numero,'entr'):'')+'><div class="mh-h"><b>'+e(x.numero)+'</b><span class="mh-d">'+f(x.fecha)+'</span></div><div class="mh-m">'+e(x.cliente||'')+'</div><div class="mh-m">Recibió: <b>'+e(x.receptor||'—')+'</b>'+(x.por?' · entregó '+e(x.por):'')+'</div>'+
+      (x.pdf_url?'<button class="cbz-btn" style="margin-top:8px;white-space:nowrap" data-mcdocs-id="'+e(x.id)+'" data-mcdocs-num="'+e(x.numero)+'" data-mcdocs-tipo="entr">📄 Ver acta de entrega</button>':'<div class="mh-m" style="color:#f0c040">Sin PDF de recibido</div>')+'</div>';
+    var n=(x.productos||[]).length;return '<div class="mh-c"'+(tipo==='prep'?MCDocs.attr(x.id,x.numero,'prep'):'')+'><div class="mh-h"><b>'+e(x.numero)+'</b><span class="mh-d">'+f(x.fecha)+'</span></div>'+(x.proveedor?'<div class="mh-m">'+e(x.proveedor)+'</div>':'')+
+      '<details'+(i<3?' open':'')+'><summary class="mh-m" style="cursor:pointer">'+n+' producto'+(n===1?'':'s')+(x.por?' · '+e(x.por):'')+'</summary>'+prods(x.productos)+'</details>'+(tipo==='prep'?'<button class="cbz-btn" style="margin-top:8px;white-space:nowrap" data-mcdocs-id="'+e(x.id)+'" data-mcdocs-num="'+e(x.numero)+'" data-mcdocs-tipo="prep">📄 Ver pick list y box content</button>':'')+'</div>';}
   function pinta(){var b=document.getElementById('mh-l');if(!b)return;b.innerHTML=D.length?D.map(fila).join(''):'<div class="ms-sub">Sin registros.</div>';}
   function cargar(){var b=document.getElementById('mh-l');if(b)b.innerHTML='<div class="cbz-loading">Cargando…</div>';
     api({op:'ent_hist',tipo:tipo,q:q,limit:80}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'Error');D=r.filas||[];pinta();}).catch(function(x){var b=document.getElementById('mh-l');if(b)b.innerHTML='<div class="cbz-error">'+e(MCerr?MCerr(x):x.message)+'</div>';});}
@@ -18109,7 +18109,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=474',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
@@ -18189,6 +18189,93 @@ textarea#wa-text{max-height:140px!important;overflow-y:auto!important}
   function start(){new MutationObserver(sch).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','open','hidden']});all(document);}
   if(document.body)start();else document.addEventListener('DOMContentLoaded',start);
   window.addEventListener('resize',function(){document.querySelectorAll('textarea').forEach(fit);});
+})();
+</script>
+<script>
+/* b474 · REGLA GLOBAL EFCH t1039: toda fila de una orden ENTREGADA o PREPARADA en cualquier lista del portal abre sus documentos
+   con MCDocs.abrir(id, número, 'entr'|'prep'): visor + «Descargar PDF» + «Compartir» (Web Share con el ARCHIVO, ideal WhatsApp en iPhone).
+   entr → Acta de entrega (el PDF «Recibido» que guardó el servidor al entregar: firma, fotos, receptor).
+   prep → Lista de preparación (pick list) + Box content list, juntas en dos pestañas.
+   Para nuevas listas: poner data-mcdocs-id, data-mcdocs-num y data-mcdocs-tipo en la fila (delegado global). */
+var MCDocs=(function(){
+  var S={docs:[],i:0};
+  function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function api(p){p.user=getUserName();p.pin=getPin();p.action='ventas';return MCpost(p);}
+  function fname(n){return typeof mcSanitizeFilename==='function'?mcSanitizeFilename(n):n.replace(/[\\/:*?"<>|]+/g,'-');}
+  function acta(id,num){return api({op:'ent_hist',tipo:'entr',q:num,limit:20}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'Error');
+      var x=(r.filas||[]).filter(function(f){return f.id===id||f.numero===num;})[0];
+      if(!x||!x.pdf_url)throw new Error('Esta orden no tiene acta de entrega guardada.');
+      return fetch(x.pdf_url).then(function(h){if(!h.ok)throw new Error('HTTP '+h.status);return h.blob();}).then(function(b){
+        return [{t:'Acta de entrega',n:fname('Acta entrega '+num+'.pdf'),b:new Blob([b],{type:'application/pdf'}),sub:'Recibió: '+(x.receptor||'—')}];});});}
+  function prep(id,num){return api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);
+      return Promise.all([Promise.resolve(MCInflowDoc('pick',r.doc)),Promise.resolve(MCInflowDoc('boxcontent',r.doc))]).then(function(B){
+        return [{t:'Pick list',n:fname('Pick list '+num+'.pdf'),b:B[0]},{t:'Box content list',n:fname('Box content '+num+'.pdf'),b:B[1]}];});});}
+  function css(){return '<style>#mcd{position:fixed;inset:0;z-index:99990;background:#0b1520;display:flex;flex-direction:column;color:#e8eef6}#mcd .h{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid #1f2f42}#mcd .h b{flex:1;min-width:0;font-size:16px;white-space:normal}'+
+    '#mcd .tb{display:flex;gap:6px;padding:8px 12px;flex-wrap:wrap}#mcd .tb button{white-space:nowrap;padding:9px 14px;border-radius:18px;border:1px solid #3a5878;background:#111a26;color:#cfe3f7;font-weight:700}#mcd .tb button.on{background:#E8FF00;color:#161926;border-color:#E8FF00}'+
+    '#mcd .v{flex:1;min-height:0;padding:0 12px}#mcd iframe{width:100%;height:100%;border:0;border-radius:8px;background:#fff}#mcd .ms{padding:20px;text-align:center;color:#b8c6d6}'+
+    '#mcd .b{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #1f2f42;flex-wrap:wrap}#mcd .b button{flex:1 1 150px;min-height:50px;font-size:15px;font-weight:800;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important;border-radius:10px;border:0;padding:0 12px}#mcd .b button.w{flex-basis:100%}#mcd .b .p{background:#E8FF00;color:#161926}#mcd .b .s{background:#3d7ec9;color:#fff}</style>';}
+  function pinta(){var o=document.getElementById('mcd');if(!o)return;var d=S.docs[S.i];
+    o.querySelector('.tb').innerHTML=S.docs.length>1?S.docs.map(function(x,k){return '<button class="'+(k===S.i?'on':'')+'" onclick="MCDocs.tab('+k+')">'+e(x.t)+'</button>';}).join(''):(d&&d.sub?'<span style="color:#b8c6d6;font-size:13px">'+e(d.sub)+'</span>':'');
+    var v=o.querySelector('.v');if(!d){return;}if(!d.u)d.u=URL.createObjectURL(d.b);
+    v.innerHTML='<iframe title="'+e(d.n)+'" src="'+d.u+'#toolbar=0"></iframe>';
+    o.querySelector('.b').innerHTML='<button class="s" onclick="MCDocs.bajar()">⬇ Descargar PDF</button><button class="p" onclick="MCDocs.compartir()">📤 Compartir</button>'+(S.docs.length>1?'<button class="s w" onclick="MCDocs.compartir(1)">📤 Compartir ambos</button>':'');}
+  function abrir(id,num,tipo){cerrar();S={docs:[],i:0};var o=document.createElement('div');o.id='mcd';
+    o.innerHTML=css()+'<div class="h"><b>'+(tipo==='entr'?'Acta de entrega':'Preparación')+' · '+e(num)+'</b><button class="chip" onclick="MCDocs.cerrar()">✕ Cerrar</button></div><div class="tb"></div><div class="v"><div class="ms">Generando documentos…</div></div><div class="b"></div>';
+    document.body.appendChild(o);
+    return (tipo==='entr'?acta(id,num):prep(id,num)).then(function(D){S.docs=D;pinta();return D;}).catch(function(x){var v=o.querySelector('.v');if(v)v.innerHTML='<div class="ms" style="color:#f0c040">'+e(typeof MCerr==='function'?MCerr(x):x.message)+'</div>';throw x;});}
+  function bajar(){var d=S.docs[S.i];if(!d)return;if(typeof MCsaveBlob==='function')return MCsaveBlob(d.b,d.n);var a=document.createElement('a');a.href=d.u||URL.createObjectURL(d.b);a.download=d.n;document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},500);}
+  function compartir(todos){var L=todos?S.docs:[S.docs[S.i]];if(!L[0])return;var F=L.map(function(d){return new File([d.b],d.n,{type:'application/pdf'});});
+    if(navigator.canShare&&navigator.share&&navigator.canShare({files:F}))return navigator.share({files:F,title:L[0].n}).catch(function(x){if(x&&x.name!=='AbortError')bajar();});
+    if(todos)L.forEach(function(d,k){setTimeout(function(){var a=document.createElement('a');a.href=URL.createObjectURL(d.b);a.download=d.n;document.body.appendChild(a);a.click();a.remove();},k*600);});else bajar();}
+  function cerrar(){var o=document.getElementById('mcd');if(o)o.remove();(S.docs||[]).forEach(function(d){if(d.u)try{URL.revokeObjectURL(d.u);}catch(x){}});}
+  document.addEventListener('click',function(ev){var r=ev.target&&ev.target.closest?ev.target.closest('[data-mcdocs-id]'):null;if(!r||ev.target.closest('button:not([data-mcdocs-id]),a,input,select,summary'))return;
+    ev.preventDefault();abrir(r.getAttribute('data-mcdocs-id'),r.getAttribute('data-mcdocs-num'),r.getAttribute('data-mcdocs-tipo')).catch(function(){});},true);
+  function attr(id,num,tipo){return ' data-mcdocs-id="'+e(id)+'" data-mcdocs-num="'+e(num)+'" data-mcdocs-tipo="'+tipo+'" style="cursor:pointer"';}
+  return {abrir:abrir,tab:function(k){S.i=k;pinta();},bajar:bajar,compartir:compartir,cerrar:cerrar,attr:attr,_s:function(){return S;}};
+})();
+</script>
+<script>
+/* b474 · REGLA GLOBAL EFCH: todo aviso abre SU registro exacto (no solo el módulo) y su notificación push se quita del teléfono al cerrarlo/leerlo.
+   MCDeep.abrir(texto|número,destino): detecta MCOR-SO/SQ/PO/MO/ST… (o factura 001-001-… → su OV) y abre el detalle aunque no esté en la lista cacheada.
+   Enlace profundo: #/doc/<número> (arranque en frío desde el push) y mensaje «mc-deep» del service worker (app ya abierta).
+   Banner/badge: tag del push = clave del aviso (x.id «av:tipo:ref»); al abrir/✕ se cierra ese tag; al abrir/enfocar la app se cierran los de avisos ya cerrados (también en otro equipo) y el badge = avisos abiertos. */
+var MCDeep=(function(){
+  var RX=/MCOR-(SO|SQ|PO|PQ|MO|ST|SA|SC|TR)-\d+(?:-\d+)?/i;
+  function num(t){var m=String(t||'').match(RX);return m?m[0].toUpperCase():'';}
+  function api(p){p.action='ventas';p.user=getUserName();p.pin=getPin();return MCpost(p);}
+  function esperar(fn,ok){(function t(n){if(ok())fn();else if(n<60)setTimeout(function(){t(n+1);},150);})(0);}
+  function abrir(texto,destino){var n=num(texto);
+    if(!n){if(destino){try{openMod(destino);}catch(e){}}return false;}
+    var k=n.split('-')[1];
+    if(k==='SO'||k==='SQ'){try{openMod(k==='SQ'?'vcot':'vov');}catch(e){}esperar(function(){Ventas.abrirNum(n);},function(){return window.Ventas&&Ventas.abrirNum;});return true;}
+    if(k==='PO'||k==='PQ'){try{openMod('voc');}catch(e){}api({op:'po_get',id:n}).then(function(r){var o=r&&(r.orden||r.po||r.doc);if(!r||!r.ok||!o||!o.id)throw new Error('No encontré '+n);esperar(function(){Compras.abrir(o.id);},function(){return window.Compras&&Compras.abrir;});}).catch(function(e){alert(e.message||e);});return true;}
+    if(k==='MO'){try{openMod('vmanuf');}catch(e){}}else{try{openMod(destino||'transf');}catch(e){}}
+    return true;}
+  function desdeUrl(u){var m=String(u||'').match(/#\/doc\/([^\/?&]+)/);if(m){abrir(decodeURIComponent(m[1]));return true;}m=String(u||'').match(/#\/([a-z0-9_]+)/i);if(m){try{openMod(m[1]);}catch(e){}return true;}return false;}
+  function sw(){return ('serviceWorker' in navigator)?navigator.serviceWorker.getRegistration('./').catch(function(){return null;}):Promise.resolve(null);}
+  function cerrarTag(clave){if(!clave)return;sw().then(function(r){if(!r)return;try{if(r.active)r.active.postMessage({type:'mc-close',clave:clave});}catch(e){}
+    if(r.getNotifications)r.getNotifications().then(function(L){L.forEach(function(x){if(x.tag===clave)x.close();});}).catch(function(){});});}
+  function sync(){try{if(!window.MCAvisos||!getUserName())return;var L=(MCAvisos._L&&MCAvisos._L())||[],ab=L.filter(function(x){return x.id&&!MCAvisos.oculto('i:'+x.id,null);}).map(function(x){return x.id;});
+      var nAb=MCAvisos.n?MCAvisos.n():ab.length;
+      if(navigator.setAppBadge){if(nAb>0)navigator.setAppBadge(nAb).catch(function(){});else if(navigator.clearAppBadge)navigator.clearAppBadge().catch(function(){});}
+      sw().then(function(r){if(!r)return;try{if(r.active)r.active.postMessage({type:'mc-sync',abiertos:ab});}catch(e){}
+        if(r.getNotifications)r.getNotifications().then(function(N){N.forEach(function(x){if(x.tag==='mc-badge'||(/^av:/.test(x.tag)&&ab.indexOf(x.tag)<0))x.close();});}).catch(function(){});});}catch(e){}}
+  function refrescar(){try{if(!window.MCAvisos||!getUserName())return;Promise.resolve(MCAvisos.cargar()).then(function(){try{MCAvisos.pinta&&MCAvisos.pinta();MCAvisos.badge&&MCAvisos.badge();}catch(e){}sync();});}catch(e){}}
+  /* avisos en la app: abrir → registro exacto + quitar banner; ✕ → quitar banner */
+  (function t(n){if(!window.MCAvisos){if(n<80)setTimeout(function(){t(n+1);},150);return;}
+    var ir0=MCAvisos.ir,qu0=MCAvisos.quitar;
+    MCAvisos.ir=function(i){var x=((MCAvisos._L&&MCAvisos._L())||[])[i];if(!x)return ir0.apply(this,arguments);cerrarTag(x.id);
+      var txt=(x.id||'')+' '+(x.texto||'');if(num(txt)){try{MCNotif.cerrar();}catch(e){}abrir(txt,x.destino);}else ir0.apply(this,arguments);setTimeout(sync,800);};
+    MCAvisos.quitar=function(k){var r=qu0.apply(this,arguments);if(k&&k.indexOf('a:')!==0&&k.indexOf('t:')!==0)cerrarTag(k);setTimeout(sync,800);return r;};})(0);
+  /* app ya abierta: el SW manda «mc-deep» */
+  if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',function(e){var m=e.data||{};if(m.type==='mc-deep'){if(m.clave)cerrarTag(m.clave);if(getUserName())desdeUrl(m.url);else window.MC_HASH_INI=String(m.url||'').replace(/^[^#]*/,'');}});
+  /* arranque en frío: #/doc/<n> se resuelve después del login (MCroute.restaurar) */
+  (function t(n){if(!window.MCroute){if(n<80)setTimeout(function(){t(n+1);},150);return;}var r0=MCroute.restaurar;
+    MCroute.restaurar=function(){var h=window.MC_HASH_INI||'';if(/^#\/doc\//.test(h)){window.MC_HASH_INI='';setTimeout(function(){desdeUrl(h);},300);setTimeout(refrescar,1500);return;}var x=r0.apply(this,arguments);setTimeout(refrescar,1500);return x;};})(0);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')refrescar();});
+  window.addEventListener('focus',refrescar);
+  setInterval(sync,30000);
+  return {abrir:abrir,num:num,desdeUrl:desdeUrl,cerrarTag:cerrarTag,sync:sync,refrescar:refrescar};
 })();
 </script>
 </body>
