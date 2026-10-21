@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='477';
+  var MC_BUILD='478';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -18269,7 +18269,14 @@ var MCFirmaR=(function(){
   function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function api(p){var s=typeof MCsbGet==='function'?MCsbGet():null;if(s&&s.t)p.t=s.t;else{p.user=getUserName();p.pin=getPin();}
     return fetch(URL_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'Error');return r;});}
-  function boton(id,num,cls){return '<button class="'+(cls||'chip')+'" style="white-space:nowrap" onclick="event.stopPropagation();MCFirmaR.abrir(\''+e(id)+'\',\''+e(num)+'\')">✍️ Enviar recepción digital</button>';}
+  /* b478 EFCH: el botón SOLO aparece si la orden NO tiene recibido firmado. Nace oculto (data-mcfr) y se muestra tras consultar firma-api «firmadas» (lote, caché). */
+  var FIR={},PEND={},T=null;
+  function boton(id,num,cls){return '<button class="'+(cls||'chip')+'" data-mcfr="'+e(id)+'" style="white-space:nowrap;display:none" onclick="event.stopPropagation();MCFirmaR.abrir(\''+e(id)+'\',\''+e(num)+'\')">✍️ Enviar recepción digital</button>';}
+  function aplicar(){document.querySelectorAll('[data-mcfr]').forEach(function(b){var id=b.getAttribute('data-mcfr');if(FIR[id]===false)b.style.display='';else if(FIR[id]===true)b.style.display='none';else PEND[id]=1;});
+    var ids=Object.keys(PEND);if(!ids.length)return;PEND={};
+    api({op:'firmadas',ids:ids}).then(function(r){var F={};(r.firmadas||[]).forEach(function(x){F[x]=1;});ids.forEach(function(i){FIR[i]=!!F[i];});aplicar();}).catch(function(){});}
+  function scan(){clearTimeout(T);T=setTimeout(aplicar,120);}
+  (function ini(){if(!document.body){document.addEventListener('DOMContentLoaded',ini);return;}new MutationObserver(function(M){for(var i=0;i<M.length;i++){if(M[i].addedNodes&&M[i].addedNodes.length){scan();return;}}}).observe(document.body,{childList:true,subtree:true});})();
   function css(){return '<style>#mcfr{position:fixed;inset:0;z-index:99991;background:#0008;display:flex;align-items:flex-end;justify-content:center}#mcfr .pn{background:#0f1720;color:#e8eef6;width:100%;max-width:560px;max-height:92dvh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}'+
     '#mcfr .h{display:flex;gap:8px;align-items:flex-start}#mcfr .h b{flex:1;font-size:17px;white-space:normal}#mcfr .st{display:inline-block;padding:4px 12px;border-radius:14px;font-weight:800;font-size:13px;margin:10px 0 4px}'+
     '#mcfr .pe{background:#4a3b00;color:#ffd84a}#mcfr .fi{background:#123d24;color:#6fe39a}#mcfr .no{background:#2a3644;color:#b8c6d6}#mcfr .ln{word-break:break-all;background:#0b131c;border:1px solid #26405c;border-radius:10px;padding:10px;font-size:13px;margin:8px 0;color:#cfe3f7}'+
@@ -18280,12 +18287,12 @@ var MCFirmaR=(function(){
     h+='<div class="h"><b>Recepción digital · '+e(S.num)+'</b><button class="chip" onclick="MCFirmaR.cerrar()">✕ Cerrar</button></div>';
     if(!r){h+='<div class="k" style="padding:16px 0">Cargando…</div>';}
     else{
-      if(r.acta_firmada&&est!=='pendiente')h+='<div class="k">Esta orden ya tiene recibido firmado'+(L&&L.nombre?' por <b>'+e(L.nombre)+'</b>':'')+'. Si generas otro link, la nueva firma reemplaza al PDF Recibido.</div>';
-      if(est==='pendiente'){h+='<span class="st pe">⏳ Pendiente de firma</span><div class="k">Vence: '+e(fh(L.expira_at))+' · creado por '+e(L.creado_por||'')+'</div><div class="ln">'+e(L.link)+'</div>'+(L.error?'<div class="k" style="color:#ffb4a9">Último intento falló: '+e(L.error)+'</div>':'')+
+      if(r.acta_firmada){FIR[S.id]=true;aplicar();h+='<span class="st fi">✅ Recibido firmado</span><div class="k">Esta orden ya tiene su recibido firmado'+(L&&L.estado==='firmada'&&L.nombre?' por <b>'+e(L.nombre)+'</b>':'')+'. No hace falta enviar otro link.</div><div class="bb"><button class="p" onclick="MCFirmaR.verActa()">📄 Ver recibido firmado</button></div>';}
+      else if(est==='pendiente'){h+='<span class="st pe">⏳ Pendiente de firma</span><div class="k">Vence: '+e(fh(L.expira_at))+' · creado por '+e(L.creado_por||'')+'</div><div class="ln">'+e(L.link)+'</div>'+(L.error?'<div class="k" style="color:#ffb4a9">Último intento falló: '+e(L.error)+'</div>':'')+
         '<div class="bb"><button class="w" onclick="MCFirmaR.wa()">🟢 Compartir por WhatsApp</button><button class="p" onclick="MCFirmaR.copiar()">📋 Copiar link</button><button class="s" onclick="MCFirmaR.crear(1)">🔄 Generar link nuevo</button><button class="r" onclick="MCFirmaR.anular()">🚫 Anular link</button></div>';}
       else if(est==='firmada'){h+='<span class="st fi">✅ Firmada</span><div class="k">Firmó <b>'+e(L.nombre)+'</b> · C.I. '+e(L.cedula||'')+(L.cargo?' · '+e(L.cargo):'')+'<br>'+e(fh(L.firmada_at))+'</div>'+
-        '<div class="bb"><button class="p" onclick="MCFirmaR.verActa()">📄 Ver recibido firmado</button><button class="s" onclick="MCFirmaR.crear(1)">✍️ Enviar otra vez a firmar</button></div>';}
-      else{h+=(est?'<span class="st no">'+(est==='vencida'?'⏰ Link vencido':'🚫 Link anulado')+'</span>':'')+'<div class="k">Se genera un link para que quien recibió firme el recibido desde su celular (vence en 15 días, un solo uso).</div>'+
+        '<div class="bb"><button class="p" onclick="MCFirmaR.verActa()">📄 Ver recibido firmado</button></div>';}
+      else{h+=(est?'<span class="st no">'+(est==='vencida'?'⏰ Link vencido':'🚫 Link anulado')+'</span>':'')+'<div class="k">Se genera un link para que quien recibió firme el recibido desde su celular (vale 4 días; la firma es de un solo uso). En la misma página puede descargar su orden de venta y su factura.</div>'+
         '<div class="bb"><button class="p" onclick="MCFirmaR.crear()">✍️ Generar link de firma</button></div>';}
     }
     o.querySelector('.pn').innerHTML=h;}
@@ -18297,10 +18304,19 @@ var MCFirmaR=(function(){
   function anular(){if(!confirm('¿Anular el link? Quien lo abra verá que fue anulado.'))return;api({op:'cancelar',id:S.id}).then(function(r){S.r=r;pinta(r);}).catch(function(x){alert(x.message);});}
   function lk(){return S.r&&S.r.link&&S.r.link.link||'';}
   function copiar(){var t=lk();if(!t)return;(navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){alert('Link copiado');},function(){prompt('Copia el link:',t);});}
-  function wa(){var t=lk();if(!t)return;var m='Por favor firme el acta de recepción de la orden '+S.num+': '+t;window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');}
+  /* b478: abrir la APP de WhatsApp instalada (whatsapp://send). wa.me en iPhone abría la página «descarga WhatsApp».
+     Móvil: esquema de la app; si en 1,6 s la página sigue visible (no hay app) → hoja Compartir del sistema; si tampoco, api.whatsapp.com. Escritorio: api.whatsapp.com (ofrece WhatsApp Desktop/Web). */
+  function waUrls(m){var q=encodeURIComponent(m);return {app:'whatsapp://send?text='+q,web:'https://api.whatsapp.com/send?text='+q};}
+  function wa(){var t=lk();if(!t)return;var m='Por favor firme el acta de recepción de la orden '+S.num+': '+t,U=waUrls(m);
+    var movil=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    if(!movil){window.open(U.web,'_blank');return;}
+    var fue=false;function vis(){if(document.hidden)fue=true;}document.addEventListener('visibilitychange',vis);window.addEventListener('pagehide',vis);
+    location.href=U.app;
+    setTimeout(function(){document.removeEventListener('visibilitychange',vis);if(fue||document.hidden)return;
+      if(navigator.share)navigator.share({text:m}).catch(function(x){if(!x||x.name!=='AbortError')location.href=U.web;});else location.href=U.web;},1600);}
   function verActa(){var id=S.id,n=S.num;cerrar();MCDocs.abrir(id,n,'entr').catch(function(){});}
   function cerrar(){var o=document.getElementById('mcfr');if(o)o.remove();}
-  return {boton:boton,abrir:abrir,crear:crear,anular:anular,copiar:copiar,wa:wa,verActa:verActa,cerrar:cerrar};
+  return {boton:boton,abrir:abrir,crear:crear,anular:anular,copiar:copiar,wa:wa,waUrls:waUrls,verActa:verActa,cerrar:cerrar,_fir:FIR};
 })();
 </script>
 <script>
