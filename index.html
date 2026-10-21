@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='479';
+  var MC_BUILD='480';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -18177,7 +18177,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=474',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=480',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
@@ -18272,9 +18272,10 @@ var MCFirmaR=(function(){
   /* b478 EFCH: el botón SOLO aparece si la orden NO tiene recibido firmado. Nace oculto (data-mcfr) y se muestra tras consultar firma-api «firmadas» (lote, caché). */
   var FIR={},PEND={},T=null;
   function boton(id,num,cls){return '<button class="'+(cls||'chip')+'" data-mcfr="'+e(id)+'" style="white-space:nowrap;display:none" onclick="event.stopPropagation();MCFirmaR.abrir(\''+e(id)+'\',\''+e(num)+'\')">✍️ Enviar recepción digital</button>';}
-  function aplicar(){document.querySelectorAll('[data-mcfr]').forEach(function(b){var id=b.getAttribute('data-mcfr');if(FIR[id]===false)b.style.display='';else if(FIR[id]===true)b.style.display='none';else PEND[id]=1;});
+  function aplicar(){document.querySelectorAll('[data-mcfr]').forEach(function(b){var id=b.getAttribute('data-mcfr');if(FIR[id]===false)b.style.display='';else if(FIR[id]===undefined)PEND[id]=1;else b.style.display='none';});
     var ids=Object.keys(PEND);if(!ids.length)return;PEND={};
-    api({op:'firmadas',ids:ids}).then(function(r){var F={};(r.firmadas||[]).forEach(function(x){F[x]=1;});ids.forEach(function(i){FIR[i]=!!F[i];});aplicar();}).catch(function(){});}
+    /* b480 EFCH t1065: el botón NACE OCULTO y solo se muestra si firma-api dice EXPLÍCITAMENTE que la orden no tiene recibido (lista sin_recibido). Error, sesión vencida o respuesta rara ⇒ sigue oculto. */
+    api({op:'firmadas',ids:ids}).then(function(r){var F={},N={};(r.firmadas||[]).forEach(function(x){F[x]=1;});(Array.isArray(r.sin_recibido)?r.sin_recibido:[]).forEach(function(x){N[x]=1;});ids.forEach(function(i){FIR[i]=F[i]?true:(N[i]?false:'?');});aplicar();}).catch(function(){ids.forEach(function(i){if(FIR[i]===undefined)FIR[i]='?';});});}
   function scan(){clearTimeout(T);T=setTimeout(aplicar,120);}
   (function ini(){if(!document.body){document.addEventListener('DOMContentLoaded',ini);return;}new MutationObserver(function(M){for(var i=0;i<M.length;i++){if(M[i].addedNodes&&M[i].addedNodes.length){scan();return;}}}).observe(document.body,{childList:true,subtree:true});})();
   function css(){return '<style>#mcfr{position:fixed;inset:0;z-index:99991;background:#0008;display:flex;align-items:flex-end;justify-content:center}#mcfr .pn{background:#0f1720;color:#e8eef6;width:100%;max-width:560px;max-height:92dvh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}'+
@@ -18409,6 +18410,22 @@ var MCDeep=(function(){
   setInterval(sync,30000);
   return {abrir:abrir,num:num,desdeUrl:desdeUrl,cerrarTag:cerrarTag,sync:sync,refrescar:refrescar};
 })();
+</script>
+<script>
+/* b480 EFCH t1065: AVISO DE VERSIÓN NUEVA. El iPhone deja la app viva en memoria y no recarga index.html al volver a abrirla.
+   Al volver a la app (visibilitychange), al cargar y cada 5 min: lee index.html del servidor SIN caché y compara MC_BUILD. Si hay una más nueva ⇒ barra «Actualizar» (recarga). */
+(function(){var busy=false,shown=false,last=0;
+  function bar(nb){if(shown)return;shown=true;var d=document.createElement('div');d.id='mc-newver';
+    d.style.cssText='position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:99998;background:#E8FF00;color:#161926;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 24px #0008;font-weight:700';
+    d.innerHTML='<span style="flex:1;white-space:normal">Hay una versión nueva del portal (v'+nb+').</span><button style="background:#161926;color:#E8FF00;border:0;border-radius:9px;padding:10px 14px;font-weight:800;white-space:nowrap" onclick="MCUpd.go()">Actualizar</button>';
+    document.body.appendChild(d);}
+  function chk(){var now=Date.now();if(busy||now-last<20000)return;last=now;busy=true;
+    fetch('./?_b='+now,{cache:'no-store'}).then(function(r){return r.ok?r.text():'';}).then(function(t){var m=/var MC_BUILD='(\d+)'/.exec(t||'');if(m&&+m[1]>+MC_BUILD)bar(m[1]);}).catch(function(){}).then(function(){busy=false;});}
+  function go(){var p=Promise.resolve();try{if(navigator.serviceWorker)p=navigator.serviceWorker.getRegistration().then(function(r){return r&&r.update();}).catch(function(){});}catch(e){}
+    p.then(function(){location.reload();});setTimeout(function(){location.reload();},2500);}
+  window.MCUpd={chk:chk,go:go};
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)chk();});window.addEventListener('pageshow',chk);
+  setTimeout(chk,4000);setInterval(chk,300000);})();
 </script>
 </body>
 </html>
