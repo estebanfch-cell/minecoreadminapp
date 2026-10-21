@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='482';
+  var MC_BUILD='483';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -9257,6 +9257,95 @@ var Vinc = (function(){
   return {run:run};
 })();
 
+/* ===================== r494 · ANTENAS STARLINK (dentro de Alquiler) =====================
+   Minecore ve todas (cuenta, KIT, serie); el cliente solo las suyas. Solicitudes: cambio de clave WiFi (cifrada, solo la ve Secre) y revisión.
+   Flujo manual: Secre recibe la solicitud en su buzón de bots, hace el cambio en la app Starlink o revisa en starlink.com, y la cierra con un resumen. */
+var MCAnt=(function(){
+  var D=null,el=null,foco=null,q='',fCta='',verSols=false;
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function fd(t){if(!t)return '';try{return new Date(t).toLocaleString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(x){return String(t);}}
+  var EST={pendiente:['#f0c040','⏳ Pendiente'],'en proceso':['#4aa3ff','🔧 En proceso'],hecha:['#3ecf8e','✅ Hecha'],rechazada:['#e05c5c','✖ Rechazada']};
+  function tag(c,t){return '<span class="tagx" style="background:transparent;border:1px solid '+c+';color:'+c+';white-space:nowrap">'+t+'</span>';}
+  function estTag(a){var s=String(a.estado||'').toLowerCase();
+    if(a.en_linea===true||/online|en línea/.test(s))return tag('#3ecf8e','🟢 En línea');
+    if(/standby/.test(s))return tag('#8fa3b8','⏸ Standby');
+    if(/inactive|inactiva/.test(s))return tag('#8fa3b8','⚪ Inactiva');
+    if(a.en_linea===false||/sin conexi|offline/.test(s))return tag('#e05c5c','🔴 Sin conexión');
+    if(/no telemetry|sin telemetr/.test(s))return tag('#f0c040','🟡 Activa, sin telemetría');
+    if(/active/.test(s))return tag('#3ecf8e','🟢 Activa');
+    return tag('#8fa3b8','— Sin dato');}
+  function css(){return '<style>.ant-row{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid #223142;border-radius:12px;margin-bottom:10px;background:#0f1a26}'+
+    '.ant-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.ant-n{font-weight:700;font-size:15px;line-height:1.25;word-break:normal;overflow-wrap:anywhere}'+
+    '.ant-meta{font-size:12px;color:#8fa3b8;line-height:1.45}.ant-meta b{color:#cfe0f0;font-weight:600}.ant-al{font-size:12px;color:#ffb35c}'+
+    '.ant-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}.ant-btns button{white-space:nowrap;flex:1 1 auto;min-width:max-content}'+
+    '.ant-sol{border-top:1px dashed #223142;padding-top:6px;font-size:12px;line-height:1.45}.ant-sol.foco{outline:2px solid #4aa3ff;border-radius:8px;padding:6px}'+
+    '.ant-f label{display:block;font-size:12px;color:#8fa3b8;margin:10px 0 4px}.ant-f input,.ant-f textarea{width:100%;box-sizing:border-box}.ant-f textarea{field-sizing:content;min-height:44px}'+
+    '.ant-chips{display:flex;flex-direction:column;gap:6px;margin:8px 0}.ant-pill{display:block;width:100%;text-align:left;padding:9px 12px;border-radius:10px;border:1px solid #2a3b4f;background:#0f1a26;color:#cfe0f0;font-size:13px;line-height:1.35}.ant-pill.on{background:#1e4f8a;border-color:#4aa3ff;color:#fff}</style>';}
+  function cargar(cb){return MCsbSolo({action:'ant_data'}).then(function(r){D=r;if(cb)cb();}).catch(function(x){if(el)el.innerHTML='<div class="cbz-error">'+e(x.message||x)+'</div>';});}
+  function render(target){el=target||el||document.getElementById('consig-screen');try{document.getElementById('title').textContent='ANTENAS STARLINK';}catch(x){}
+    if(!D){el.innerHTML='<div class="cbz-loading">Cargando antenas…</div>';cargar(function(){render();});return;}
+    pintar();}
+  function solsDe(id){return (D.solicitudes||[]).filter(function(s){return String(s.antena_id)===String(id);});}
+  function solHtml(s){var E=EST[s.estado]||['#8fa3b8',s.estado],R=s.resumen||{};
+    var res=[];if(R.online!=null)res.push(R.online?'🟢 En línea':'🔴 Sin conexión');if(R.router)res.push('Router: '+e(R.router));
+    if(R.bajada_mbps!=null||R.subida_mbps!=null)res.push('Velocidad: '+e(R.bajada_mbps==null?'—':R.bajada_mbps)+' ↓ / '+e(R.subida_mbps==null?'—':R.subida_mbps)+' ↑ Mbps');
+    if(R.latencia_ms!=null)res.push('Latencia: '+e(R.latencia_ms)+' ms');if(R.obstruccion_pct!=null)res.push('Obstrucción: '+e(R.obstruccion_pct)+' %');
+    return '<div class="ant-sol'+(String(foco)===String(s.id)?' foco':'')+'" id="ant-sol-'+s.id+'"><div class="ant-top"><span><b>#'+s.id+' · '+(s.tipo==='clave_wifi'?'🔑 Cambio de clave WiFi':'🛠 Revisión')+'</b></span>'+tag(E[0],E[1])+'</div>'+
+      '<div class="ant-meta">Pidió <b>'+e(s.solicitado_por)+'</b> · '+fd(s.created_at)+(s.detalle?'<br>'+e(s.detalle):'')+(s.trae_clave?'<br>🔒 Clave nueva guardada cifrada — solo la ve Secre':'')+'</div>'+
+      (s.respuesta?'<div class="ant-meta" style="margin-top:4px">💬 <b>Respuesta</b> ('+fd(s.cerrado_at||s.updated_at)+'): '+e(s.respuesta)+'</div>':'')+
+      (res.length?'<div class="ant-meta">'+res.join(' · ')+'</div>':'')+'</div>';}
+  function rowHtml(a){var adm=D.admin,S=solsDe(a.id),ab=S.filter(function(s){return s.estado==='pendiente'||s.estado==='en proceso';});
+    return '<div class="ant-row" id="ant-'+a.id+'"><div class="ant-top"><div class="ant-n">📡 '+e(a.nickname||a.kit)+(a.prueba?' <span class="tagx">PRUEBA</span>':'')+'</div>'+estTag(a)+'</div>'+
+      '<div class="ant-meta">'+(a.cliente?'Cliente: <b>'+e(a.cliente)+'</b>':(adm&&a.cliente_propuesto?'Cliente propuesto: <b>'+e(a.cliente_propuesto)+'</b> (por confirmar)':'Sin cliente asignado'))+
+        (a.proyecto?' · Proyecto: <b>'+e(a.proyecto)+'</b>':'')+(a.contrato?'<br>Contrato/acta: <b>'+e(a.contrato)+'</b>':'')+
+        '<br>KIT: <b>'+e(a.kit||'—')+'</b> · Serie: <b>'+e(a.serial||'—')+'</b>'+(adm?'<br>Cuenta: <b>'+e(a.cuenta_id||'—')+'</b> · '+e(a.cuenta_email||'')+(a.service_line?'<br>Service line: <b>'+e(a.service_line)+'</b>':''):'')+
+        (a.plan?'<br>Plan: '+e(a.plan):'')+(a.uso?' · Uso: <b>'+e(a.uso)+'</b>':'')+(a.estado_at?'<br>Último estado: '+fd(a.estado_at)+(adm&&a.estado_fuente?' · '+e(a.estado_fuente):''):'')+'</div>'+
+      (a.alertas?'<div class="ant-al">⚠ '+e(a.alertas)+'</div>':'')+
+      '<div class="ant-btns"><button class="cbz-btn" onclick="MCAnt.form('+a.id+',\'clave_wifi\')">🔑 Solicitar cambio de clave WiFi</button><button class="cbz-btn-sec" onclick="MCAnt.form('+a.id+',\'revision\')">🛠 Solicitar revisión</button></div>'+
+      (S.length?(S.slice(0,verSols||foco?20:3).map(solHtml).join('')):'')+'</div>';}
+  function pintar(){var L=(D.antenas||[]).slice(),adm=D.admin,t=q.toLowerCase();
+    if(fCta)L=L.filter(function(a){return a.cuenta_id===fCta;});
+    if(t)L=L.filter(function(a){return [a.nickname,a.kit,a.serial,a.cliente,a.cliente_propuesto,a.proyecto,a.cuenta_id,a.service_line].join(' ').toLowerCase().indexOf(t)>=0;});
+    var abiertas=(D.solicitudes||[]).filter(function(s){return s.estado==='pendiente'||s.estado==='en proceso';}).length;
+    var h=css()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Consig.setV(\'alq\')">← Alquiler</button><button class="chip" onclick="MCAnt.recargar()">↻ Actualizar</button></div>'+
+      '<div class="cbz-muted" style="font-size:12px;margin-bottom:8px">'+(adm?'Todas las antenas de las 3 cuentas Starlink. ':'Tus antenas Starlink en alquiler. ')+'El estado lo actualiza Minecore desde Starlink; el cambio de clave WiFi lo hace nuestro equipo en la app Starlink.</div>'+
+      '<div class="cbz-kpis" style="margin-bottom:8px"><div class="cbz-kpi"><span class="cbz-kpi-num">'+(D.antenas||[]).length+'</span><span class="cbz-kpi-lbl">Antenas</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#ffb35c">'+(D.antenas||[]).filter(function(a){return a.alertas;}).length+'</span><span class="cbz-kpi-lbl">Con alertas</span></div>'+
+      '<div class="cbz-kpi"><span class="cbz-kpi-num" style="color:#f0c040">'+abiertas+'</span><span class="cbz-kpi-lbl">Solicitudes abiertas</span></div></div>'+
+      '<input class="uinput" placeholder="Buscar nombre, KIT, serie, cliente…" value="'+e(q)+'" oninput="MCAnt.buscar(this.value)" style="margin-bottom:6px">'+
+      (adm?'<div class="ant-chips"><button class="chip'+(fCta?'':' on')+'" onclick="MCAnt.cta(\'\')">Todas</button>'+(D.cuentas||[]).map(function(c){return '<button class="ant-pill'+(fCta===c.id?' on':'')+'" onclick="MCAnt.cta(\''+e(c.id)+'\')">'+e(c.email)+'<br><span style="font-size:11px;opacity:.75">'+e(c.id)+'</span></button>';}).join('')+'</div>':'')+
+      '<div id="ant-lista">'+(L.length?L.map(rowHtml).join(''):'<div class="cbz-card cbz-muted" style="text-align:center;padding:20px">'+(adm?'Sin antenas con ese filtro.':'No tienes antenas Starlink registradas. Si crees que es un error, escríbenos.')+'</div>')+'</div>';
+    el.innerHTML=h;
+    if(foco){var x=document.getElementById('ant-sol-'+foco);if(x)setTimeout(function(){x.scrollIntoView({block:'center'});},60);}
+    if(!adm&&(D.solicitudes||[]).some(function(s){return (s.estado==='hecha'||s.estado==='rechazada')&&!s.visto_cliente_at;}))MCsbSolo({action:'ant_sol_visto'}).catch(function(){});}
+  function form(id,tipo){var a=(D.antenas||[]).find(function(x){return String(x.id)===String(id);});if(!a)return;
+    var w=tipo==='clave_wifi';
+    var m=document.createElement('div');m.id='ant-modal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+    m.innerHTML='<div class="cbz-card ant-f" style="width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;margin:0">'+
+      '<div class="cbz-card-name">'+(w?'🔑 Cambio de clave WiFi':'🛠 Solicitar revisión')+'</div><div class="ant-meta">📡 '+e(a.nickname||a.kit)+'<br>KIT '+e(a.kit||'—')+' · Serie '+e(a.serial||'—')+(a.proyecto?' · '+e(a.proyecto):'')+'</div>'+
+      (w?'<label>Nuevo nombre de red (SSID) — opcional</label><input class="uinput" id="ant-ssid" maxlength="32" autocomplete="off" placeholder="Déjalo vacío para no cambiarlo">'+
+        '<label>Nueva clave WiFi (8 a 63 caracteres)</label><div style="display:flex;gap:6px"><input class="uinput" id="ant-pass" type="password" maxlength="63" autocomplete="new-password" style="flex:1"><button class="chip" type="button" onclick="var i=document.getElementById(\'ant-pass\');i.type=i.type===\'password\'?\'text\':\'password\';" style="white-space:nowrap">👁 Ver</button></div>'+
+        '<div class="ant-meta" style="margin-top:6px">🔒 Se guarda cifrada; solo la ve nuestro equipo para aplicarla en la app Starlink y se borra al terminar. Todos los equipos conectados tendrán que volver a conectarse con la nueva clave.</div>'+
+        '<label>Nota (opcional)</label><textarea class="uinput" id="ant-det" rows="2"></textarea>'
+       :'<label>¿Qué está pasando? ¿Qué revisamos?</label><textarea class="uinput" id="ant-det" rows="3" placeholder="Ej.: está lenta desde ayer, se cae en la tarde…"></textarea>')+
+      '<div class="ant-btns" style="margin-top:14px"><button class="cbz-btn-sec" onclick="MCAnt.cerrar()">Cancelar</button><button class="cbz-btn" id="ant-env" onclick="MCAnt.enviar('+a.id+',\''+tipo+'\')">📨 Enviar solicitud</button></div></div>';
+    document.body.appendChild(m);}
+  function cerrar(){var m=document.getElementById('ant-modal');if(m)m.remove();}
+  function enviar(id,tipo){var p={action:'ant_sol_crear',antena_id:id,tipo:tipo,detalle:(document.getElementById('ant-det')||{}).value||''};
+    if(tipo==='clave_wifi'){p.ssid=(document.getElementById('ant-ssid')||{}).value||'';p.password=(document.getElementById('ant-pass')||{}).value||'';
+      if(!p.ssid.trim()&&!p.password){alert('Escribe el nuevo nombre de red o la nueva clave.');return;}
+      if(p.password&&(p.password.length<8||p.password.length>63)){alert('La clave WiFi debe tener entre 8 y 63 caracteres.');return;}}
+    else if(!p.detalle.trim()){alert('Cuéntanos qué revisar.');return;}
+    var b=document.getElementById('ant-env');if(b){b.disabled=true;b.textContent='Enviando…';}
+    MCsbSolo(p).then(function(r){cerrar();foco=r.id;toastx('Solicitud #'+r.id+' enviada. Te avisamos cuando esté lista.');cargar(function(){pintar();});})
+      .catch(function(x){if(b){b.disabled=false;b.textContent='📨 Enviar solicitud';}alert('Error: '+(x.message||x));});}
+  function abrir(dest){var s=String(dest||'').replace(/^ant:/,'');foco=/^\d+$/.test(s)?s:null;verSols=true;D=null;window.MC_CONSIG_V='ant';openMod('consig');}
+  function hash(){var m=String(location.hash||'').match(/^#ant-sol-(\d+)$/);if(m){try{history.replaceState(null,'',location.pathname+location.search);}catch(x){}abrir('ant:'+m[1]);}}
+  return {render:render,form:form,cerrar:cerrar,enviar:enviar,abrir:abrir,hash:hash,
+    recargar:function(){D=null;render();},buscar:function(v){q=v;var c=document.activeElement&&document.activeElement.selectionStart;pintar();var i=el.querySelector('input.uinput');if(i){i.focus();try{i.setSelectionRange(c,c);}catch(x){}}},
+    cta:function(c){fCta=c;pintar();},_set:function(d){D=d;}};
+})();
+
 /* ===================== CONSIGNACIÓN Y ALQUILER (portal cliente) ===================== */
 var MailCfg = (function(){
   var cfg=null;
@@ -9559,6 +9648,7 @@ var Consig = (function(){
         }).join('')+'</div>';
     }
     var el=document.getElementById('consig-screen');
+    if(vistaC==='ant'){MCAnt.render(el);return;} /* r494 */
     if(data.admin&&!data.clientes.length){
       el.innerHTML='<div class="cbz-card" style="text-align:center;padding:24px"><div style="font-size:34px">📭</div>'+
         '<div class="cbz-card-name" style="margin:8px 0">Sin movimientos de consignación ni alquiler</div>'+
@@ -9571,6 +9661,7 @@ var Consig = (function(){
     if(vistaC==='actas'){el.innerHTML=extBanner+(data.admin?'<div class="cbz-card-row" style="gap:6px;margin-bottom:10px"><button class="chip" onclick="Consig.rsVolver()">← Resumen</button></div>':'')+actasHtml(cli);return;}
     if(data.admin&&modo==='resumen'){el.innerHTML=extBanner+resumenHtml();return;}
     var h=(data.admin?'<div class="cbz-card-row" style="gap:6px;margin-bottom:10px"><button class="chip" onclick="Consig.rsVolver()">← Resumen de todos los clientes</button></div>':'')+clientPickerHtml();
+    if(vistaC==='alq')h+='<div class="cbz-card-row" style="margin-bottom:10px"><button class="cbz-btn" style="white-space:nowrap" onclick="Consig.setV(\'ant\')">🛰 Antenas Starlink: estado y solicitudes</button></div>'; /* r494 */
     h+=(vistaC==='consig'?'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">Plazo: '+data.limiteDias+' días · con autorización aprobada: '+data.limiteExtendido+' · pasado el plazo, se factura.</div>':'<div class="cbz-muted" style="font-size:11px;margin-bottom:8px">El alquiler se factura mensualmente — aquí ves cuánto tiempo lleva cada equipo (mismo semáforo: verde / tomate / rojo).</div>')+
       kpisHtml(itemsActuales(),vistaC)+
       '<div class="cbz-card-row" style="margin-bottom:10px">'+
@@ -13320,6 +13411,7 @@ function renderHome(){
   mcBindHomeTiles();
   var nb=document.getElementById('notif-bar');
   if(nb){nb.className='';nb.style.display='none';nb.innerHTML='';nb.removeAttribute('data-has');}
+  try{MCAnt.hash();}catch(eAnt){} /* r494 */
   MCsbSolo({action:'notificaciones'}).then(function(nres){ /* b346: Supabase */
     var bar=document.getElementById('notif-bar');
     if(!bar)return;
@@ -13491,7 +13583,7 @@ try{if(document.head)MCbtnCss();else document.addEventListener('DOMContentLoaded
 function mcDirtyAsk(guardar,descartar){var d=document.getElementById('mc-dirty-m');if(d)d.remove();d=document.createElement('div');d.id='mc-dirty-m';d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center';
   MCbtnCss();d.innerHTML='<div class="cbz-card mcd-card"><b>Tienes cambios sin guardar</b><div class="cbz-muted" style="margin:8px 0 14px">¿Qué quieres hacer?</div><div class="mcd-row"><button class="cbz-btn cbz-btn-primary" id="mcd-g">Guardar</button><button class="cbz-btn" id="mcd-d" style="color:#e05c5c">Descartar</button><button class="cbz-btn" id="mcd-s">Seguir editando</button></div></div>';
   document.body.appendChild(d);var x=function(f){d.remove();if(f)f();};d.querySelector('#mcd-g').onclick=function(){x(guardar);};d.querySelector('#mcd-d').onclick=function(){x(descartar);};d.querySelector('#mcd-s').onclick=function(){x(null);};}
-function openMod(m){if(m!=='inv')window.MC_despSoloVer=null;if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirtyAsk(function(){if(Compras.pDirty())Compras.pG();else if(MCFD.dirty())MCFD.g();else Ventas.ieG();},function(){Ventas.ieD();Compras.pD();MCFD.clear();openMod._ok=1;try{openMod(m);}finally{openMod._ok=0;}});}
+function openMod(m){if(/^ant:/.test(String(m||''))){MCAnt.abrir(m);return;} /* r494 */if(m!=='inv')window.MC_despSoloVer=null;if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirtyAsk(function(){if(Compras.pDirty())Compras.pG();else if(MCFD.dirty())MCFD.g();else Ventas.ieG();},function(){Ventas.ieD();Compras.pD();MCFD.clear();openMod._ok=1;try{openMod(m);}finally{openMod._ok=0;}});}
   if(typeof MCnavRutaOk==='function'&&!MCnavRutaOk(m)){alert('Esta sección está apagada para tu usuario. Pide acceso al administrador.');return;}
   try{MCroute.set(m);}catch(e){}
   try{var _hf=document.getElementById('mc-hfab');if(_hf){_hf.style.display='none';MCFab.toggle(false);}}catch(e){}
@@ -13629,7 +13721,7 @@ function MC_NAVCAT(){
     {k:'consig',ico:'truck',t:'Consignación',col:'#1f8a4c',items:[
       ['🚚','Consignación','consig',CO,function(){cs('consig');},'consignacion'],
       ['📄','Actas','actas',CO,function(){cs('actas');},'consignacion']]},
-    {k:'alq',ico:'antenna',t:'Alquiler',col:'#7a4fd6',items:[['📡','Alquiler','alq',CO,function(){cs('alq');},'consignacion']]},
+    {k:'alq',ico:'antenna',t:'Alquiler',col:'#7a4fd6',items:[['📡','Alquiler','alq',CO,function(){cs('alq');},'consignacion'],['🛰','Antenas Starlink','alq',CO,function(){cs('ant');},'consignacion']]},
     {k:'fin',ico:'bank',t:'Finanzas',col:'#1e6fd9',items:[
       ['💰','Cobranza','cbz',CB,function(){openMod('cbz');},'cobranza'],
       ['🧾','Facturas SRI y retenciones','conta',CB,function(){MCConta.abrir();},'cobranza'], /* b434-off */
@@ -18239,7 +18331,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=482',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=483',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
