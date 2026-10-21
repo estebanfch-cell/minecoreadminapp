@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='476';
+  var MC_BUILD='477';
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -12313,6 +12313,7 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
   return '<span style="display:inline-flex;flex-direction:column;align-items:center;vertical-align:top"><button class="chip" id="vt-solfac" onclick="Ventas.solFac()">🧾 Solicitar factura</button>'+(n?'<span class="cbz-muted" style="font-size:10.5px;margin-top:2px">'+n+' envío'+(n>1?'s':'')+'</span>':'')+'</span>';})():'')+'<button class="chip" onclick="Ventas.email()">✉ Email</button><span style="position:relative;display:inline-block"><button class="chip" onclick="Ventas.printMenu(event)">🖨 Print ▾</button><div id="vt-print" style="display:none;position:absolute;z-index:50;top:100%;left:0;min-width:210px;background:#13202e;border:1px solid #26405c;border-radius:10px;padding:4px;margin-top:4px">'+
         (esQ?[['sq','Cotización de ventas'],['sq_noprice','Cotización sin precio'],['sq_nocat','Cotización sin categoría']]:[['so','Orden de venta'],['receipt','Recibo'],['pick','Lista de preparación'],['packing','Packing list'],['boxlabel','Box label'],['boxcontent','Box content list'],['invoice','Factura'],['labels','Labels (DYMO 19×51 mm)']]).map(function(x){return '<div class="chip" style="display:block;margin:2px 0;border:none;text-align:left" onclick="Ventas.imprimir(\''+x[0]+'\')">'+x[1]+'</div>';}).join('')+'</div></span>'+
       (esAdmin()&&!o.is_cancelled&&!(o.is_invoiced&&!esQ)?'<button class="chip" style="color:#e05c5c" onclick="Ventas.cancelar()">✕ Cancelar</button>':'')+
+      (!esQ&&!o.is_cancelled&&window.MCFirmaR?MCFirmaR.boton(o.id,o.order_number):'')+ /* b477 recepción digital */
       '<button class="chip" onclick="Ventas.recargar()">⟳</button></div>';
     var fa=cur.factura;
     h+='<div class="cbz-card"><div class="cbz-card-top ov-top"><div class="cbz-card-name" style="font-size:17px">'+ie('order_number',esc(o.order_number))+(o.quote_number&&!esQ?'<div style="font-size:12px;font-weight:400;margin-top:2px">Viene de cotización <a href="#" style="color:#9fc3e8;text-decoration:none" onclick="Ventas.irCot(\''+esc(o.quote_number)+'\');return false;">'+esc(o.quote_number)+'</a></div>':'')+'</div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">'+estChip(o.estado,st)+(!esQ?ppsChip('Preparar',st.pick_estado)+ppsChip('Pack',st.pack_estado)+ppsChip('Ship',st.ship_estado)+payChip(o):'')+' '+syncChip(o.sync_status)+'</div></div>'+
@@ -14073,12 +14074,13 @@ var MCEnt=(function(){
     api({op:'ent_list',incluir_preparadas:true}).then(function(r){if(!r.ok)throw new Error(r.error);S.list=r;lista();}).catch(function(x){e.innerHTML='<div class="cbz-error">'+esc(MCerr(x))+'</div>';});}
   function lista(){var r=S.list,h='<div id="ent">'+css()+'<div class="cbz-muted" style="margin:4px 0 8px">Órdenes empacadas o enviadas, listas para entregar. Toca una para registrar la entrega.</div><div class="cbz-card" style="padding:0">';
     if(!r.ordenes.length)h+='<div class="cbz-muted" style="padding:14px">No hay órdenes pendientes de entregar.</div>';
-    r.ordenes.forEach(function(o){h+=MCrow.html({num:esc(o.order_number),tags:(o.ship_estado==='enviado'?'<span class="tagx tf">ENVIADA</span>':'<span class="tagx tn">EMPACADA</span>')+(o.fotos?'<span class="e-t">📷 '+o.fotos+'</span>':''),right:o.lineas+' líneas ›',attrs:' onclick="MCEnt.abrir(\''+o.id+'\')"',lines:[esc(o.cliente||'')]});}); /* b475 MCrow */
-    h+='</div>';if(r.entregadas&&r.entregadas.length){h+='<div class="cbz-card-name" style="margin:14px 0 6px">✅ Entregadas (últimos 3 días)</div><div class="cbz-card" style="padding:0">'+r.entregadas.map(function(o){return MCrow.html({num:esc(o.order_number),right:esc(String(o.entregado_at).slice(0,10))+' · Acta ›',attrs:MCDocs.attr(o.id,o.order_number,'entr'),lines:[esc(o.cliente||''),{h:'Recibió: <b>'+esc(o.receptor||'—')+'</b>',s:1}]});}).join('')+'</div>';}
+    r.ordenes.forEach(function(o){h+=MCrow.html({num:esc(o.order_number),tags:(o.ship_estado==='enviado'?'<span class="tagx tf">ENVIADA</span>':'<span class="tagx tn">EMPACADA</span>')+(o.fotos?'<span class="e-t">📷 '+o.fotos+'</span>':''),right:o.lineas+' líneas ›',attrs:' onclick="MCEnt.abrir(\''+o.id+'\')"',lines:[esc(o.cliente||''),{h:MCFirmaR.boton(o.id,o.order_number)}]});}); /* b475 MCrow */
+    h+='</div>';if(r.entregadas&&r.entregadas.length){h+='<div class="cbz-card-name" style="margin:14px 0 6px">✅ Entregadas (últimos 3 días)</div><div class="cbz-card" style="padding:0">'+r.entregadas.map(function(o){return MCrow.html({num:esc(o.order_number),right:esc(String(o.entregado_at).slice(0,10))+' · Acta ›',attrs:MCDocs.attr(o.id,o.order_number,'entr'),lines:[esc(o.cliente||''),{h:'Recibió: <b>'+esc(o.receptor||'—')+'</b>',s:1},{h:MCFirmaR.boton(o.id,o.order_number)}]});}).join('')+'</div>';}
     el().innerHTML=h+'</div>';}
   function abrir(id){el().innerHTML='<div id="ent">'+css()+'<div class="cbz-loading">Abriendo…</div></div>';
     api({op:'ent_get',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);S.cur=r;S.cur.rec=(r.entrega&&r.entrega.receptor)||'';S.cur.ced=(r.entrega&&r.entrega.cedula)||'';S.cur.firma=r.entrega&&r.entrega.firma_url?{url:r.entrega.firma_url,ts:r.entrega.firma_ts}:null;det();}).catch(function(x){alert(MCerr(x));init();});}
   function det(){var c=S.cur,o=c.orden,h='<div id="ent">'+css()+'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><button class="cbz-btn-sec" onclick="MCEnt.salir()">‹ Volver</button><b style="font-size:16px;white-space:nowrap">'+esc(o.order_number)+'</b></div>'+
+      '<div class="cbz-card" style="border-color:#3a5878"><div style="font-size:12.5px;margin-bottom:6px">¿Quien recibe no está aquí? Envíale el recibido para que lo firme desde su celular.</div>'+MCFirmaR.boton(o.id,o.order_number,'cbz-btn-sec e-big')+'</div>'+
       '<div class="cbz-card"><div class="e-c" style="font-weight:700">'+esc(o.cliente||'')+'</div><table>'+c.lineas.map(function(l){return '<tr><td>'+esc(l.nombre)+'</td><td class="s">'+esc(l.sku||'')+'</td><td class="q">× '+(+l.cantidad)+'</td></tr>';}).join('')+'</table></div>'+
       '<div class="cbz-card" style="border-color:#3a5878"><div style="font-size:12.5px">Para guardar basta <b>una</b> evidencia: foto/PDF <b>o</b> firma. Mejor ambas.</div><div class="cbz-muted" style="font-size:11.5px;margin-top:4px">Solo se guarda el PDF «Recibido»: las fotos, la firma y los PDF van dentro de él (no quedan sueltos en la orden).</div></div>'+
       '<div class="cbz-card"><b>1 · Fotos y PDF</b> <span class="cbz-muted" style="font-size:11px">(la hora la pone el servidor)</span><div class="up-bar" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">'+TIP.map(function(t){return '<button class="chip" style="'+(S.tipo===t[0]?'background:#E8FF00;color:#161926':'')+'" onclick="MCEnt.tipo(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>'+
@@ -18255,6 +18257,50 @@ textarea#wa-text{max-height:140px!important;overflow-y:auto!important}
   function start(){new MutationObserver(sch).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','open','hidden']});all(document);}
   if(document.body)start();else document.addEventListener('DOMContentLoaded',start);
   window.addEventListener('resize',function(){document.querySelectorAll('textarea').forEach(fit);});
+})();
+</script>
+<script>
+/* b477 · EFCH t1050: «Enviar recepción digital» = el mismo recibido de Entregas, firmado a distancia por el cliente.
+   MCFirmaR.boton(id,num) en TODA orden de venta y en Entregas (pendientes y entregadas). firma-api genera link único (15 días, un solo uso);
+   el portal muestra Copiar link / Compartir por WhatsApp (el usuario envía él mismo), estado, regenerar y anular.
+   Al firmar, la entrega queda en app.so_entregas igual que una presencial ⇒ PDF «Recibido» adjunto a la OV y visible en MCDocs + aviso con #/doc/<num>. */
+var MCFirmaR=(function(){
+  var URL_API='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/firma-api',S={};
+  function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function api(p){var s=typeof MCsbGet==='function'?MCsbGet():null;if(s&&s.t)p.t=s.t;else{p.user=getUserName();p.pin=getPin();}
+    return fetch(URL_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'Error');return r;});}
+  function boton(id,num,cls){return '<button class="'+(cls||'chip')+'" style="white-space:nowrap" onclick="event.stopPropagation();MCFirmaR.abrir(\''+e(id)+'\',\''+e(num)+'\')">✍️ Enviar recepción digital</button>';}
+  function css(){return '<style>#mcfr{position:fixed;inset:0;z-index:99991;background:#0008;display:flex;align-items:flex-end;justify-content:center}#mcfr .pn{background:#0f1720;color:#e8eef6;width:100%;max-width:560px;max-height:92dvh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}'+
+    '#mcfr .h{display:flex;gap:8px;align-items:flex-start}#mcfr .h b{flex:1;font-size:17px;white-space:normal}#mcfr .st{display:inline-block;padding:4px 12px;border-radius:14px;font-weight:800;font-size:13px;margin:10px 0 4px}'+
+    '#mcfr .pe{background:#4a3b00;color:#ffd84a}#mcfr .fi{background:#123d24;color:#6fe39a}#mcfr .no{background:#2a3644;color:#b8c6d6}#mcfr .ln{word-break:break-all;background:#0b131c;border:1px solid #26405c;border-radius:10px;padding:10px;font-size:13px;margin:8px 0;color:#cfe3f7}'+
+    '#mcfr .k{font-size:13px;color:#9fb0c2;margin-top:4px}#mcfr .bb{display:flex;flex-direction:column;gap:8px;margin-top:12px}#mcfr .bb button{min-height:50px;font-size:16px;font-weight:800;border-radius:10px;border:0;padding:0 14px;white-space:nowrap;word-break:keep-all}'+
+    '#mcfr .p{background:#E8FF00;color:#161926}#mcfr .w{background:#25d366;color:#0b2a17}#mcfr .s{background:#1d2b3b;color:#dce6f0;border:1px solid #3a5878!important}#mcfr .r{background:transparent;color:#ff8a80;border:1px solid #6b2a2a!important}</style>';}
+  function fh(f){if(!f)return '';try{return new Date(f).toLocaleString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(x){return String(f);}}
+  function pinta(r){var o=document.getElementById('mcfr');if(!o)return;var L=r&&r.link,est=L?L.estado:'',h='';
+    h+='<div class="h"><b>Recepción digital · '+e(S.num)+'</b><button class="chip" onclick="MCFirmaR.cerrar()">✕ Cerrar</button></div>';
+    if(!r){h+='<div class="k" style="padding:16px 0">Cargando…</div>';}
+    else{
+      if(r.acta_firmada&&est!=='pendiente')h+='<div class="k">Esta orden ya tiene recibido firmado'+(L&&L.nombre?' por <b>'+e(L.nombre)+'</b>':'')+'. Si generas otro link, la nueva firma reemplaza al PDF Recibido.</div>';
+      if(est==='pendiente'){h+='<span class="st pe">⏳ Pendiente de firma</span><div class="k">Vence: '+e(fh(L.expira_at))+' · creado por '+e(L.creado_por||'')+'</div><div class="ln">'+e(L.link)+'</div>'+(L.error?'<div class="k" style="color:#ffb4a9">Último intento falló: '+e(L.error)+'</div>':'')+
+        '<div class="bb"><button class="w" onclick="MCFirmaR.wa()">🟢 Compartir por WhatsApp</button><button class="p" onclick="MCFirmaR.copiar()">📋 Copiar link</button><button class="s" onclick="MCFirmaR.crear(1)">🔄 Generar link nuevo</button><button class="r" onclick="MCFirmaR.anular()">🚫 Anular link</button></div>';}
+      else if(est==='firmada'){h+='<span class="st fi">✅ Firmada</span><div class="k">Firmó <b>'+e(L.nombre)+'</b> · C.I. '+e(L.cedula||'')+(L.cargo?' · '+e(L.cargo):'')+'<br>'+e(fh(L.firmada_at))+'</div>'+
+        '<div class="bb"><button class="p" onclick="MCFirmaR.verActa()">📄 Ver recibido firmado</button><button class="s" onclick="MCFirmaR.crear(1)">✍️ Enviar otra vez a firmar</button></div>';}
+      else{h+=(est?'<span class="st no">'+(est==='vencida'?'⏰ Link vencido':'🚫 Link anulado')+'</span>':'')+'<div class="k">Se genera un link para que quien recibió firme el recibido desde su celular (vence en 15 días, un solo uso).</div>'+
+        '<div class="bb"><button class="p" onclick="MCFirmaR.crear()">✍️ Generar link de firma</button></div>';}
+    }
+    o.querySelector('.pn').innerHTML=h;}
+  function abrir(id,num){cerrar();S={id:id,num:num,r:null};var o=document.createElement('div');o.id='mcfr';o.innerHTML=css()+'<div class="pn"></div>';
+    o.addEventListener('click',function(ev){if(ev.target===o)cerrar();});document.body.appendChild(o);pinta(null);
+    api({op:'estado',id:id}).then(function(r){S.r=r;pinta(r);}).catch(function(x){o.querySelector('.pn').innerHTML='<div class="k" style="color:#f0c040">'+e(x.message)+'</div><div class="bb"><button class="s" onclick="MCFirmaR.cerrar()">Cerrar</button></div>';});}
+  function crear(re){if(re&&S.r&&S.r.link&&S.r.link.estado==='pendiente'&&!confirm('El link actual dejará de funcionar. ¿Generar uno nuevo?'))return;
+    pinta(null);api({op:'crear',id:S.id}).then(function(r){S.r=r;pinta(r);}).catch(function(x){alert(x.message);abrir(S.id,S.num);});}
+  function anular(){if(!confirm('¿Anular el link? Quien lo abra verá que fue anulado.'))return;api({op:'cancelar',id:S.id}).then(function(r){S.r=r;pinta(r);}).catch(function(x){alert(x.message);});}
+  function lk(){return S.r&&S.r.link&&S.r.link.link||'';}
+  function copiar(){var t=lk();if(!t)return;(navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t):Promise.reject()).then(function(){alert('Link copiado');},function(){prompt('Copia el link:',t);});}
+  function wa(){var t=lk();if(!t)return;var m='Por favor firme el acta de recepción de la orden '+S.num+': '+t;window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');}
+  function verActa(){var id=S.id,n=S.num;cerrar();MCDocs.abrir(id,n,'entr').catch(function(){});}
+  function cerrar(){var o=document.getElementById('mcfr');if(o)o.remove();}
+  return {boton:boton,abrir:abrir,crear:crear,anular:anular,copiar:copiar,wa:wa,verActa:verActa,cerrar:cerrar};
 })();
 </script>
 <script>
