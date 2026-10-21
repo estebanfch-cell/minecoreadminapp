@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Recepción digital · Minecore</title>
+<link rel="icon" href="mc-icon-192.png">
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:#eef2f6;color:#14202e;font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.w{max-width:620px;margin:0 auto;padding:16px 14px calc(24px + env(safe-area-inset-bottom))}
+.hd{display:flex;align-items:center;gap:12px;background:#161926;color:#fff;border-radius:14px;padding:14px}
+.hd img{width:48px;height:48px;border-radius:10px;flex:none}.hd b{font-size:19px;display:block}.hd span{font-size:13px;color:#c9d4e0}
+.c{background:#fff;border-radius:14px;padding:14px;margin-top:12px;box-shadow:0 1px 3px #0001}
+.c h2{font-size:16px;margin:0 0 8px}.k{font-size:12.5px;color:#5b6b7c;margin-top:8px}.v{font-size:17px;font-weight:700;word-break:break-word}
+.ln{padding:10px 0;border-top:1px solid #e3e8ee}.ln:first-of-type{border-top:0}
+.ln .n{font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ln .s{font-size:13px;color:#5b6b7c;display:flex;justify-content:space-between;gap:10px}.ln .q{font-weight:800;color:#14202e;font-size:15px;white-space:nowrap}
+label{display:block;font-weight:700;margin:12px 0 4px}label i{font-weight:400;color:#5b6b7c;font-style:normal}
+input{width:100%;font-size:17px;padding:13px 12px;border:1.5px solid #c6d0db;border-radius:10px;background:#fff}input:focus{outline:0;border-color:#3d7ec9}
+.pad{position:relative;-webkit-user-select:none;user-select:none;border:2px dashed #9fb0c2;border-radius:12px;background:#fff;height:220px;margin-top:6px;touch-action:none}
+.pad canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.pad .ph{position:absolute;left:0;right:0;top:45%;text-align:center;color:#9fb0c2;pointer-events:none}
+.row{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+button,.btn{display:flex;align-items:center;justify-content:center;flex:1 1 200px;min-height:54px;padding:0 16px;border:0;border-radius:12px;font-size:17px;font-weight:800;white-space:nowrap;word-break:keep-all;cursor:pointer;text-decoration:none}
+.bp{background:#E8FF00;color:#161926}.bs{background:#fff;color:#1f3b5c;border:1.5px solid #9fb0c2}.bp:disabled{opacity:.5}
+.msg{margin-top:10px;font-weight:600;color:#b3261e}.ok{text-align:center}.ok .big{font-size:56px}.ok h1{font-size:22px;margin:6px 0}
+.legal{font-size:12.5px;color:#5b6b7c;margin-top:10px}.ce{text-align:center;padding:30px 14px}
+</style></head><body><div class="w" id="app">
+<div class="hd"><img src="mc-icon-192.png" alt="Minecore"><div><b>Minecore</b><span>Recepción digital de entrega</span></div></div>
+<div class="c ce" id="carga">Cargando…</div></div>
+<script>
+(function(){
+var API='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/firma-api';
+var tok=(location.hash.match(/t=([A-Za-z0-9_-]+)/)||[])[1]||'';
+try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}
+var app=document.getElementById('app'),hd=app.firstElementChild.outerHTML,D=null,traz=false;
+function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function post(b){b.token=tok;return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json();});}
+function fecha(f){if(!f)return '';var d=new Date(f);return isNaN(d)?String(f).slice(0,10):d.toLocaleDateString('es-EC',{day:'2-digit',month:'long',year:'numeric',timeZone:'America/Guayaquil'});}
+function aviso(ic,t,m){app.innerHTML=hd+'<div class="c ce"><div style="font-size:48px">'+ic+'</div><h2>'+e(t)+'</h2><div>'+e(m)+'</div></div>';}
+if(!tok){aviso('⚠️','Enlace incompleto','Abra el enlace completo que le enviaron.');return;}
+post({op:'ver'}).then(function(r){
+  if(!r.ok){var T={firmada:['✅','Recibido ya firmado'],vencida:['⏰','Enlace vencido'],cancelada:['🚫','Enlace anulado']}[r.codigo]||['⚠️','Enlace no válido'];aviso(T[0],T[1],r.error);return;}
+  D=r;form();
+}).catch(function(){aviso('📶','Sin conexión','No se pudo cargar. Revise su internet y vuelva a abrir el enlace.');});
+function form(){
+  app.innerHTML=hd+'<div class="c"><div class="k" style="margin-top:0">Orden</div><div class="v">'+e(D.orden)+'</div><div class="k">Cliente</div><div class="v">'+e(D.cliente||'')+'</div><div class="k">Fecha</div><div class="v">'+e(fecha(D.entregada||D.fecha))+'</div></div>'+
+  '<div class="c"><h2>Productos entregados</h2>'+D.lineas.map(function(l){return '<div class="ln"><div class="n">'+e(l.nombre||'')+'</div><div class="s"><span>'+e(l.sku||'')+'</span><span class="q">Cant. '+(+l.cantidad)+'</span></div></div>';}).join('')+'</div>'+
+  '<div class="c"><h2>Datos de quien recibe</h2><label for="f-n">Nombre completo</label><input id="f-n" autocomplete="name" placeholder="Nombre y apellido">'+
+  '<label for="f-c">Cédula</label><input id="f-c" inputmode="numeric" maxlength="13" placeholder="10 dígitos">'+
+  '<label for="f-g">Cargo <i>(opcional)</i></label><input id="f-g" autocomplete="organization-title" placeholder="Ej.: Bodeguero, Jefe de compras">'+
+  '<label>Firma</label><div class="pad"><div class="ph">Firme aquí con su dedo</div><canvas id="cv"></canvas></div><div class="row"><button class="bs" id="b-l" type="button">Borrar firma</button></div>'+
+  '<div class="legal">Al firmar confirmo que recibí los productos detallados. Se registrarán la fecha, hora, IP y dispositivo.</div>'+
+  '<div class="row"><button class="bp" id="b-f" type="button">Firmar y enviar</button></div><div class="msg" id="msg"></div></div>';
+  pad();document.getElementById('b-f').onclick=enviar;}
+var cv,g,last=null;
+function pad(){cv=document.getElementById('cv');var box=cv.parentNode;function size(){var r=box.getBoundingClientRect(),k=window.devicePixelRatio||1,old=traz?cv.toDataURL():null;cv.width=r.width*k;cv.height=r.height*k;g=cv.getContext('2d');g.scale(k,k);g.lineWidth=2.6;g.lineCap='round';g.lineJoin='round';g.strokeStyle='#0b2a6b';if(old){var im=new Image();im.onload=function(){g.drawImage(im,0,0,r.width,r.height);};im.src=old;}}
+  size();window.addEventListener('resize',size);
+  function pt(ev){var r=cv.getBoundingClientRect();return {x:ev.clientX-r.left,y:ev.clientY-r.top};}
+  cv.addEventListener('pointerdown',function(ev){ev.preventDefault();cv.setPointerCapture(ev.pointerId);last=pt(ev);g.beginPath();g.arc(last.x,last.y,1.2,0,7);g.fillStyle='#0b2a6b';g.fill();});
+  cv.addEventListener('pointermove',function(ev){if(!last)return;ev.preventDefault();var p=pt(ev);g.beginPath();g.moveTo(last.x,last.y);g.lineTo(p.x,p.y);g.stroke();last=p;if(!traz){traz=true;box.querySelector('.ph').style.display='none';}});
+  ['pointerup','pointercancel','pointerleave'].forEach(function(t){cv.addEventListener(t,function(){last=null;});});
+  document.getElementById('b-l').onclick=function(){g.clearRect(0,0,cv.width,cv.height);traz=false;box.querySelector('.ph').style.display='';};}
+function enviar(){var m=document.getElementById('msg'),b=document.getElementById('b-f');m.textContent='';
+  var n=document.getElementById('f-n').value.trim(),c=document.getElementById('f-c').value.replace(/\D/g,''),cg=document.getElementById('f-g').value.trim();
+  if(n.length<5||n.indexOf(' ')<0){m.textContent='Escriba su nombre completo (nombre y apellido).';return;}
+  if(c.length<10){m.textContent='Escriba su número de cédula (10 dígitos).';return;}
+  if(!traz){m.textContent='Falta su firma en el recuadro.';return;}
+  var o=document.createElement('canvas'),k=Math.min(1,1200/cv.width);o.width=Math.round(cv.width*k);o.height=Math.round(cv.height*k);var og=o.getContext('2d');og.fillStyle='#fff';og.fillRect(0,0,o.width,o.height);og.drawImage(cv,0,0,o.width,o.height);
+  b.disabled=true;b.textContent='Enviando…';
+  post({op:'firmar',nombre:n,cedula:c,cargo:cg,firma:o.toDataURL('image/png'),dispositivo:navigator.userAgent+' · '+screen.width+'x'+screen.height}).then(function(r){
+    if(!r.ok){m.textContent=r.error||'No se pudo enviar.';b.disabled=false;b.textContent='Firmar y enviar';return;}
+    app.innerHTML=hd+'<div class="c ok"><div class="big">✅</div><h1>¡Gracias! Recibido firmado</h1><div>Orden <b>'+e(r.orden)+'</b></div><div class="k">'+e(r.ts)+'</div><div class="k">Su firma llegó a Minecore. Ya puede cerrar esta página.</div>'+
+      (r.pdf?'<div class="row" style="margin-top:16px"><button class="bs" id="b-d" type="button">Descargar recibido (PDF)</button></div>':'')+'</div>';
+    var bd=document.getElementById('b-d');if(bd)bd.onclick=function(){bd.textContent='Abriendo…';post({op:'pdf'}).then(function(x){bd.textContent='Descargar recibido (PDF)';if(x.ok&&x.url)location.href=x.url;else alert(x.error||'No disponible');});};
+  }).catch(function(){m.textContent='Sin conexión. Revise su internet e intente de nuevo.';b.disabled=false;b.textContent='Firmar y enviar';});}
+})();
+</script></body></html>
