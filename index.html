@@ -526,7 +526,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='498'; /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='499'; /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -11243,6 +11243,17 @@ function getProfile(){
 }
 /* r502 EFCH: el usuario CLIENTE usa las MISMAS pantallas y módulos que el equipo, en SOLO LECTURA (nivel ≤ Ver, sin «+», sin Editar/Acciones).
    La organización la impone el servidor (portal-api / ops-api). p.esCli marca la vista; p.rolReal guarda 'cliente'. */
+/* r508 b499 EFCH: red de seguridad en pantallas de cliente (Productos/Clientes): fuera todo botón o campo que escriba, suba archivos o dispare acciones. El servidor igual rechaza (solo lectura). */
+var MC_CLI_DENY=/(guardar|nuevo\(|borrar|eliminar|cancelar\(|activo\(|MCProd\.adjuntos\(\)|MCProd\.(mv|etq|etqMenu|vender|copiar|desp|cat)\(|MCStkEd|MCStk2\.|MCProd2\.|MCVnd\.|cuAdd|MCArch|\.ed\(|descartar|mover|subir|adjuntar|asignar|MCAsig|restock|solFac|email\(|editar|ie\(|iePick)/i;
+function mcCliROmaes(root){if(!root||!mcEsCliV())return;
+  root.querySelectorAll('input[type=file],[contenteditable=true]').forEach(function(x){var l=x.closest('label');(l||x).remove();});
+  root.querySelectorAll('[onclick],[onchange],[oninput]').forEach(function(b){var oc=(b.getAttribute('onclick')||'')+' '+(b.getAttribute('onchange')||'')+' '+(b.getAttribute('oninput')||'');
+    if(/if\(!mcEsCliV\(\)\)/.test(oc))return;
+    if(!MC_CLI_DENY.test(oc))return;
+    if(b.tagName==='BUTTON'||b.tagName==='SELECT'||b.tagName==='INPUT'||b.tagName==='TEXTAREA'||b.tagName==='LABEL'||b.classList.contains('chip')||b.classList.contains('cbz-btn'))b.remove();
+    else{b.removeAttribute('onclick');b.removeAttribute('onchange');b.style.cursor='default';}});}
+(function(){function arm(){var m=document.getElementById('maes-screen');if(!m||m._mcRO)return;m._mcRO=1;var t=null;new MutationObserver(function(){if(!mcEsCliV())return;clearTimeout(t);t=setTimeout(function(){mcCliROmaes(m);},0);}).observe(m,{childList:true,subtree:true});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm);else setTimeout(arm,0);})();
 /* r508 EFCH: el cliente NO tiene ningún botón que escriba en OV/COT. Se queda: Lista, Print/PDF, Documentos (ver/descargar), pestañas solo-lectura, links a productos/órdenes. */
 function mcCliRO(root){if(!root||!mcEsCliV())return;
   var OK=/^\s*(event\.stopPropagation\(\);?\s*)?(Ventas\.(volver|printMenu|imprimir|recargar|irCot|abrir|abrirNum|verAdjunto|docs|docVer|docBajar|togHist)\b|Ventas\.setDv\('(orden|pick|pack|ship|factura|pagos)'\)|MCProd\.|MCfoto\(|window\.open\(|MCdoc|MCDocs)/;
@@ -14763,7 +14774,7 @@ function MCvtCan(o,f){var k=(o&&o.is_quote)?'cot':'ov',g={quantity:'lineas',desc
 function MCro(el){if(!el)return;el.classList.add('mc-ro');el.querySelectorAll('input,select,textarea').forEach(function(x){if(x.type==='search'||x.closest('.mc-ro-skip'))return;x.disabled=true;});
   if(!document.getElementById('mc-ro-css')){var s=document.createElement('style');s.id='mc-ro-css';s.textContent='.mc-ro input:disabled,.mc-ro select:disabled,.mc-ro textarea:disabled{border:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;opacity:1!important;-webkit-text-fill-color:currentColor;padding-left:0!important;appearance:none;-webkit-appearance:none;resize:none;cursor:default}';document.head.appendChild(s);}}
 function MCea(k){return /\.e\./.test(k)||/^co\.(iniciar|contar|otro|buscar|agregar|cerrar|crear|aprobar|config)$/.test(k)||k==='reo.oc'||/^rep\.[a-z]+\.exportar$/.test(k);}
-function MCcan(k){var p=null;try{p=getProfile&&getProfile();}catch(e){}if(!p)return false;if(p.rol==='admin')return true;if(p.rol==='cliente')return false;var m=MCPtoks(p.modulos);return MCea(k)?m.indexOf('~'+k+'=1')>=0:m.indexOf('~'+k+'=0')<0;}
+function MCcan(k){var p=null;try{p=getProfile&&getProfile();}catch(e){}if(!p)return false;if(p.rol==='cliente'||(typeof mcEsCliV==='function'&&mcEsCliV()))return false; /* r508 b499: cliente (también «Viendo como») nunca edita */if(p.rol==='admin')return true;var m=MCPtoks(p.modulos);return MCea(k)?m.indexOf('~'+k+'=1')>=0:m.indexOf('~'+k+'=0')<0;}
 /* b354 · EFCH t632: selector de sububicación con búsqueda (sin texto libre). Lista las existentes de la bodega; al final «+ Crear nueva sububicación» si hay permiso. */
 var MC_SUBC={};
 function MCSubList(bodega){if(!bodega)return Promise.resolve([]);if(MC_SUBC[bodega]&&Date.now()-MC_SUBC[bodega].t<60000)return Promise.resolve(MC_SUBC[bodega].l);
@@ -18457,7 +18468,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=498',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=499',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
