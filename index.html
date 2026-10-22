@@ -494,7 +494,6 @@ html body .mc-clif .vf-cli,html body .mc-clisel{font-size:20px!important;font-we
          autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" name="mc_pin_nosave"
          onkeydown="if(event.key==='Enter')doLogin()">
   <button onclick="doLogin()">Ingresar</button>
-  <button id="bioBtn" style="display:none;background:#0b1219" onclick="doBioLogin(event)">🔒 Entrar con Face ID / Huella</button>
   <div class="err" id="loginErr"></div>
   <div id="mc-login-build" style="margin-top:18px;color:#c3ccd6;font-size:10px"></div>
   <script>window.toastx=window.toastx||function(t){t=String(t&&t.message?t.message:t);try{if(typeof toast==='function'){toast(t);return;}}catch(e){}var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:10px;z-index:99999;max-width:90vw;font-size:14px';document.body.appendChild(d);setTimeout(function(){d.remove();},3500);};</script><script>/* b294: búsqueda normalizada (tokens AND, sin tildes/puntuación) + IndexedDB mínimo */
@@ -508,7 +507,7 @@ var MC_COD={m:null,ld:0};
 function MCcod(sku){var m=MC_COD.m;if(!m){MCcodLoad();return '';}return m[String(sku||'').toUpperCase()]||'';}
 function MCcodSet(rows){var m=MC_COD.m||{};(rows||[]).forEach(function(p){if(p&&p.sku)m[String(p.sku).toUpperCase()]=[p.codigo,p.cod_prov].filter(Boolean).join(' ');});MC_COD.m=m;}
 /* b446b: la precarga SKU (prod_list 1.6 MB) espera a que el Dashboard termine (MC_DASH_LISTO) o 20 s, para no competir con dash_cfo */
-(function(){var t0=Date.now(),iv=setInterval(function(){try{if(Date.now()-t0<5000)return;if(!window.MC_DASH_LISTO&&Date.now()-t0<20000)return;clearInterval(iv);if(getUserName()&&getPin())MCcodLoad();}catch(e){clearInterval(iv);}},500);})();
+(function(){var t0=Date.now(),iv=setInterval(function(){try{if(Date.now()-t0<5000)return;if(!window.MC_DASH_LISTO&&Date.now()-t0<20000)return;clearInterval(iv);if(getUserName()&&mcAuthOk())MCcodLoad();}catch(e){clearInterval(iv);}},500);})();
 function MCcodLoad(){if(MC_COD.ld)return;MC_COD.ld=1;
   var red=function(){try{MCpost({action:'ventas',op:'prod_list',f:{estado:'todos'},limit:5000,slim:1,user:getUserName(),pin:getPin()}).then(function(x){if(x&&x.productos)MCcodSet(x.productos);}).catch(function(){MC_COD.ld=0;});}catch(e){MC_COD.ld=0;}};
   try{mcIdb.get('mc_prodcat443').then(function(c){if(c&&c.rows&&c.rows.length&&c.rows[0].cod_prov!==undefined)MCcodSet(c.rows);else red();}).catch(red);}catch(e){red();}}
@@ -535,7 +534,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='501'; /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='502'; /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -613,14 +612,18 @@ window.addEventListener&&window.addEventListener('unhandledrejection',function(e
   }catch(e){}
 });
 /* ===== Credenciales persistentes (hasta cerrar sesion) ===== */
-function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);localStorage.setItem('mc_pin',p);}catch(e){}}
+function saveCreds(u,p){try{localStorage.setItem('mc_user_name',u);}catch(e){}} /* r511: el PIN nunca se guarda */
 function getUserName(){try{return localStorage.getItem('mc_user_name')||'';}catch(e){return '';}}
-function mcSess(){try{var x=JSON.parse(localStorage.getItem('mc_sess')||'null');if(x&&x.u&&x.p&&x.exp>Date.now()&&x.u===localStorage.getItem('mc_user_name'))return x;}catch(e){}return null;}
-function mcSessSet(u,p){try{localStorage.setItem('mc_sess',JSON.stringify({u:u,p:p,exp:Date.now()+7*864e5}));}catch(e){}}
-function getPin(){try{var x=mcSess();return localStorage.getItem('mc_pin')||window._pinSesion||(x&&x.p)||'';}catch(e){return window._pinSesion||'';}}
+function mcRT(){try{return localStorage.getItem('mc_rt')||'';}catch(e){return '';}} /* r511: refresh token (opaco, rotativo; en el servidor solo su hash) */
+function mcSess(){try{var x=JSON.parse(localStorage.getItem('mc_sess')||'null');if(x&&x.u&&x.exp>Date.now()&&x.u===localStorage.getItem('mc_user_name')&&(mcRT()||x.p==='imp'||window._pinMig))return x;}catch(e){}return null;}
+function mcSessSet(u,p){try{localStorage.setItem('mc_sess',JSON.stringify(p==='imp'?{u:u,p:'imp',exp:Date.now()+864e5}:{u:u,exp:Date.now()+30*864e5}));}catch(e){}} /* r511: sin PIN; 30 días deslizantes como el refresh token */
+function getPin(){return window._pinSesion||window._pinMig||'';} /* r511: el PIN solo vive en memoria (login de esta pestaña / migración) */
+function mcAuthOk(){try{return !!(getPin()||mcRT()||MCsbGet());}catch(e){return !!getPin();}}
+function mcGuardarRT(rt){try{if(rt)localStorage.setItem('mc_rt',rt);}catch(e){}}
+function mcRevocarRT(){var rt=mcRT();if(!rt)return;try{localStorage.removeItem('mc_rt');}catch(e){}try{fetch(MC_SB_URL,{method:'POST',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'rt_revoke',rt:rt})}).catch(function(){});}catch(e){}}
 
-function clearCreds(){try{localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');localStorage.removeItem('mc_sess');sessionStorage.removeItem('mc_sbt');}catch(e){}}
-function bioEnabled(){try{return localStorage.getItem('mc_bio')==='1'&&!!localStorage.getItem('mc_cred');}catch(e){return false;}}
+function clearCreds(){try{mcRevocarRT();}catch(e){}window._pinSesion='';window._pinMig='';try{localStorage.removeItem('mc_rt');localStorage.removeItem('mc_user_name');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_profile');localStorage.removeItem('mc_bio');localStorage.removeItem('mc_cred');localStorage.removeItem('mc_sess');sessionStorage.removeItem('mc_sbt');}catch(e){}}
+function bioEnabled(){return false;} /* r511: Face ID local apagado (dependía del PIN guardado). Vuelve cuando el servidor verifique la firma WebAuthn. */
 function b64uToBuf(s){
   s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');
   while(s.length%4)s+='=';           // padding que Safari exige
@@ -720,7 +723,7 @@ function MCsbOffBar(on){var b=document.getElementById('mc-sb-off');if(!on){if(b)
   b.innerHTML='<span>Sin conexión</span><button class="chip" style="color:#E8FF00;border-color:#E8FF00" onclick="MCsbReconectar(this)">Reintentar</button>';document.body.appendChild(b);}
 function MCsbReconectar(bt){try{MCauthManual();}catch(_){}if(bt){bt.disabled=true;bt.textContent='Conectando…';}MC_SB_REF=null;try{sessionStorage.removeItem('mc_sbt');}catch(e){}MCsbRefresh();
   Promise.resolve(MC_SB_REF).then(function(){var s=null;try{s=MCsbGet();}catch(e){}if(s){MCsbOffBar(false);try{location.reload();}catch(e){}}else if(bt){bt.disabled=false;bt.textContent='Reintentar';}});}
-function MCsbTok(){return MCsbFetch({action:'sbToken',user:getUserName(),pin:getPin()}).then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;throw r||{};}).catch(function(e1){if(!(e1&&(e1.name==='TypeError'||e1.name==='AbortError')))return {ok:false,error:(e1&&e1.error)||'sin token'};MCsbFail(e1);return {ok:false,net:true,error:'No hay conexión con el servidor de Minecore (Supabase).'};} /* b361-login: sin token por Apps Script */);}
+function MCsbTok(){var s=MCsbGet();if(s)return Promise.resolve({ok:true,sbt:s.t});MCsbRefresh();return Promise.resolve(MC_SB_REF).then(function(){var s2=MCsbGet();return s2?{ok:true,sbt:s2.t}:{ok:false,error:'Sin sesión'};},function(){return {ok:false,net:true,error:'No hay conexión con el servidor de Minecore (Supabase).'};});} /* r511: token de sesión, nunca PIN */
 /* b340: escalera de cobranza — clientes Bloqueados (compromiso incumplido). Fuente: webhook cobranza (Supabase app.customers.bloqueado). */
 var MC_BLOQ={},MC_MORA={},MC_MORA_OK={},MC_BLOQ_T=0,MC_COB_URL='https://uniformly-rockband-uncapped.ngrok-free.dev/cobranza/';
 function mcCobPost(path,body){return MCsbTok().then(function(tk){if(!tk||!tk.sbt)throw {error:'Sin sesión'};body=body||{};body.t=tk.sbt;return fetch(MC_COB_URL+path,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},body:JSON.stringify(body)}).then(function(r){return r.json();});});}
@@ -764,17 +767,39 @@ function mcDesbloquear(i){var p=MC_DESB[i]||[],n=p[0],id=p[1],x=mcBloq(n,id)||{}
     MC_BLOQ_T=0;mcBloqLoad(true).then(function(){[].forEach.call(document.querySelectorAll('.mc-bloq-strip'),function(e){e.remove();});try{if(window.Cobranza&&Cobranza.loadCompromisos)Cobranza.loadCompromisos();}catch(e){}});
   }).catch(function(e){alert('Error: '+MCerr(e));});}
 function mcBloqStrip(n,id,sinBtn){var x=mcBloq(n,id);if(!x)return '';return '<div class="mc-bloq-strip" style="background:#7a1616;border:1px solid #e05c5c;color:#fff;border-radius:8px;padding:8px 12px;margin:6px 0;font-size:13px"><b>⛔ CLIENTE BLOQUEADO</b> · '+String(x.motivo||'Compromiso de pago incumplido').replace(/</g,'&lt;')+(x.fecha?' · desde '+String(x.fecha).slice(0,10).split('-').reverse().join('/'):'')+'<br><span style="font-size:12px;opacity:.9">No se pueden crear cotizaciones, convertir, preparar, empacar ni despachar hasta que administración lo desbloquee.</span>'+(sinBtn?'':'<br>'+mcDesbBtn(n,id||x.customer_id))+'</div>';}
-function MCsbRefresh(){
-  if(MC_SB_REF||!getUserName()||!getPin())return;
-  /* b252: login sin Google (alterno, apagado): con localStorage mc_login_alt=1 el token sale de portal-api (NOMBRE+PIN contra hash en Supabase) en vez de Apps Script; si falla, vuelve a Apps Script */
-  if(localStorage.getItem('mc_login_alt')==='1'){MC_SB_REF=MCsbFetch({action:'login',user:getUserName(),pin:getPin()}).then(function(r){return r.json();}).then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.t){MCsbSet(r.t);try{window.MC_LOGIN_VIA='supabase';}catch(e){}}else{localStorage.setItem('mc_login_alt','0');MCsbRefresh();}},function(e){MCsbFail(e);localStorage.setItem('mc_login_alt','0');});return;}
-  MC_SB_REF=MCsbTok().then(function(r){MC_SB_REF=null;if(r&&r.sbt){MCsbSet(r.sbt);MCsbOffBar(false);}},function(e){MCsbFail(e);});
+function MCsbRefresh(force){ /* r511: sin PIN. Con refresh token → rt_refresh (rota). Solo justo tras el login (PIN en memoria) → login + rt. */
+  if(MC_SB_REF||!getUserName())return;
+  if(window.MCImpActivo&&MCImpActivo())return;
+  var rt=mcRT();
+  if(rt){MC_SB_REF=mcRtRefresh(force);return;}
+  var pin=getPin();if(!pin)return;
+  MC_SB_REF=MCsbFetch({action:'login',v2:true,user:getUserName(),pin:pin,rt:true}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){j._st=r.status;return j;});})
+    .then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.t){MCsbSet(r.t);mcGuardarRT(r.rt);if(r.rt){window._pinMig='';}MCsbOffBar(false);}else if(r&&(r._st===401||r._st===429)){window._pinMig='';}},function(e){MCsbFail(e);});
 }
+function mcRtFin(sb){ /* refresh token rechazado (vencido, revocado, reusado, usuario inactivo) → pantalla de login */
+  try{localStorage.removeItem('mc_rt');localStorage.removeItem('mc_sess');sessionStorage.removeItem('mc_sbt');}catch(e){}
+  if(mcRtFin._x)return;mcRtFin._x=1;try{alert(sb==='revocado'?'Tu acceso cambió o fue desactivado. Ingresa de nuevo.':'Tu sesión venció. Ingresa de nuevo con tu PIN.');}catch(e){}
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}location.reload();}
+function mcRtRefresh(force){var t0=(MCsbGet()||{}).t; /* force: el servidor rechazó sb_renew (tope 12 h) aunque el token aún no vence */
+  var run=function(){var rt=mcRT();if(!rt)return Promise.resolve();var s=MCsbGet();if(s&&s.exp>Date.now()/1000+120&&!(force&&s.t===t0))return Promise.resolve();
+    return MCsbFetch({action:'rt_refresh',rt:rt}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){j._st=r.status;return j;});})
+      .then(function(r){if(r&&r.ok&&r.t){if(r.rt&&mcRT()===rt)mcGuardarRT(r.rt);MCsbSet(r.t);MCsbOffBar(false);try{var p=JSON.parse(localStorage.getItem('mc_sess')||'null');if(p&&!p.p){p.exp=Date.now()+30*864e5;localStorage.setItem('mc_sess',JSON.stringify(p));}}catch(e){}return;}
+        if(r&&r._st===401){if(mcRT()!==rt)return;mcRtFin(r.sb);}});};
+  var P=(navigator.locks&&navigator.locks.request)?navigator.locks.request('mc_rt',run):run(); /* otras pestañas esperan y usan el rt ya rotado */
+  return Promise.resolve(P).then(function(){MC_SB_REF=null;},function(e){MC_SB_REF=null;MCsbFail(e);});}
+/* r511: migración de dispositivos viejos — borra el PIN guardado (mc_pin / mc_sess.p) y lo cambia por un refresh token usando la sesión vigente */
+function mcMigrarPin(){var p='',ok=false;try{p=localStorage.getItem('mc_pin')||'';var x=JSON.parse(localStorage.getItem('mc_sess')||'null');
+    if(x&&x.p&&x.p!=='imp'){p=p||x.p;ok=x.exp>Date.now()&&x.u===localStorage.getItem('mc_user_name');delete x.p;localStorage.setItem('mc_sess',JSON.stringify(x));}
+    localStorage.removeItem('mc_pin');}catch(e){}
+  if(!p||mcRT()||!ok)return;window._pinMig=p;p='';
+  var s=MCsbGet();
+  if(s){MC_SB_REF=MCsbFetch({action:'rt_issue',t:s.t}).then(function(r){return r.json();}).then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.rt){mcGuardarRT(r.rt);if(r.t)MCsbSet(r.t);window._pinMig='';}else MCsbRefresh();},function(e){MC_SB_REF=null;MCsbRefresh();});return;}
+  MCsbRefresh();}
 /* b372 red */
 function MCsbRenew(){if(MC_SB_REF)return MC_SB_REF;var raw=null;try{raw=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');}catch(e){}
   if(!raw||!raw.t||raw.u!==getUserName()||!(raw.exp>Date.now()/1000+5)){MCsbRefresh();return MC_SB_REF||Promise.resolve();}
   MC_SB_REF=MCsbFetch({action:'sb_renew',t:raw.t}).then(function(r){return r.json().catch(function(){return {};});})
-    .then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.t){MCsbSet(r.t);MCsbOffBar(false);}else{MCsbRefresh();return MC_SB_REF;}},function(e){MCsbFail(e);});return MC_SB_REF;}
+    .then(function(r){MC_SB_REF=null;if(r&&r.ok&&r.t){MCsbSet(r.t);MCsbOffBar(false);}else{MCsbRefresh(true);return MC_SB_REF;}},function(e){MCsbFail(e);});return MC_SB_REF;}
 function MCnetMsg(e){if(navigator.onLine===false||(e&&e.message==='OFF'))return 'Sin internet. Revisa tu conexión.';if(e&&(e.message==='SB401'||e.message==='SBTOK'))return 'Sesión vencida. Vuelve a ingresar con tu usuario y PIN.';
   if(e&&e.name==='AbortError')return 'El servidor de Minecore no respondió a tiempo.';return 'El servidor de Minecore no responde.';}
 function MCnetBanner(msg){try{var b=document.getElementById('mc-net-ban');if(!msg){if(b)b.remove();return;}if(!b){b=document.createElement('div');b.id='mc-net-ban';
@@ -1286,7 +1311,7 @@ var MCWarm = (function(){
     applyDoc(docKey(tipo), rows.slice(0, IO_RECENT), 'api');
   }
   function warmDocs(force){
-    if(!getUserName()||!getPin())return;
+    if(!getUserName()||!mcAuthOk())return;
     lastQuiet=Date.now();
     loadInflow('quote', !!force).catch(function(){});
     loadInflow('orden', !!force).catch(function(){});
@@ -1294,7 +1319,7 @@ var MCWarm = (function(){
   }
   function onWake(){
     try{if(document.visibilityState==='hidden')return;}catch(e){}
-    if(!getUserName()||!getPin())return;
+    if(!getUserName()||!mcAuthOk())return;
     var now=Date.now();
     if(now-lastQuiet<60000)return;
     if(isDocFresh(mem.quoteAt, mem.quoteSource)&&isDocFresh(mem.ordenAt, mem.ordenSource)&&isDocFresh(mem.preAt, mem.preSource))return;
@@ -14180,12 +14205,9 @@ function base(v){openMod('base');MCBase.abrir(v);}
 /* ===== b278: sesión persistente + ruta en el hash + borradores ===== */
 function mcAutoEntrar(){var x=mcSess(),pf=null;try{pf=JSON.parse(localStorage.getItem('mc_profile')||'null');}catch(e){}
   if(!x||!pf||!pf.nombre)return false;
-  try{window._pinSesion=x.p;mcSessSet(x.u,x.p);document.getElementById('login').style.display='none';document.getElementById('shell').style.display='block';}catch(e){return false;}
+  try{document.getElementById('login').style.display='none';document.getElementById('shell').style.display='block';}catch(e){return false;}
   try{renderHome();MCroute.restaurar();}catch(e){try{console.error('mcAutoEntrar render',e);renderHome();}catch(_){}} /* r510: un error al pintar ya NO devuelve false (antes caía a prepararLogin → Face ID sobre el Dashboard con la sesión abierta) */
-  MCping(x.u,x.p).then(function(res){ /* b346 */ // revalida en segundo plano; solo cierra si el servidor rechaza el PIN
-    if(res&&res.ok===false&&/pin|usuario|inv[aá]lid|desactiv|no autorizado/i.test(String(res.error||''))){clearCreds();alert('Tu sesión ya no es válida. Ingresa de nuevo.');location.reload();return;}
-    if(res&&res.ok&&res.auth===true&&res.rol){try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||x.u,rol:res.rol||'usuario',modulos:res.modulos||[],empresa:res.empresa||'',master:!!res.master,aprobado:!!res.aprobado,vinculada:res.vinculada!==false}));}catch(e){}if(res.sbt)try{MCsbSet(res.sbt);}catch(e){}}
-  }).catch(function(){});
+  if(x.p!=='imp'){try{var _s=MCsbGet();if(!_s||_s.exp<Date.now()/1000+300)MCsbRefresh();}catch(e){}} /* r511: revalida en segundo plano con el refresh token; si el servidor lo rechaza → login */
   return true;}
 var MC_HASH_INI=location.hash||'';
 var MCroute=(function(){var bloqueo=false,RE=/^#\/([a-z0-9_]+)(?:\/([^\/]*))?(?:\/([^\/]*))?/i;
@@ -14223,7 +14245,7 @@ function prepararLogin(){
     document.getElementById('usr').value=u;
     document.getElementById('cambiarUsr').style.display='block';
     if(bioEnabled()&&webauthnAvailable()){
-      document.getElementById('bioBtn').style.display='block'; /* r510: Face ID/passkey SOLO al tocar el botón en la pantalla de login (antes se lanzaba solo, sin gesto, y iOS mostraba la hoja de passkey encima del contenido) */
+      var _bb=document.getElementById('bioBtn');if(_bb)_bb.style.display='block'; /* r510: Face ID/passkey SOLO al tocar el botón en la pantalla de login (antes se lanzaba solo, sin gesto, y iOS mostraba la hoja de passkey encima del contenido) */
     }
   }
 }
@@ -14234,9 +14256,9 @@ function cambiarUsuario(){
 function entrar(res,usr,pin,recordarPin){
   try{
   try{localStorage.setItem('mc_user_name',res.user||usr);}catch(e){}
-  if(recordarPin){try{localStorage.setItem('mc_pin',pin);}catch(e){}}
+  try{localStorage.removeItem('mc_pin');}catch(e){} /* r511 */
   try{localStorage.setItem('mc_profile',JSON.stringify({nombre:res.user||usr,rol:res.rol||'usuario',modulos:res.modulos||[],empresa:res.empresa||'',master:!!res.master,aprobado:!!res.aprobado,vinculada:res.vinculada!==false}));}catch(e){}
-  window._pinSesion=pin;mcSessSet(res.user||usr,pin); /* b278: la sesión sobrevive a recargar (7 días, se renueva) */
+  window._pinSesion='';mcSessSet(res.user||usr); /* r511: la sesión sobrevive con el refresh token (30 días deslizantes); el PIN no queda ni en memoria */
   document.getElementById('login').style.display='none';
   document.getElementById('shell').style.display='block';
   try{ if(window._mcNeedRebookmark) mcShowUpdateBanner(); }catch(e){}
@@ -14288,7 +14310,7 @@ function doLogin(){
     if(!res.ok){err.textContent=res.error||'Usuario o PIN incorrectos';return;}
     err.textContent='';
     // ¿Activar Face ID?
-    if(webauthnAvailable()&&!bioEnabled()&&confirm('¿Activar Face ID / huella para entrar sin PIN en este dispositivo?')){
+    if(false&&webauthnAvailable()&&!bioEnabled()&&confirm('¿Activar Face ID / huella para entrar sin PIN en este dispositivo?')){
       try{
       var uid=new Uint8Array(16);crypto.getRandomValues(uid);
       navigator.credentials.create({publicKey:{
@@ -14332,7 +14354,7 @@ function doBioLogin(ev){
   catch(e){
     // credencial guardada corrupta: se elimina sola y queda el PIN
     try{localStorage.removeItem('mc_cred');localStorage.removeItem('mc_bio');}catch(e2){}
-    document.getElementById('bioBtn').style.display='none';
+    var _bh=document.getElementById('bioBtn');if(_bh)_bh.style.display='none';
     err.textContent='Face ID se reinició en este dispositivo: entra con tu PIN y actívalo de nuevo.';
     return;
   }
@@ -14376,7 +14398,7 @@ function doBioLogin(ev){
   });
 }
 function doLogout(){
-  if(!confirm('¿Cerrar tu sesion en este dispositivo? (Se desactivará también Face ID)'))return;
+  if(!confirm('¿Cerrar tu sesion en este dispositivo?'))return;
   clearCreds();
   location.reload();
 }
@@ -14554,6 +14576,7 @@ var MCImp=(function(){
     localStorage.setItem('mc_profile',JSON.stringify({nombre:p.nombre,rol:p.rol||'usuario',modulos:p.modulos||[],empresa:p.empresa||'',master:!!p.master,aprobado:!!p.aprobado,vinculada:p.vinculada!==false})); /* r510 b501: = forma exacta del login real (antes master:false, aprobado:true fijos) */
     localStorage.setItem('mc_sess',JSON.stringify({u:p.nombre,p:'imp',exp:Date.now()+864e5}));}catch(e){}MCsbSet(S.t);}
   function puede(){try{return !S&&MCnavMaster();}catch(e){return false;}}
+  window.MCImpActivo=function(){return !!S;};
   function fresco(pf){if(!S||!pf||String(pf.nombre||'').toUpperCase()!==String(S.perfil.nombre||'').toUpperCase())return;S.perfil=Object.assign({},S.perfil,pf);guardar();} /* r510 b501: permisos frescos de la BD en cada usr_me */
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function banner(){if(!S||!document.body)return;var d=document.getElementById('mc-imp-bar');if(!d){d=document.createElement('div');d.id='mc-imp-bar';document.body.appendChild(d);}
@@ -14683,15 +14706,14 @@ var MCperm=(function(){var PV=null,busy=0,T=null;
   return {sync:sync,pv:pv,start:start,fuera:fuera};})();
 /* b349: Supabase es la ÚNICA fuente de acceso: login y token sin respaldo por Apps Script; si Supabase no responde, error claro */
 var MC_SB_CAIDO='No hay conexión con el servidor de Minecore (Supabase). Intenta de nuevo en un momento.';
-MCping=function(usr,pin){return MCsbFetch({action:'login',v2:true,user:usr,pin:pin}) /* b445: 15 s */
+MCping=function(usr,pin){return MCsbFetch({action:'login',v2:true,user:usr,pin:pin,rt:!mcRT()}) /* b445: 15 s · r511: + refresh token */
   .then(function(r){return r.json().catch(function(){return {};}).then(function(j){return {st:r.status,j:j};});}).then(function(x){var r=x.j||{};
-    if(r.ok&&r.t){MCsbSet(r.t);try{window.MC_LOGIN_VIA='supabase';}catch(e){}var pf=r.perfil||{};
+    if(r.ok&&r.t){MCsbSet(r.t);mcGuardarRT(r.rt);try{window.MC_LOGIN_VIA='supabase';}catch(e){}var pf=r.perfil||{};
       return {ok:true,auth:true,user:pf.nombre||usr,rol:pf.rol||'usuario',modulos:pf.modulos||[],empresa:pf.empresa||'',master:!!pf.master,aprobado:pf.aprobado!==false,vinculada:pf.vinculada!==false,via:'supabase'};}
     if(x.st===401||x.st===429)return {ok:false,error:r.error||'Usuario o PIN incorrecto'};return {ok:false,error:MC_SB_CAIDO};})
   .catch(function(){return {ok:false,error:MC_SB_CAIDO};});};
 MCloginAlt=MCping;
-MCsbTok=function(){return MCsbFetch({action:'sbToken',user:getUserName(),pin:getPin()}) /* b445: 15 s */
-  .then(function(r){return r.json();}).then(function(r){if(r&&r.sbt)return r;return {ok:false,error:(r&&r.error)||'sin token'};}).catch(function(){return {ok:false,error:MC_SB_CAIDO};});};
+/* r511: MCsbTok de arriba (token/refresh token) queda vigente: sin sbToken con PIN */
 (function(){var _as=MCpostAS;function elig(c){var d=MC_SB_DOWN;MC_SB_DOWN=0;try{return MCsbEligible(c);}catch(e){return false;}finally{MC_SB_DOWN=d;}}
   MCpostAS=function(p){var a=String((p&&p.action)||'');if(a==='ping'||a==='sbToken'||MC_USR_RX.test(a)||elig(p||{}))return Promise.resolve({ok:false,error:MC_SB_CAIDO});return _as(p);};})();
 MCperm.start();
@@ -14976,7 +14998,7 @@ if(/[?&]invite=/.test(location.search)){
       }
     }).catch(function(){});
   })();
-} else { try{MCImp.hook();}catch(e){} /* r510: el error de render de mcAutoEntrar (MCoffInflow aún no definido en este script) ya no cae a prepararLogin; doBioLogin exige toque real */
+} else { try{MCImp.hook();}catch(e){} try{if(!(window.MCImpActivo&&MCImpActivo()))mcMigrarPin();}catch(e){} /* r511 · r510: el error de render de mcAutoEntrar (MCoffInflow aún no definido en este script) ya no cae a prepararLogin; doBioLogin exige toque real */
   if(!mcAutoEntrar()) prepararLogin(); }
 try{ if(window._mcNeedRebookmark) mcShowUpdateBanner(); }catch(e){}
 </script>
@@ -15766,7 +15788,7 @@ var MCVsel=(function(){var ON=false,SEL={},VIS=[],LINKS=[],FURL='https://bklbvwp
   /* b289: la sesión de Banco sale de la misma sesión persistente del portal (usuario+PIN guardados): si el token de Supabase falta o venció, se pide uno nuevo y se reintenta; antes solo se leía el de esta pestaña. */
   var TOKP=null;
   function tok(force){var s=!force&&(typeof MCsbGet==='function')&&MCsbGet();if(s&&s.exp>Date.now()/1000+60)return Promise.resolve(s.t);
-    if(!getUserName()||!getPin())return Promise.reject('Tu sesión del portal se cerró. Vuelve a ingresar.');
+    if(!getUserName()||!mcAuthOk())return Promise.reject('Tu sesión del portal se cerró. Vuelve a ingresar.');
     if(TOKP)return TOKP;
     TOKP=MCsbTok().then(function(r){TOKP=null;if(r&&r.sbt){MCsbSet(r.sbt);return r.sbt;}throw 'No se pudo abrir la sesión de Banco'+(r&&r.error?': '+r.error:'')+'. Vuelve a ingresar.';},function(e){TOKP=null;throw 'Sin conexión con el servidor de sesión ('+((e&&e.message)||e)+'). Reintenta.';});
     return TOKP;}
@@ -18593,7 +18615,7 @@ function MCvtTitulo(t){try{document.getElementById('title').textContent=t==='SQ'
 (function(){if(window.MC_AUTH_GUARD)return;var of=window.fetch.bind(window),st={n:0,dead:false,man:0,stop:0};try{if(sessionStorage.getItem('mc_auth_stop')==='1'){st.dead=true;st.stop=1;}}catch(_){};window.MC_AUTH_GUARD=st;
   var RX=/"action"\s*:\s*"(sbToken|login|ping)"/;
   window.MCauthManual=function(){st.man=2;st.dead=false;st.n=0;st.stop=0;try{sessionStorage.removeItem('mc_auth_stop');}catch(_){}};
-  function parar(rechazo){if(st.stop)return;st.stop=1;try{if(rechazo){try{sessionStorage.setItem('mc_auth_stop','1');sessionStorage.removeItem('mc_sbt');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_sess');window._pinSesion='';}catch(_){}setTimeout(function(){location.reload();},50);}else if(typeof MCsbOffBar==='function')MCsbOffBar(true);}catch(e){}}
+  function parar(rechazo){if(st.stop)return;st.stop=1;try{if(rechazo){try{sessionStorage.setItem('mc_auth_stop','1');sessionStorage.removeItem('mc_sbt');localStorage.removeItem('mc_pin');localStorage.removeItem('mc_sess');localStorage.removeItem('mc_rt');window._pinSesion='';window._pinMig='';}catch(_){}setTimeout(function(){location.reload();},50);}else if(typeof MCsbOffBar==='function')MCsbOffBar(true);}catch(e){}}
   function negado(){return Promise.resolve(new Response(JSON.stringify({ok:false,auth:false,error:'Sesión vencida. Vuelve a ingresar con tu usuario y PIN.'}),{status:401,headers:{'Content-Type':'application/json'}}));}
   var AU=/"action"\s*:\s*"(sbToken|login|ping|sb_renew)"/;
   function tmo(u,o){if(o&&!o.signal&&typeof AbortController!=='undefined'&&AU.test(String(o.body||''))){var c=new AbortController(),o2={};for(var k in o)o2[k]=o[k];o2.signal=c.signal;var t=setTimeout(function(){try{c.abort();}catch(_){}},15000);
@@ -18638,7 +18660,7 @@ window.MCComp=(function(){
   function nb(b){return String(b||'').trim().toLowerCase();}
   function cargar(f){if(P)return P;if(!f&&Date.now()-T<60000)return Promise.resolve(M);
     try{if(!getUserName())return Promise.resolve(M);}catch(e){return Promise.resolve(M);}
-    P=fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'comprometidos',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();}).then(function(r){
+    P=fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'comprometidos',user:getUserName(),t:((typeof MCsbGet==='function'&&MCsbGet())||{}).t||''})}).then(function(r){return r.json();}).then(function(r){
       if(r&&r.ok){var N={};(r.items||[]).forEach(function(x){(N[x.sku]=N[x.sku]||[]).push(x);});M=N;T=Date.now();try{document.dispatchEvent(new Event('mc-comp'));}catch(e){}}P=null;return M;}).catch(function(){P=null;return M;});return P;}
   function docs(sku,b,ex){return (M[sku]||[]).filter(function(x){return (!b||b==='*'||b==='todas'||nb(x.bodega)===nb(b))&&(!ex||x.so!==ex);});}
   function q(sku,b,ex){return docs(sku,b,ex).reduce(function(t,x){return t+(+x.q||0);},0);}
@@ -18661,7 +18683,7 @@ var MCUsrSel=(function(){
   function e(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   /* nombres reales desde app.portal_users (usuarios internos activos) */
   function lista(){if(L)return Promise.resolve(L);if(P)return P;
-    P=fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'usuarios',user:getUserName(),pin:getPin()})}).then(function(r){return r.json();})
+    P=fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'usuarios',user:getUserName(),t:((typeof MCsbGet==='function'&&MCsbGet())||{}).t||''})}).then(function(r){return r.json();})
       .then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'sin usuarios');L=r.usuarios||[];return L;}).catch(function(x){P=null;throw x;});return P;}
   function opts(cur,up){var V=(L||[]).map(function(n){return up?String(n).toUpperCase():n;});var c=String(cur||'');
     var h='<option value="">— sin asignar —</option>';if(c&&V.map(function(v){return v.toUpperCase();}).indexOf(c.toUpperCase())<0)h+='<option selected value="'+e(c)+'">'+e(c)+'</option>';
@@ -18687,7 +18709,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=501',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=502',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
@@ -18695,7 +18717,7 @@ var MCPush=(function(){
   function post(o){return fetch(MC_PUSH_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(function(r){return r.json();});}
   function suscribir(){return registrar().then(function(r){if(!r)throw new Error('Este navegador no permite notificaciones');
       return r.pushManager.getSubscription().then(function(s){return s||r.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(MC_VAPID)});});})
-    .then(function(s){return post({action:'subscribe',user:getUserName(),pin:getPin(),sub:s.toJSON(),ua:navigator.userAgent});})
+    .then(function(s){return post({action:'subscribe',user:getUserName(),t:((typeof MCsbGet==='function'&&MCsbGet())||{}).t||'',sub:s.toJSON(),ua:navigator.userAgent});})
     .then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'No se pudo activar');try{localStorage.setItem(SK,'on');}catch(e){}return r;});}
   /* iOS exige que el permiso se pida con un toque del usuario */
   function activar(){var b=document.getElementById('mc-push-bar');if(b)b.querySelector('button').disabled=true;
