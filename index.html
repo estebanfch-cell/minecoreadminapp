@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='488'; /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='489'; /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -11244,7 +11244,7 @@ function getProfile(){
 // lo hace aparecer AUTOMÁTICAMENTE en: home del cliente, form de Usuarios e Invitaciones.
 var CMODS_REG=[
   ['inventario','📦','Inventario','Catálogo y stock (sin precios) · carrito de solicitud','inv'],
-  ['cotizaciones','🧾','Cotizaciones','Tus solicitudes y cotizaciones con precios','miscot'],
+  ['cotizaciones','🧾','Cotizaciones','Tus solicitudes y cotizaciones (precios solo si se activan)','miscot'],
   ['estadocuenta','💳','Estado de cuenta','Tu cartera, facturas e historial de órdenes','edc'],
   ['consignacion','🚚','Consignación y alquiler','Qué tienes, desde qué acta y cuántos días','consig']
 ];
@@ -14378,7 +14378,7 @@ function MCPlegado(rol,m,k){if(rol==='admin')return MCPmax(k);m=MCPtoks(m);var v
     case 'conteo':return w('inventario')?2:1;case 'manufactura':return L(w('inventario'),v('inventario')||v('dashboard'));case 'compras':return L(w('proveedores'),v('proveedores')||v('inventario'));
     case 'cobranzas':return L(w('cobranza'),v('cobranza')||v('dashboard'));case 'dashboard':case 'reportes':return v('dashboard')?1:0;case 'entrega':return w('cotizaciones')||w('inventario')||w('dashboard')?2:0;default:return L(w(k),v(k));}}
 function MCPnivel(p,k){if(!p||p.rol==='cliente')return 0;if(p.rol==='admin')return MCPmax(k);var x=MCPexp(p.modulos).e;return x[k]!==undefined?x[k]:MCPlegado(p.rol,p.modulos,k);}
-function MCPflag(p,k){if(p.rol==='admin')return true;var f=MCPexp(p.modulos).f;if(f[k]!==undefined)return f[k];return k==='costos'?MCPtoks(p.modulos).indexOf('dashboard+')>=0:true;}
+function MCPflag(p,k){if(p.rol==='admin')return true;var f=MCPexp(p.modulos).f;if(f[k]!==undefined)return f[k];return k==='costos'?MCPtoks(p.modulos).indexOf('dashboard+')>=0:p.rol!=='cliente';}
 /* misma regla que el servidor: si el usuario tiene nivel explícito en alguno de los módulos, mandan los explícitos */
 function MCPdecide(p,alt,legacyOk){if(!p||p.rol==='admin'||!alt)return legacyOk;var e=MCPexp(p.modulos).e;if(!alt.some(function(a){return e[a[0]]!==undefined;}))return legacyOk;
   return alt.some(function(a){return (e[a[0]]!==undefined?e[a[0]]:MCPlegado(p.rol,p.modulos,a[0]))>=a[1];});}
@@ -14442,7 +14442,7 @@ MCsbTok=function(){return MCsbFetch({action:'sbToken',user:getUserName(),pin:get
 MCperm.start();
 /* Pantalla de Usuarios */
 Users=(function(){
-  var lista=[],invites=[],puede=false,abierto=null,borr=null,clientes=[],invOpen=false,nuevo=null,invForm=false;
+  var GOPEN={},lista=[],invites=[],puede=false,abierto=null,borr=null,clientes=[],invOpen=false,nuevo=null,invForm=false;
   function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function api(p){return MCusr(p);}
   var NV=['—','Ver','Editar','Aprobar'],NC=['#4a5a6a','#9fc3e8','#6fd68f','#f0c040'];
@@ -14467,19 +14467,18 @@ Users=(function(){
       '</div>';
     if(invForm)h+=invHtml();
     if(nuevo)h+=editor(nuevo,true);
-    h+='<div class="cbz-card-name" style="margin:6px 0">👷 Equipo Minecore ('+I.length+')</div><div class="cbz-card up-sw" style="padding:0"><table class="up-t"><thead><tr><th class="n">Usuario</th><th>Secciones</th><th title="Precios">$</th><th title="Costos y márgenes">Costo</th><th title="Saldos">Saldo</th></tr></thead><tbody>';
-    I.forEach(function(u){var p=prof(u),on=abierto===u.nombre;
-      h+='<tr class="r'+(on?' on':'')+'" onclick="Users.abrir(\''+esc(u.nombre).replace(/'/g,"\\'")+'\')"><td class="n"><span class="up-dot" style="background:'+(u.activo?'#3fbf6f':'#e05c5c')+';margin-right:6px"></span><b>'+esc(u.nombre)+'</b>'+(u.rol==='admin'?' <span class="tagx tf">ADMIN</span>':'')+'</td>'+
-        '<td>'+secs(p)+'</td>'+MCP_FLAGS.map(function(f){return '<td>'+(MCPflag(p,f[0])?'<span style="color:#6fd68f">✓</span>':'<span style="color:#4a5a6a">✕</span>')+'</td>';}).join('')+'</tr>';
-      if(on&&!mob)h+='<tr><td colspan="5" style="text-align:left;white-space:normal;padding:0 6px">'+editor(u,false)+'</td></tr>';});
-    h+='</tbody></table></div>';if(mob&&abierto&&I.some(function(u){return u.nombre===abierto;}))h+=editor(I.filter(function(u){return u.nombre===abierto;})[0],false);
-    var orgs={};C.forEach(function(u){var e=u.empresa||'(sin empresa)';(orgs[e]=orgs[e]||[]).push(u);});
-    h+='<div class="cbz-card-name" style="margin:16px 0 6px">🏢 Clientes del portal ('+C.length+') <span class="cbz-muted" style="font-size:11px;font-weight:400">· solo ven lo de su organización y nunca precios en inventario</span></div><div class="cbz-card up-sw" style="padding:0"><table class="up-t up-tc"><thead><tr><th class="n">Usuario</th><th style="text-align:left">Organización</th>'+CMODS_REG.map(function(cm){return '<th>'+esc(cm[2])+'</th>';}).join('')+'<th>Máster</th><th>Aprobado</th></tr></thead><tbody>';
-    Object.keys(orgs).sort().forEach(function(e){orgs[e].sort(function(a,b){return (b.master?1:0)-(a.master?1:0);}).forEach(function(u){var on=abierto===u.nombre,ms=MCPtoks(u.modulos);
-      h+='<tr class="r'+(on?' on':'')+'" onclick="Users.abrir(\''+esc(u.nombre).replace(/'/g,"\\'")+'\')"><td class="n"><span class="up-dot" style="background:'+(u.activo?'#3fbf6f':'#e05c5c')+';margin-right:6px"></span><b>'+esc(u.nombre)+'</b>'+(!u.aprobado?' <span class="tagx tn">'+(u.solicitud?'SOLICITÓ':'POR APROBAR')+'</span>':'')+'</td><td style="text-align:left">'+esc(e)+'</td>'+
-        CMODS_REG.map(function(cm){return '<td>'+(ms.indexOf(cm[0])>=0?'<span style="color:#6fd68f">✓</span>':'<span style="color:#4a5a6a">·</span>')+'</td>';}).join('')+'<td>'+(u.master?'✓':'')+'</td><td>'+(u.aprobado?'✓':'')+'</td></tr>';
-      if(on&&!mob)h+='<tr><td colspan="'+(CMODS_REG.length+4)+'" style="text-align:left;white-space:normal;padding:0 6px">'+editor(u,false)+'</td></tr>';});});
-    h+='</tbody></table></div>';if(mob&&abierto&&C.some(function(u){return u.nombre===abierto;}))h+=editor(C.filter(function(u){return u.nombre===abierto;})[0],false);
+    /* r501 EFCH: usuarios agrupados por ORGANIZACIÓN (plegables). Equipo = grupo «Minecore». Filas apiladas. */
+    var orgs={};C.forEach(function(u){var e=u.empresa||'(sin organización)';(orgs[e]=orgs[e]||[]).push(u);});
+    var G=[['Minecore','👷',I,'Equipo Minecore']];Object.keys(orgs).sort(function(x,y){return x.localeCompare(y);}).forEach(function(e){G.push([e,'🏢',orgs[e].sort(function(a,b){return (b.master?1:0)-(a.master?1:0)||String(a.nombre).localeCompare(b.nombre);}),'Cliente · solo ve lo de esta organización']);});
+    var fl=function(p){return MCP_FLAGS.map(function(f){var on=MCPflag(p,f[0]);return '<span class="ug-f'+(on?' on':'')+'">'+(on?'✓ ':'✕ ')+esc(f[1].replace(/^Ver /,''))+'</span>';}).join('');};
+    h+='<style>#users-screen .ug-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 14px;cursor:pointer;font-size:14px}#users-screen .ug-r{padding:10px 14px;border-top:1px solid #1c2a3a;cursor:pointer}#users-screen .ug-r.on{background:#13243a}#users-screen .ug-l2{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:11.5px;color:#8fa3b8}#users-screen .ug-f{padding:2px 8px;border-radius:10px;background:#1c2a3a;color:#6a7a8a;white-space:nowrap}#users-screen .ug-f.on{background:#173a26;color:#6fd68f}</style>';
+    G.forEach(function(g){var k=g[0],L=g[2],op=!!GOPEN[k]||(abierto&&L.some(function(u){return u.nombre===abierto;}));
+      h+='<div class="cbz-card" style="padding:0;margin:8px 0"><div class="ug-h" data-k="'+esc(k)+'" onclick="Users.grp(this.getAttribute(\'data-k\'))"><span>'+(op?'▾':'▸')+'</span><span>'+g[1]+'</span><b>'+esc(k)+'</b><span class="cbz-muted" style="font-size:12px">'+L.length+' usuario'+(L.length===1?'':'s')+' · '+esc(g[3])+'</span></div>';
+      if(op)L.forEach(function(u){var p=prof(u),on=abierto===u.nombre,cli=u.rol==='cliente',ms=MCPtoks(u.modulos);
+        h+='<div class="ug-r'+(on?' on':'')+'" onclick="Users.abrir(\''+esc(u.nombre).replace(/'/g,"\\'")+'\')"><div><span class="up-dot" style="background:'+(u.activo?'#3fbf6f':'#e05c5c')+';margin-right:6px"></span><b>'+esc(u.nombre)+'</b>'+(u.rol==='admin'?' <span class="tagx tf">ADMIN</span>':'')+(cli&&u.master?' <span class="tagx tf">MÁSTER</span>':'')+(cli&&!u.aprobado?' <span class="tagx tn">'+(u.solicitud?'SOLICITÓ':'POR APROBAR')+'</span>':'')+'</div>'+
+          '<div class="ug-l2"><span>'+(cli?esc(CMODS_REG.filter(function(cm){return ms.indexOf(cm[0])>=0;}).map(function(cm){return cm[2];}).join(' · ')||'Sin módulos'):'Secciones: '+secs(p))+'</span>'+fl(p)+'</div></div>';
+        if(on)h+='<div style="padding:0 10px 10px">'+editor(u,false)+'</div>';});
+      h+='</div>';});
     if(invites.length){h+='<div class="cbz-card" style="margin-top:14px"><div class="cbz-card-name" style="cursor:pointer" onclick="Users.togInv()">'+(invOpen?'▾':'▸')+' 🔗 Invitaciones ('+invites.length+')</div>';
       if(invOpen)h+='<div class="up-sw"><table class="up-t"><thead><tr><th class="n">Invitación</th><th>Rol</th><th>Invitó</th><th>Estado</th><th></th></tr></thead><tbody>'+invites.map(function(v){
         return '<tr><td class="n">'+esc(v.fecha)+(v.empresa?' · '+esc(v.empresa):'')+'<div class="cbz-muted" style="font-size:11px">'+esc(v.modulos||'—')+'</div></td><td>'+esc(v.rol)+'</td><td>'+esc(v.creador||'—')+'</td><td>'+(v.usadoPor?'<span class="tagx tf">USADA · '+esc(v.usadoPor)+'</span>':'<span class="tagx" style="background:#3a3a1c;color:#f0c040">PENDIENTE</span>')+'</td><td>'+(!v.usadoPor&&puede&&v.token?'<button class="chip" onclick="Users.copiar(\''+v.token+'\')">📋</button> <button class="chip" onclick="Users.anular(\''+v.token+'\')">✕</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>';
@@ -14573,14 +14572,14 @@ Users=(function(){
       (esCli||ro?'':'<select class="uinput" style="max-width:190px" onchange="Users.preset(this.value);this.value=\'\'"><option value="">Aplicar plantilla…</option>'+Object.keys(MCP_PRESETS).map(function(k){return '<option value="'+k+'">'+MCP_PRESETS[k].t+'</option>';}).join('')+'</select>')+
       '<label class="cbz-esc"><input type="checkbox" '+(D.activo?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'activo\',this.checked)"> Activo</label></div>';
     if(!esCli){h+=pgCss()+grid(ro)+(D.niv.caja?'<div class="cbz-muted" style="font-size:11px">Caja chica: cada usuario ve y registra solo sus propios movimientos; entregas de dinero y aprobaciones, solo administradores.</div>':'');}
-    else{h+='<div class="up-bar">'+CMODS_REG.map(function(cm){return '<label class="cbz-esc"><input type="checkbox" '+(D.cmods.indexOf(cm[0])>=0?'checked':'')+(ro?' disabled':'')+' onchange="Users.cmod(\''+cm[0]+'\',this.checked)"> '+esc(cm[1]+' '+cm[2])+'</label>';}).join('')+'</div>'+
+    else{/* r501 EFCH: mismo editor de interruptores que el equipo; la organización limita los datos; precios apagados por defecto */h+=pgCss()+'<div class="pg-sens"><b>Sensibles</b>'+MCP_FLAGS.map(function(f){return '<label class="pg-chip'+(D.fl[f[0]]?' on':'')+'">'+sw(!!D.fl[f[0]],ro,'Users.flag(\''+f[0]+'\',this.checked)')+'<span>'+f[1]+'</span></label>';}).join('')+'<span class="cbz-muted" style="font-size:11px">Por defecto apagados para clientes. Lo apagado no le llega desde el servidor.</span></div><div class="pg-g">'+CMODS_REG.map(function(cm){var on=D.cmods.indexOf(cm[0])>=0;return '<label class="pg-c" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">'+sw(on,ro,'Users.cmod(\''+cm[0]+'\',this.checked)')+'<span style="min-width:0"><b>'+esc(cm[1]+' '+cm[2])+'</b><div class="cbz-muted" style="font-size:11px;margin-top:2px">'+esc(cm[3])+'</div></span></label>';}).join('')+'</div>'+
       '<div class="up-g"><input class="uinput" placeholder="Organización (nombre exacto)" value="'+esc(D.empresa)+'" '+(ro?'readonly':'')+' list="up-cli-dl" oninput="Users.set(\'empresa\',this.value)" onfocus="Users.cargarCli()"><datalist id="up-cli-dl">'+clientes.map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist>'+
       '<label class="cbz-esc"><input type="checkbox" '+(D.master?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'master\',this.checked)"> Máster de su organización</label><label class="cbz-esc"><input type="checkbox" '+(D.aprobado?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'aprobado\',this.checked)"> ✅ Aprobado</label></div>'+
-      '<div class="cbz-muted" style="font-size:11px">Regla fija: un cliente solo ve datos de su organización y nunca ve precios en inventario.</div>';}
+      '<div class="cbz-muted" style="font-size:11px">La organización asignada limita todo: este usuario solo ve los datos de su organización. Precios, costos y saldos: según sus interruptores.</div>';}
     if(!ro)h+='<div class="up-g"><input class="uinput" id="up-pin" inputmode="numeric" maxlength="8" placeholder="'+(isNew?'PIN (4 a 8 dígitos)':'PIN nuevo (vacío = no cambia)')+'" oninput="Users.set(\'pin\',this.value)" value="'+esc(D.pin)+'"><input class="uinput" placeholder="Teléfono" value="'+esc(D.telefono)+'" oninput="Users.set(\'telefono\',this.value)"><input class="uinput" placeholder="Correo" value="'+esc(D.email)+'" oninput="Users.set(\'email\',this.value)"></div>'+
       '<div class="up-bar"><button class="cbz-btn" onclick="Users.guardar()">Guardar</button><button class="cbz-btn-sec" onclick="Users.descartar()">Descartar</button>'+(isNew?'':'<button class="cbz-btn-sec" onclick="Users.preview(\''+esc(D.nombre).replace(/'/g,"\\'")+'\')">👁 Ver como</button>'+MCImpBtn(D.nombre)+'<button class="cbz-btn-sec cbz-danger" style="margin-left:auto" onclick="Users.borrar()">Eliminar</button>')+'<span id="up-msg" class="cbz-muted"></span></div>';
     return h+'</div>';}
-  function tokens(){if(D.rol==='cliente')return D.cmods.filter(function(m){return CMODS_REG.some(function(cm){return cm[0]===m;});});
+  function tokens(){if(D.rol==='cliente')return D.cmods.filter(function(m){return CMODS_REG.some(function(cm){return cm[0]===m;});}).concat(MCP_FLAGS.map(function(f){return '$'+f[0]+'='+(D.fl[f[0]]?1:0);}));
     if(D.rol==='admin')return D.origRol==='admin'?D.origMods.filter(function(x){return x.charAt(0)!=='-';}):['dashboard','cobranza','inventario','proveedores'];
     cerrarMods();var n=D.niv,t=[],L=function(tok,l){if(l>=2)t.push(tok+'+');else if(l>=1)t.push(tok);};
     L('cotizaciones',n.ventas);L('inventario',Math.max(n.inventario,n.productos,n.manufactura));L('proveedores',n.compras);L('transfers',n.transferencias);L('cobranza',Math.max(n.cobranzas,n.clientes));if(Math.max(n.dashboard,n.reportes)>=1)t.push('dashboard');
@@ -14599,7 +14598,7 @@ Users=(function(){
   function dirty(){if(!D)return false;var u=lista.filter(function(x){return x.nombre===D.nombre;})[0];if(!u)return true;var b=borrador(u);return JSON.stringify([b.rol,b.niv,b.fl,b.activo,b.cmods,b.empresa,b.master,b.aprobado,b.nav.slice().sort(),b.sub])!==JSON.stringify([D.rol,D.niv,D.fl,D.activo,D.cmods,D.empresa,D.master,D.aprobado,D.nav.slice().sort(),D.sub])||!!D.pin;}
   function rr(){var a=document.activeElement,id=a&&a.id,pos=null;try{pos=a.selectionStart;}catch(e){}render();if(id){var e=document.getElementById(id);if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}}}
   return {init:init,nuevo:function(){nuevo={nombre:'',rol:'usuario',modulos:'',activo:true};D=null;abierto=null;invForm=false;render();},abrir:abrir,
-    niv:function(k,i){D.niv[k]=i;render();},flag:function(k,v){D.fl[k]=v;render();},tg:tg,ti:function(g,i,on){ti(g,i,on);},ts:ts,op:function(k){if(OPEN[k])delete OPEN[k];else OPEN[k]=1;render();},set:function(k,v){D[k]=v;},cmod:function(m,on){D.cmods=D.cmods.filter(function(x){return x!==m;});if(on)D.cmods.push(m);},
+    niv:function(k,i){D.niv[k]=i;render();},flag:function(k,v){D.fl[k]=v;render();},grp:function(k){if(GOPEN[k]){GOPEN[k]=0;if(abierto&&lista.some(function(u){return u.nombre===abierto&&((u.rol==='cliente'?(u.empresa||'(sin organización)'):'Minecore')===k);})){abierto=null;D=null;}}else GOPEN[k]=1;render();},tg:tg,ti:function(g,i,on){ti(g,i,on);},ts:ts,op:function(k){if(OPEN[k])delete OPEN[k];else OPEN[k]=1;render();},set:function(k,v){D[k]=v;},cmod:function(m,on){D.cmods=D.cmods.filter(function(x){return x!==m;});if(on)D.cmods.push(m);},
     rol:function(r){D.rol=r;if(r==='admin')cols().forEach(function(c){D.niv[c[0]]=c[2];});render();},
     preset:function(k){var P=MCP_PRESETS[k];if(!P)return;if(P.admin){D.rol='admin';cols().forEach(function(c){D.niv[c[0]]=c[2];});}else{if(D.rol==='admin')D.rol='usuario';D.nav=[];D.sub={};cols().forEach(function(c){D.niv[c[0]]=Math.min(P.l[c[0]]||0,c[2]);});Object.keys(SUBS).forEach(function(sk){SUBS[sk].forEach(function(x){if(x[0]==='s'&&x[5]&&MCea(x[1])&&(D.niv[x[5]]||0)>=x[2])D.sub[x[1]]=true;});});MCP_FLAGS.forEach(function(f){D.fl[f[0]]=!!P.f[f[0]];});}render();try{toast('Plantilla «'+P.t+'» aplicada — ajusta lo que quieras y Guarda');}catch(e){}},
     guardar:guardar,descartar:function(){D=null;nuevo=null;abierto=null;render();},borrar:borrar,preview:function(n){PreviewAs.open(n);},togInv:function(){invOpen=!invOpen;render();},
