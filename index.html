@@ -526,7 +526,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='497'; /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='498'; /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -581,6 +581,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   <div id="bots-screen" style="display:none"></div>
   <div id="wa-screen" style="display:none"></div>
   <div id="ventas-screen" style="display:none"></div>
+  <div id="cdash-screen" style="display:none"></div><div id="cproy-screen" style="display:none"></div>
   <div id="maes-screen" style="display:none"></div>
   <div id="mod-banco" style="display:none"></div>
   <div id="caja-screen"></div>
@@ -11263,6 +11264,80 @@ function MCvistaCli(p){
 }
 // REGISTRO CENTRAL de módulos disponibles para clientes: agregar aquí un módulo
 // lo hace aparecer AUTOMÁTICAMENTE en: home del cliente, form de Usuarios e Invitaciones.
+/* r508 b498 EFCH: módulos SOLO CLIENTES — «Dashboard clientes» (cdash) y «Proyectos» (proyectos). Sin dinero en ninguna parte. Se activan con @cdash=1 / @proyectos=1 (Usuarios › Solo clientes). */
+function mcCliMod(k){try{var p=getProfile()||{};if(!mcEsCliV())return false;var ms=typeof MCPtoks==='function'?MCPtoks(p.modulos):[].concat(p.modulos||[]);return ms.map(String).indexOf('@'+k+'=1')>=0;}catch(e){return false;}}
+var MCCDash=(function(){
+  var S={preset:'mes',desde:'',hasta:'',r:null,open:''};
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+  function n(x){x=+x||0;return (Math.round(x*100)/100).toLocaleString('es-EC');}
+  function ymd(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+  function el(){return document.getElementById('cdash-screen');}
+  function rango(p){var h=new Date(),d=new Date();
+    if(p==='dia'){}else if(p==='sem'){d.setDate(d.getDate()-6);}else if(p==='mes'){d=new Date(h.getFullYear(),h.getMonth(),1);}else if(p==='anio'){d=new Date(h.getFullYear(),0,1);}
+    return [ymd(d),ymd(h)];}
+  function init(){if(!S.desde){var r=rango(S.preset);S.desde=r[0];S.hasta=r[1];}cargar();}
+  function preset(p){S.preset=p;var r=rango(p);S.desde=r[0];S.hasta=r[1];S.open='';cargar();}
+  function custom(){var a=document.getElementById('cd-d'),b=document.getElementById('cd-h');if(!a||!b||!a.value||!b.value)return;if(a.value>b.value){alert('«Desde» debe ser antes de «Hasta».');return;}S.preset='custom';S.desde=a.value;S.hasta=b.value;S.open='';cargar();}
+  function cargar(){var e=el();if(!e)return;e.innerHTML=barra()+'<div class="cbz-loading">Cargando…</div>';
+    MCpost({action:'ventas',op:'cli_tablero',desde:S.desde,hasta:S.hasta,user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Sin respuesta');S.r=r;pintar();}).catch(function(x){var e=el();if(e)e.innerHTML=barra()+'<div class="cbz-error">'+esc(x&&x.message||x)+'</div>';});}
+  function barra(){var P=[['dia','Diario'],['sem','Semanal'],['mes','Mensual'],['anio','Anual']];
+    return '<style>.cd-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.cd-kk{background:#13202e;border:1px solid #26405c;border-radius:10px;padding:10px;cursor:pointer}.cd-kk b{display:block;font-size:22px;color:#e8eef6}.cd-kk span{font-size:11.5px;color:#8fa3b8}.cd-up{color:#a3e635}.cd-dn{color:#ff8a8a}.cd-row{display:flex;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid #1e2c3b;cursor:pointer}.cd-row:hover{background:#16263a}.cd-bar{height:6px;background:#5cb8ff;border-radius:3px;margin-top:3px}.cd-sub{padding:4px 4px 8px 16px;font-size:12.5px;color:#c9d6e3}.cd-sub a{color:#9fc3e8;text-decoration:none}</style>'+
+      '<div class="cbz-card" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+P.map(function(x){return '<button class="chip" style="'+(S.preset===x[0]?'background:#1e4976;color:#fff':'')+'" onclick="MCCDash.preset(\''+x[0]+'\')">'+x[1]+'</button>';}).join('')+
+      '<span style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap;margin-left:auto"><input type="date" class="uinput" id="cd-d" value="'+esc(S.desde)+'" style="width:auto"> – <input type="date" class="uinput" id="cd-h" value="'+esc(S.hasta)+'" style="width:auto"><button class="chip" style="'+(S.preset==='custom'?'background:#1e4976;color:#fff':'')+'" onclick="MCCDash.custom()">Aplicar</button></span></div>';}
+  function vari(a,b){if(!b)return a?'<span class="cd-up">nuevo</span>':'';var p=Math.round((a-b)/b*100);return '<span class="'+(p>=0?'cd-up':'cd-dn')+'">'+(p>=0?'▲ ':'▼ ')+Math.abs(p)+'% vs período anterior</span>';}
+  function tog(k){S.open=S.open===k?'':k;pintar();}
+  function ov(num){try{openMod('vov');}catch(x){}setTimeout(function(){try{Ventas.abrirNum(num);}catch(e){}},350);}
+  function prod(pid){if(!pid)return;openMod('vprod');(function t(i){if(window.MCProd&&MCProd.abrirId)MCProd.abrirId(pid);else if(i<8)setTimeout(function(){t(i+1);},250);})(0);}
+  function lnk(num){return '<a href="#" onclick="MCCDash.ov(\''+esc(num)+'\');return false;">'+esc(num)+' ›</a>';}
+  function plnk(l){return l.pid?'<a href="#" onclick="MCCDash.prod(\''+esc(l.pid)+'\');return false;">'+esc(l.nombre||l.sku)+' ›</a>':esc(l.nombre||l.sku);}
+  function pintar(){var r=S.r,e=el();if(!r||!e)return;var k=r.kpi||{},A=k.actual||{},B=k.anterior||{},O=r.ordenes||[],byId={};O.forEach(function(o){byId[o.id]=o;});
+    var h=barra()+'<div class="cbz-muted" style="font-size:12px;margin:4px 2px 8px">'+esc(r.organizacion||'')+' · '+esc(r.desde)+' a '+esc(r.hasta)+' · solo cantidades, sin montos</div>';
+    // Bloque 1: Compras
+    h+='<div class="cbz-card"><b style="font-size:15px">🧾 Compras</b><div class="cd-k" style="margin-top:8px">'+
+      '<div class="cd-kk" onclick="MCCDash.tog(\'ord\')"><span>Órdenes</span><b>'+n(A.ordenes)+'</b>'+vari(A.ordenes,B.ordenes)+'</div>'+
+      '<div class="cd-kk" onclick="MCCDash.tog(\'prod\')"><span>Unidades</span><b>'+n(A.uq)+'</b>'+vari(A.uq,B.uq)+'</div>'+
+      '<div class="cd-kk" onclick="MCCDash.tog(\'prod\')"><span>Productos distintos</span><b>'+n(A.productos)+'</b></div>'+
+      '<div class="cd-kk" onclick="MCCDash.tog(\'cat\')"><span>Frecuencia de compra</span><b>'+(k.frecuencia_dias!=null?n(k.frecuencia_dias)+' d':'—')+'</b><span>entre órdenes</span></div></div>';
+    var S2=r.serie||[],mx=Math.max.apply(null,[1].concat(S2.map(function(x){return +x.v||0;})));
+    if(S2.length)h+='<div style="display:flex;align-items:flex-end;gap:2px;height:70px;margin-top:10px">'+S2.map(function(x){return '<div title="'+esc(x.k)+': '+n(x.v)+' u" style="flex:1;background:#5cb8ff;min-height:2px;height:'+Math.max(2,Math.round((+x.v||0)/mx*68))+'px;border-radius:2px 2px 0 0"></div>';}).join('')+'</div><div class="cbz-muted" style="font-size:10.5px;display:flex;justify-content:space-between"><span>'+esc(S2[0].k)+'</span><span>unidades por '+(r.gran==='dia'?'día':'mes')+'</span><span>'+esc(S2[S2.length-1].k)+'</span></div>';
+    if(S.open==='ord')h+=lista('Órdenes del período',O.map(function(o){return '<div class="cd-row" onclick="MCCDash.tog(\'o:'+o.id+'\')"><span>'+esc(o.numero)+' <span class="cbz-muted">'+esc(String(o.fecha||'').slice(0,10))+' · '+esc(o.estado||'')+'</span></span><b>'+n(o.uq)+' u</b></div>';}));
+    if(S.open.indexOf('o:')===0){var oo=byId[S.open.slice(2)];if(oo)h+=lista('Orden '+esc(oo.numero),['<div class="cd-sub">'+lnk(oo.numero)+'</div>'].concat(oo.lineas.map(function(l){return '<div class="cd-sub">'+plnk(l)+' · <b>'+n(l.q)+' u</b></div>';})));}
+    var PR=r.productos||[],pm=PR.length?PR[0].q:1;
+    if(S.open==='prod'||S.open.indexOf('p:')===0)h+=lista('Productos (más comprados primero)',PR.slice(0,100).map(function(p,i){var kk='p:'+i,op=S.open===kk;return '<div class="cd-row" onclick="MCCDash.tog(\''+kk+'\')"><span style="flex:1;min-width:0">'+esc(p.nombre||p.sku)+' <span class="cbz-muted">'+esc(p.sku||'')+'</span><div class="cd-bar" style="width:'+Math.max(2,Math.round(p.q/pm*100))+'%"></div></span><b>'+n(p.q)+' u</b></div>'+(op?'<div class="cd-sub">'+plnk(p)+'<br>En '+p.ords.length+' orden(es): '+p.ords.map(function(id){var o=byId[id];return o?lnk(o.numero):'';}).join(' · ')+'</div>':'');}));
+    if(S.open==='cat')h+=lista('Categorías',(r.categorias||[]).map(function(c){return '<div class="cd-row"><span>'+esc(c.categoria)+' <span class="cbz-muted">'+c.skus.length+' producto(s)</span></span><b>'+n(c.q)+' u</b></div>';}));
+    h+='</div>';
+    // Bloque 2: Entregas
+    var E=r.entregas||[];
+    h+='<div class="cbz-card" style="margin-top:10px"><b style="font-size:15px">🚚 Entregas</b><div class="cd-k" style="margin-top:8px"><div class="cd-kk" onclick="MCCDash.tog(\'ent\')"><span>Entregas recibidas</span><b>'+n(k.entregas)+'</b></div><div class="cd-kk" onclick="MCCDash.tog(\'ent\')"><span>Tiempo promedio de entrega</span><b>'+(k.dias_entrega_prom!=null?n(k.dias_entrega_prom)+' d':'—')+'</b><span>desde la orden</span></div></div>';
+    if(S.open==='ent')h+=E.length?lista('Entregas del período',E.map(function(x){return '<div class="cd-row" onclick="MCCDash.ov(\''+esc(x.numero)+'\')"><span>'+esc(x.numero)+' <span class="cbz-muted">'+esc(String(x.fecha||'').slice(0,10))+(x.receptor?' · recibió '+esc(x.receptor):'')+'</span></span><b>'+(x.dias!=null?n(x.dias)+' d':'')+' ›</b></div>';})):'<div class="cbz-muted" style="margin-top:8px">Sin entregas en este período.</div>';
+    h+='</div>';
+    // Bloque 3: Pendientes
+    var P=r.pendientes||[];
+    h+='<div class="cbz-card" style="margin-top:10px"><b style="font-size:15px">⏳ Pendientes por entregar</b> <span class="cbz-muted" style="font-size:11.5px">(todas tus órdenes abiertas)</span><div class="cd-k" style="margin-top:8px"><div class="cd-kk" onclick="MCCDash.tog(\'pen\')"><span>Órdenes abiertas</span><b>'+n(k.pendientes_ordenes)+'</b></div><div class="cd-kk" onclick="MCCDash.tog(\'pen\')"><span>Unidades pendientes</span><b>'+n(k.pendientes_uq)+'</b></div></div>';
+    if(S.open==='pen'||S.open.indexOf('q:')===0)h+=P.length?lista('Órdenes con pendientes',P.map(function(o){var kk='q:'+o.oid,op=S.open===kk;return '<div class="cd-row" onclick="MCCDash.tog(\''+kk+'\')"><span>'+esc(o.numero)+' <span class="cbz-muted">'+esc(String(o.fecha||'').slice(0,10))+' · '+esc(o.estado||'')+'</span></span><b>'+n(o.uq)+' u</b></div>'+(op?'<div class="cd-sub">'+lnk(o.numero)+'</div>'+o.lineas.map(function(l){return '<div class="cd-sub">'+plnk(l)+' · faltan <b>'+n(l.q)+' u</b></div>';}).join(''):'');})):'<div class="cbz-muted" style="margin-top:8px">No tienes pendientes. 🎉</div>';
+    h+='</div>';
+    e.innerHTML=h;}
+  function lista(t,rows){return '<div style="margin-top:10px;border-top:1px solid #26405c;padding-top:6px"><div class="cbz-muted" style="font-size:11.5px;margin-bottom:4px">'+t+' · toca para ver detalle</div>'+(rows.length?rows.join(''):'<div class="cbz-muted">Sin datos.</div>')+'</div>';}
+  return {init:init,preset:preset,custom:custom,tog:tog,ov:ov,prod:prod};
+})();
+var MCCProy=(function(){
+  var R=null,sel=null;
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function el(){return document.getElementById('cproy-screen');}
+  function init(){sel=null;var e=el();if(!e)return;e.innerHTML='<div class="cbz-loading">Cargando…</div>';
+    MCpost({action:'ventas',op:'cli_proyectos',user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Sin respuesta');R=r;pintar();}).catch(function(x){var e=el();if(e)e.innerHTML='<div class="cbz-error">'+esc(x&&x.message||x)+'</div>';});}
+  function kv(k,v){return v==null||v===''?'':'<div><span class="cbz-muted" style="font-size:11.5px">'+k+'</span><div><b>'+esc(v)+'</b></div></div>';}
+  function pintar(){var e=el();if(!e||!R)return;var L=R.proyectos||[];
+    if(!L.length){e.innerHTML='<div class="cbz-card" style="text-align:center;padding:28px"><div style="font-size:34px">📁</div><b style="font-size:16px">Aún no tienes proyectos</b><div class="cbz-muted" style="margin-top:6px;font-size:13px">Cuando Minecore prepare el plan de consumo de un proyecto tuyo (metros, máquinas y productos principales), aparecerá aquí.</div></div>';return;}
+    if(sel==null){e.innerHTML='<div class="cbz-muted" style="font-size:12px;margin:2px 2px 8px">'+esc(R.organizacion||'')+' · '+L.length+' proyecto(s)</div>'+L.map(function(p,i){return '<div class="cbz-card" style="cursor:pointer;margin-bottom:8px" onclick="MCCProy.ver('+i+')"><b>'+esc(p.nombre||'Proyecto')+'</b> <span class="cbz-muted" style="font-size:11.5px">· actualizado '+esc(String(p.actualizado||'').slice(0,10))+'</span><div class="cbz-muted" style="font-size:12px;margin-top:3px">'+(p.metros?esc(p.metros)+' m · ':'')+(p.maquinas||[]).length+' máquina(s) · '+(p.principales||[]).length+' producto(s) ›</div></div>';}).join('');return;}
+    var p=L[sel];
+    e.innerHTML='<button class="chip" onclick="MCCProy.ver(null)">← Proyectos</button><div class="cbz-card" style="margin-top:8px"><b style="font-size:16px">'+esc(p.nombre)+'</b><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:10px">'+
+      kv('Inicio',p.inicio)+kv('Metros',p.metros)+kv('Duración',p.duracion_meses?p.duracion_meses+' meses':(p.duracion_dias?p.duracion_dias+' días':''))+kv('Profundidad típica',p.prof_tipica_m?p.prof_tipica_m+' m':'')+kv('Pozo más profundo',p.pozo_mas_profundo_m?p.pozo_mas_profundo_m+' m':'')+kv('Ángulo',p.angulo)+kv('Disponible hoy',p.disponibles_hoy_pct!=null?p.disponibles_hoy_pct+'%':'')+'</div></div>'+
+      ((p.maquinas||[]).length?'<div class="cbz-card" style="margin-top:8px"><b>Máquinas</b><div style="margin-top:6px">'+p.maquinas.map(function(m){return '<span class="chip" style="margin:2px">'+esc(typeof m==='object'?(m.nombre||m.modelo||m.tipo||JSON.stringify(m)):m)+'</span>';}).join('')+'</div></div>':'')+
+      ((p.principales||[]).length?'<div class="cbz-card" style="margin-top:8px"><b>Productos principales</b><table class="ms-t" style="display:table;margin-top:6px"><thead><tr><th>Producto</th><th class="n">Cantidad</th><th>Disponibilidad</th></tr></thead><tbody>'+p.principales.map(function(x){return '<tr><td>'+esc(x.producto)+'</td><td class="n">'+esc(x.cantidad)+'</td><td>'+esc(x.disponibilidad||'')+'</td></tr>';}).join('')+'</tbody></table></div>':'')+
+      ((p.por_importar||[]).length?'<div class="cbz-card" style="margin-top:8px"><b>Por importar</b><div class="cbz-muted" style="font-size:12.5px;margin-top:4px">'+p.por_importar.map(function(x){return esc(typeof x==='object'?((x.producto||x.nombre||'')+(x.cantidad!=null?' × '+x.cantidad:'')):x);}).join('<br>')+'</div></div>':'');}
+  return {init:init,ver:function(i){sel=i;pintar();}};
+})();
 var CMODS_REG=[
   ['inventario','📦','Inventario','Catálogo y stock (sin precios) · carrito de solicitud','inv'],
   ['cotizaciones','🧾','Cotizaciones','Tus solicitudes y cotizaciones (precios solo si se activan)','miscot'],
@@ -13343,7 +13418,7 @@ function mcHomeVisible(){
   var home=document.getElementById('home');
   if(!home) return false;
   if(home.style.display==='none') return false;
-  var ids=['dash-screen','base-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','maes-screen','mod-banco','stk-screen','rep-screen','bots-screen'];
+  var ids=['dash-screen','base-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','cdash-screen','cproy-screen','maes-screen','mod-banco','stk-screen','rep-screen','bots-screen'];
   for(var i=0;i<ids.length;i++){
     var e=document.getElementById(ids[i]);
     if(!e) continue;
@@ -13409,6 +13484,8 @@ function renderHome(){
       if(!can(cm[0]))return;
       add(cm[4],cm[1],cm[2],cm[3],{cardId:cm[0]==='cotizaciones'?'card-miscot':null});
     });
+    if(mcCliMod('cdash')) add('cdash','📊','Dashboard','Tus compras, entregas y pendientes por período (solo cantidades)'); /* r508 b498 */
+    if(mcCliMod('proyectos')) add('cproy','📁','Proyectos','Planes de consumo de tus proyectos'); /* r508 b498 */
   }
   if(p.esCli&&p.master) add('minv','👥','Mi equipo','Invita usuarios de tu organización');
   if(can('proveedores')) add('prov','🏭','Proveedores','Proveedores');
@@ -13639,7 +13716,7 @@ function openMod(m){if(/^ant:/.test(String(m||''))){MCAnt.abrir(m);return;} /* r
   if(m!=='wa'){try{WA.stop();}catch(e){}}
   mcHideNotifBar();
   try{Landing.hide();}catch(e){}
-  ['dash-screen','base-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','maes-screen','mod-banco','stk-screen','rep-screen','bots-screen'].forEach(function(id){
+  ['dash-screen','base-screen','liq-screen','cobranza-screen','inv-screen','users-screen','cot-screen','edc-screen','consig-screen','sols-screen','minv-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','cdash-screen','cproy-screen','maes-screen','mod-banco','stk-screen','rep-screen','bots-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('backBtn').style.display='block';
@@ -13672,6 +13749,8 @@ function openMod(m){if(/^ant:/.test(String(m||''))){MCAnt.abrir(m);return;} /* r
     try{ if(window.Caja&&Caja.init) Caja.init(); }catch(e){ cs.innerHTML='<div class="cbz-error">No se pudo abrir Caja: '+(e&&e.message?e.message:e)+'</div>'; }
   }
   if(m==='wa'){document.getElementById('wa-screen').style.display='block';document.getElementById('title').textContent='WHATSAPP';WA.init();}
+  if(m==='cdash'){if(!mcCliMod('cdash')){alert('Esta sección está apagada para tu usuario. Pide acceso al administrador.');return goHome();}document.getElementById('cdash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';MCCDash.init();} /* r508 b498 */
+  if(m==='cproy'){if(!mcCliMod('proyectos')){alert('Esta sección está apagada para tu usuario. Pide acceso al administrador.');return goHome();}document.getElementById('cproy-screen').style.display='block';document.getElementById('title').textContent='PROYECTOS';MCCProy.init();} /* r508 b498 */
   if(m==='vcot'||m==='vov'){document.getElementById('ventas-screen').style.display='block';document.getElementById('title').textContent=(m==='vcot'?'COTIZACIONES DE VENTAS':'ÓRDENES DE VENTA');Ventas.init(m==='vcot'?'SQ':'SO');}
   if(m==='vcli'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='CLIENTES';MCCli.init();}
   if(m==='vprod'){document.getElementById('maes-screen').style.display='block';document.getElementById('title').textContent='PRODUCTOS';MCProd.init();}
@@ -13691,7 +13770,7 @@ function goHome(){window.MC_VOLVER_DASH=null;try{MCroute.limpiar();}catch(e){}
   try{if(MCNav.on()){var _p=getProfile(),_d=MC_NAVCAT()[0];if(MCnavOk(_p,_d,_d.items[0])){openMod('dash');return;}}}catch(e){}
   try{ document.body.classList.remove('mc-caja-open'); }catch(e){}
   try{ WA.stop(); }catch(e){}
-  ['dash-screen','base-screen','liq-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','maes-screen','mod-banco','stk-screen','rep-screen','bots-screen'].forEach(function(id){
+  ['dash-screen','base-screen','liq-screen','cobranza-screen','inv-screen','users-screen','edc-screen','minv-screen','sols-screen','consig-screen','cot-screen','kyc-screen','mailcfg-screen','prov-screen','transf-screen','caja-screen','wa-screen','ventas-screen','cdash-screen','cproy-screen','maes-screen','mod-banco','stk-screen','rep-screen','bots-screen'].forEach(function(id){
     var e=document.getElementById(id);if(e){e.style.display='none';e.classList.remove('on');}
   });
   document.getElementById('home').style.display='grid';
@@ -14600,7 +14679,7 @@ Users=(function(){
     else D.sub[x[1]]=!!on;render();}
   /* borrador {nombre,rol,niv:{},fl:{},dir:{},pin,activo,cli:{...}} */
   function borrador(u,nuevoU){var p=prof(u),d={nombre:u.nombre,nuevo:!!nuevoU,rol:u.rol,niv:{},fl:{},activo:u.activo!==false,pin:'',nav:MCPtoks(u.modulos).filter(function(t){return t.charAt(0)==='-';}),sub:(function(){var o={};MCPtoks(u.modulos).forEach(function(t){var x=/^~([a-z]+(?:\.[a-z]+){1,2})=([01])$/.exec(t);if(x)o[x[1]]=x[2]==='1';});return o;})(),
-      empresa:u.empresa||'',master:!!u.master,aprobado:!!u.aprobado,cmods:MCPtoks(u.modulos).map(function(x){return x.replace(/\+$/,'');}),telefono:u.telefono||'',email:u.email||'',origRol:u.rol,origMods:MCPtoks(u.modulos)};
+      empresa:u.empresa||'',master:!!u.master,aprobado:!!u.aprobado,cmods:MCPtoks(u.modulos).map(function(x){return x.replace(/\+$/,'');}),telefono:u.telefono||'',email:u.email||'',origRol:u.rol,origMods:MCPtoks(u.modulos),cx:{cdash:MCPtoks(u.modulos).indexOf('@cdash=1')>=0?1:0,proyectos:MCPtoks(u.modulos).indexOf('@proyectos=1')>=0?1:0}};
     cols().forEach(function(c){d.niv[c[0]]=u.rol==='admin'?c[2]:MCPnivel(p,c[0]);});MCP_FLAGS.forEach(function(f){d.fl[f[0]]=MCPflag(p,f[0]);});return d;}
   function seg(k,max){if(D.rol==='cliente')max=Math.min(max,1);var n=D.niv[k],dis=!puede||D.rol==='admin';return '<span class="up-seg">'+NV.slice(0,max+1).map(function(t,i){return '<button '+(dis?'disabled ':'')+'class="'+(n===i?'on':'')+'" style="'+(n===i?'background:'+(i?NC[i]:'#8fa3b8'):'')+'" onclick="event.stopPropagation();Users.niv(\''+k+'\','+i+')">'+t+'</button>';}).join('')+'</span>';}
   function editor(u,isNew){var key=isNew?'__nuevo__':u.nombre;if(!D||D._k!==key){D=borrador(u,isNew);D._k=key;}var ro=!puede,esCli=D.rol==='cliente';
@@ -14612,11 +14691,12 @@ Users=(function(){
     else{/* r502 EFCH: EXACTAMENTE el mismo editor y lista de módulos que el equipo; cliente = solo Ver */h+=pgCss()+grid(ro)+'<div class="cbz-muted" style="font-size:11px;margin:4px 0">Cliente: cada módulo solo en modo Ver (sin crear, editar ni acciones) y solo datos de su organización. Precios, costos y saldos apagados por defecto.</div>'+
       '<div class="up-g"><input class="uinput" placeholder="Organización (nombre exacto)" value="'+esc(D.empresa)+'" '+(ro?'readonly':'')+' list="up-cli-dl" oninput="Users.set(\'empresa\',this.value)" onfocus="Users.cargarCli()"><datalist id="up-cli-dl">'+clientes.map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist>'+
       '<label class="cbz-esc"><input type="checkbox" '+(D.master?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'master\',this.checked)"> Máster de su organización</label><label class="cbz-esc"><input type="checkbox" '+(D.aprobado?'checked':'')+(ro?' disabled':'')+' onchange="Users.set(\'aprobado\',this.checked)"> ✅ Aprobado</label></div>'+
+      '<div class="pg-sens" style="margin-top:8px"><b>Solo clientes</b> <span class="cbz-muted" style="font-size:11px">(apagados por defecto · sin montos)</span>'+[['cdash','📊 Dashboard clientes'],['proyectos','📁 Proyectos']].map(function(c){var v=(D.cx||{})[c[0]]||0;return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px"><span>'+c[1]+'</span><span class="up-seg">'+['Nada','Ver'].map(function(t,i){return '<button '+(ro?'disabled ':'')+'class="'+(v===i?'on':'')+'" style="'+(v===i?'background:'+(i?'#a3e635':'#8fa3b8'):'')+'" onclick="event.stopPropagation();Users.cx(\''+c[0]+'\','+i+')">'+t+'</button>';}).join('')+'</span></div>';}).join('')+'</div>'+
       '<div class="cbz-muted" style="font-size:11px">La organización asignada limita todo: este usuario solo ve los datos de su organización. Precios, costos y saldos: según sus interruptores.</div>';}
     if(!ro)h+='<div class="up-g"><input class="uinput" id="up-pin" inputmode="numeric" maxlength="8" placeholder="'+(isNew?'PIN (4 a 8 dígitos)':'PIN nuevo (vacío = no cambia)')+'" oninput="Users.set(\'pin\',this.value)" value="'+esc(D.pin)+'"><input class="uinput" placeholder="Teléfono" value="'+esc(D.telefono)+'" oninput="Users.set(\'telefono\',this.value)"><input class="uinput" placeholder="Correo" value="'+esc(D.email)+'" oninput="Users.set(\'email\',this.value)"></div>'+
       '<div class="up-bar"><button class="cbz-btn" onclick="Users.guardar()">Guardar</button><button class="cbz-btn-sec" onclick="Users.descartar()">Descartar</button>'+(isNew?'':'<button class="cbz-btn-sec" onclick="Users.preview(\''+esc(D.nombre).replace(/'/g,"\\'")+'\')">👁 Ver como</button>'+MCImpBtn(D.nombre)+'<button class="cbz-btn-sec cbz-danger" style="margin-left:auto" onclick="Users.borrar()">Eliminar</button>')+'<span id="up-msg" class="cbz-muted"></span></div>';
     return h+'</div>';}
-  function tokens(){if(D.rol==='cliente'){D.rol='usuario';var T;try{T=tokens();}finally{D.rol='cliente';}return T.filter(function(x){return !/^~.*=1$/.test(x);}).map(function(x){var m=/^@([a-z]+)=([0-3])$/.exec(x);if(m)return '@'+m[1]+'='+Math.min(1,+m[2]);return /^\$/.test(x)?x:x.replace(/\+$/,'');}).filter(function(x,i,a){return a.indexOf(x)===i;});}
+  function tokens(){if(D.rol==='cliente'){D.rol='usuario';var T;try{T=tokens();}finally{D.rol='cliente';}return T.filter(function(x){return !/^~.*=1$/.test(x)&&!/^@(cdash|proyectos)=/.test(x);}).map(function(x){var m=/^@([a-z]+)=([0-3])$/.exec(x);if(m)return '@'+m[1]+'='+Math.min(1,+m[2]);return /^\$/.test(x)?x:x.replace(/\+$/,'');}).filter(function(x,i,a){return a.indexOf(x)===i;}).concat(['@cdash='+((D.cx||{}).cdash?1:0),'@proyectos='+((D.cx||{}).proyectos?1:0)]);} /* r508 b498: módulos solo clientes */
     if(D.rol==='admin')return D.origRol==='admin'?D.origMods.filter(function(x){return x.charAt(0)!=='-';}):['dashboard','cobranza','inventario','proveedores'];
     cerrarMods();var n=D.niv,t=[],L=function(tok,l){if(l>=2)t.push(tok+'+');else if(l>=1)t.push(tok);};
     L('cotizaciones',n.ventas);L('inventario',Math.max(n.inventario,n.productos,n.manufactura));L('proveedores',n.compras);L('transfers',n.transferencias);L('cobranza',Math.max(n.cobranzas,n.clientes));if(Math.max(n.dashboard,n.reportes)>=1)t.push('dashboard');
@@ -14635,7 +14715,7 @@ Users=(function(){
   function dirty(){if(!D)return false;var u=lista.filter(function(x){return x.nombre===D.nombre;})[0];if(!u)return true;var b=borrador(u);return JSON.stringify([b.rol,b.niv,b.fl,b.activo,b.cmods,b.empresa,b.master,b.aprobado,b.nav.slice().sort(),b.sub])!==JSON.stringify([D.rol,D.niv,D.fl,D.activo,D.cmods,D.empresa,D.master,D.aprobado,D.nav.slice().sort(),D.sub])||!!D.pin;}
   function rr(){var a=document.activeElement,id=a&&a.id,pos=null;try{pos=a.selectionStart;}catch(e){}render();if(id){var e=document.getElementById(id);if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}}}
   return {init:init,nuevo:function(){nuevo={nombre:'',rol:'usuario',modulos:'',activo:true};D=null;abierto=null;invForm=false;render();},abrir:abrir,
-    niv:function(k,i){D.niv[k]=i;render();},flag:function(k,v){D.fl[k]=v;render();},grp:function(k){if(GOPEN[k]){GOPEN[k]=0;if(abierto&&lista.some(function(u){return u.nombre===abierto&&((u.rol==='cliente'?(u.empresa||'(sin organización)'):'Minecore')===k);})){abierto=null;D=null;}}else GOPEN[k]=1;render();},tg:tg,ti:function(g,i,on){ti(g,i,on);},ts:ts,op:function(k){if(OPEN[k])delete OPEN[k];else OPEN[k]=1;render();},set:function(k,v){D[k]=v;},cmod:function(m,on){D.cmods=D.cmods.filter(function(x){return x!==m;});if(on)D.cmods.push(m);},
+    niv:function(k,i){D.niv[k]=i;render();},cx:function(k,i){if(!D.cx)D.cx={};D.cx[k]=i?1:0;render();},flag:function(k,v){D.fl[k]=v;render();},grp:function(k){if(GOPEN[k]){GOPEN[k]=0;if(abierto&&lista.some(function(u){return u.nombre===abierto&&((u.rol==='cliente'?(u.empresa||'(sin organización)'):'Minecore')===k);})){abierto=null;D=null;}}else GOPEN[k]=1;render();},tg:tg,ti:function(g,i,on){ti(g,i,on);},ts:ts,op:function(k){if(OPEN[k])delete OPEN[k];else OPEN[k]=1;render();},set:function(k,v){D[k]=v;},cmod:function(m,on){D.cmods=D.cmods.filter(function(x){return x!==m;});if(on)D.cmods.push(m);},
     rol:function(r){D.rol=r;if(r==='admin')cols().forEach(function(c){D.niv[c[0]]=c[2];});render();},
     preset:function(k){var P=MCP_PRESETS[k];if(!P)return;if(P.admin){D.rol='admin';cols().forEach(function(c){D.niv[c[0]]=c[2];});}else{if(D.rol==='admin')D.rol='usuario';D.nav=[];D.sub={};cols().forEach(function(c){D.niv[c[0]]=Math.min(P.l[c[0]]||0,c[2]);});Object.keys(SUBS).forEach(function(sk){SUBS[sk].forEach(function(x){if(x[0]==='s'&&x[5]&&MCea(x[1])&&(D.niv[x[5]]||0)>=x[2])D.sub[x[1]]=true;});});MCP_FLAGS.forEach(function(f){D.fl[f[0]]=!!P.f[f[0]];});}render();try{toast('Plantilla «'+P.t+'» aplicada — ajusta lo que quieras y Guarda');}catch(e){}},
     guardar:guardar,descartar:function(){D=null;nuevo=null;abierto=null;render();},borrar:borrar,preview:function(n){PreviewAs.open(n);},togInv:function(){invOpen=!invOpen;render();},
@@ -18377,7 +18457,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=497',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=498',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
