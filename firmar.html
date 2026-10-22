@@ -42,15 +42,23 @@ post({op:'ver'}).then(function(r){
   if(!r.ok){var T={vencida:['⏰','Enlace vencido'],cancelada:['🚫','Enlace anulado']}[r.codigo]||['⚠️','Enlace no válido'];aviso(T[0],T[1],r.error);return;}
   D=r;form();
 }).catch(function(){aviso('📶','Sin conexión','No se pudo cargar. Revise su internet y vuelva a abrir el enlace.');});
-function docs(){return '<div class="c"><h2>Sus documentos</h2><div class="k" style="margin-top:0">Este link es válido por 4 días (hasta '+e(String(D.expira_txt||'').replace(' (EC)',''))+'). Descargue su orden de venta'+(D.factura?' y su factura':'')+'.</div>'+
+function docs(){if(D.ordenes&&D.ordenes.length)return docsL();return '<div class="c"><h2>Sus documentos</h2><div class="k" style="margin-top:0">Este link es válido por 4 días (hasta '+e(String(D.expira_txt||'').replace(' (EC)',''))+'). Descargue su orden de venta'+(D.factura?' y su factura':'')+'.</div>'+
   '<div class="row"><button class="bs" type="button" onclick="MCdoc(\'ov\',this)">Ver orden de venta</button></div>'+
   (D.factura?'<div class="row"><button class="bs" type="button" onclick="MCdoc(\'factura\',this)">Ver factura</button></div>':'')+
   (D.firmada&&D.recibido?'<div class="row"><button class="bs" type="button" onclick="MCdoc(\'recibido\',this)">Descargar recibido (PDF)</button></div>':'')+'</div>';}
-function cab(){return '<div class="c"><div class="k" style="margin-top:0">Orden</div><div class="v">'+e(D.orden)+'</div><div class="k">Cliente</div><div class="v">'+e(D.cliente||'')+'</div><div class="k">Fecha</div><div class="v">'+e(fecha(D.entregada||D.fecha))+'</div></div>';}
-function hecho(){app.innerHTML=hd+'<div class="c ok"><div class="big">✅</div><h1>Recibido firmado</h1><div>Orden <b>'+e(D.orden)+'</b></div><div class="k">'+(D.nombre?'Firmó '+e(D.nombre)+' · ':'')+e(D.firmada_txt||'')+'</div><div class="k">Su firma llegó a Minecore. Puede cerrar esta página cuando quiera.</div></div>'+docs();}
-window.MCdoc=function(t,btn){var w=null,txt=btn.textContent;try{w=window.open('','_blank');if(w)w.document.write('<p style="font:18px sans-serif;padding:20px">Abriendo documento…</p>');}catch(x){w=null;}
+/* r511 b501: link COMBINADO (varias órdenes del mismo cliente, una sola firma). Los links de una orden siguen igual. */
+function L(){return D.ordenes||[];}
+function docsL(){return '<div class="c"><h2>Sus documentos</h2><div class="k" style="margin-top:0">Este link es válido por 4 días (hasta '+e(String(D.expira_txt||'').replace(' (EC)',''))+'). Descargue los documentos de cada orden.</div>'+
+  L().map(function(o){var id=e(o.id);return '<div style="border-top:1px solid #e3e8ee;margin-top:10px;padding-top:8px"><div class="v">'+e(o.orden)+(o.fecha?' <span class="k" style="display:inline">· '+e(fecha(o.fecha))+'</span>':'')+'</div>'+
+    '<div class="row"><button class="bs" type="button" data-o="'+id+'" onclick="MCdoc(\'ov\',this,\''+id+'\')">Orden de venta</button>'+(o.factura?' <button class="bs" type="button" onclick="MCdoc(\'factura\',this,\''+id+'\')">Factura</button>':'')+(D.firmada&&o.recibido?' <button class="bs" type="button" onclick="MCdoc(\'recibido\',this,\''+id+'\')">Recibido (PDF)</button>':'')+'</div></div>';}).join('')+'</div>';}
+function cabL(){return '<div class="c"><div class="k" style="margin-top:0">Cliente</div><div class="v">'+e(D.cliente||'')+'</div><div class="k">Órdenes en esta recepción ('+L().length+')</div><div class="v">'+L().map(function(o){return e(o.orden);}).join(', ')+'</div><div class="k">Con una sola firma quedan recibidas todas estas órdenes.</div></div>';}
+function cab(){if(D.ordenes&&D.ordenes.length)return cabL();return '<div class="c"><div class="k" style="margin-top:0">Orden</div><div class="v">'+e(D.orden)+'</div><div class="k">Cliente</div><div class="v">'+e(D.cliente||'')+'</div><div class="k">Fecha</div><div class="v">'+e(fecha(D.entregada||D.fecha))+'</div></div>';}
+function hecho(){if(D.ordenes&&D.ordenes.length){var RS=D.res||null;
+  app.innerHTML=hd+'<div class="c ok"><div class="big">✅</div><h1>Recibido firmado</h1><div>'+L().length+' órdenes</div><ul style="text-align:left;margin:8px auto;display:inline-block;padding-left:18px">'+L().map(function(o){var x=RS&&RS.filter(function(y){return String(y.id)===String(o.id);})[0];var bad=x&&!x.ok;return '<li>'+(bad?'⚠️ ':'✅ ')+'<b>'+e(o.orden)+'</b>'+(bad?' — pendiente: Minecore la completará':'')+'</li>';}).join('')+'</ul><div class="k">'+(D.nombre?'Firmó '+e(D.nombre)+' · ':'')+e(D.firmada_txt||'')+'</div><div class="k">Su firma llegó a Minecore. Puede cerrar esta página cuando quiera.</div></div>'+docs();return;}
+  app.innerHTML=hd+'<div class="c ok"><div class="big">✅</div><h1>Recibido firmado</h1><div>Orden <b>'+e(D.orden)+'</b></div><div class="k">'+(D.nombre?'Firmó '+e(D.nombre)+' · ':'')+e(D.firmada_txt||'')+'</div><div class="k">Su firma llegó a Minecore. Puede cerrar esta página cuando quiera.</div></div>'+docs();}
+window.MCdoc=function(t,btn,oid){var w=null,txt=btn.textContent;try{w=window.open('','_blank');if(w)w.document.write('<p style="font:18px sans-serif;padding:20px">Abriendo documento…</p>');}catch(x){w=null;}
   btn.disabled=true;btn.textContent='Abriendo…';
-  post({op:'doc',tipo:t}).then(function(x){btn.disabled=false;btn.textContent=txt;if(!x.ok||!x.url){if(w)w.close();alert(x.error||'No disponible');return;}if(w)w.location.href=x.url;else location.href=x.url;})
+  post(oid?{op:'doc',tipo:t,orden:oid}:{op:'doc',tipo:t}).then(function(x){btn.disabled=false;btn.textContent=txt;if(!x.ok||!x.url){if(w)w.close();alert(x.error||'No disponible');return;}if(w)w.location.href=x.url;else location.href=x.url;})
   .catch(function(){btn.disabled=false;btn.textContent=txt;if(w)w.close();alert('Sin conexión. Intente de nuevo.');});};
 function form(){
   if(D.firmada){hecho();return;}
@@ -79,7 +87,7 @@ function enviar(){var m=document.getElementById('msg'),b=document.getElementById
   b.disabled=true;b.textContent='Enviando…';
   post({op:'firmar',nombre:n,cedula:c,cargo:cg,firma:o.toDataURL('image/png'),dispositivo:navigator.userAgent+' · '+screen.width+'x'+screen.height}).then(function(r){
     if(!r.ok){m.textContent=r.error||'No se pudo enviar.';b.disabled=false;b.textContent='Firmar y enviar';return;}
-    D.firmada=true;D.recibido=!!r.pdf;D.nombre=n;D.firmada_txt=r.ts;hecho();window.scrollTo(0,0);
+    D.firmada=true;D.recibido=!!r.pdf;if(r.ordenes&&D.ordenes){D.res=r.ordenes;D.ordenes.forEach(function(o){var x=r.ordenes.filter(function(y){return String(y.id)===String(o.id);})[0];o.recibido=!!(x&&x.ok&&x.pdf);});}D.nombre=n;D.firmada_txt=r.ts;hecho();window.scrollTo(0,0);
   }).catch(function(){m.textContent='Sin conexión. Revise su internet e intente de nuevo.';b.disabled=false;b.textContent='Firmar y enviar';});}
 })();
 </script></body></html>
