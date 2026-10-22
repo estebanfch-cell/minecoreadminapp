@@ -526,7 +526,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='500'; /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='500.1'; /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -12354,7 +12354,7 @@ var Ventas = (function(){
       if(g!==lGen)return;var have={};lista.forEach(function(o){have[o.id]=1;});
       rs.forEach(function(r){if(r&&r.ok)(r.ordenes||[]).forEach(function(o){if(!have[o.id]&&lKeep(o)){have[o.id]=1;lista.push(o);}});});
       var ult=rs[2];lMas=!!(ult&&ult.ok&&ult.mas);
-      if(!form&&!cur){if($('vt-res'))pintaRes();else renderLista();}else try{mdPaint();}catch(_){}
+      if(!form&&!cur){if($('vt-res'))pintaLista();else renderLista();}else try{mdPaint();}catch(_){}
       if(lMas)lPaginas(g,P,off+3*LPAG);});}
   function leerFiltros(){setTimeout(function(){try{localStorage.setItem(vtFk(),JSON.stringify(f));}catch(e){}},0);var g=function(i){var x=$(i);return x?x.value.trim():'';};f.pago=g('vt-fp');f.inv=g('vt-fi');f.vendedor=g('vt-fv');f.orden=g('vt-fo');f.cliente='';f.estado=g('vt-fe');f.desde=g('vt-fd');f.hasta=g('vt-fh');f.asig=g('vt-fa');f.q=($('vt-fq')||{}).value||'';}
   function filtrar(){leerFiltros();cargar();}
@@ -12368,11 +12368,11 @@ var Ventas = (function(){
   function vis(){var r=vis0();return String(f.q||'').trim()?r:r.filter(asigOk);} /* r500: al buscar se busca en TODO (no aplica filtro Asignado) */
   function vis0(){var toks=mcNorm(f.q).split(' ').filter(Boolean);if(!toks.length)return mcSinCanceladas(lista,f.estado==='cancelada');var ids={},out=[];lista.forEach(function(o){if(!ids[o.id]&&qMatch(o,toks)){ids[o.id]=1;out.push(o);}});extra.forEach(function(o){if(!ids[o.id]){ids[o.id]=1;out.push(o);}});return out;} /* r500: lo que el servidor encontró (RUC, obs, productos…) se muestra aunque no esté en el texto local */
   function nFil(){return ['estado','desde','hasta','pago','inv','vendedor','orden','asig'].filter(function(k){return f[k]&&!(k==='estado'&&tipo==='SQ'&&f[k]==='cotizacion');}).length;}
-  var qGen=0;function qLive(v){f.q=v;qGen++;clearTimeout(qT);qT=setTimeout(function(){try{localStorage.setItem(vtFk(),JSON.stringify(f));}catch(e){}pintaRes();},90);
-    clearTimeout(qS);extra=[];var q=String(v||'').trim();if(q.length>=3)qS=setTimeout(function(){var qg=++qGen;api({op:'list',tipo:tipo,q:q,limit:300}) /* r500: búsqueda en todas las órdenes, sin filtro de estado guardado */.then(function(r){var qi=$('vt-fq');if(!r.ok||qg!==qGen||f.q!==v||(qi&&qi.value!==v))return; /* r506: descarta respuestas de lo que se escribía antes («Low» → 46) */extra=(r.ordenes||[]).filter(function(o){return f.estado==='cancelada'||o.estado!=='cancelada';});pintaRes();}).catch(function(){});},450);}
+  var qGen=0;function qLive(v){f.q=v;qGen++;clearTimeout(qT);qT=setTimeout(function(){try{localStorage.setItem(vtFk(),JSON.stringify(f));}catch(e){}pintaLista();},90);
+    clearTimeout(qS);extra=[];var q=String(v||'').trim();if(q.length>=3)qS=setTimeout(function(){var qg=++qGen;api({op:'list',tipo:tipo,q:q,limit:300}) /* r500: búsqueda en todas las órdenes, sin filtro de estado guardado */.then(function(r){var qi=$('vt-fq');if(!r.ok||qg!==qGen||f.q!==v||(qi&&qi.value!==v))return; /* r506: descarta respuestas de lo que se escribía antes («Low» → 46) */extra=(r.ordenes||[]).filter(function(o){return f.estado==='cancelada'||o.estado!=='cancelada';});pintaLista();}).catch(function(){});},450);}
   function togF(){fOpen=!fOpen;var p=$('vt-fpan');if(p)p.style.display=fOpen?'block':'none';}
   function selF(){leerFiltros();cargar(true);}
-  function pintaRes(){var r=$('vt-res');if(r)r.innerHTML=resHtml(vis())+(lMas?'<div class="cbz-muted" style="text-align:center;padding:8px;font-size:12px">Cargando historial completo…</div>':'');}
+  function pintaLista(){var r=$('vt-res');if(r)r.innerHTML=resHtml(vis())+(lMas?'<div class="cbz-muted" style="text-align:center;padding:8px;font-size:12px">Cargando historial completo…</div>':'');} /* r510 b500.1: antes «pintaRes», duplicado más abajo (resultados de producto del formulario); la segunda declaración ganaba y la búsqueda de la lista no repintaba */
   function barra(){var ests=ESTADOS[tipo],n=nFil(),lab=function(t,x){return '<label class="cbz-muted" style="font-size:11px;display:flex;flex-direction:column;gap:2px;flex:1 1 150px">'+t+x+'</label>';},sel=function(id,L,v){return '<select class="uinput" id="'+id+'" style="width:100%" onchange="Ventas.selF()">'+L.map(function(o){return '<option value="'+o[0]+'"'+((v||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';};
     return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input class="uinput" id="vt-fq" type="search" autocomplete="off" placeholder="Buscar nº, PO, factura, cliente, vendedor, SKU…" value="'+esc(f.q)+'" style="flex:1;min-width:0" oninput="Ventas.qLive(this.value)">'+
       '<button class="chip" style="white-space:nowrap'+(n?';border-color:#a3e635;color:#a3e635':'')+'" onclick="Ventas.togF()">Filtros'+(n?' ('+n+')':'')+' ▾</button>'+'<button class="chip vt-colb" style="white-space:nowrap" onclick="Ventas.cols()">Columnas</button><button class="chip vt-colb" style="white-space:nowrap'+(mcGrpOn()?';border-color:#5cc8ff;color:#5cc8ff':'')+'" title="Agrupar órdenes divididas por número base" onclick="mcGrpAll(\'Ventas\')">Agrupar</button>'+(tipo!=='SQ'?'<button class="chip" style="white-space:nowrap" title="Informe de pendientes por entregar (PDF)" onclick="MCPendPick(\'so\',(document.getElementById(\'vt-fq\')||{}).value)">⬇ Pendientes</button>':'')+'<style>@media(max-width:899px){.vt-colb{display:none}}</style>'+
@@ -18582,7 +18582,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=500',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=5001',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
@@ -18829,7 +18829,7 @@ var MCDeep=(function(){
     d.innerHTML='<span style="flex:1;white-space:normal">Hay una versión nueva del portal (v'+nb+').</span><button style="background:#161926;color:#E8FF00;border:0;border-radius:9px;padding:10px 14px;font-weight:800;white-space:nowrap" onclick="MCUpd.go()">Actualizar</button>';
     document.body.appendChild(d);}
   function chk(){var now=Date.now();if(busy||now-last<20000)return;last=now;busy=true;
-    fetch('./?_b='+now,{cache:'no-store'}).then(function(r){return r.ok?r.text():'';}).then(function(t){var m=/var MC_BUILD='(\d+)'/.exec(t||'');if(m&&+m[1]>+MC_BUILD)bar(m[1]);}).catch(function(){}).then(function(){busy=false;});}
+    fetch('./?_b='+now,{cache:'no-store'}).then(function(r){return r.ok?r.text():'';}).then(function(t){var m=/var MC_BUILD='([\d.]+)'/.exec(t||'');if(m&&+m[1]>+MC_BUILD)bar(m[1]);}).catch(function(){}).then(function(){busy=false;});}
   function go(){var p=Promise.resolve();try{if(navigator.serviceWorker)p=navigator.serviceWorker.getRegistration().then(function(r){return r&&r.update();}).catch(function(){});}catch(e){}
     p.then(function(){location.reload();});setTimeout(function(){location.reload();},2500);}
   window.MCUpd={chk:chk,go:go};
