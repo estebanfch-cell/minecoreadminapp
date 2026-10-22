@@ -491,6 +491,10 @@ html body .mc-clif .vf-cli,html body .mc-clisel{font-size:20px!important;font-we
   <script>window.toastx=window.toastx||function(t){t=String(t&&t.message?t.message:t);try{if(typeof toast==='function'){toast(t);return;}}catch(e){}var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:10px;z-index:99999;max-width:90vw;font-size:14px';document.body.appendChild(d);setTimeout(function(){d.remove();},3500);};</script><script>/* b294: búsqueda normalizada (tokens AND, sin tildes/puntuación) + IndexedDB mínimo */
 function mcNorm(t){return String(t==null?'':t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
 /* b441 · EFCH: todo buscador de productos encuentra también el código del proveedor/distribuidor (products.description) y los códigos de proveedor (product_vendors / product_vendor_codes). Mapa SKU→códigos desde el catálogo de Productos (caché IndexedDB o prod_list). */
+/* r506 · regla única de búsqueda (igual que app.mc_tok_ok en el servidor): cada palabra escrita debe aparecer (AND) como palabra o inicio de palabra; sin tildes/mayúsculas. Medidas HQ=HO, NQ=NO, BQ=BO, PQ=PO. */
+function mcTokHay(h){return ' '+String(h||'').replace(/([a-z])\/(?=[a-z])/g,'$1 ').replace(/\s+/g,' ')+' ';}
+function mcTokOk(hay,t){if(!t)return true;var m=/^([bnhp])[qo]([0-9]*)$/.exec(t);if(m&&new RegExp('(^| )'+m[1]+'[qo]'+m[2]+(m[2]?'':'[0-9]*')+'( |$)').test(hay))return true;return hay.indexOf(' '+t)>=0;}
+function mcQ(q,hay){var T=mcNorm(q).split(' ').filter(Boolean);if(!T.length)return true;var h=mcTokHay(mcNorm(hay));for(var i=0;i<T.length;i++)if(!mcTokOk(h,T[i]))return false;return true;}
 var MC_COD={m:null,ld:0};
 function MCcod(sku){var m=MC_COD.m;if(!m){MCcodLoad();return '';}return m[String(sku||'').toUpperCase()]||'';}
 function MCcodSet(rows){var m=MC_COD.m||{};(rows||[]).forEach(function(p){if(p&&p.sku)m[String(p.sku).toUpperCase()]=[p.codigo,p.cod_prov].filter(Boolean).join(' ');});MC_COD.m=m;}
@@ -506,16 +510,11 @@ var MCps=(function(){
   function nz(t){return String(t==null?'':t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/["”“″'()\[\]]/g,' ').replace(/(\d)\s*x\s*(\d)/g,'$1 x $2').replace(/[^a-z0-9\/.]+/g,' ').replace(/\s+/g,' ').trim();}
   function nm(p,nameFn){return p._psn!=null?p._psn:(p._psn=' '+nz(nameFn(p))+' ');}
   function prep(q,list,nameFn){var nq=nz(q),T=nq?nq.split(' '):[],N=(list||[]).length,w=T.map(function(t){if(!N||!nameFn)return 1;var df=0,k=' '+t+' ';for(var i=0;i<N;i++)if(nm(list[i],nameFn).indexOf(k)>=0)df++;return 1+Math.min(1,Math.log((N+1)/(df+1))/5);});return {nq:nq,T:T,w:w};}
-  function score(c,name,hay){if(!c.nq)return 0;var nn=' '+nz(name)+' ',h=String(hay||'').toLowerCase(),T=c.T,n=T.length,m=0,mnt=0,sw=0,ok=[],pairs=0;
-    if(nn.indexOf(' '+c.nq+' ')>=0||(c.nq.length>=4&&h.split(/\s+/).indexOf(c.nq)>=0))return 1000+c.nq.length;
-    for(var i=0;i<n;i++){var t=T[i],o=false;
-      if(nn.indexOf(' '+t+' ')>=0)o=true;
-      else if(t.length>=3&&!/^[0-9\/.]+$/.test(t)&&(nn.indexOf(t)>=0||h.indexOf(t)>=0))o=true;
-      else if(t.length>=4&&h.indexOf(t)>=0)o=true;
-      ok.push(o);if(o){m++;sw+=c.w[i]||1;if(t.length>=3||t.indexOf('/')>=0)mnt++;}}
-    if(!mnt||m*2<n)return null;
-    for(i=0;i<n-1;i++)if(ok[i]&&ok[i+1]&&nn.indexOf(' '+T[i]+' '+T[i+1]+' ')>=0)pairs++;
-    return sw*10+pairs*15+(m===n?20:0);}
+  function score(c,name,hay){if(!c.nq)return 0;var nn=mcTokHay(nz(name)),h=mcTokHay(nz(hay)),T=c.T,n=T.length,sw=0,pairs=0,all=true; /* r506: AND por palabra/prefijo (antes bastaba la mitad de las palabras o un trozo dentro de otra palabra) */
+    for(var i=0;i<n;i++){var t=T[i],a=mcTokOk(nn,t);if(!a&&!mcTokOk(h,t))return null;if(!a)all=false;sw+=(c.w[i]||1)*(a?1:0.7);}
+    if(nn.indexOf(' '+c.nq+' ')>=0)return 1000+c.nq.length;
+    for(i=0;i<n-1;i++)if(nn.indexOf(' '+T[i]+' '+T[i+1])>=0)pairs++;
+    return sw*10+pairs*15+(all?20:0);}
   /* rank(q, lista, nombre(p), pajar(p), filtro(p)) → lista ordenada por puntaje, solo las que califican */
   function rank(q,list,nameFn,hayFn,filt){var c=prep(q,list,nameFn),R=[];(list||[]).forEach(function(p,i){if(filt&&!filt(p))return;var s=score(c,nameFn(p),hayFn(p));if(s!=null)R.push({p:p,s:s,i:i});});R.sort(function(a,b){return b.s-a.s||a.i-b.i;});return R.map(function(x){return x.p;});}
   return {nz:nz,prep:prep,score:score,rank:rank};
@@ -527,7 +526,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='494'; /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='495'; /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -9980,9 +9979,9 @@ var Compras=(function(){
       (window.MC_PO_CUR?'':sl('tipo',['Tipo',[['','OC y cotizaciones'],['0','Solo OC'],['1','Solo cotizaciones de compra']]]))+sl('estado',['Entrega',[['','Todas (sin canceladas)'],['pendiente','Pendiente'],['parcial','Parcial'],['entregada','Entregada'],['cotizacion','Cotizaciones'],['cancelada','Solo canceladas']].filter(function(o){return !(window.MC_PO_CUR&&o[0]==='cotizacion');})])+sl('pago',['Pago',[['','Todos'],['unpaid','Sin pagar'],['partial','Pago parcial'],['paid','Pagadas']]])+
       '</div><div style="display:flex;gap:6px;margin-top:8px"><button class="chip" onclick="Compras.resetF()">↺ Restablecer filtros</button><button class="chip" onclick="Compras.cargarL()">⟳ Recargar</button><span style="flex:1"></span><button class="chip" onclick="Compras.togPF()">Cerrar ▴</button></div></div>';
     /* b273: lista OC — desktop tabla a ancho completo; móvil tarjetas (Nº + estado, proveedor, grid 2 columnas) */
-    var toks=nrm(q).split(/\s+/).filter(Boolean);
+    var toks=mcNorm(q).split(' ').filter(Boolean);
     var listaF=lista.filter(function(o){if(window.MC_RECIB&&(o.is_quote||o.is_cancelled||!(o.estado==='abierta'||o.estado==='parcial')))return false;if(eQ!==null&&!!o.is_quote!==eQ)return false;var es=pF.estado||'',de=dEst(o);if(de==='cancelada'&&!pF.canc&&es!=='cancelada')return false;if(es&&de!==es)return false;if(pF.pago&&o.payment_status!==pF.pago)return false;
-      if(toks.length){var t=o._b||(o._b=nrm([o.order_number,o.proveedor,o.vendor_order_number,o.busca].join(' ')));for(var i=0;i<toks.length;i++)if(t.indexOf(toks[i])<0)return false;}return true;});var lista0=lista;lista=listaF;
+      if(toks.length){var t=o._b4||(o._b4=mcTokHay(mcNorm([o.order_number,o.proveedor,o.vendor_order_number,o.busca].join(' '))));for(var i=0;i<toks.length;i++)if(!mcTokOk(t,toks[i]))return false;} /* r506 */return true;});var lista0=lista;lista=listaF;
     var chipE=function(o){var d=DEST[dEst(o)];return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap;color:'+d[1]+';border-color:'+d[1]+'">'+d[0]+'</span>';};
     var chipS=function(o){var e=o.sync_status==='error';return '<span class="chip" style="padding:2px 8px;font-size:11px;white-space:nowrap'+(e?';color:#e05c5c;border-color:#e05c5c':'')+'">'+(e?'Error inFlow':(SYNC[o.sync_status]||esc(o.sync_status||'')))+'</span>';};
     if(!lista.length)h+='<div class="cbz-card cbz-muted" style="text-align:center;padding:20px">Sin órdenes de compra con este filtro.</div>';
@@ -12166,14 +12165,14 @@ var Ventas = (function(){
   /* b307: una sola búsqueda instantánea (en la lista ya cargada, sin spinner) + «Filtros ▾» plegable. Lo de servidor (estado, fechas, pago, envío, orden, vendedor) va en el panel. */
   var fOpen=false,qT=0,qS=0,extra=[];
   function norm(x){return String(x==null?'':x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
-  function qMatch(o,toks){var t=o._b||(o._b=norm([o.order_number,o.quote_number,o.root_number,o.cliente,o.sales_rep,o.factura_sri,o.bodega,o.entrega,o.busca].join(' ')));for(var i=0;i<toks.length;i++)if(t.indexOf(toks[i])<0)return false;return true;}
+  function qMatch(o,toks){var t=o._b||(o._b=mcTokHay(mcNorm([o.order_number,o.quote_number,o.root_number,o.cliente,o.sales_rep,o.factura_sri,o.bodega,o.entrega,o.busca].join(' '))));for(var i=0;i<toks.length;i++)if(!mcTokOk(t,toks[i]))return false;return true;} /* r506 */
   function asigs(){var m={};lista.forEach(function(o){if(o.asignado_a)m[o.asignado_a]=1;});return Object.keys(m).sort();}
   function asigOk(o){var a=f.asig;if(!a)return true;if(a==='__no')return !o.asignado_a;if(a==='__yo')return !!o.asignado_a&&String(o.asignado_a).toLowerCase()===String(getUserName()||'').toLowerCase();return o.asignado_a===a;}
   function vis(){var r=vis0();return String(f.q||'').trim()?r:r.filter(asigOk);} /* r500: al buscar se busca en TODO (no aplica filtro Asignado) */
-  function vis0(){var toks=norm(f.q).split(/\s+/).filter(Boolean);if(!toks.length)return mcSinCanceladas(lista,f.estado==='cancelada');var ids={},out=[];lista.forEach(function(o){if(!ids[o.id]&&qMatch(o,toks)){ids[o.id]=1;out.push(o);}});extra.forEach(function(o){if(!ids[o.id]){ids[o.id]=1;out.push(o);}});return out;} /* r500: lo que el servidor encontró (RUC, obs, productos…) se muestra aunque no esté en el texto local */
+  function vis0(){var toks=mcNorm(f.q).split(' ').filter(Boolean);if(!toks.length)return mcSinCanceladas(lista,f.estado==='cancelada');var ids={},out=[];lista.forEach(function(o){if(!ids[o.id]&&qMatch(o,toks)){ids[o.id]=1;out.push(o);}});extra.forEach(function(o){if(!ids[o.id]){ids[o.id]=1;out.push(o);}});return out;} /* r500: lo que el servidor encontró (RUC, obs, productos…) se muestra aunque no esté en el texto local */
   function nFil(){return ['estado','desde','hasta','pago','inv','vendedor','orden'].filter(function(k){return f[k]&&!(k==='estado'&&tipo==='SQ'&&f[k]==='cotizacion');}).length;}
-  function qLive(v){f.q=v;clearTimeout(qT);qT=setTimeout(function(){try{localStorage.setItem('mc_lst_filt_'+tipo,JSON.stringify(f));}catch(e){}pintaRes();},90);
-    clearTimeout(qS);extra=[];var q=String(v||'').trim();if(q.length>=3)qS=setTimeout(function(){api({op:'list',tipo:tipo,q:q,limit:300}) /* r500: búsqueda en todas las órdenes, sin filtro de estado guardado */.then(function(r){if(!r.ok||f.q!==v)return;extra=(r.ordenes||[]).filter(function(o){return f.estado==='cancelada'||o.estado!=='cancelada';});pintaRes();}).catch(function(){});},450);}
+  var qGen=0;function qLive(v){f.q=v;qGen++;clearTimeout(qT);qT=setTimeout(function(){try{localStorage.setItem('mc_lst_filt_'+tipo,JSON.stringify(f));}catch(e){}pintaRes();},90);
+    clearTimeout(qS);extra=[];var q=String(v||'').trim();if(q.length>=3)qS=setTimeout(function(){var qg=++qGen;api({op:'list',tipo:tipo,q:q,limit:300}) /* r500: búsqueda en todas las órdenes, sin filtro de estado guardado */.then(function(r){var qi=$('vt-fq');if(!r.ok||qg!==qGen||f.q!==v||(qi&&qi.value!==v))return; /* r506: descarta respuestas de lo que se escribía antes («Low» → 46) */extra=(r.ordenes||[]).filter(function(o){return f.estado==='cancelada'||o.estado!=='cancelada';});pintaRes();}).catch(function(){});},450);}
   function togF(){fOpen=!fOpen;var p=$('vt-fpan');if(p)p.style.display=fOpen?'block':'none';}
   function selF(){leerFiltros();cargar(true);}
   function pintaRes(){var r=$('vt-res');if(r)r.innerHTML=resHtml(vis())+(lMas?'<div class="cbz-muted" style="text-align:center;padding:8px;font-size:12px">Cargando historial completo…</div>':'');}
@@ -18360,7 +18359,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=494',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=495',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
