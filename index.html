@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='487'; /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='488'; /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -12159,11 +12159,11 @@ var Ventas = (function(){
   function qMatch(o,toks){var t=o._b||(o._b=norm([o.order_number,o.quote_number,o.root_number,o.cliente,o.sales_rep,o.factura_sri,o.bodega,o.entrega,o.busca].join(' ')));for(var i=0;i<toks.length;i++)if(t.indexOf(toks[i])<0)return false;return true;}
   function asigs(){var m={};lista.forEach(function(o){if(o.asignado_a)m[o.asignado_a]=1;});return Object.keys(m).sort();}
   function asigOk(o){var a=f.asig;if(!a)return true;if(a==='__no')return !o.asignado_a;if(a==='__yo')return !!o.asignado_a&&String(o.asignado_a).toLowerCase()===String(getUserName()||'').toLowerCase();return o.asignado_a===a;}
-  function vis(){return vis0().filter(asigOk);}
-  function vis0(){var toks=norm(f.q).split(/\s+/).filter(Boolean);if(!toks.length)return mcSinCanceladas(lista,f.estado==='cancelada');var ids={},out=[];lista.concat(extra).forEach(function(o){if(!ids[o.id]&&qMatch(o,toks)){ids[o.id]=1;out.push(o);}});return out;}
+  function vis(){var r=vis0();return String(f.q||'').trim()?r:r.filter(asigOk);} /* r500: al buscar se busca en TODO (no aplica filtro Asignado) */
+  function vis0(){var toks=norm(f.q).split(/\s+/).filter(Boolean);if(!toks.length)return mcSinCanceladas(lista,f.estado==='cancelada');var ids={},out=[];lista.forEach(function(o){if(!ids[o.id]&&qMatch(o,toks)){ids[o.id]=1;out.push(o);}});extra.forEach(function(o){if(!ids[o.id]){ids[o.id]=1;out.push(o);}});return out;} /* r500: lo que el servidor encontró (RUC, obs, productos…) se muestra aunque no esté en el texto local */
   function nFil(){return ['estado','desde','hasta','pago','inv','vendedor','orden'].filter(function(k){return f[k]&&!(k==='estado'&&tipo==='SQ'&&f[k]==='cotizacion');}).length;}
   function qLive(v){f.q=v;clearTimeout(qT);qT=setTimeout(function(){try{localStorage.setItem('mc_lst_filt_'+tipo,JSON.stringify(f));}catch(e){}pintaRes();},90);
-    clearTimeout(qS);extra=[];var q=String(v||'').trim();if(q.length>=3)qS=setTimeout(function(){api({op:'list',tipo:tipo,q:q,estado:f.estado&&f.estado!=='cotizacion'?f.estado:undefined,limit:200}).then(function(r){if(!r.ok||f.q!==v)return;extra=(r.ordenes||[]).filter(function(o){return f.estado==='cancelada'||o.estado!=='cancelada';});pintaRes();}).catch(function(){});},450);}
+    clearTimeout(qS);extra=[];var q=String(v||'').trim();if(q.length>=3)qS=setTimeout(function(){api({op:'list',tipo:tipo,q:q,limit:300}) /* r500: búsqueda en todas las órdenes, sin filtro de estado guardado */.then(function(r){if(!r.ok||f.q!==v)return;extra=(r.ordenes||[]).filter(function(o){return f.estado==='cancelada'||o.estado!=='cancelada';});pintaRes();}).catch(function(){});},450);}
   function togF(){fOpen=!fOpen;var p=$('vt-fpan');if(p)p.style.display=fOpen?'block':'none';}
   function selF(){leerFiltros();cargar(true);}
   function pintaRes(){var r=$('vt-res');if(r)r.innerHTML=resHtml(vis())+(lMas?'<div class="cbz-muted" style="text-align:center;padding:8px;font-size:12px">Cargando historial completo…</div>':'');}
