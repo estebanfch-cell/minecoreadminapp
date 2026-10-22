@@ -2,7 +2,7 @@
    b480 EFCH t1065: la página (navegación) se pide SIEMPRE a la red sin caché HTTP, para que cada build nuevo llegue al iPhone; sin red ⇒ intento normal.
    b474 REGLA GLOBAL: cada push de aviso lleva tag estable = clave del aviso («av:tipo:ref»); tocarla abre el registro exacto (#/doc/<número>);
    al cerrar/leer el aviso (en este u otro equipo) el banner lo quita la APP (mensaje «mc-sync»/«mc-close»); nunca hay push de cierre. */
-var SWV='b498';
+var SWV='b499';
 self.addEventListener('fetch',function(e){var r=e.request;if(r.mode!=='navigate'||r.method!=='GET')return;
   e.respondWith(fetch(r.url,{cache:'no-store',credentials:'same-origin'}).catch(function(){return fetch(r);}));});
 self.addEventListener('install',function(e){self.skipWaiting();});
