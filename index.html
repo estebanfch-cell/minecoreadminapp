@@ -527,7 +527,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='486'; /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='487'; /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -18590,5 +18590,11 @@ var MCDeep=(function(){
   document.addEventListener('visibilitychange',function(){if(!document.hidden)chk();});window.addEventListener('pageshow',chk);
   setTimeout(chk,4000);setInterval(chk,300000);})();
 </script>
+<script>/* b487 r499: iOS deja la barra fija (position:fixed) a media pantalla si un input con teclado abierto se elimina (modales) o el alto del documento cambia. Fix global: blur antes de quitar, y al cerrar el teclado / cambiar alto se fuerza re-layout de todos los fijos. */
+(function(){var t=null;function fix(){clearTimeout(t);t=setTimeout(function(){var a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.isConnected)return;try{window.scrollTo(window.scrollX,window.scrollY);}catch(e){}var b=document.getElementById('mc-bbar');if(b){b.style.display='none';void b.offsetHeight;b.style.display='';}},120);}
+var vv=window.visualViewport;if(vv){vv.addEventListener('resize',fix);}window.addEventListener('resize',fix);document.addEventListener('focusout',fix,true);
+var rm=Element.prototype.remove;Element.prototype.remove=function(){try{var a=document.activeElement;if(a&&a!==document.body&&this.contains&&this.contains(a)){a.blur();fix();}}catch(e){}return rm.apply(this,arguments);};
+try{new ResizeObserver(fix).observe(document.body);}catch(e){}})();</script>
+<style>/* b487 */body.mc-nav #mc-bbar{transform:translateZ(0);-webkit-transform:translateZ(0)}</style>
 </body>
 </html>
