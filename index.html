@@ -459,7 +459,9 @@ table.mc-nw.mc-nofill{width:auto!important;min-width:0}
 body.mc-nav .topbar .mc-acc-btn{display:none!important}
 #mc-rail .mr-acc{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-bottom:8px}
 #mc-rail .mr-acc .mr-i{font-size:17px}
-.dv-tabs{flex-wrap:nowrap!important}
+.dv-tabs,.dv-tabs.mc-pgrid{display:flex!important;flex-wrap:nowrap!important;grid-template-columns:none!important} /* b508.5: el normalizador b422 convertía .dv-tabs en grilla de 3 */
+.dv-tabs.mc-pgrid>*{display:block!important}
+html:has(body.mc-nav){scroll-padding-bottom:calc(90px + env(safe-area-inset-bottom))}body.mc-nav #maes-screen{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 .dv-tabs button{flex:1 1 0!important;min-width:0!important;width:auto!important;max-width:none!important;white-space:nowrap!important;padding:9px 2px!important;font-size:clamp(11.5px,3.5vw,13px)!important}
 </style>
 </head>
@@ -548,7 +550,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='508.4'; /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='508.5'; /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -11309,10 +11311,12 @@ function getProfile(){
    La organización la impone el servidor (portal-api / ops-api). p.esCli marca la vista; p.rolReal guarda 'cliente'. */
 /* r508 b499 EFCH: red de seguridad en pantallas de cliente (Productos/Clientes): fuera todo botón o campo que escriba, suba archivos o dispare acciones. El servidor igual rechaza (solo lectura). */
 var MC_CLI_DENY=/(guardar|nuevo\(|borrar|eliminar|cancelar\(|activo\(|MCProd\.adjuntos\(\)|MCProd\.(mv|etq|etqMenu|vender|copiar|desp|cat)\(|MCStkEd|MCStk2\.|MCProd2\.|MCVnd\.|cuAdd|MCArch|\.ed\(|descartar|mover|subir|adjuntar|asignar|MCAsig|restock|solFac|email\(|editar|ie\(|iePick)/i;
+var MC_CLI_NAV=/^\s*(MCProd2\.acc|MCProd\.tab|MCProd\.volver)\(/;
 function mcCliROmaes(root){if(!root||!mcEsCliV())return;
   root.querySelectorAll('input[type=file],[contenteditable=true]').forEach(function(x){var l=x.closest('label');(l||x).remove();});
   root.querySelectorAll('[onclick],[onchange],[oninput]').forEach(function(b){var oc=(b.getAttribute('onclick')||'')+' '+(b.getAttribute('onchange')||'')+' '+(b.getAttribute('oninput')||'');
     if(/if\(!mcEsCliV\(\)\)/.test(oc))return;
+    if(b.closest('.fx-tabs,#pfm-tabs,.pfm-acc2,[role=tab],[data-mc-nav]')||MC_CLI_NAV.test(oc))return; /* b508.5: pestañas = navegación, nunca se quitan */
     if(!MC_CLI_DENY.test(oc))return;
     if(b.tagName==='BUTTON'||b.tagName==='SELECT'||b.tagName==='INPUT'||b.tagName==='TEXTAREA'||b.tagName==='LABEL'||b.classList.contains('chip')||b.classList.contains('cbz-btn'))b.remove();
     else{b.removeAttribute('onclick');b.removeAttribute('onchange');b.style.cursor='default';}});}
@@ -18295,7 +18299,7 @@ html body input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #0b1219 inset!imp
     [].forEach.call(root.querySelectorAll('.fx-hd:not([data-mcacts])'),function(h){h.setAttribute('data-mcacts','1');var B=[].slice.call(h.children).filter(function(e,i){return i>0&&e.tagName==='BUTTON';});
       if(B.length<2)return;var g=document.createElement('div');g.className='fx-acts mc-pgrid mc-pg-act';B.forEach(function(b){b.style.marginLeft='';g.appendChild(b);});h.parentNode.insertBefore(g,h.nextSibling);});
     /* genérico: contenedores flex con 3+ hijos y todos pills (filtros, acciones, KPIs sueltos) */
-    [].forEach.call(root.querySelectorAll('div:not(.mc-pgrid):not(.mc-tb):not(.mc-tb1)'),function(e){var K=e.children;if(K.length<3||K.length>24)return;
+    [].forEach.call(root.querySelectorAll('div:not(.mc-pgrid):not(.mc-tb):not(.mc-tb1):not(.dv-tabs):not([data-mc-1row])'),function(e){var K=e.children;if(K.length<3||K.length>24)return;
       for(var i=0;i<K.length;i++){if(!esPill(K[i]))return;}
       var cs=getComputedStyle(e);if(cs.display!=='flex'||cs.flexDirection.indexOf('column')===0)return;
       e.classList.add('mc-pgrid');});}
@@ -18876,7 +18880,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=508.4',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=508.5',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
