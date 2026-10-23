@@ -451,7 +451,18 @@ table.mc-nw td.mc-fill>*{max-width:100%}
 table.mc-nw td:not(.mc-fill),table.mc-nw td:not(.mc-fill) *{text-overflow:clip!important;max-width:none!important;overflow:visible!important}
 table.mc-nw.mc-nofill{width:auto!important;min-width:0}
 .mc-nwi{white-space:nowrap!important}
-</style><style>/*mc-resp-v1*/#cc .cc-mL,#cc .cc-mR{min-width:0}#cc .cc-mL .cbz-card{overflow-x:auto;-webkit-overflow-scrolling:touch}.cbz-card,.cbz-card-row>*,[style*="display:grid"]>*,[style*="display:flex"]>*{min-width:0}.cbz-card{max-width:100%;box-sizing:border-box}.cbz-card:has(>table),.cbz-card:has(>div>table){overflow-x:auto}img,canvas,video{max-width:100%}@media(max-width:1000px){[style*="grid-template-columns:1fr 1fr"]:not(.mc-keep2){grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important}[style*="grid-template-columns:repeat(3,1fr)"],[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))!important}[style*="grid-template-columns:200px 1fr"]{grid-template-columns:minmax(0,1fr)!important}[style*="width:560px"],[style*="width:620px"],[style*="width:700px"]{width:auto!important;max-width:100%!important}}</style><style>/* r515 b507: nombre largo (p.ej. vista previa) no ensancha la página en móvil */@media(max-width:820px){#whoami{max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}.topbar{flex-wrap:wrap;row-gap:6px}}</style></head>
+</style><style>/*mc-resp-v1*/#cc .cc-mL,#cc .cc-mR{min-width:0}#cc .cc-mL .cbz-card{overflow-x:auto;-webkit-overflow-scrolling:touch}.cbz-card,.cbz-card-row>*,[style*="display:grid"]>*,[style*="display:flex"]>*{min-width:0}.cbz-card{max-width:100%;box-sizing:border-box}.cbz-card:has(>table),.cbz-card:has(>div>table){overflow-x:auto}img,canvas,video{max-width:100%}@media(max-width:1000px){[style*="grid-template-columns:1fr 1fr"]:not(.mc-keep2){grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important}[style*="grid-template-columns:repeat(3,1fr)"],[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))!important}[style*="grid-template-columns:200px 1fr"]{grid-template-columns:minmax(0,1fr)!important}[style*="width:560px"],[style*="width:620px"],[style*="width:700px"]{width:auto!important;max-width:100%!important}}</style><style>/* r515 b507: nombre largo (p.ej. vista previa) no ensancha la página en móvil */@media(max-width:820px){#whoami{max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}.topbar{flex-wrap:wrap;row-gap:6px}}</style><style>/* b508.4 EFCH t1193: barra superior en UNA fila (logo · usuario · 🔔); Cuenta/Salir en el menú; Hoy·Semana·Mes·Año en una fila */
+.topbar{flex-wrap:nowrap!important;min-width:0}
+.topbar #whoami{flex:0 1 auto!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar #hdrLogo{flex:0 1 auto!important;min-width:0;max-width:52vw;object-fit:contain;object-position:left center}
+.topbar>*{min-width:0}.topbar .dot,.topbar button{flex:none!important}
+body.mc-nav .topbar .mc-acc-btn{display:none!important}
+#mc-rail .mr-acc{margin-top:auto;display:flex;flex-direction:column;gap:4px;padding-bottom:8px}
+#mc-rail .mr-acc .mr-i{font-size:17px}
+.dv-tabs{flex-wrap:nowrap!important}
+.dv-tabs button{flex:1 1 0!important;min-width:0!important;width:auto!important;max-width:none!important;white-space:nowrap!important;padding:9px 2px!important;font-size:clamp(11.5px,3.5vw,13px)!important}
+</style>
+</head>
 <body>
 <style id="mc-cli-css">/* b459 EFCH: campo CLIENTE destacado (cotizaciones y órdenes de venta) — banda + barra lima, sin cajas */
 .mc-clif{background:linear-gradient(90deg,rgba(230,255,0,.13),rgba(230,255,0,.03) 70%,transparent);border-left:4px solid #e6ff00;border-radius:4px;padding:10px 14px 12px}
@@ -537,7 +548,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='508.3'; /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='508.4'; /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -556,10 +567,10 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
 <div id="shell" style="display:none">
   <div class="topbar">
     <span class="dot"></span><img id="hdrLogo" alt="Minecore" title="Dashboard" role="button" style="height:30px;display:none;flex:none;cursor:pointer" onload="this.style.display='inline-block'" onclick="try{if(window.MCNav&&MCNav.inicio)MCNav.inicio();else goHome();}catch(e){goHome();}"><span style="flex:1"></span><span id="whoami" style="color:#8fa3b8;font-size:12px;font-weight:700;margin-right:6px"></span>
-    <button id="syncBtn" style="display:none" onclick="doSyncNow()" title="Recargar datos">⟳<span class="lbl">Sync</span></button>
+    <button id="syncBtn" style="display:none!important" hidden onclick="doSyncNow()" title="Recargar datos">⟳<span class="lbl">Sync</span></button>
     <button id="mc-bell" onclick="MCNotif.abrir()" title="Avisos y mis valores por defecto" style="position:relative">🔔<span class="lbl">Avisos</span><b id="mc-bell-n" style="display:none;position:absolute;top:-4px;right:-4px;background:#e05c5c;color:#fff;border-radius:9px;font-size:10px;min-width:17px;height:17px;line-height:17px;padding:0 4px;text-align:center"></b></button>
-    <button onclick="MCCuenta.abrir()" title="Mi cuenta">👤<span class="lbl">Cuenta</span></button>
-    <button onclick="doLogout()" title="Cerrar sesión">⎋<span class="lbl">Salir</span></button>
+    <button class="mc-acc-btn" onclick="MCCuenta.abrir()" title="Mi cuenta">👤<span class="lbl">Cuenta</span></button>
+    <button class="mc-acc-btn" onclick="doLogout()" title="Cerrar sesión">⎋<span class="lbl">Salir</span></button>
     <button id="backBtn" style="display:none" onclick="goHome()" title="Volver al menú">←<span class="lbl">Menú</span></button>
   </div>
   <h1 id="title" style="font-size:17px;letter-spacing:1px;margin:0 0 12px"></h1>
@@ -13778,7 +13789,7 @@ function renderHome(){
     bar.className='on';
     bar.style.display='block';
   }).catch(function(){});
-  document.getElementById('syncBtn').style.display = (p.rol==='admin') ? 'block' : 'none';
+  /* b508.4 EFCH t1193: sin botón Sync (Minecore es la fuente; refresco silencioso) */
   if(p.rol==='admin'){
     Promise.resolve({version:'Supabase (portal-api)',cajaNative:true}).then(function(d){ /* b346: sin GET a Apps Script */
       var e=document.getElementById('api-ver');
@@ -14248,14 +14259,15 @@ var MCNav=(function(){
     var lg=(document.getElementById('hdrLogo')||{}).src||'';
     var h='<div id="mc-rail"><button class="mr-i mr-logo" title="Dashboard" onclick="MCNav.inicio()">'+(lg?'<img src="'+lg+'" alt="Minecore">':ic('home'))+'</button>';
     grupos.forEach(function(g,i){h+=g.sep?(i<grupos.length-1?'<div class="mr-sep'+(g.thin?' mr-thin':'')+'"></div>':''):'<button class="mr-i'+(g.amar?' mr-plus':'')+'" data-g="'+i+'" title="'+g.t+'" '+(g.directo?'onclick="MCNav.go(\''+g.k+'\',0)"':'onmouseenter="MCNav.hover('+i+',this)" onclick="MCNav.toggle('+i+',this)"')+'>'+ic(g.ico)+'</button>';});
+    h+='<div class="mr-acc"><button class="mr-i" title="Mi cuenta" onclick="MCCuenta.abrir()">👤</button><button class="mr-i" title="Cerrar sesión" onclick="doLogout()">⎋</button></div>';
     h+='</div><div id="mc-fly" onmouseleave="MCNav.leave()"></div>';
     // móvil: Dashboard, +, Ventas, Inventario, Compras, Más (resto)
     var prin=['crear','ventas','inv','compras','bod','pvd','pvc'],mas=gs.filter(function(g){return prin.indexOf(g.k)<0;});
     /* b338 (EFCH iPhone): Ventas · Inventario · Crear (centro, grande) · Compras · Más. Sin «Inicio»: el logo de arriba lleva al Dashboard. */
     var b='<div id="mc-bbar">';
     ['pvd','ventas','inv','crear','bod','compras','pvc'].forEach(function(k){var g=gs.filter(function(x){return x.k===k;})[0];if(!g)return;var bt='<button class="mb-i'+(k==='crear'?' mr-plus mb-crear':'')+'" onclick="'+(g.directo?'MCNav.go(\''+g.k+'\',0)':'MCNav.sheet(\''+g.k+'\')')+'">'+ic(g.ico)+'<span>'+(k==='crear'?'Crear':g.t)+'</span></button>';
-      b+=k==='crear'?'<div class="mb-cc">'+bt+(mas.length?'<button class="mb-dots" aria-label="Más opciones" onclick="MCNav.mas()">'+ic('more',28)+'</button>':'')+'</div>':bt;}); /* b386: sin pestaña «Más»; ⋯ bajo Crear */
-    if(P.esCli&&mas.length)b+='<button class="mb-i" aria-label="Más opciones" onclick="MCNav.mas()">'+ic('more')+'<span>Más</span></button>'; /* r510 b501 */
+      b+=k==='crear'?'<div class="mb-cc">'+bt+(true?'<button class="mb-dots" aria-label="Más opciones" onclick="MCNav.mas()">'+ic('more',28)+'</button>':'')+'</div>':bt;}); /* b386: sin pestaña «Más»; ⋯ bajo Crear */
+    if(P.esCli)b+='<button class="mb-i" aria-label="Más opciones" onclick="MCNav.mas()">'+ic('more')+'<span>Más</span></button>'; /* r510 b501 */
     b+='</div><div id="mc-masbg" onclick="MCNav.mas(false)"></div><div id="mc-mas"></div><div id="mc-sheet" onclick="if(event.target===this)MCNav.cerrar()"></div>';
     var w=document.createElement('div');w.id='mc-navwrap';w.innerHTML=h+b;var old=document.getElementById('mc-navwrap');if(old)old.remove();document.body.appendChild(w);}
   function flyHtml(g){return '<div class="mf-t" style="color:'+g.col+'">'+g.t+'</div>'+g.items.map(function(it,j){var dv=g.k==='bod'&&it[1]==='Recibir orden';return (dv&&j?'<div style="height:1px;background:rgba(255,255,255,.14);margin:4px 8px"></div>':'')+'<button class="mf-o" onclick="MCNav.go(\''+g.k+'\','+j+')"><span class="mf-ic">'+it[0]+'</span>'+it[1]+'</button>';}).join('');}
@@ -14273,8 +14285,10 @@ var MCNav=(function(){
     s.innerHTML='<div class="ms-in"><div class="ms-h"></div>'+h+'</div>';s.style.display='flex';}
   function mas(on){var m=document.getElementById('mc-mas'),bg=document.getElementById('mc-masbg'),bb=document.getElementById('mc-bbar');if(!m)return; /* b386 */
     if(on===undefined)on=!m.classList.contains('on');
-    if(on){var prin=['crear','bod','ventas','inv','compras'],h='';grupos.filter(function(g){return !g.sep&&prin.indexOf(g.k)<0;}).forEach(function(g){h+=flyHtml(g);});m.innerHTML='<div class="mm-in">'+h+'</div>';var s=document.getElementById('mc-sheet');if(s)s.style.display='none';}
+    if(on){var prin=['crear','bod','ventas','inv','compras'],h='';grupos.filter(function(g){return !g.sep&&prin.indexOf(g.k)<0;}).forEach(function(g){h+=flyHtml(g);});h+=cuentaHtml();m.innerHTML='<div class="mm-in">'+h+'</div>';var s=document.getElementById('mc-sheet');if(s)s.style.display='none';}
     m.classList.toggle('on',on);if(bg)bg.classList.toggle('on',on);if(bb)bb.classList.toggle('mas-on',on);}
+  /* b508.4 EFCH t1193: Mi cuenta y Cerrar sesión salen de la barra superior y viven en el menú (⋯ en móvil, abajo en la barra lateral) */
+  function cuentaHtml(){return '<div class="mf-t" style="color:#8fa3b8">Mi cuenta</div><button class="mf-o" onclick="MCNav.mas(false);MCCuenta.abrir()"><span class="mf-ic">👤</span>Mi cuenta</button><button class="mf-o" onclick="MCNav.mas(false);doLogout()"><span class="mf-ic">⎋</span>Cerrar sesión</button>';}
   function go(k,j){var g=grupos.filter(function(x){return x.k===k;})[0];if(g&&g.items[j])ir(g.items[j][2]);}
   function inicio(){cerrar();var d=MC_NAVCAT()[0];if(P&&MCnavOk(P,d,d.items[0]))openMod('dash');else goHome();}
   return {render:render,on:on,hover:hover,toggle:toggle,leave:leave,cerrar:cerrar,sheet:sheet,go:go,inicio:inicio,mas:mas,_g:function(){return grupos;}}; /* r513 b504: lectura para pruebas */
@@ -18862,7 +18876,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=508.2a',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=508.4',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
