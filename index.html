@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="caja.css?v=329">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
+html{background:#0b1219}body{background:#0b1219;color:#dce6f0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;min-height:100dvh}html,body{overscroll-behavior-y:none}
 #shell{max-width:640px;margin:0 auto;padding:16px}
 /* ===== Modo escritorio ===== */
 @media(min-width:1024px){
@@ -505,7 +505,7 @@ function mcNorm(t){return String(t==null?'':t).normalize('NFD').replace(/[\u0300
 /* r506 · regla única de búsqueda (igual que app.mc_tok_ok en el servidor): cada palabra escrita debe aparecer (AND) como palabra o inicio de palabra; sin tildes/mayúsculas. Medidas HQ=HO, NQ=NO, BQ=BO, PQ=PO. */
 function mcTokHay(h){return ' '+String(h||'').replace(/([a-z])\/(?=[a-z])/g,'$1 ').replace(/\s+/g,' ')+' ';}
 function mcTokOk(hay,t){if(!t)return true;var m=/^([bnhp])[qo]([0-9]*)$/.exec(t);if(m&&new RegExp('(^| )'+m[1]+'[qo]'+m[2]+(m[2]?'':'[0-9]*')+'( |$)').test(hay))return true;return hay.indexOf(' '+t)>=0;}
-function mcQ(q,hay){var T=mcNorm(q).split(' ').filter(Boolean);if(!T.length)return true;var h=mcTokHay(mcNorm(hay));for(var i=0;i<T.length;i++)if(!mcTokOk(h,T[i]))return false;return true;}
+/* r521-b5083 */function mcQ(q,hay){var T=mcNorm(q).split(' ').filter(Boolean);if(!T.length)return true;var h=mcTokHay(mcNorm(hay));for(var i=0;i<T.length;i++)if(!mcTokOk(h,T[i]))return false;return true;}
 var MC_COD={m:null,ld:0};
 function MCcod(sku){var m=MC_COD.m;if(!m){MCcodLoad();return '';}return m[String(sku||'').toUpperCase()]||'';}
 function MCcodSet(rows){var m=MC_COD.m||{};(rows||[]).forEach(function(p){if(p&&p.sku)m[String(p.sku).toUpperCase()]=[p.codigo,p.cod_prov].filter(Boolean).join(' ');});MC_COD.m=m;}
@@ -537,7 +537,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='508.1'; /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='508.3'; /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -823,7 +823,7 @@ function MCsaved(sel){try{MCspinCss();
   var d=document.createElement('div');d.textContent='Guardado ✓';d.style.cssText='position:fixed;top:12px;right:12px;z-index:99999;background:#1f5130;color:#c9f7d5;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.35)';document.body.appendChild(d);setTimeout(function(){d.remove();},2000);}catch(e){}}
 /* b374 listas */
 var MC_LBS={};
-document.addEventListener('scroll',function(e){var t=e.target;if(t&&t.id&&/-md-lb$/.test(t.id))MC_LBS[t.id]=t.scrollTop;},true);
+document.addEventListener('scroll',function(e){var t=e.target;if(t&&t.id&&/-md-lb$/.test(t.id))MC_LBS[t.id]=t.scrollTop;},{capture:true,passive:true});
 function MCmdKeep(b){try{if(!b)return;var k=b.id;if(MC_LBS[k]!=null&&b.scrollTop!==MC_LBS[k]&&!b.dataset.init)b.scrollTop=MC_LBS[k];b.dataset.init='1';
   var a=b.querySelector('[style*="#16324a"]');if(!a)return;var id=a.getAttribute('data-id')||a.textContent.slice(0,40);if(b.dataset.sel===id)return;b.dataset.sel=id;
   var rb=b.getBoundingClientRect(),ra=a.getBoundingClientRect();if(ra.top<rb.top)b.scrollTop-=(rb.top-ra.top)+8;else if(ra.bottom>rb.bottom)b.scrollTop+=(ra.bottom-rb.bottom)+8;MC_LBS[k]=b.scrollTop;}catch(e){}}
@@ -3269,7 +3269,7 @@ var CxcSb=(function(){
   function diasCol(x){return x>90?'#e05c5c':x>60?'#e07a5c':x>30?'#f59e42':x>0?'#f0c040':'#6fd68f';}
   function cargar(){var e=el();if(!e)return;e.innerHTML='<div class="cbz-loading">Cargando cartera…</div>';
     MCpost({action:'ventas',op:'cxc_cartera',user:getUserName(),pin:getPin()}).then(function(r){if(!r.ok)throw new Error(r.error);d=r;render();}).catch(function(x){e.innerHTML='<div class="cbz-error">'+esc(typeof MCerr==='function'?MCerr(x):x.message)+'</div>';});}
-  function lista(){var C=(d.clientes||[]).filter(function(c){if(solo&&!(c.vencido>0))return false;if(qc&&c.cliente.toLowerCase().indexOf(qc.toLowerCase())<0&&String(c.ruc).indexOf(qc)<0)return false;if(qv&&!c.vendedores.some(function(v){return v.toLowerCase().indexOf(qv.toLowerCase())>=0;}))return false;return true;});
+  function lista(){var C=(d.clientes||[]).filter(function(c){if(solo&&!(c.vencido>0))return false;if(qc&&!mcQ(qc,c.cliente+' '+c.ruc))return false;if(qv&&!mcQ(qv,(c.vendedores||[]).join(' ')))return false;return true;});
     var S={vencido:function(a,b){return b.vencido-a.vencido||b.saldo-a.saldo;},saldo:function(a,b){return b.saldo-a.saldo;},dias:function(a,b){return b.max_dias-a.max_dias;},cliente:function(a,b){return a.cliente.localeCompare(b.cliente);}};return C.sort(S[ord]);}
   function facturas(c){var F=c.facturas.filter(function(f){return !solo||f.dias>0;}).slice().sort(function(a,b){return b.dias-a.dias;});
     return '<table class="cx-t"><thead><tr><th>Factura SRI</th><th>OV</th><th>Fecha</th><th class="r">Plazo</th><th>Vence</th><th class="r">Días vencido</th><th class="r">Total</th><th class="r">Retención</th><th class="r">Pagado</th><th class="r">Saldo</th></tr></thead><tbody>'+
@@ -6957,7 +6957,7 @@ var Cot = (function(){
     var list=czClientes||MCWarm.getClientes()||[];
     if(list.length)czClientes=list;
     var q=czNorm(czCliQ||((document.getElementById('cz-cli')||{}).value||''));
-    var rows=q?list.filter(function(n){return czNorm(n).indexOf(q)>=0;}):list.slice();
+    var rows=q?list.filter(function(n){return mcQ(q,n);}):list.slice();
     var st=MCWarm.status();
     if(!list.length){
       dd.innerHTML='<div class="cz-cli-opt muted">'+(st.clientesLoading?'Cargando clientes…':(st.clientesErr||'Sin clientes todavía.'))+'</div>';
@@ -9352,7 +9352,7 @@ var MCAnt=(function(){
     if(fCta)L=L.filter(function(a){return a.cuenta_id===fCta;});
     if(fCli)L=L.filter(function(a){return cliDe(a)===fCli;});
     var clis=[];(D.antenas||[]).forEach(function(a){var c=cliDe(a);if(c&&clis.indexOf(c)<0)clis.push(c);});clis.sort();
-    if(t)L=L.filter(function(a){return [a.nickname,a.kit,a.serial,a.cliente,a.cliente_propuesto,a.proyecto,a.cuenta_id,a.service_line].join(' ').toLowerCase().indexOf(t)>=0;});
+    if(t)L=L.filter(function(a){return mcQ(t,[a.nickname,a.kit,a.serial,a.cliente,a.cliente_propuesto,a.proyecto,a.cuenta_id,a.service_line].join(' '));});
     var abiertas=(D.solicitudes||[]).filter(function(s){return s.estado==='pendiente'||s.estado==='en proceso';}).length;
     var h=css()+'<div class="cbz-card-row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap"><button class="chip" onclick="Consig.setV(\'alq\')">← Alquiler</button><button class="chip" onclick="MCAnt.recargar()">↻ Actualizar</button></div>'+
       '<div class="cbz-muted" style="font-size:12px;margin-bottom:8px">'+(adm?'Todas las antenas de las 3 cuentas Starlink. ':'Tus antenas Starlink en alquiler. ')+'El estado lo actualiza Minecore desde Starlink; el cambio de clave WiFi lo hace nuestro equipo en la app Starlink.</div>'+
@@ -9762,7 +9762,7 @@ var Consig = (function(){
     MCpost({action:'consig_cliente',sububicacion:sub,cliente:c.trim(),user:getUserName(),pin:getPin()}).then(function(r){if(!r.ok){alert(r.error);return;}init();}).catch(function(e){alert(MCerr(e));});
   }
   function actasDe(cli){var L=data.actas||[];if(data.admin&&cli&&!actaTodos)L=L.filter(function(a){return a.cliente===cli.cliente;});
-    var q=normQ(actaQ);if(q)L=L.filter(function(a){return normQ(a.acta+' '+a.cliente+' '+a.sububicacion).indexOf(q)>=0||a.lineas.some(function(l){return normQ(l.sku+' '+l.nombre).indexOf(q)>=0;});});
+    var q=normQ(actaQ);if(q)L=L.filter(function(a){return mcQ(q,a.acta+' '+a.cliente+' '+a.sububicacion+' '+a.lineas.map(function(l){return l.sku+' '+l.nombre;}).join(' '));});
     return L;}
   function actasHtml(cli){
     var st='<style>.ca-t{display:none}@media(min-width:900px){.ca-t{display:block}.ca-c{display:none}}.ca-t table{width:100%;border-collapse:collapse;font-size:13px}.ca-t th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:8px;border-bottom:1px solid #26405c;white-space:nowrap}.ca-t td{padding:9px 8px;border-bottom:1px solid #1c2a3a}.ca-t tr.rw{cursor:pointer}.ca-t tr.rw:hover td{background:#13202e}.ca-t .r{text-align:right;white-space:nowrap}.ca-g{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:6px}.ca-g .k{color:#8fa3b8;font-size:10.5px}</style>';
@@ -9803,7 +9803,7 @@ var Consig = (function(){
     return out;}
   function rsNivel(l){if(l.ext==='APROBADA'&&l.dias<=data.limiteExtendido)return 'ok';return nivelDe(l.dias,data.limiteDias,data.limiteExtendido);}
   function resumenHtml(){var F=rsFilas(),qn=normQ(rsQ);
-    var V=F.filter(function(f){if(rsCli.length&&rsCli.indexOf(f.cliente)<0)return false;if(rsEst&&rsNivel(f.l)!==rsEst)return false;if(qn&&normQ(f.it.nombre+' '+f.it.sku+' '+f.l.acta+' '+f.proyecto+' '+f.cliente).indexOf(qn)<0)return false;return true;});
+    var V=F.filter(function(f){if(rsCli.length&&rsCli.indexOf(f.cliente)<0)return false;if(rsEst&&rsNivel(f.l)!==rsEst)return false;if(qn&&!mcQ(qn,f.it.nombre+' '+f.it.sku+' '+f.l.acta+' '+f.proyecto+' '+f.cliente))return false;return true;});
     V.sort(rsOrd==='cliente'?function(a,b){return a.cliente.localeCompare(b.cliente)||b.l.dias-a.l.dias;}:rsOrd==='producto'?function(a,b){return a.it.nombre.localeCompare(b.it.nombre);}:function(a,b){return b.l.dias-a.l.dias;});
     var und=0,at=0,fa=0,ok=0,cls={},mx=0;V.forEach(function(f){und+=+f.l.qty||0;cls[f.cliente]=1;var n=rsNivel(f.l);if(n==='red')fa+=+f.l.qty||0;else if(n==='tom')at+=+f.l.qty||0;else ok+=+f.l.qty||0;if(f.l.dias>mx)mx=f.l.dias;});
     var alq=vistaC==='alq',todos=(data.clientes||[]).filter(function(c){return alq?(c.alquiler||[]).length:(c.consignacion||[]).length;}).map(function(c){return c.cliente;});
@@ -10037,7 +10037,7 @@ var Compras=(function(){
   var cv='orden';
   var RT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-rt th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px;border-bottom:1px solid #26405c}.mc-rt td{padding:6px;border-bottom:1px solid #1c2a3a;vertical-align:middle}.mc-rt .r{text-align:right;white-space:nowrap}'+
     '.mc-pc{display:flex;gap:8px;align-items:center;min-width:0}.mc-pc b{word-break:break-word}@media(max-width:640px){.mc-rt thead{display:none}.mc-rt tr{display:block;border-bottom:1px solid #26405c;padding:6px 0}.mc-rt td{display:flex;justify-content:space-between;gap:8px;border:0;padding:3px 2px}.mc-rt td[data-l]::before{content:attr(data-l);color:#8fa3b8;font-size:11px}.mc-rt td.mc-p{display:block}.mc-rt .r{text-align:right}}</style>';
-  function pc(l){return '<div class="mc-pc">'+th(l.img,40)+'<div style="min-width:0;flex:1"><b style="font-size:12.5px">'+esc(l.nombre||l.description||'')+(!l.product_id?'<span style="color:#e05c5c">⚠ Producto no vinculado (avisar a soporte)</span>':'')+'</b><div class="cbz-muted" style="font-size:11px">'+(MCRO()&&l.vendor_item_code?'Tu código '+esc(l.vendor_item_code)+' · ':'')+esc(l.sku||'')+mcIrBtn(l.product_id)+'</div></div><span class="mc-lfac mc-lfb" data-sku="'+esc(l.sku||'')+'"></span></div>';}
+  function pc(l){return '<div class="mc-pc">'+th(l.img,40)+'<div style="min-width:0;flex:1"><b style="font-size:12.5px">'+esc(l.nombre||l.description||'')+(!l.product_id?'<span style="color:#e05c5c">⚠ Producto no vinculado (avisar a soporte)</span>':'')+'</b><div class="cbz-muted" style="font-size:11px">'+(MCRO()&&l.vendor_item_code?'Tu código '+esc(l.vendor_item_code)+' · ':'')+esc(l.sku||'')+mcIrBtn(l.product_id)+(MCRO()?'<span class="mc-urg" data-sku="'+esc(l.sku||'')+'"></span>':'')+'</div></div><span class="mc-lfac mc-lfb" data-sku="'+esc(l.sku||'')+'"></span></div>';}
   function th(u,sz){sz=sz||40;return u?'<img src="'+esc(u)+'" loading="lazy" decoding="async" style="width:'+sz+'px;height:'+sz+'px;flex:none;object-fit:contain;background:#1c2a3a;border-radius:6px;cursor:zoom-in" onload="this.style.background=\'#fff\'" onclick="MCfoto(this.src,event)" onerror="this.style.visibility=\'hidden\'">':'<div style="width:'+sz+'px;height:'+sz+'px;flex:none;border-radius:6px;background:#1c2a3a;display:flex;align-items:center;justify-content:center">📦</div>';}
   function setV(v){cv=v;renderDet();}
 
@@ -10114,7 +10114,7 @@ var Compras=(function(){
       
       (o.is_quote&&!o.is_cancelled?'<button class="cbz-btn" style="background:#6fd68f" onclick="Compras.aprobar()">✅ Aprobar (cotización → OC)</button>':'')+'<button class="chip" onclick="window.MC_PO_CUR=Compras._cur();MCPoPdfBajar(true)">📄 PDF</button><button class="chip" onclick="Compras.email()">✉ Email</button>'+(window.MCPagProv&&(function(){try{return getProfile().rol==='admin';}catch(e){return false;}})()?'<button class="chip" onclick="MCPagProv.poPanel(\''+o.id+'\')">💵 Pagos por factura</button>':'')+'<button class="chip" onclick="window.MC_PO_CUR=Compras._cur();MCPoPdfBajar(false)">📄 PDF bodega (sin precios)</button>'+'<button class="chip" onclick="Compras.duplicar()">📄 Duplicar</button>'+(PD?'<div style="position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;background:#3a2f0b;border:1px solid #c9a227;border-radius:8px;padding:6px 10px;margin:6px 0;width:100%"><b style="color:#f5d36b;font-size:12px">● Cambios sin guardar</b><button class="cbz-btn cbz-btn-primary" onclick="Compras.pG()">Guardar</button><button class="cbz-btn" onclick="Compras.pD()">Descartar</button></div>':'')+(!o.is_cancelled?'<button class="cbz-btn" onclick="Compras.editar()">＋ Agregar producto</button>':(ab?'<span class="cbz-muted" style="font-size:11px;align-self:center">✏️ Ya tiene recepciones: no se editan las líneas</span>':''))+(!o.is_cancelled?'<button class="chip" style="color:#e05c5c" onclick="Compras.cancelar()">✕ Cancelar OC</button>':'')+'</div>');
     h+='<div class="cbz-card"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><div class="cbz-card-name" style="font-size:17px">'+pie('order_number',esc(o.order_number))+'</div><b style="color:'+(EST_COL[o.estado]||'#9fc3e8')+'">'+esc(o.estado)+'</b></div>'+
-      '<div class="cbz-muted" style="font-size:12px;line-height:1.6">'+esc(v.name||'')+' · N° proveedor '+pie('vendor_order_number',esc(o.vendor_order_number||''))+'<br>Fecha '+d10(o.order_date)+' · vence '+pie('due_date',o.due_date?d10(o.due_date):'')+' · Bodega '+esc(cur.bodega||'')+(RO?'':' · inFlow: '+(SYNC[o.sync_status]||esc(o.sync_status||''))+(o.sync_error?' · '+esc(o.sync_error):''))+'</div>'+(RO?'':'<div style="margin-top:4px">'+MCAsig.chip('po',o.id,o.asignado_a)+'</div>'+MCCampos.slot('po',o.id))+facHtml()+'</div>';setTimeout(function(){try{if(adm()||MCRO())MCPoAsig(o.id);}catch(e){}},0);
+      '<div class="cbz-muted" style="font-size:12px;line-height:1.6">'+esc(v.name||'')+' · N° proveedor '+pie('vendor_order_number',esc(o.vendor_order_number||''))+'<br>Fecha '+d10(o.order_date)+' · vence '+pie('due_date',o.due_date?d10(o.due_date):'')+' · Bodega '+esc(cur.bodega||'')+(RO?'':' · inFlow: '+(SYNC[o.sync_status]||esc(o.sync_status||''))+(o.sync_error?' · '+esc(o.sync_error):''))+'</div>'+(RO?(window.MCPvPF?MCPvPF.poSlot(o):''):'<div style="margin-top:4px">'+MCAsig.chip('po',o.id,o.asignado_a)+'</div>'+MCCampos.slot('po',o.id))+facHtml()+'</div>';setTimeout(function(){try{if(adm()||MCRO())MCPoAsig(o.id);}catch(e){}},0);
     h+='<div class="cbz-card-row" style="gap:6px;margin:8px 0;flex-wrap:wrap">'+[['orden','🧾 Orden'],['recibir',(RO?'📥 Recibido / Pendiente':'📥 Recibir')+(cur.recepciones.length?' ('+cur.recepciones.length+')':'')]].map(function(t){return '<button class="chip" style="'+(cv===t[0]?'background:#1e4976;color:#fff':'')+'" onclick="Compras.setV(\''+t[0]+'\')">'+t[1]+'</button>';}).join('')+'</div>';
     if(cv==='orden'){
       h+='<div class="cbz-card"><div class="cbz-card-name" style="font-size:13px;margin-bottom:6px">Pedido</div>'+MCLC_CSS+'<div class="ov-lc">'+cur.lineas.map(function(l){return MClinea(pc(l),l.quantity,l.unit_price,l.discount_pct,l.subtotal,(PDE()?[['Editar','Cant. '+pil(l.id,'quantity',num(l.quantity))+' · Costo '+pil(l.id,'unit_price',money(l.unit_price))+' · Desc. '+pil(l.id,'discount_pct',(+l.discount_pct||0)+'%')]]:[]).concat([['Pedido',num(l.quantity)],['Recibido','<span style="color:'+(l.recibido>=l.quantity?'#6fd68f':l.recibido>0?'#f0c040':'')+'">'+num(l.recibido)+'</span>']]).concat(RO?[]:[['Sububicación',esc(l.sub_default||'—')]]),l.recibido>=l.quantity?'✓ recibido':l.recibido>0?'parcial':'');}).join('')+'</div><table class="mc-rt ov-lt"><thead><tr><th>Producto</th><th class="r">Pedido</th><th class="r">Recibido</th><th class="r">Costo unit.</th><th class="r">Subtotal</th></tr></thead><tbody>'+
@@ -10282,7 +10282,7 @@ var MCCC=(function(){
     if(cnt){var nc=L.filter(function(l){var v=val(l);return (v!==null&&v!=='')||l.otra_sub!=null;}).length,BQ=L.filter(function(l){return l.buscar;});
       h+='<div class="cc-top"><input class="uinput" id="cc-scan" type="search" enterkeyhint="search" placeholder="🔍 Escanea o busca código / nombre" value="'+esc(S.q)+'" oninput="MCCC.filtro(this.value)" onkeydown="if(event.key===\'Enter\')MCCC.scan(this.value)"><span class="cc-prog"><b>'+nc+'</b>/'+L.length+'</span></div><div id="cc-res"></div>';
       if(BQ.length)h+='<div class="cc-bq"><b>🔎 Por encontrar ('+BQ.length+')</b> '+BQ.map(function(l){return '<button class="chip" style="padding:2px 8px;font-size:11.5px;max-width:100%;overflow:visible;text-overflow:clip;white-space:normal" onclick="MCCC.ir(\''+l.id+'\')">'+esc(l.sku)+'</button>';}).join(' ')+'</div>';}
-    var f=String(S.q||'').toLowerCase();var V=L.filter(function(l){return !cnt||!f||(l.sku+' '+l.nombre+' '+l.from_sub+' '+MCcod(l.sku)).toLowerCase().indexOf(f)>=0;});
+    var f=String(S.q||'').toLowerCase();var V=L.filter(function(l){return !cnt||!f||mcQ(f,l.sku+' '+l.nombre+' '+l.from_sub+' '+MCcod(l.sku));});
     if(cnt){h+='<div class="cc-list">'+V.map(function(l){var v=val(l),esp=l.sistema+(l.mov||0),dt=S.dirty[l.id]!==undefined,op=S.menu===l.id;
         return '<div class="cc-ln'+(l.buscar?' cc-lb':'')+'" id="cc-l'+l.id+'">'+nmCell(l,(l.buscar?' · <span style="color:#f0c040">🔎 buscar después</span>':'')+otraTxt(l)+MCUnif.linea(l))+
           '<div class="cc-sub"><div>'+esc(l.from_sub||'—')+'</div><div class="cc-cd">esp. '+num(esp)+'</div></div>'+
@@ -11420,7 +11420,7 @@ var MCVProy=(function(){ /* r513 b504 EFCH: «Proyectos de clientes» (solo admi
   function init(id){cur=null;var e=el();if(!e)return;e.innerHTML='<div class="cbz-loading">Cargando proyectos…</div>';
     MCpost({action:'proyectos_adm',user:getUserName(),pin:getPin()}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||'Sin respuesta');L=r.proyectos||[];if(id)abrir(id);else pintar();})
       .catch(function(x){var e=el();if(e)e.innerHTML='<div class="cbz-error">'+esc(x&&x.message||x)+'</div>';});}
-  function filtra(){var q=f.q.toLowerCase().trim();return (L||[]).filter(function(p){if(f.c&&p.cliente!==f.c)return false;if(f.o&&p.origen!==f.o)return false;if(q&&[p.nombre,p.cliente,p.creado_por,p.mina].join(' ').toLowerCase().indexOf(q)<0)return false;return true;});}
+  function filtra(){var q=f.q.toLowerCase().trim();return (L||[]).filter(function(p){if(f.c&&p.cliente!==f.c)return false;if(f.o&&p.origen!==f.o)return false;if(q&&!mcQ(q,[p.nombre,p.cliente,p.creado_por,p.mina].join(' ')))return false;return true;});}
   function lista(){var X=filtra(),G={},ks=[];X.forEach(function(p){var k=p.cliente||'(sin cliente)';if(!G[k]){G[k]=[];ks.push(k);}G[k].push(p);});ks.sort(function(a,b){return a.localeCompare(b,'es');});
     if(!X.length)return '<div class="cbz-muted" style="padding:14px">'+((L||[]).length?'Ningún proyecto coincide con el filtro.':'Aún no hay proyectos de clientes.')+'</div>';
     return ks.map(function(k){return '<div class="vproy-g" data-cliente="'+esc(k)+'" style="margin-top:12px"><div class="cbz-muted" style="font-size:12px;font-weight:700;letter-spacing:.3px;margin:0 2px 6px">'+esc(k)+' · '+G[k].length+'</div>'+G[k].map(function(p){
@@ -11514,7 +11514,7 @@ var MCProv=(function(){
   function sub(s){var L=det(S.per).filter(function(r){return r.s===s;}).sort(function(a,b){return a.f<b.f?1:-1;});return '<div class="dv-sub">'+L.map(function(r){return '<button class="dv-pv" onclick="MCProv.oc(\''+esc(r.n)+'\')"><div class="dv-hbt"><span>'+esc(r.n)+' <span class="dv-muted">'+esc(r.f)+'</span></span><b>'+n(r.q)+' u · '+$m(r.m)+'</b></div></button>';}).join('')+'</div>';}
   function cli(){var C=clis(S.per);if(!C.L.length)return '';var N=nombres();return '<div class="dv-card"><div class="dv-ct">Dónde terminan tus productos · '+esc(perLab(S.per))+' <span class="dv-muted">unidades que Minecore vendió · clientes anónimos</span></div>'+
     C.L.slice(0,S.nc).map(function(c){var on=S.cli===c.c,p=C.T?Math.round(c.q/C.T*100):0;return '<button class="dv-hb'+(on?' on':'')+'" onclick="MCProv.cli(\''+esc(c.c)+'\')"><div class="dv-hbt"><span>'+esc(c.c)+'</span><b>'+n(c.q)+' u · '+p+'%</b></div><div class="dv-hbb"><i style="width:'+Math.max(1,p)+'%"></i></div></button>'+(on?'<div class="dv-sub">'+Object.keys(c.sk).sort(function(a,b){return c.sk[b]-c.sk[a];}).slice(0,10).map(function(s){return '<div class="dv-hbt" style="padding:3px 0"><span>'+esc(N[s]||s)+' '+codes(s)+'</span><b>'+n(c.sk[s])+' u</b></div>';}).join('')+'</div>':'');}).join('')+mas(C.L.length,S.nc,'nc')+'</div>';}
-  function pint(){var e=el();if(!e)return;e.innerHTML='<div style="max-width:1100px;margin:0 auto">'+MCDl.hd('pv',[['📄 PDF · top productos','MCProv.pdf()'],['📊 Excel · resumen + top productos','MCProv.xls()']])+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 12px">'+kpi('hoy')+kpi('mes')+kpi('anio')+'</div>'+drill()+chart()+tops()+cli()+'</div>';}
+  function pint(){var e=el();if(!e)return;e.innerHTML='<div style="max-width:1100px;margin:0 auto">'+MCDl.hd('pv',[['📄 PDF · top productos','MCProv.pdf()'],['📊 Excel · resumen + top productos','MCProv.xls()']])+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 12px">'+kpi('hoy')+kpi('mes')+kpi('anio')+'</div>'+(window.MCPvPF?MCPvPF.dashSlot():'')+drill()+chart()+tops()+cli()+'</div>';}
   function cargar(){var e=el();if(!e)return;e.innerHTML='<div class="cbz-loading">Cargando dashboard…</div>';
     MCpost({action:'proveedor',op:'reporte',desde:'2023-01-01',hasta:hoy()}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'Sin datos');S.d=r.d||r;pint();}).catch(function(x){var e2=el();if(e2)e2.innerHTML='<div class="cbz-error">'+esc(typeof MCerr==='function'?MCerr(x):(x&&x.message)||x)+'</div>';});}
   function loadX(){if(window.XLSX)return Promise.resolve(window.XLSX);return new Promise(function(ok,ko){var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';s.onload=function(){ok(window.XLSX);};s.onerror=function(){ko(new Error('No se pudo cargar Excel'));};document.head.appendChild(s);});}
@@ -11778,7 +11778,7 @@ var LiqMod = (function(){
   function filtered(){
     var qq=norm(q);
     if(!qq) return clientes.slice();
-    return clientes.filter(function(n){return norm(n).indexOf(qq)>=0;});
+    return clientes.filter(function(n){return mcQ(qq,n);});
   }
   function nameOf(x){
     if(typeof x==='string') return x;
@@ -12242,7 +12242,7 @@ var WA = (function(){
     var list=chats.filter(function(c){
       if(!qq)return c.hasMsgs!==false||sel===c.wa_id;   // contactos sembrados sin mensajes: solo al buscar
       if(qd.length>=3&&String(c.wa_id).indexOf(qd)>=0)return true;
-      return norm((c.name||'')+' '+(c.profileName||'')+' '+c.last_text).indexOf(qn)>=0;
+      return mcQ(qn,(c.name||'')+' '+(c.profileName||'')+' '+c.last_text);
     }).slice().sort(function(a,b){return (b.last_ms||0)-(a.last_ms||0);});
     var h='';
     if(errMsg)h+='<div class="cbz-error" style="margin:8px">'+esc(errMsg)+'</div>';
@@ -13197,7 +13197,7 @@ return F.map(function(n){return '<div style="font-size:12px;font-weight:400;marg
     api({op:'paraPiquear'}).then(function(r){if(!r.ok){el().innerHTML='<div class="cbz-error">'+esc(r.error)+'</div>';return;}pq.ordenes=r.ordenes||[];renderPq();}).catch(function(e){el().innerHTML='<div class="cbz-error">'+esc(MCerr(e))+'</div>';});}
   function pqNorm(x){return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
   function pqFiltradas(){var q=pqNorm(pq.q);return pq.ordenes.map(function(o,i){return {o:o,i:i};}).filter(function(x){if(!q)return true;
-    return pqNorm(x.o.order_number+' '+(x.o.cliente||'')+' '+x.o.lineas.map(function(l){return l.sku+' '+l.nombre+' '+MCcod(l.sku);}).join(' ')).indexOf(q)>=0;});}
+    return mcQ(q,x.o.order_number+' '+(x.o.cliente||'')+' '+x.o.lineas.map(function(l){return l.sku+' '+l.nombre+' '+MCcod(l.sku);}).join(' '));});}
   function pqBuscar(v){pq.q=v;var b=document.getElementById('pq-res');if(b)b.innerHTML=pqLista();}
   function pqLista(){var L=pqFiltradas();if(!L.length)return '<div class="cbz-card cbz-muted" style="text-align:center;padding:20px">'+(pq.ordenes.length?'Nada coincide con la búsqueda.':'✅ No hay OV pendientes de preparar con stock disponible.')+'</div>';
     return L.map(function(x){var o=x.o,pend=o.lineas.filter(function(l){return l.pendiente>0&&l.disponible>0;});
@@ -14672,7 +14672,7 @@ var MCRecibidos=(function(){function esc(s){return String(s==null?'':s).replace(
   var L=[],Q='';
   function ovOk(){try{return mcCliMod('ventas')||(typeof can==='function'&&can('cotizaciones'))||MCnavRutaOk('vov');}catch(e){return false;}}
   function abrir(n){if(!ovOk())return;openMod('vov');setTimeout(function(){try{Ventas.abrirNum(n);}catch(e){}},350);}
-  function pinta(){var e=document.getElementById('crec-res');if(!e)return;var q=mcNorm?mcNorm(Q):String(Q).toLowerCase(),V=L.filter(function(x){return !q||(mcNorm?mcNorm:function(t){return String(t).toLowerCase();})([x.orden,x.receptor,x.entregado].join(' ')).indexOf(q)>=0;}),ok=ovOk();
+  function pinta(){var e=document.getElementById('crec-res');if(!e)return;var q=mcNorm?mcNorm(Q):String(Q).toLowerCase(),V=L.filter(function(x){return !q||mcQ(q,[x.orden,x.receptor,x.entregado].join(' '));}),ok=ovOk();
     if(!V.length){e.innerHTML='<div class="cbz-muted" style="padding:14px">'+(L.length?'Sin resultados.':'Aún no hay entregas firmadas.')+'</div>';return;}
     var pdf=function(x){return '<a class="chip" href="'+esc(x.url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="white-space:nowrap">📄 Recibido PDF</a>';};
     e.innerHTML='<style>.vt-lt{display:none}@media(min-width:900px){.vt-lt{display:block}.vt-lc{display:none}}.vt-lt table{width:100%;border-collapse:collapse;font-size:12px}.vt-lt th{text-align:left;font-size:11px;color:#8fa3b8;font-weight:600;padding:6px;border-bottom:1px solid #26405c;white-space:nowrap}.vt-lt td{padding:6px;border-bottom:1px solid #1c2a3a;vertical-align:middle}.vt-lt tr.x{cursor:pointer}.vt-lt tr.x:hover{background:#13202e}</style>'+
@@ -15062,7 +15062,7 @@ Users=(function(){
   document.addEventListener('keydown',function(e){if(!box||e.target!==cur)return;var M=box._M||[];if(e.key==='ArrowDown'){ix=Math.min(ix+1,M.length-1);pinta();e.preventDefault();}else if(e.key==='ArrowUp'){ix=Math.max(ix-1,0);pinta();e.preventDefault();}else if(e.key==='Enter'&&M[ix]){e.preventDefault();elegir(M[ix].code);}else if(e.key==='Escape')cerrar();},true);
   document.addEventListener('focusout',function(e){var el=e.target;if(el!==cur)return;setTimeout(function(){if(document.activeElement===el)return;cerrar();var v=el.value.trim().toUpperCase();
     if(ld&&v&&!L.some(function(s){return s.code.toUpperCase()===v;})&&el.dataset.subOk!==v){el.value='';el.style.borderColor='#ff6b6b';el.title='Elige una sububicación de la lista';el.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(function(){el.style.borderColor='';},1500);}},150);});
-  window.addEventListener('scroll',pos,true);window.addEventListener('resize',pos);})();
+  window.addEventListener('scroll',pos,{capture:true,passive:true});window.addEventListener('resize',pos,{passive:true});})();
 function MCvtCan(o,f){var k=(o&&o.is_quote)?'cot':'ov',g={quantity:'lineas',description:'lineas',product_id:'lineas',unit_price:'precios',discount_pct:'descuentos',contact_name:'cliente',email:'cliente',phone:'cliente',customer_id:'cliente',due_date:'fechas',requested_ship_date:'fechas',payment_terms_id:'fechas',facturar_el:'fechas',entrega:'fechas',nota_facturacion:'notas',order_remarks:'notas'}[f]||'lineas';return MCcan(k+'.e.'+g);}
 function MCro(el){if(!el)return;el.classList.add('mc-ro');el.querySelectorAll('input,select,textarea').forEach(function(x){if(x.type==='search'||x.closest('.mc-ro-skip'))return;x.disabled=true;});
   if(!document.getElementById('mc-ro-css')){var s=document.createElement('style');s.id='mc-ro-css';s.textContent='.mc-ro input:disabled,.mc-ro select:disabled,.mc-ro textarea:disabled{border:0!important;background:transparent!important;box-shadow:none!important;color:inherit!important;opacity:1!important;-webkit-text-fill-color:currentColor;padding-left:0!important;appearance:none;-webkit-appearance:none;resize:none;cursor:default}';document.head.appendChild(s);}}
@@ -16301,10 +16301,10 @@ var MCPagProv=(function(){
   function pintaLista(){var P=S.pagos||[],tot=P.reduce(function(s,p){return s+(+p.monto||0);},0);
     var h='<div class="pp"><div class="pp-bar"><b style="font-size:17px;flex:1 1 auto">'+(MCRO()?'Pagos de Minecore':'Pagos a proveedores')+'</b>'+(MCRO()?'':'<button class="pp-btn" onclick="MCPagProv.nuevo()">＋ Subir comprobante</button>')+'</div>'+
       (MCRO()?'':'<div class="pp-row"><label>Proveedor<input class="pp-in" id="pp-fprov" value="'+esc(S.prov)+'" placeholder="Todos" onchange="MCPagProv._prov(this.value)"></label></div>')+alertasH(S.alertas)+
-      '<div class="pp-sec">Por pagar</div><div id="pp-pxp"></div><div class="pp-sec">'+P.length+' pagos · USD '+f2(tot)+'</div>';
+      (MCRO()&&window.MCPvPF?MCPvPF.pagSlot():'')+'<div class="pp-sec">Por pagar</div><div id="pp-pxp"></div><div class="pp-sec">'+P.length+' pagos · USD '+f2(tot)+'</div>';
     h+=P.map(function(p){var o=S.abierto[p.id];return '<div class="pp-card"><div style="display:flex;flex-wrap:wrap;gap:4px 12px;cursor:pointer" onclick="MCPagProv._tog(\''+p.id+'\')"><b style="flex:1 1 200px">'+fd(p.fecha)+' · USD '+f2(p.monto)+'</b>'+
-      '<span class="pp-mut" style="flex:1 1 200px">Ref '+esc(p.referencia||'—')+' · '+esc(p.metodo||'')+'</span><span class="pp-mut">'+esc(p.estado==='historico'?'histórico (inFlow)':p.estado)+' · '+(p.lineas||[]).length+' línea(s)</span></div>'+
-      (o?mcGT([{k:'po',h:'OC',w:'118px'},{k:'monto',h:'Monto',w:'104px',cls:'r'},{k:'fct',h:'Factura',w:'92px'},{k:'tipo',h:'Tipo',w:'56px'},{k:'nota',h:'Nota',b:1}],(p.lineas||[]).map(function(l){return {po:esc(String(l.po||'').replace(/^MCOR-PO-0*/,'PO')),monto:'<b>'+f2(l.monto)+'</b>',fct:esc(String(l.factura||'').replace(/^0+/,'')),tipo:esc(l.tipo||mcPagTipo(l.remarks)),nota:'<span class="pp-mut">'+esc(l.remarks||'')+'</span>'};}))+(p.comprobante_nombre&&!MCRO()?'<button class="pp-b2" style="margin-top:6px" onclick="MCPagProv._ver(\''+p.id+'\')">📄 '+esc(p.comprobante_nombre)+'</button>':''):'')+'</div>';}).join('')||'<div class="pp-mut">Sin pagos.</div>';
+      '<span class="pp-mut" style="flex:1 1 200px">Ref '+esc(p.referencia||'—')+' · '+esc(p.metodo||'')+'</span><span class="pp-mut">'+esc(p.estado==='historico'?'histórico (inFlow)':p.estado)+' · '+(p.lineas||[]).length+' línea(s)</span>'+(window.MCPvPF?MCPvPF.trSum(p,o):'')+'</div>'+
+      (o?mcGT([{k:'po',h:'OC',w:'118px'},{k:'monto',h:'Monto',w:'104px',cls:'r'},{k:'fct',h:'Factura',w:'92px'},{k:'tipo',h:'Tipo',w:'56px'},{k:'nota',h:'Nota',b:1}],(p.lineas||[]).map(function(l){return {po:(window.MCPvPF?MCPvPF.poLink(l):esc(String(l.po||'').replace(/^MCOR-PO-0*/,'PO'))),monto:'<b>'+f2(l.monto)+'</b>',fct:esc(String(l.factura||'').replace(/^0+/,'')),tipo:esc(l.tipo||mcPagTipo(l.remarks)),nota:'<span class="pp-mut">'+esc(l.remarks||'')+'</span>'};}))+(p.comprobante_nombre&&!MCRO()?'<button class="pp-b2" style="margin-top:6px" onclick="MCPagProv._ver(\''+p.id+'\')">📄 '+esc(p.comprobante_nombre)+'</button>':''):'')+'</div>';}).join('')||'<div class="pp-mut">Sin pagos.</div>';
     el().innerHTML=h+'</div>';MCPxP(document.getElementById('pp-pxp'),S.prov?{proveedor:S.prov}:{});}
   function nuevo(){if(MCRO())return;S.v='nuevo';S.f={};S.pr=null;pintaNuevo();}
   function pintaNuevo(){var f=S.f||{},pr=S.pr;
@@ -16430,7 +16430,7 @@ var MCCosteo=(function(){
   function fpo(){var q=((document.getElementById('cst-poq')||{}).value||'').toUpperCase(),d=document.getElementById('cst-pol');if(!d)return;var sel=S.sel||(S.sel={}),det=S.det||{};
     var P=(S.pos||[]).slice();Object.keys(det).forEach(function(k){if(!P.some(function(p){return p.id===k;}))P.push(det[k]);});
     P.sort(function(a,b){return (det[b.id]?1:0)-(det[a.id]?1:0)||(sel[b.id]?1:0)-(sel[a.id]?1:0);});
-    var V=P.filter(function(p){return q?(p.order_number+' '+(p.proveedor||'')).toUpperCase().indexOf(q)>=0:(det[p.id]||sel[p.id]);});
+    var V=P.filter(function(p){return q?mcQ(q,p.order_number+' '+(p.proveedor||'')):(det[p.id]||sel[p.id]);});
     d.innerHTML=V.slice(0,80).map(function(p){var c=det[p.id];return '<label style="display:flex;gap:10px;align-items:center;padding:9px 2px;border-bottom:1px solid #16222f;font-size:13.5px;cursor:pointer;flex-wrap:wrap"><input type="checkbox"'+(sel[p.id]?' checked':'')+' onchange="MCCosteo._sel(\''+p.id+'\',this.checked)"><b style="min-width:140px">'+esc(p.order_number)+'</b><span style="flex:1 1 160px">'+esc(p.proveedor||'')+'</span><span class="cst-mut">'+esc(p.fecha||'')+(p.lineas!=null?' · '+p.lineas+' líneas':'')+' · $'+f2(p.total)+'</span>'+(c?'<span class="cst-ok" style="font-size:12px;flex-basis:100%;padding-left:26px">✓ detectada: '+esc((c.motivos||[]).join(' · '))+'</span>':'')+'</label>';}).join('')||'<div class="cst-mut">'+(q?'Sin resultados.':'Busca la OC arriba para agregarla.')+'</div>';}
   function crear(){if(!S.nf||S.nf.busy)return;var ids=Object.keys(S.sel||{}).filter(function(k){return S.sel[k];});if(!S.nf.files.some(function(x){return x.st==='ok'&&x.b64&&((x.r||{}).tipo||x.tz)==='factura';}))return msg('Sube al menos una factura',1);
     var F=S.nf.files.filter(function(x){return x.st==='ok'&&x.b64;}),pr=!!(document.getElementById('cst-prueba')||{}).checked,cd=((document.getElementById('cst-cod')||{}).value||'').trim();
@@ -16726,7 +16726,7 @@ var MCTbl=(function(){
   document.addEventListener('click',function(e){var th=e.target.closest&&e.target.closest('table.mc-st>thead th');if(!th||e.target.closest('input,select,button,a'))return;var t=th.closest('table');if(!heads(t)[th.cellIndex])return;clic(t,th.cellIndex);});
   var q=0;function scan(){q=0;[].forEach.call(document.querySelectorAll('table'),function(t){if(t.offsetParent!==null||t.closest('.ms-t'))prep(t);});
     [].forEach.call(document.querySelectorAll('.cbz-card-row,.pf-filt'),function(){});}
-  try{new MutationObserver(function(){if(q)return;q=1;setTimeout(scan,120);}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
+  try{new MutationObserver(function(M){/* r518-scroll R3b: tablas nuevas se preparan antes de pintar (sin parpadeo ni salto a 0) */for(var i=0;i<M.length;i++){var A=M[i].addedNodes;for(var j=0;j<A.length;j++){var n=A[j];if(n.nodeType!==1)continue;var T=n.tagName==='TABLE'?[n]:n.getElementsByTagName('table');for(var k=0;k<T.length;k++){var t=T[k];try{if(!t._mcOk&&(t.offsetParent!==null||t.closest('.ms-t')))prep(t);}catch(_){}}}}if(q)return;q=1;setTimeout(scan,120);}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
   return {scan:scan,ordenar:ordenar};})();
 /* Subir arrastrando: cualquier zona con un input de archivo (fotos, adjuntos de OV/OC/cotizaciones, clientes, proveedores) */
 (function(){var cur=null,ov=null,cnt=0;
@@ -16756,7 +16756,7 @@ function MCPendientes(tipo,partnerId,partnerName,filtro,_r,_soc){filtro=String(f
     var L=(r.lineas||[]).map(function(l){var f=new Date(l.fecha);l.fecha=isNaN(f)?String(l.fecha||'').slice(0,10):f.toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'});return l;});
     /* b342: si la lista tiene un filtro escrito (proveedor/cliente o nº), el informe sale solo para eso */
     if(filtro){var nq=filtro.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),nz=function(x){return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');};
-      var F2=L.filter(function(l){return nz(l.socio).indexOf(nq)>=0||nz(l.num).indexOf(nq)>=0||nz(l.sku)===nq;});
+      var F2=L.filter(function(l){return mcQ(nq,l.socio+' '+l.num)||nz(l.sku)===nq;});
       if(!F2.length){alert('Ninguna '+(tipo==='so'?'OV':'OC')+' con pendientes coincide con el filtro «'+filtro+'».');return null;}L=F2;}
     if(!L.length){alert('No hay '+(tipo==='so'?'OV':'OC')+' con pendientes.');return null;}
     var socios=L.map(function(l){return l.socio;}).filter(function(x,i,a){return x&&a.indexOf(x)===i;});
@@ -16968,7 +16968,7 @@ var MCDash=(function(){
   function rotTabla(uid,rows,kind,PR){var C=rotCols(kind),st={k:null,asc:false,q:'',cat:'',n:3};if(PR)rows=rotPer(PR.d,kind,PR.a,PR.b);var cats=[];rows.forEach(function(z){if(z.cat&&cats.indexOf(z.cat)<0)cats.push(z.cat);});cats.sort();
     var h='<div class="mcr-tb"><input type="search" placeholder="Buscar código o producto…" data-f="q">'+(cats.length?'<select data-f="cat"><option value="">Todas las categorías</option>'+cats.map(function(c){return '<option>'+es(c)+'</option>';}).join('')+'</select>':'')+(PR?'<label class="mcr-dt">Desde <input type="date" data-p="a" value="'+PR.a+'" min="'+PR.mn+'" max="'+PR.mx+'"></label><label class="mcr-dt">Hasta <input type="date" data-p="b" value="'+PR.b+'" min="'+PR.mn+'" max="'+PR.mx+'"></label>':'')+'<span class="mcr-n"></span></div><div class="mcr-tw"><table class="mcr-t" id="'+uid+'"><colgroup>'+C.map(function(c){return '<col'+(c[3]?' style="width:'+c[3]+'px"':'')+'>';}).join('')+'</colgroup><thead><tr>'+C.map(function(c){return '<th class="'+c[2]+(c[1]==='n'?' pn':'')+'" data-k="'+c[1]+'">'+c[0]+'</th>';}).join('')+'</tr></thead><tbody></tbody></table></div><div class="mcr-mas">'+masHTML()+'</div>';
     setTimeout(function(){var t=document.getElementById(uid);if(!t)return;var w=t.closest('.mcr-tw').previousElementSibling;
-      function draw(){var q=st.q.toLowerCase(),L=rows.filter(function(z){return (!q||(z.sku+' '+(z.vc||'')+' '+z.n+' '+MCcod(z.sku)).toLowerCase().indexOf(q)>=0)&&(!st.cat||z.cat===st.cat);});
+      function draw(){var q=st.q.toLowerCase(),L=rows.filter(function(z){return (!q||mcQ(q,z.sku+' '+(z.vc||'')+' '+z.n+' '+MCcod(z.sku)))&&(!st.cat||z.cat===st.cat);});
         if(st.k){var k=st.k;L=L.slice().sort(function(a,b){var x=a[k],y=b[k];if(typeof x==='string'||typeof y==='string')return (st.asc?1:-1)*String(x||'').localeCompare(String(y||''));return (st.asc?1:-1)*((x==null?-1e9:x)-(y==null?-1e9:y));});}
         var TOT=L.length;L=L.slice(0,st.n);t.tBodies[0].innerHTML=L.map(function(z){var i=rows.indexOf(z);return '<tr class="drr" data-s="'+es(z.sku)+'">'+C.map(function(c){return '<td class="'+c[2]+(c[1]==='n'?' pn':'')+(c[1]==='sku'||c[1]==='vc'?' cod':'')+(c[1]==='cr'&&z.cr!=null?(z.cr>0?' up':z.cr<0?' dn':''):'')+'" data-l="'+c[0]+'">'+cel(c[1],z,i)+'</td>';}).join('')+'</tr>';}).join('')||'<tr><td colspan="'+C.length+'" class="c">Sin resultados</td></tr>';
         w.querySelector('.mcr-n').textContent='Mostrando '+L.length+' de '+TOT+(TOT!==rows.length?' (de '+rows.length+')':'')+' productos';var mb=t.closest('.mcr-tw').nextElementSibling;if(mb){mb.style.display=TOT>3?'':'none';mb.querySelector('.mcr-mt').textContent='Mostrando '+L.length+' de '+TOT;mb.querySelectorAll('.mcr-mb').forEach(function(b){b.style.display=TOT>L.length?'':'none';});mb.querySelector('.mcr-ml').style.display=TOT>L.length?'':'none';}
@@ -18272,7 +18272,7 @@ html body input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #0b1219 inset!imp
     if(Q&&Q.classList.contains('ms-bar')&&!Q.querySelector('input')&&[].every.call(Q.children,function(e){return e.tagName==='BUTTON';})){[].slice.call(Q.children).forEach(function(e){r2.appendChild(e);});Q.style.display='none';}
     P.innerHTML='';P.appendChild(r1);if(r2.children.length)P.appendChild(r2);P.classList.add('mc-tb');
     nuevoCorto(P);
-    if(foc){try{inp.focus();inp.setSelectionRange(ss,se);}catch(e){}}}
+    if(foc){try{inp.focus({preventScroll:true});inp.setSelectionRange(ss,se);}catch(e){}}}
   function nuevoCorto(root){[].forEach.call((root||document).querySelectorAll('.mc-tb-new'),function(b){var f=b.dataset.full||txt(b);b.textContent=window.innerWidth<=480?'＋ Nuevo':f;});}
   function esPill(e){return e.tagName==='BUTTON'||e.classList.contains('chip')||e.classList.contains('cbz-btn')||e.classList.contains('cbz-btn-sec');}
   function pills(root){
@@ -18285,8 +18285,12 @@ html body input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #0b1219 inset!imp
       for(var i=0;i<K.length;i++){if(!esPill(K[i]))return;}
       var cs=getComputedStyle(e);if(cs.display!=='flex'||cs.flexDirection.indexOf('column')===0)return;
       e.classList.add('mc-pgrid');});}
-  var q=0;function run(){q=0;try{[].forEach.call(document.querySelectorAll('input'),function(i){if(i.type&&!/^(text|search)$/.test(i.type))return;if(RXQ.test(i.placeholder||''))barra(i);});pills(document.body);}catch(e){}}
-  function sched(){if(!q){q=1;(window.requestAnimationFrame||setTimeout)(run);}}
+  /* r518-scroll R2: solo los sub-árboles añadidos (antes todo el documento en cada mutación → tareas largas al hacer scroll/repintar) */
+  var q=0,RO=[],ALL=1;function run(){q=0;var L=ALL?[document.body]:RO;RO=[];ALL=0;
+    L.forEach(function(r){if(!r||!r.isConnected)return;var base=(r!==document.body&&r.parentElement&&r.parentElement!==document.body)?r.parentElement:r;
+      try{[].forEach.call(base.querySelectorAll('input'),function(i){if(i.type&&!/^(text|search)$/.test(i.type))return;if(RXQ.test(i.placeholder||''))barra(i);});pills(base);}catch(e){}});}
+  function sched(M){if(M&&M.length){for(var i=0;i<M.length&&!ALL;i++){var A=M[i].addedNodes;for(var j=0;j<A.length;j++){var n=A[j];if(n.nodeType===1&&n.tagName!=='STYLE'&&n.tagName!=='SCRIPT'&&(n.children.length||n.tagName==='INPUT'||n.tagName==='BUTTON'))RO.push(n);}}if(RO.length>300){RO=[];ALL=1;}if(!RO.length&&!ALL)return;}else ALL=1;
+    if(!q){q=1;(window.requestAnimationFrame||setTimeout)(run);}}
   function ini(){run();try{new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});}catch(e){}window.addEventListener('resize',function(){nuevoCorto(document);});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ini);else ini();
   window.MCb422={run:run};
@@ -18858,7 +18862,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=508.1',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=508.2a',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
@@ -19113,10 +19117,13 @@ var MCDeep=(function(){
   setTimeout(chk,4000);setInterval(chk,300000);})();
 </script>
 <script>/* b487 r499: iOS deja la barra fija (position:fixed) a media pantalla si un input con teclado abierto se elimina (modales) o el alto del documento cambia. Fix global: blur antes de quitar, y al cerrar el teclado / cambiar alto se fuerza re-layout de todos los fijos. */
-(function(){var t=null;function fix(){clearTimeout(t);t=setTimeout(function(){var a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.isConnected)return;try{window.scrollTo(window.scrollX,window.scrollY);}catch(e){}var b=document.getElementById('mc-bbar');if(b){b.style.display='none';void b.offsetHeight;b.style.display='';}},120);}
-var vv=window.visualViewport;if(vv){vv.addEventListener('resize',fix);}window.addEventListener('resize',fix);document.addEventListener('focusout',fix,true);
-var rm=Element.prototype.remove;Element.prototype.remove=function(){try{var a=document.activeElement;if(a&&a!==document.body&&this.contains&&this.contains(a)){a.blur();fix();}}catch(e){}return rm.apply(this,arguments);};
-try{new ResizeObserver(fix).observe(document.body);}catch(e){}})();</script>
+(function(){/* r518-scroll R1: solo tras cerrar el teclado de verdad; nunca durante el scroll (no corta la inercia de iOS ni mueve la barra) */var t=null,kb=false,lastS=0,vh0=0,FI=/^(INPUT|TEXTAREA|SELECT)$/;
+addEventListener('scroll',function(){lastS=Date.now();},{passive:true,capture:true});addEventListener('touchmove',function(){lastS=Date.now();},{passive:true});
+document.addEventListener('focusin',function(e){if(e.target&&FI.test(e.target.tagName))kb=true;},true);
+function fix(){clearTimeout(t);t=setTimeout(function(){if(Date.now()-lastS<400){fix();return;}var a=document.activeElement;if(a&&FI.test(a.tagName)&&a.isConnected)return;if(!kb)return;kb=false;try{window.scrollTo(window.scrollX,window.scrollY);}catch(e){}var b=document.getElementById('mc-bbar');if(b){b.style.display='none';void b.offsetHeight;b.style.display='';}},120);}
+var vv=window.visualViewport;function vvR(){var h=vv?vv.height:innerHeight;if(vh0&&h-vh0>120&&kb)fix();vh0=h;}if(vv){vv.addEventListener('resize',vvR);}window.addEventListener('resize',vvR,{passive:true});document.addEventListener('focusout',fix,true);
+var rm=Element.prototype.remove;Element.prototype.remove=function(){try{var a=document.activeElement;if(a&&a!==document.body&&this.contains&&this.contains(a)){a.blur();if(FI.test(a.tagName))kb=true;fix();}}catch(e){}return rm.apply(this,arguments);};
+/* r518-scroll R1: sin ResizeObserver(body) — cada repintado de lista llamaba a fix() */})();</script>
 <style>/* b487 */body.mc-nav #mc-bbar{transform:translateZ(0);-webkit-transform:translateZ(0)}</style>
 <style>/* b491 REGLA GLOBAL EFCH: todo visor/overlay a pantalla completa respeta la barra lateral (escritorio) y la imagen cabe en la pantalla */
 @media(min-width:900px){body.mc-nav .mc-ovl{left:64px!important;right:0!important;width:auto!important}}
@@ -19132,5 +19139,53 @@ try{new ResizeObserver(fix).observe(document.body);}catch(e){}})();</script>
   document.addEventListener('click',scan,true);addEventListener('resize',scan);scan();}
  ini();})();
 </script>
+<style>/* r520-b5082 */html.mc-ext #backBtn{display:none!important}#mc-imp-bar{white-space:normal!important;flex-wrap:wrap!important;row-gap:4px}#mc-imp-bar>span{white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;flex:1 1 180px!important}
+.pf-card{background:#0f1720;border:1px solid #c9a227;border-radius:10px;padding:10px 12px;margin:8px 0}.pf-card b.v{color:#f5d36b;font-size:17px}.pf-mut{color:#8fa3b8;font-size:11.5px}.mc-urg:not(:empty){display:inline-block;margin-left:6px;background:#5a1a1a;color:#ffb3b3;border:1px solid #e05c5c;border-radius:10px;padding:0 7px;font-size:10.5px;font-weight:700;white-space:nowrap}.pp-trs{flex:1 1 100%;font-size:11.5px;color:#9fc3e8}</style>
+<script>/* r520-b5082 */
+var MCPvPF=(function(){var C={pf:null,pfP:null,pe:null,peP:null};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function m(x){x=+x||0;return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function prov(){try{return typeof mcEsProvV==='function'&&mcEsProvV();}catch(e){return false;}}
+  function pf(){if(C.pf)return Promise.resolve(C.pf);if(!C.pfP)C.pfP=MCpost({action:'proveedor',op:'por_facturar'}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'');C.pf=r;return r;}).catch(function(e){C.pfP=null;throw e;});return C.pfP;}
+  function pe(){if(C.pe)return Promise.resolve(C.pe);if(!C.peP)C.peP=MCpost({action:'proveedor',op:'pendientes'}).then(function(r){if(!r||r.ok===false)throw new Error((r&&r.error)||'');C.pe=r;return r;}).catch(function(e){C.peP=null;throw e;});return C.peP;}
+  function after(f){setTimeout(f,0);}
+  function totH(r){return '<div class="pf-card" data-pf="tot"><div class="pf-mut">🧾 Pendiente por facturar a Minecore</div><b class="v">'+m(r.total_pedido)+'</b> <span class="pf-mut">sobre lo pedido · '+m(r.total_recibido)+' sobre lo ya recibido · '+(r.ordenes||[]).length+' OC</span><div class="pf-mut" style="margin-top:4px">'+esc(r.definicion||'')+'</div></div>';}
+  function fillTot(id){pf().then(function(r){var e=document.getElementById(id);if(e)e.outerHTML=totH(r);}).catch(function(){var e=document.getElementById(id);if(e)e.remove();});}
+  var seq=0;
+  function dashSlot(){if(!prov())return '';var id='pf-t'+(++seq);after(function(){fillTot(id);});return '<div id="'+id+'" class="pf-card pf-mut">Pendiente por facturar…</div>';}
+  function pagSlot(){return dashSlot();}
+  function poSlot(o){if(!prov()||!o)return '';var id='pf-o'+(++seq),oid=String(o.id||'');
+    after(function(){pf().then(function(r){var x=(r.ordenes||[]).filter(function(z){return String(z.oid)===oid;})[0],e=document.getElementById(id);if(!e)return;
+      e.innerHTML=x?'🧾 Pendiente por facturar: <b style="color:#f5d36b">'+m(x.por_facturar_pedido)+'</b> <span class="pf-mut">(pedido '+m(x.total)+' − facturado '+m(x.facturado)+') · sobre lo recibido '+m(x.por_facturar_recibido)+'</span>':'🧾 Pendiente por facturar: <b>$0.00</b> <span class="pf-mut">(OC facturada completa)</span>';}).catch(function(){var e=document.getElementById(id);if(e)e.remove();});
+      pe().then(function(r){var L=(r.lineas||[]).filter(function(l){return l.num===o.order_number&&l.urgente;}),S={};L.forEach(function(l){S[l.sku]=1;});
+        document.querySelectorAll('.mc-urg[data-sku]').forEach(function(b){b.textContent=S[b.getAttribute('data-sku')]?'🔥 Urgente':'';b.title=S[b.getAttribute('data-sku')]?(r.regla_urgente||''):'';});
+        var e=document.getElementById(id+'u');if(e)e.innerHTML=L.length?'🔥 <b style="color:#ffb3b3">'+L.length+' producto(s) urgente(s)</b> <span class="pf-mut">· '+esc(r.regla_urgente||'')+'</span>':'';}).catch(function(){});});
+    return '<div style="margin-top:6px;font-size:12.5px"><div id="'+id+'" class="pf-mut">Pendiente por facturar…</div><div id="'+id+'u" style="margin-top:3px"></div></div>';}
+  function trSum(p,o){var L=p.lineas||[],F={},P={};L.forEach(function(l){if(l.factura)F[String(l.factura).replace(/^0+/,'').replace(/^.*-0*/,'')]=1;if(l.po)P[l.po]=1;});var nf=Object.keys(F).length,np=Object.keys(P).length;
+    return '<span class="pp-trs">'+(o?'▾':'▸')+' Aplicado a '+nf+' factura(s) · '+np+' OC'+(o?'':' — toca para ver el detalle')+'</span>';}
+  function poLink(l){var t=esc(String(l.po||'').replace(/^MCOR-PO-0*/,'PO'));if(!l.po_id||!/^[0-9a-f-]{36}$/i.test(String(l.po_id)))return t;
+    return '<a href="#" style="color:#9fc3e8" onclick="event.preventDefault();event.stopPropagation();MCPvPF.abrirPO(\''+l.po_id+'\')">'+t+'</a>';}
+  function abrirPO(id){try{openMod(prov()?'pvoc':'voc');}catch(e){}(function t(n){if(window.Compras&&Compras.abrir)Compras.abrir(id);else if(n<60)setTimeout(function(){t(n+1);},150);})(0);}
+  return {dashSlot:dashSlot,pagSlot:pagSlot,poSlot:poSlot,trSum:trSum,poLink:poLink,abrirPO:abrirPO,_reset:function(){C={pf:null,pfP:null,pe:null,peP:null};}};})();
+(function(){function ext(){try{var p=JSON.parse(localStorage.getItem('mc_profile')||'{}');return p.rol==='cliente'||p.rol==='proveedor'||(typeof mcEsCliV==='function'&&mcEsCliV())||(typeof mcEsProvV==='function'&&mcEsProvV());}catch(e){return false;}}
+  function upd(){try{document.documentElement.classList.toggle('mc-ext',!!ext());var b=document.getElementById('mc-imp-bar');if(b&&document.body){var h=b.offsetHeight||38;document.body.style.paddingTop=h+'px';}}catch(e){}}
+  upd();document.addEventListener('DOMContentLoaded',upd);window.addEventListener('storage',upd);window.addEventListener('resize',upd);setInterval(upd,1000);})();
+</script>
+<script>/* r518-scroll R3 REGLA GLOBAL: un repintado (refresco en segundo plano, pintaLista/innerHTML) nunca devuelve una caja con scroll a 0 */
+(function(){var K={},lastU=0,FI=/^(INPUT|TEXTAREA|SELECT)$/;
+ function key(e){var a=e.parentElement;while(a&&!a.id)a=a.parentElement;if(!a)return null;var c=e.id?('#'+e.id):(e.classList.contains('mc-sw')?'.mc-sw':(e.classList.length&&/^[a-z][\w-]*$/i.test(e.classList[0])?'.'+e.classList[0]:''));if(!c)return null;var L=a.querySelectorAll(c),i=[].indexOf.call(L,e);if(i<0)return null;return {k:a.id+' '+c+' '+i,a:a.id,c:c,i:i,A:a};}
+ document.addEventListener('scroll',function(ev){var e=ev.target;if(!e||e.nodeType!==1||FI.test(e.tagName))return;var x=key(e);if(!x)return;K[x.k]={a:x.a,A:x.A,c:x.c,i:x.i,t:e.scrollTop,l:e.scrollLeft,el:e,g:0};},{capture:true,passive:true});
+ ['input','change'].forEach(function(n){document.addEventListener(n,function(){lastU=Date.now();},true);});
+ document.addEventListener('keydown',function(e){if(e.key==='Enter')lastU=Date.now();},true);
+ /* el contenedor con id (p.ej. #vt-res) debe ser el MISMO nodo: solo se re-pintó su contenido. Si cambió el módulo/pantalla, no se restaura. La caja nueva puede aparecer en una pasada posterior (envoltura .mc-sw), se espera hasta 2 s. */
+ function chk(){var ks=Object.keys(K);if(!ks.length)return;var now=Date.now(),typed=now-lastU<800;
+  ks.forEach(function(k){var o=K[k];if(o.el.isConnected)return;if(typed||!o.A.isConnected||document.getElementById(o.a)!==o.A){delete K[k];return;}
+   if(!o.g)o.g=now;else if(now-o.g>2000){delete K[k];return;}
+   var e=null;try{e=o.A.querySelectorAll(o.c)[o.i];}catch(_){}if(!e)return;
+   if(e.scrollTop<2&&(o.t>0||o.l>0)){e.scrollTop=o.t;e.scrollLeft=o.l;}o.el=e;o.g=0;});}
+ /* posición exacta justo antes de reemplazar (el evento scroll llega 1 cuadro tarde) */
+ try{var D=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');if(D&&D.set)Object.defineProperty(Element.prototype,'innerHTML',{get:D.get,set:function(v){for(var k in K){var o=K[k];if(o.el.isConnected&&this.contains(o.el)){o.t=o.el.scrollTop;o.l=o.el.scrollLeft;}}return D.set.call(this,v);},configurable:true});}catch(e){}
+ function ini(){if(!document.body){document.addEventListener('DOMContentLoaded',ini);return;}try{new MutationObserver(chk).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});}catch(e){}}ini();
+ window.MCscrollKeep={_K:function(){return K;}};})();</script>
 </body>
 </html>
