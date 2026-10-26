@@ -556,7 +556,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='512'; /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='513'; /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -1480,24 +1480,28 @@ function MCstockDe(it,b){if(!b||b==='*')return (it.stockTotal!==undefined?it.sto
    navigator.share abre la hoja de AirDrop/Mail y no es la descarga. Solo se usa si no hay <a download>. */
 function mcSanitizeFilename(name){
   name=String(name==null?'':name).trim();
-  if(!name)return 'documento.pdf';
+  if(!name||/^(unknown|undefined|null)(\.pdf)?$/i.test(name))return 'Documento Minecore.pdf';
   /* v170: solo ilegales \ / : * ? " < > | — conservar espacios y acentos ES (ÁÉÍÓÚÑ) */
   name=name.replace(/[\\\/:\*\?"<>\|]/g,' ').replace(/[\u0000-\u001f]/g,'').replace(/ +/g,' ').trim();
   if(!/\.[A-Za-z0-9]{2,5}$/.test(name))name+='.pdf';
   return name;
 }
+/* b513: nombre único de PDF = tipo de documento + número (nunca «Unknown.pdf»). Un solo helper para descargar, compartir (File de navigator.share) y título de la vista previa. */
+var MC_PDF_TIPOS={sq:'Cotización de ventas',sq_noprice:'Cotización de ventas (sin precio)',sq_nocat:'Cotización de ventas (sin categoría)',so:'Orden de venta',po:'Orden de compra',pq:'Cotización de compra',acta:'Acta de entrega y recepción',pick:'Lista de preparación',packing:'Lista de empaque',boxlabel:'Etiqueta de caja',boxcontent:'Contenido de caja',receipt:'Recibo',invoice:'Factura',ec:'Estado de cuenta',mo:'Orden de fabricación',pend:'Informe de pendientes'};
+function mcPdfName(tipo,numero,suf){var t=MC_PDF_TIPOS[tipo]||String(tipo||'').trim()||'Documento';var n=String(numero==null?'':numero).trim();return mcSanitizeFilename([t,n].filter(Boolean).join(' ')+(suf?' '+String(suf).trim():'')+'.pdf');}
+function mcPdfTipoDeNum(num){num=String(num||'');return /MCOR-SQ-/i.test(num)?'sq':/MCOR-SO-/i.test(num)?'so':/MCOR-PO-/i.test(num)?'po':/MCOR-MO-/i.test(num)?'mo':'';}
 /* Preferir siempre res.filename del API (v116). Fallback Spanish si hace falta. tipoHint: 'LISTA DE PREPARACIÓN' etc. */
 function mcPdfFilename(apiFilename, hint, tipoHint){
   if(apiFilename)return mcSanitizeFilename(apiFilename);
   var src=String(hint||'');
-  var m=src.match(/(MCOR-S[QO]-[\w-]+)/i);
+  var m=src.match(/(MCOR-(?:S[QO]|PO)-[\w-]+)/i);if(m&&/^MCOR-PO-/i.test(m[1]))return mcPdfName(/COTIZ/i.test(tipoHint||src)?'pq':'po',m[1]);
   var num=m?m[1]:'';
   if(num){
-    if(/^MCOR-SQ-/i.test(num))return mcSanitizeFilename('COTIZACIÓN '+num+'.pdf');
+    if(/^MCOR-SQ-/i.test(num))return mcPdfName('sq',num);
     if(/^MCOR-SO-/i.test(num)){
       var th=String(tipoHint||'').toUpperCase();
-      if(th.indexOf('PICK')>=0)return mcSanitizeFilename('LISTA DE PREPARACIÓN '+num+'.pdf');
-      return mcSanitizeFilename('ORDEN DE VENTA '+num+'.pdf');
+      if(th.indexOf('PICK')>=0||th.indexOf('PREPARACI')>=0)return mcPdfName('pick',num);
+      return mcPdfName('so',num);
     }
   }
   if(hint)return mcSanitizeFilename(String(hint).replace(/\.pdf$/i,'')+'.pdf');
@@ -1570,11 +1574,27 @@ function mcBlobFrom_(b64OrBlob, mime){
   return new Blob([arr],{type:mime||'application/pdf'});
 }
 function mcOpenPdfTab_(win, blob, filename){
+  filename=mcSanitizeFilename(filename);
   var url=URL.createObjectURL(blob);
-  var title=String(filename||'documento.pdf').replace(/\.pdf$/i,'');
-  try{win.document.title=title;}catch(e){}
-  try{win.location.replace(url);}catch(e){
-    try{win.location.href=url;}catch(e2){}
+  var title=String(filename).replace(/\.pdf$/i,'');
+  /* b513: antes la pestaña navegaba al blob: y al compartir desde Safari/WhatsApp salía «Unknown.pdf» (un blob: no tiene nombre).
+     Ahora la pestaña es un visor con <title> y un botón Compartir que entrega un File con el nombre correcto. */
+  try{
+    var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+    var d=win.document;d.open();
+    d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title></head><body style="margin:0;background:#0b1520;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;flex-direction:column;height:100vh">'+
+      '<div style="display:flex;gap:8px;align-items:center;padding:10px 12px;color:#e8eef6"><b style="flex:1;min-width:0;font-size:15px;word-break:break-word">'+esc(filename)+'</b>'+
+      '<button id="sh" style="white-space:nowrap;min-height:44px;padding:0 16px;border:0;border-radius:10px;background:#E8FF00;color:#161926;font-weight:800;font-size:15px">📤 Compartir</button>'+
+      '<a id="dl" download="'+esc(filename)+'" href="'+url+'" style="white-space:nowrap;min-height:44px;line-height:44px;padding:0 14px;border-radius:10px;background:#3d7ec9;color:#fff;font-weight:800;font-size:15px;text-decoration:none">⬇ Guardar</a></div>'+
+      '<iframe title="'+esc(title)+'" src="'+url+'" style="flex:1;border:0;background:#fff;width:100%"></iframe></body></html>');
+    d.close();
+    var bt=d.getElementById('sh');
+    bt.onclick=function(){var F=null;try{F=new win.File([blob],filename,{type:'application/pdf'});}catch(e){try{F=new File([blob],filename,{type:'application/pdf'});}catch(e2){}}
+      var nv=win.navigator;if(F&&nv.share&&(!nv.canShare||nv.canShare({files:[F]})))nv.share({files:[F],title:title}).catch(function(){});else d.getElementById('dl').click();};
+    win.__mcPdfName=filename;
+  }catch(e){
+    try{win.document.title=title;}catch(e1){}
+    try{win.location.replace(url);}catch(e2){try{win.location.href=url;}catch(e3){}}
   }
   setTimeout(function(){try{URL.revokeObjectURL(url);}catch(e){}},180000);
 }
@@ -1639,6 +1659,7 @@ function mcPdfSaveSheet_(blob, filename){
   wrap.appendChild(row);
   document.body.appendChild(wrap);
 }
+window.MCsaveBlob=function(b,n,mime){return mcDownloadBlob(b,n,mime);};
 function mcDownloadBlob(b64OrBlob, filename, mime, slot){
   mime=mime||'application/pdf';
   filename=mcSanitizeFilename(filename);
@@ -2509,9 +2530,12 @@ function MCInflowDoc(kind, d, opt){
       var codes=[];if(l.codigo)wrap(l.codigo,x+w-tx,8.9,0).slice(0,3).forEach(function(c){codes.push([c,0]);});if(l.sku)codes.push([l.sku,1]);if(kind==='pend'&&l.categoria)codes.push([l.categoria,0]);return {tx:tx,nm:nm,codes:codes,h:nm.length*12+codes.length*10.4};}
     /* b512: precio unitario con descuento: original tachado (gris, pequeño) y debajo el precio neto. Un solo helper para cotización, OV, OC y cotización de compra. */
     function pdfDescPct(l){var d=parseFloat(l&&l.descuento);return isFinite(d)&&d>0&&d<100?d:0;}
-    function precioDesc(v,l,c,mid){var p=parseFloat(v)||0,d=pdfDescPct(l),n=Math.round(p*(100-d)+1e-6)/100,o=money(p),R=c.x+c.w,w=tw(o,7.6,0);
-      txt(o,R,mid-11,7.6,0,QTYC,'right');doc.setDrawColor(130,130,130);doc.setLineWidth(S(0.7));doc.line(X(R-w),Y(mid-11+3.9),X(R),Y(mid-11+3.9));
-      txt(money(n),R,mid+1,8.9,0,INK,'right');}
+    function pdfNeto(l){var p=parseFloat(l.precio)||0,d=pdfDescPct(l);return Math.round(p*(100-d)+1e-6)/100;}
+    /* b513: si alguna línea tiene descuento, columnas como el PDF de referencia (MCOR-SQ-001053): P. unitario (tachado en celda gris solo si tiene desc.) | Desc. | P. c/desc. (negrita) | Subtotal. Un solo helper para cotización, OV y OC. */
+    function descCols(cols,rows,pre){if(!rows.some(function(l){return pdfDescPct(l)>0;}))return cols;
+      var i=cols.findIndex(function(c){return c.key==='precio';});if(i<0)return cols;var out=cols.slice(0,i),sh=32;
+      out.forEach(function(c){if(c.type==='prod')c.w-=sh;else if(c.type!=='num')c.x-=sh;if(c.type==='qty'&&c.head==='Cantidad')c.head='Cant.';});
+      return out.concat([{type:'strike',key:'precio',head:pre+'\nunitario',x:368,w:46,align:'right'},{type:'dpct',key:'descuento',head:'Desc.',x:418,w:28,align:'right'},{type:'neto',key:'precio',head:pre+'\nc/desc.',x:452,w:50,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:506,w:56,align:'right'}]);}
     function table(cols,rows,top,o){o=o||{};
       function head(y){var hh=0;cols.forEach(function(c){if(!c.head)return;var hs=String(c.head).split('\n');hs.forEach(function(h,j){var yy=y+(hs.length>1?j*11-8:0);txt(h,c.align==='right'?c.x+c.w:c.x,yy,8.9,0,INK,c.align==='right'?'right':undefined);});});
         rect(LEFT-(A4?0:0),y+13.6,RIGHT-LEFT-(A4?0:4),0.8,RULE);return y+14.4;}
@@ -2520,7 +2544,7 @@ function MCInflowDoc(kind, d, opt){
         var heights=[24];var blocks={};
         cols.forEach(function(c){if(c.type==='prod'){var b=prodBlock(l,c.x,c.w,c.img);blocks[c.key]=b;heights.push(Math.max(b.h,c.img&&l._im?c.img:0)+12);}
           else if(c.type==='text'){var ls=wrap(l[c.key],c.w-4,8.9,0);blocks[c.key]=ls;heights.push(ls.length*14.2+10);}
-          else if(c.type==='barcode'){heights.push(40);}else if(c.type==='money'&&c.desc&&pdfDescPct(l)>0){heights.push(32);}});
+          else if(c.type==='barcode'){heights.push(40);}});
         var h=Math.max.apply(null,heights);
         if(y+h>BOTTOM){doc.addPage();y=head(A4?40:20);}
         if(ri%2===1)rect(LEFT,y,RIGHT-LEFT-(A4?0:4),h,ALT);
@@ -2534,7 +2558,9 @@ function MCInflowDoc(kind, d, opt){
             b.nm.forEach(function(s,j){txt(s,b.tx,ty+j*12,10.3,1);});b.codes.forEach(function(cd,j){txt(cd[0],b.tx,ty+b.nm.length*12+j*10.4,8.9,0,INK,undefined,cd[1]===1);});}
           else if(c.type==='text'){var ls=blocks[c.key];ls.forEach(function(s,j){txt(s,c.x,mid-ls.length*7.1+j*14.2+2.6,8.9,0);});}
           else if(c.type==='qty'){var q=qty(v);var pw=Math.max(17.5,tw(q,8.9,1)+9.5);var px=c.x+(c.pad||0);rect(px,mid-6.8,pw,13.6,PILL);txt(q,px+pw/2,mid-4.6,8.9,1,QTYC,'center');tot+=parseFloat(v)||0;}
-          else if(c.type==='money'&&c.desc&&pdfDescPct(l)>0)precioDesc(v,l,c,mid);
+          else if(c.type==='strike'){var pd=pdfDescPct(l),pv=v==null||v===''?'':money(v);if(pd>0){rect(c.x-3,mid-8.5,c.w+5,17,PILL);var sw=tw(pv,7.6,0);txt(pv,c.x+c.w,mid-4.2,7.6,0,QTYC,'right');doc.setDrawColor(120,120,120);doc.setLineWidth(S(0.7));doc.line(X(c.x+c.w-sw),Y(mid-0.4),X(c.x+c.w),Y(mid-0.4));}else txt(pv,c.x+c.w,mid-4.8,8.9,0,INK,'right');}
+          else if(c.type==='dpct'){var pd2=pdfDescPct(l);txt(pd2>0?qty(pd2)+' %':'—',c.x+c.w,mid-4.2,7.6,0,INK,'right');}
+          else if(c.type==='neto')txt(money(pdfNeto(l)),c.x+c.w,mid-4.8,8.9,1,INK,'right');
           else if(c.type==='money')txt(v==null||v===''?'':money(v),c.x+c.w,mid-4.8,8.9,0,INK,'right');
           else if(c.type==='pct')txt(v==null||v===''?'':(qty(v)+' %'),c.x+c.w,mid-4.8,8.9,0,INK,'right');
           else if(c.type==='kg')txt(v==null||v===''?'':(qty(v)+'kg'),c.x,mid-4.8,8.9,0);
@@ -2562,8 +2588,9 @@ function MCInflowDoc(kind, d, opt){
       letterhead(d.titulo||TITLES.po,[['Numero de Orden',d.num],['Fecha',fmtD(d.fecha)],['Proveedor',d.proveedor],['RUC',d.ruc]]);
       var yP=grid([28.5,206.4,384.4],[[['Contacto',d.contacto],['Email',d.email],['Teléfono',d.telefono]],[['Bodega',d.bodega],['Fecha de entrega',fmtD(d.entrega)],['Ref. proveedor',d.ref_prov]],[['Forma de pago',d.pago],['Entrega',d.estado],d.factura?['Factura(s) proveedor',d.factura]:null]],134.4);
       var cP=[{type:'num',x:34.5},{type:'prod',key:'p',head:'Producto',x:45.6,w:300,img:26},{type:'qty',key:'cantidad',head:'Cantidad',x:368.3,pad:2}];
-      if(d.conPrecio!==false)cP.push({type:'money',key:'precio',head:'Costo\nunitario',x:410,w:51.8,align:'right',desc:1},{type:'pct',key:'descuento',head:'Descuento',x:465,w:46.8,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:515,w:46.7,align:'right'});
+      if(d.conPrecio!==false)cP.push({type:'money',key:'precio',head:'Costo\nunitario',x:410,w:51.8,align:'right'},{type:'pct',key:'descuento',head:'Descuento',x:465,w:46.8,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:515,w:46.7,align:'right'});
       else cP=[{type:'num',x:34.5},{type:'prod',key:'p',head:'Producto',x:45.6,w:330,img:26},{type:'qty',key:'cantidad',head:'Pedido',x:400,pad:2},{type:'qty',key:'recibido',head:'Recibido',x:455,pad:2},{type:'qty',key:'pend',head:'Pendiente',x:515,pad:2}];
+      if(d.conPrecio!==false)cP=descCols(cP,prodRows,'Costo');
       var tP=prodRows.length?table(cP,prodRows,yP+12):{y:yP+20},tyP=tP.y,oP=String(d.notas||'').replace(/\r\n/g,'\n').trim();
       if(oP){var OLp=[];oP.split('\n').forEach(function(p){var w=wrap(p,RIGHT-28.5-12,8.9,0);if(!w.length)w=[''];OLp=OLp.concat(w);});
         tyP+=18;if(tyP+30>BOTTOM){doc.addPage();tyP=30.7;}txt('NOTAS',28.5,tyP,8.9,1,OLIVE);tyP+=15;OLp.forEach(function(l){if(tyP+12>BOTTOM){doc.addPage();tyP=30.7;}txt(l,34.5,tyP,8.9,0);tyP+=12;});}
@@ -2580,8 +2607,9 @@ function MCInflowDoc(kind, d, opt){
       if(kind!=='sq_nocat')cols.push({type:'text',key:'categoria',head:'Categoria',x:304.1,w:62});
       cols.push({type:'qty',key:'cantidad',head:'Cantidad',x:368.3,pad:2});
       if(opt.entregas&&kind.indexOf('sq')===0&&window.MC_SQ_PNETO){cols[cols.length-1].head='Cant.';if(kind!=='sq_noprice'){prodRows.forEach(function(l){var c=parseFloat(l.cantidad)||0;l._pf=c?Math.round((parseFloat(l.subtotal)||0)/c*100)/100:(parseFloat(l.precio)||0);});cols.push({type:'money',key:'_pf',head:'P. unitario',x:440,w:56,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:508,w:54,align:'right'});}}
-      else if(kind!=='sq_noprice')cols.push({type:'money',key:'precio',head:'Precio\nunitario',x:410,w:51.8,align:'right',desc:1},{type:'pct',key:'descuento',head:'Descuento',x:465,w:46.8,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:515,w:46.7,align:'right'});
+      else if(kind!=='sq_noprice')cols.push({type:'money',key:'precio',head:'Precio\nunitario',x:410,w:51.8,align:'right'},{type:'pct',key:'descuento',head:'Descuento',x:465,w:46.8,align:'right'},{type:'money',key:'subtotal',head:'Subtotal',x:515,w:46.7,align:'right'});
       if(kind==='sq_nocat'){cols[1].w=310;}
+      if(!(opt.entregas&&kind.indexOf('sq')===0&&window.MC_SQ_PNETO)&&kind!=='sq_noprice')cols=descCols(cols,prodRows,'Precio');
       cols[1].x=45.6;var t=prodRows.length?table(cols,prodRows,y+30):{y:y+20};
       /* b383: observaciones (order_remarks) siempre impresas si existen: OV, cotización y PDF de «Solicitar factura» */
       var obsT=String(d.notas||d.observaciones||d.order_remarks||'').replace(/\r\n/g,'\n').trim(),ty=t.y;
@@ -3908,7 +3936,7 @@ var Cobranza = (function () {
         var url = URL.createObjectURL(blob);
         if (w) w.location = url; else window.open(url, '_blank');
       } else {
-        return mcDownloadBlob(blob, res.filename||('Acta_'+String(c.cliente||'cliente').replace(/[^A-Za-z0-9]+/g,'_')+'.pdf'), 'application/pdf', pdfTab).then(function(){
+        return mcDownloadBlob(blob, res.filename||mcPdfName('acta',c.numero||c.num||c.cliente||''), 'application/pdf', pdfTab).then(function(){
           actaOpen = null; renderList();
           alert('Acta descargada: ' + res.meses + ' cuotas de ' + fmt(res.cuota) + ' al ' + res.tasa + '% sobre ' + fmt(res.monto) + '.');
         });
@@ -6371,7 +6399,7 @@ function mcPlanillaInlineImgs(idoc){
 /* Dibuja la planilla visible (ediciones e IVA incluidos) a un PDF A4 de varias páginas. */
 function mcPlanillaRenderPdf(idoc, filename){
   if(!idoc||!idoc.body)return Promise.reject(new Error('No se pudo leer la planilla'));
-  filename=mcSanitizeFilename(filename||'Cotización.pdf');
+  filename=mcSanitizeFilename(filename||'Cotización de ventas.pdf');
   try{idoc.title=filename;}catch(e){}
   var hojas;
   try{hojas=[].slice.call(idoc.querySelectorAll('.hoja'));}catch(e2){hojas=[];}
@@ -6422,7 +6450,7 @@ function MCPlanillaCot(cfg){try{var cli=cfg.cliente||{},L=cfg.lineas||[],q=!/ORD
         else{ah=e.ahora!=null&&e.manual?Math.min(cant,+e.ahora||0):(/^inmediat/i.test(pz)?cant:Math.min(cant,+e.ahora||0));if(ah>=cant&&cant>0)filas.push('Inmediata');else if(ah>0){filas.push(ah+' inmediata');filas.push(fr(cant-ah,pz));}else filas.push(/confirmar/i.test(pz)?'Por confirmar':pz);}
         var st=ah>=cant&&cant>0?'Sí':ah>0?'Parcial':'No';return {line_id:'p'+i,sku:l.sku,nombre:l.nombre,codigo:l.codigo||'',cant:cant,stock:st,stockSub:st==='Parcial'?ah+'/'+cant:'',filas:filas};}):null;
     var kind=q?'sq':'so';
-    return MCInflowDoc(kind,D,E&&q?{entregas:E}:{}).then(function(b){MCStd.bajar(b,mcSanitizeFilename((q?'Cotización ':'Orden de venta ')+(D.num||D.cliente||'')+'.pdf'));return b;}).catch(function(e){alert('No se pudo generar el PDF: '+(e&&e.message||e));});
+    return MCInflowDoc(kind,D,E&&q?{entregas:E}:{}).then(function(b){MCStd.bajar(b,mcPdfName(q?'sq':'so',D.num||D.cliente||''));return b;}).catch(function(e){alert('No se pudo generar el PDF: '+(e&&e.message||e));});
   }catch(e){return MCPlanillaCotOld(cfg);}}
 function MCPlanillaCotOld(cfg){
   function esc(x){return String(x===undefined||x===null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -9175,7 +9203,7 @@ var Edc = (function(){
         else if(/acci[oó]n|desconocid|unknown/i.test(e))e='La descarga aún no está activa en el servidor. Intenta más tarde.';
         err(e);return;
       }
-      return mcDownloadBlob(res.b64, res.filename||('Estado_de_cuenta_'+String(emp).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf'), 'application/pdf', pdfTab);
+      return mcDownloadBlob(res.b64, res.filename||mcPdfName('ec',emp), 'application/pdf', pdfTab);
     }).catch(function(e){fin();mcClosePdfTab_(pdfTab);err(MCerr(e));});
   }
   function setQ(v){q=v;renderListE();}
@@ -12921,9 +12949,9 @@ var VRT='<style>.mc-rt{width:100%;border-collapse:collapse;font-size:12.5px}.mc-
     (cur.adjuntos_doc||[]).forEach(function(a){L.push({src:'mc',id:a.id,tipo:a.tipo||'Otro',nombre:a.nombre,url:a.url,mime:a.mime,fecha:a.created_at,por:a.created_by});});
     (cur.adjuntos||[]).forEach(function(a){L.push({src:'inflow',tipo:a.tipo||'Otro',nombre:a.file_name,id:a.id});});
     if(!o.is_quote){var num=o.order_number;
-      L.push({src:'gen',kind:'so',tipo:'Orden de venta',nombre:mcSanitizeFilename(DOCN.so+' - '+num+'.pdf')});
-      if((cur.picks||[]).length)L.push({src:'gen',kind:'pick',tipo:'Pick list',nombre:mcSanitizeFilename(DOCN.pick+' - '+num+'.pdf')});
-      if((cur.cajas||[]).length){var pi=cur.packing_info||{};L.push({src:'gen',kind:'packing',tipo:'Packing list',nombre:mcSanitizeFilename(DOCN.packing+' - '+num+'.pdf'),pack:pi});}}
+      L.push({src:'gen',kind:'so',tipo:'Orden de venta',nombre:mcPdfName('so',num)});
+      if((cur.picks||[]).length)L.push({src:'gen',kind:'pick',tipo:'Pick list',nombre:mcPdfName('pick',num)});
+      if((cur.cajas||[]).length){var pi=cur.packing_info||{};L.push({src:'gen',kind:'packing',tipo:'Packing list',nombre:mcPdfName('packing',num),pack:pi});}}
     L.forEach(function(x,i){x._i=i;x._o=DOC_ORD.indexOf(x.tipo);if(x._o<0)x._o=DOC_ORD.length;});
     L.sort(function(a,b){return a._o-b._o||a._i-b._i;});cur._docs=L;return L;}
   function gyeFH(t){if(!t)return '';try{return new Date(t).toLocaleString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return String(t).slice(0,16);}}
@@ -13375,12 +13403,12 @@ return F.map(function(n){return '<div style="font-size:12px;font-weight:400;marg
     if((kind==='planilla'||/^sq/.test(kind))&&cur&&cur.orden&&cur.orden.is_quote&&!plzAviso(cur.orden))return;if(kind==='planilla')return planilla();
     /* b339: toda cotización se imprime con página 2 «Tiempos de entrega» y se descarga directo como «Cotización MCOR-SQ-….pdf» */
     if(/^sq/.test(kind)&&cur&&cur.orden&&cur.orden.id===id){var suf=kind==='sq_noprice'?' (sin precio)':kind==='sq_nocat'?' (sin categoría)':'';var E=cotEntregas();
-      return pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc,{entregas:E});}),mcSanitizeFilename('Cotización '+num+suf+'.pdf'));}
+      return pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc,{entregas:E});}),mcPdfName('sq',num,suf));}
     /* b341: el formato propio de OV/packing pasa al estándar Minecore */
     if(kind==='mc_so')kind='so';if(kind==='mc_packing')kind='packing';
     if(false)return pdfBlob(MCOvPdf(kind,cur),mcSanitizeFilename((kind==='mc_so'?'Orden de venta':'Packing slip')+' - '+num+'.pdf'));
     if((kind==='boxlabel'||kind==='boxcontent')&&cur&&cur.orden.id===id&&!(cur.cajas||[]).length&&!confirm('La orden aún no tiene cajas: se imprimirá una sola caja con todo. ¿Continuar?'))return;
-    pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc,kind==='so'&&cur&&cur.orden&&cur.orden.id===id?{entregas:cotEntregas()}:undefined);}),mcSanitizeFilename(DOCN[kind]+' - '+num+'.pdf'));}
+    pdfBlob(api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);return MCInflowDoc(kind,r.doc,kind==='so'&&cur&&cur.orden&&cur.orden.id===id?{entregas:cotEntregas()}:undefined);}),mcPdfName(kind,num));}
   /* Planilla del Cotizador viejo (MCPlanillaCot): fotos, precio lista, descuento, final y plazos por línea (incluida la entrega dividida) */
   /* b460 (regla EFCH t1005): si la línea no trae partes en entrega JSON, se leen del texto plazo_entrega «14 und. inmediata + 6 und. 10-15 días» (lo que guarda «Entrega ▾»). */
   function mcPartesLinea(l){var e=l.entrega||{},q=+l.quantity||0;var P=(e.partes||[]).filter(function(p){return p&&+p.cantidad>0;}).map(function(p){return {cantidad:+p.cantidad,plazo:String(p.plazo||'Por confirmar')};});if(P.length>=2)return P;
@@ -13411,7 +13439,7 @@ return F.map(function(n){return '<div style="font-size:12px;font-weight:400;marg
       var num=kind==='sq'?(o.quote_number||o.order_number):o.order_number;
       return pdfBlob(api({op:'doc',id:id}).then(function(d){if(!d||!d.ok)throw new Error((d&&d.error)||'Documento no disponible');var doc=d.doc||{};
           if(kind==='sq'&&!o.is_quote){doc=Object.assign({},doc,{tipo:'SQ',num:o.quote_number||doc.cotizacion||doc.num});}
-          return MCInflowDoc(kind,doc,{entregas:E});}),mcSanitizeFilename((kind==='sq'?'Cotización ':'ORDEN DE VENTA - ')+num+'.pdf'));})
+          return MCInflowDoc(kind,doc,{entregas:E});}),mcPdfName(kind==='sq'?'sq':'so',num));})
     .catch(function(e){alert(e&&e.message||e);});}
   function irCot(num){cerrarOv();tipo='SQ';cur=null;form=null;f={cliente:'',estado:'',desde:'',hasta:'',q:num};MCvtTitulo('SQ');try{MCroute.set('vcot');}catch(e){}cargar();}
   /* ===================== PREPARAR ORDEN (b276, antes «Para piquear») — como el pick de inFlow =====================
@@ -13791,7 +13819,7 @@ var Manuf=(function(){
       doc.text(q.sku||'',40,y);doc.text(nm,120,y);doc.text((o.bodega||'')+(sub?' / '+sub:''),380,y);doc.text(num(l.quantity),W-110,y,{align:'right'});doc.text('____',W-40,y,{align:'right'});y+=12*nm.length+4;});
     y+=10;doc.setFont('helvetica','bold');doc.setFontSize(10);var ce=cur.costoEstimado||{};
     doc.text(o.estado==='completada'?'Costo unitario: '+money(o.unit_cost,4):'Costo unitario estimado: '+money(ce.unitario,4),40,y);
-    try{mcDownloadBlob(doc.output('blob'),o.mo_number+'.pdf');}catch(e){doc.save(o.mo_number+'.pdf');}}
+    try{mcDownloadBlob(doc.output('blob'),mcPdfName('mo',o.mo_number));}catch(e){doc.save(mcPdfName('mo',o.mo_number));}}
   /* ---------- b242: desde Inventario ---------- */
   function bomDe(pid,ev){if(ev)ev.stopPropagation();if(!cat)api({op:'catalogos'}).then(function(r){if(r.ok)cat=r;}).catch(function(){});capa('🧩 Lista de materiales');abrirBom(pid);}
   function armar(pid,ev){if(ev)ev.stopPropagation();capa('🏭 Armar');el().innerHTML='<div class="cbz-loading">Cargando…</div>';
@@ -17948,7 +17976,7 @@ var KIT={"BQ":[["MCOR000490","rep"],["MCOR000493","rep"],["MCOR000816","rep"],["
 })();
 
 function MCPoPdfBajar(conPrecio){var c=window.MC_PO_CUR;if(!c){alert('Abre la orden primero');return;}
-  MCPoPdf(c,conPrecio).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=mcSanitizeFilename((c.orden.is_quote?'Cotización de compra ':'Orden de compra ')+c.orden.order_number+(conPrecio?'':' (bodega)')+'.pdf');document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},800);}).catch(function(e){alert('No se pudo generar el PDF: '+(e&&e.message||e));});}
+  MCPoPdf(c,conPrecio).then(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=mcPdfName(c.orden.is_quote?'pq':'po',c.orden.order_number,conPrecio?'':'(bodega)');document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},800);}).catch(function(e){alert('No se pudo generar el PDF: '+(e&&e.message||e));});}
 </script>
 <script>/* b293 t423u: preferencias por usuario en Supabase (app.user_prefs); localStorage es solo caché */
 (function(){
@@ -19132,7 +19160,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=512',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=513',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
@@ -19298,10 +19326,10 @@ var MCDocs=(function(){
       var x=(r.filas||[]).filter(function(f){return f.id===id||f.numero===num;})[0];
       if(!x||!x.pdf_url)throw new Error('Esta orden no tiene acta de entrega guardada.');
       return fetch(x.pdf_url).then(function(h){if(!h.ok)throw new Error('HTTP '+h.status);return h.blob();}).then(function(b){
-        return [{t:'Acta de entrega',n:fname('Acta entrega '+num+'.pdf'),b:new Blob([b],{type:'application/pdf'}),sub:'Recibió: '+(x.receptor||'—')}];});});}
+        return [{t:'Acta de entrega',n:mcPdfName('acta',num),b:new Blob([b],{type:'application/pdf'}),sub:'Recibió: '+(x.receptor||'—')}];});});}
   function prep(id,num){return api({op:'doc',id:id}).then(function(r){if(!r.ok)throw new Error(r.error);
       return Promise.all([Promise.resolve(MCInflowDoc('pick',r.doc)),Promise.resolve(MCInflowDoc('boxcontent',r.doc))]).then(function(B){
-        return [{t:'Pick list',n:fname('Pick list '+num+'.pdf'),b:B[0]},{t:'Box content list',n:fname('Box content '+num+'.pdf'),b:B[1]}];});});}
+        return [{t:'Pick list',n:mcPdfName('pick',num),b:B[0]},{t:'Box content list',n:mcPdfName('boxcontent',num),b:B[1]}];});});}
   function css(){return '<style>#mcd{position:fixed;inset:0;z-index:99990;background:#0b1520;display:flex;flex-direction:column;color:#e8eef6}#mcd .h{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid #1f2f42}#mcd .h b{flex:1;min-width:0;font-size:16px;white-space:normal}'+
     '#mcd .tb{display:flex;gap:6px;padding:8px 12px;flex-wrap:wrap}#mcd .tb button{white-space:nowrap;padding:9px 14px;border-radius:18px;border:1px solid #3a5878;background:#111a26;color:#cfe3f7;font-weight:700}#mcd .tb button.on{background:#E8FF00;color:#161926;border-color:#E8FF00}'+
     '#mcd .v{flex:1;min-height:0;padding:0 12px}#mcd iframe{width:100%;height:100%;border:0;border-radius:8px;background:#fff}#mcd .ms{padding:20px;text-align:center;color:#b8c6d6}'+
