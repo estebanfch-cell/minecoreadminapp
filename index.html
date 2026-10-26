@@ -556,7 +556,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='517'; /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='518'; /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -1535,11 +1535,27 @@ function mcArmPdfTab(){
   if(!w)return null;
   try{
     w.document.open();
-    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Preparando PDF…</title></head><body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0e1520;color:#e8eef6;padding:28px"><p>Preparando el PDF…</p></body></html>');
-    w.document.close();
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Preparando PDF…</title></head><body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0e1520;color:#e8eef6;padding:0">'+MC_PDF_BACK_BAR_+'<p style="padding:20px 28px">Preparando el PDF…</p></body></html>');
+    w.document.close();mcBindPdfBack_(w);
   }catch(e){}
   return w;
 }
+/* r540 b518 (regla permanente): toda ventana/visor que abre el portal tiene «← Volver». Cascada: close → history.back → location.replace(portal). */
+var MC_PDF_BACK_BAR_='<div style="position:sticky;top:0;z-index:5;background:#0b1520;padding:8px 12px 0"><button id="mcback" type="button" style="min-height:44px;padding:0 18px;border:1px solid #3d5166;border-radius:10px;background:#16202c;color:#e8eef6;font-weight:800;font-size:16px;white-space:nowrap;writing-mode:horizontal-tb">← Volver</button></div>';
+function mcPdfBackUrl_(win){var u='';try{u=win.opener&&win.opener.location&&win.opener.location.href;}catch(e){u='';}
+  if(!u||!/^https?:/i.test(u)){try{u=(window.location&&/^https?:/i.test(window.location.href))?window.location.href:'';}catch(e){u='';}}
+  return u||'https://portal.minecore.ec/';}
+function mcPdfBack_(win){
+  var st=(win&&win.setTimeout)?function(f,t){return win.setTimeout(f,t);}:setTimeout;
+  var dest=mcPdfBackUrl_(win);
+  try{win.close();}catch(e){}
+  st(function(){if(win.closed)return;
+    var hl=0;try{hl=win.history.length;}catch(e){}
+    if(hl>1){try{win.history.back();}catch(e){}}
+    st(function(){if(win.closed)return;try{win.location.replace(dest);}catch(e){try{win.location.href=dest;}catch(e2){}}},hl>1?300:0);
+  },300);
+}
+function mcBindPdfBack_(win){try{var b=win.document.getElementById('mcback');if(b)b.onclick=function(){mcPdfBack_(win);};}catch(e){}}
 function mcClosePdfTab_(slot){
   if(slot&&!slot.closed){try{slot.close();}catch(e){}}
 }
@@ -1583,12 +1599,12 @@ function mcOpenPdfTab_(win, blob, filename){
   try{
     var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
     var d=win.document;d.open();
-    d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title></head><body style="margin:0;background:#0b1520;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;flex-direction:column;height:100vh">'+
-      '<div style="display:flex;gap:8px;align-items:center;padding:10px 12px;color:#e8eef6"><b style="flex:1;min-width:0;font-size:15px;word-break:break-word">'+esc(filename)+'</b>'+
+    d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title></head><body style="margin:0;background:#0b1520;font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;flex-direction:column;height:100vh">'+MC_PDF_BACK_BAR_+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px 10px;color:#e8eef6"><b style="flex:1 1 100%;min-width:0;font-size:15px;word-break:break-word">'+esc(filename)+'</b>'+
       '<button id="sh" style="white-space:nowrap;min-height:44px;padding:0 16px;border:0;border-radius:10px;background:#E8FF00;color:#161926;font-weight:800;font-size:15px">📤 Compartir</button>'+
       '<a id="dl" download="'+esc(filename)+'" href="'+url+'" style="white-space:nowrap;min-height:44px;line-height:44px;padding:0 14px;border-radius:10px;background:#3d7ec9;color:#fff;font-weight:800;font-size:15px;text-decoration:none">⬇ Guardar</a></div>'+
       '<iframe title="'+esc(title)+'" src="'+url+'" style="flex:1;border:0;background:#fff;width:100%"></iframe></body></html>');
-    d.close();
+    d.close();mcBindPdfBack_(win);
     var bt=d.getElementById('sh');
     bt.onclick=function(){var F=null;try{F=new win.File([blob],filename,{type:'application/pdf'});}catch(e){try{F=new File([blob],filename,{type:'application/pdf'});}catch(e2){}}
       var nv=win.navigator;if(F&&nv.share&&(!nv.canShare||nv.canShare({files:[F]})))nv.share({files:[F],title:title}).catch(function(){});else d.getElementById('dl').click();};
@@ -16078,7 +16094,7 @@ var MCVsel=(function(){var ON=false,SEL={},VIS=[],LINKS=[],FURL='https://bklbvwp
     m.querySelectorAll('.pf-etqi').forEach(function(x){x.style.cssText='padding:9px 10px;cursor:pointer;border-radius:8px;font-size:13.5px';x.onmouseenter=function(){x.style.background='#1c2a3a';};x.onmouseleave=function(){x.style.background='';};});
     document.body.appendChild(m);setTimeout(function(){document.addEventListener('click',function f(e){if(!m.contains(e.target)&&e.target!==btn){m.remove();document.removeEventListener('click',f);}});},0);}
   function pfImprimir(){var p=PF.cur.producto;var w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para imprimir');return;}
-    w.document.write('<html><head><title>Etiqueta '+esc(p.sku||'')+'</title><style>@page{size:62mm 29mm;margin:2mm}body{font-family:Arial,sans-serif;margin:0}.l{width:58mm;height:25mm;display:flex;flex-direction:column;justify-content:center}.s{font-size:16pt;font-weight:800;letter-spacing:1px}.n{font-size:7.5pt;line-height:1.15;max-height:3.5em;overflow:hidden}</style></head><body><div class="l"><div class="s">'+esc(p.sku||'')+'</div><div class="n">'+esc(p.name)+'</div></div><script>setTimeout(function(){print()},300)<\/script></body></html>');w.document.close();}
+    w.document.write('<html><head><title>Etiqueta '+esc(p.sku||'')+'</title><style>@page{size:62mm 29mm;margin:2mm}body{font-family:Arial,sans-serif;margin:0}.l{width:58mm;height:25mm;display:flex;flex-direction:column;justify-content:center}.s{font-size:16pt;font-weight:800;letter-spacing:1px}.n{font-size:7.5pt;line-height:1.15;max-height:3.5em;overflow:hidden}</style></head><body><button class="nop" onclick="try{window.close()}catch(e){}setTimeout(function(){if(!window.closed){if(history.length>1)history.back();else location.replace(\'https://portal.minecore.ec/\')}},300)" style="min-height:44px;padding:0 18px;font-size:16px;font-weight:700;white-space:nowrap;margin:8px">← Volver</button><style>@media print{.nop{display:none}}</style><div class="l"><div class="s">'+esc(p.sku||'')+'</div><div class="n">'+esc(p.name)+'</div></div><script>setTimeout(function(){print()},300)<\/script></body></html>');w.document.close();}
   window.MCProd={etqMenu:pfEtqMenu,etq:function(t){var m=document.getElementById('pf-etqm');if(m)m.remove();MCLblUI.abrir(PF.cur,t);},_md:function(id){if(window.MCProd2&&MCProd2.dirty()&&!confirm('Hay cambios sin guardar en el producto. ¿Descartarlos?'))return;PF2.ch={};MCFD.salir(function(){MCFD.clear();PF.tab=PF.tab||'ov';pfAbrirId(id);});},_mdQ:function(v){PMQ=v;pmPaint();},_mdL:function(){MCFD.salir(function(){MCFD.clear();PF.edit=false;PF.cur=null;pfInit();});},init:function(){PF.edit=false;pfInit();},
     dspOpts:function(){var dl=document.getElementById('pf-dspl');if(!dl||dl.childNodes.length)return;dl.innerHTML=pfDspList().map(function(o){return '<option value="'+esc(o[0])+'">'+o[1]+' productos</option>';}).join('');},
     desp:function(v){v=String(v||'').trim();if(v)PF.f.desp=v;else delete PF.f.desp;PF.cur=null;PF.max=500;try{MCroute.set('vprod');}catch(e){}pfShell();if(PF.all){PF.l=pfFiltra();pfRes();}else pfApi();},tecla:function(q){PF.q=q;PF.max=200;clearTimeout(pfT);pfT=setTimeout(PF.all?pfPinta:pfApi,PF.all?60:300);},buscar:function(q){PF.q=q||'';pfApi();},
@@ -19247,7 +19263,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=517',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=518',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
