@@ -407,6 +407,7 @@ body.mc-mod-open #notif-bar,body.mc-mod-open #notif-bar.on{display:none!importan
  #mc-rail .mr-sep{width:34px;height:1px;background:#3a3d7a;margin:6px 0}#mc-rail .mr-sep.mr-thin{width:20px;margin:2px 0;opacity:.7}
  #mc-fly{display:none;position:fixed;left:70px;z-index:8001;background:#fff;color:#1b1d4a;border-radius:12px;min-width:240px;max-width:300px;padding:10px 6px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
  #mc-bbar,#mc-sheet{display:none!important}
+ #mc-mas,#mc-masbg{display:none!important} /* r543 EFCH t1253: el panel ⋯ Más es solo móvil; en escritorio nunca se ve (antes quedaba fantasma tras abrirlo en ventana angosta) */
 }
 .mf-t{font-weight:800;font-size:14px;padding:4px 12px 8px;letter-spacing:.3px}
 .mf-o{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;color:#1b1d4a;font-size:14px;text-align:left;padding:9px 12px;border-radius:8px;cursor:pointer}
@@ -557,7 +558,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='519'; /* r542: redondeo half-up decimal (mcR2) + Pagos proveedores filas apiladas */ /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='520'; /* r543: WhatsApp lista con scroll + adjuntos en línea (Storage wa-media) + Aviso por mensaje entrante */ /* r542: redondeo half-up decimal (mcR2) + Pagos proveedores filas apiladas */ /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -12318,8 +12319,13 @@ var WA = (function(){
     st.textContent=
       '#wa-screen{max-width:1100px;margin:0 auto}'+
       '.wa-wrap{display:grid;grid-template-columns:1fr;gap:10px}'+
-      '@media(min-width:900px){.wa-wrap{grid-template-columns:330px 1fr}.wa-wrap .wa-list{display:block!important}.wa-back{display:none!important}.wa-list{max-height:calc(100dvh - 150px);overflow-y:auto}}'+
-      '.wa-list{background:#0f1720;border:1px solid #223142;border-radius:12px;overflow:hidden}'+
+      /* r543 (EFCH t1248): la regla base .wa-list{overflow:hidden} iba DESPUÉS del @media y anulaba su overflow-y:auto → la lista
+         quedaba cortada en ~6 chats. Regla: la lista es columna flex de la misma altura que el chat y SOLO #wa-items desplaza. */
+      '.wa-list{background:#0f1720;border:1px solid #223142;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;height:calc(100dvh - 150px);min-height:380px;margin-bottom:calc(16px + env(safe-area-inset-bottom))}'+
+      '.wa-list .wa-search{flex:none}'+
+      '#wa-items{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}'+
+      '.wa-more{display:block;width:calc(100% - 20px);margin:10px;padding:10px;border-radius:10px;border:1px solid #26405c;background:#13202d;color:#cfe0f0;font-size:14px;cursor:pointer;white-space:normal}'+
+      '@media(min-width:900px){.wa-wrap{grid-template-columns:330px 1fr}.wa-wrap .wa-list{display:flex!important}.wa-back{display:none!important}}'+
       '.wa-search{width:100%;box-sizing:border-box;background:#0b1219;border:none;border-bottom:1px solid #223142;color:#e8eef5;font-size:15px;padding:11px 12px}'+
       '.wa-chat{display:flex;gap:10px;align-items:center;padding:11px 12px;border-bottom:1px solid #1a2633;cursor:pointer}'+
       '.wa-chat:active,.wa-chat.on{background:#13202d}'+
@@ -12352,6 +12358,13 @@ var WA = (function(){
       '.wa-b a{color:#7cc4ff}.wa-meta{font-size:10px;color:#9fb3c6;text-align:right;margin-top:2px;white-space:nowrap}'+
       '.wa-b .wa-who{font-size:10px;color:#9fe0bf;font-weight:700;margin-bottom:2px}'+
       '.wa-b img{display:block;max-width:100%;max-height:300px;border-radius:7px;margin-bottom:4px;background:#0b1219}'+
+      '.wa-b img.wa-img{width:240px;max-width:100%;height:auto;min-height:60px;object-fit:cover;cursor:zoom-in}'+
+      '.wa-dbtns{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}.wa-dbtns a{flex:1 1 auto;text-align:center;padding:7px 10px;border-radius:8px;border:1px solid #26405c;background:#13202d;color:#cfe0f0!important;text-decoration:none;font-size:13px;white-space:nowrap}'+
+      '.wa-unsup{font-size:13px;color:#e8d9a8;font-style:italic}'+
+      '#wa-viewer{position:fixed;inset:0;z-index:400;background:rgba(5,9,14,.96);display:flex;flex-direction:column}'+
+      '#wa-viewer .wa-vbar{display:flex;gap:8px;align-items:center;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));border-bottom:1px solid #223142;flex-wrap:wrap}'+
+      '#wa-viewer .wa-vbar a,#wa-viewer .wa-vbar button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #26405c;background:#13202d;color:#fff;font-size:15px;display:inline-flex;align-items:center;text-decoration:none;cursor:pointer;white-space:nowrap}'+
+      '#wa-viewer .wa-vimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;overflow:auto}#wa-viewer .wa-vimg img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}'+
       '.wa-doc{display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.2);border-radius:7px;padding:8px;margin-bottom:4px;text-decoration:none;color:#dce6f0!important}'+
       '.wa-note{font-size:11px;color:#f0c040;margin-top:2px}.wa-tick.read{color:#53bdeb}.wa-tick.failed{color:#ff7b7b}'+
       '.wa-win{font-size:12px;padding:7px 12px;border-top:1px solid #223142}.wa-win.open{color:#7fd18c}.wa-win.closed{color:#f0c040;background:#2a2108}'+
@@ -12365,9 +12378,9 @@ var WA = (function(){
   }
 
   /* ---------- carga / polling ---------- */
-  function init(){
-    css(); stop();
-    chats=[]; rev=''; sel=null; thread=null; tpls=null; tplOpen=false; errMsg=''; layout='';
+  function init(ini){
+    css(); stop(); cerrarVer(); listLim=60;
+    chats=[]; rev=''; sel=ini?String(ini).replace(/\D/g,'')||null:null; thread=null; tpls=null; tplOpen=false; errMsg=''; layout='';
     el().innerHTML='<div class="cbz-loading">Cargando chats de WhatsApp...</div>';
     refresh(true);
     timer=setInterval(function(){if(visible()&&document.visibilityState!=='hidden')refresh(false);},POLL_MS);
@@ -12394,6 +12407,7 @@ var WA = (function(){
       var prevLast=thread&&thread.messages&&thread.messages.length?thread.messages[thread.messages.length-1].id:'';
       var od=older[want]; if(od&&od.length&&res.messages.length){var f0=res.messages[0].ts_ms;res.messages=od.filter(function(m){return m.ts_ms<f0;}).concat(res.messages);res.truncated=!!older[want+'_more'];}
       thread=res;
+      if(res.messages.some(function(m){return m.dir==='in'&&!m.url&&!m.media_err&&/^(image|video|audio|document|sticker)$/.test(m.type);})&&!WA._mt){WA._mt=setTimeout(function(){WA._mt=null;if(sel===want)loadThread(false);},4000);}
       var nowLast=res.messages.length?res.messages[res.messages.length-1].id:'';
       render(scrollEnd||prevLast!==nowLast);
       if(res.unread>0)markRead(want);
@@ -12504,7 +12518,7 @@ var WA = (function(){
       layout=key;
       var h='<div class="wa-wrap"><div class="wa-list" style="'+(sel?'display:none':'')+'">'+
         '<input class="wa-search" placeholder="🔎 Buscar por nombre o número" value="'+esc(q)+'" oninput="WA.onSearch(this.value)">'+
-        '<div id="wa-items"></div></div>';
+        '<div id="wa-items" onscroll="WA.moreScroll(this)"></div></div>';
       if(sel)h+='<div>'+skeletonThread()+'</div>';
       h+='</div>';
       e.innerHTML=h;
@@ -12525,7 +12539,7 @@ var WA = (function(){
       if(qd.length>=3&&String(c.wa_id).indexOf(qd)>=0)return true;
       return mcQ(qn,(c.name||'')+' '+(c.profileName||'')+' '+c.last_text);
     }).slice().sort(function(a,b){return (b.last_ms||0)-(a.last_ms||0);});
-    var h='';
+    var h='', total=list.length; list=list.slice(0,listLim);
     if(errMsg)h+='<div class="cbz-error" style="margin:8px">'+esc(errMsg)+'</div>';
     if(!list.length)h+='<div class="wa-empty">'+(chats.length?'Sin resultados.':(rev?'Todavía no hay mensajes. Cuando alguien escriba al +1 617 372 0787 aparece aquí.':'Cargando...'))+'</div>';
     list.forEach(function(c){
@@ -12538,8 +12552,12 @@ var WA = (function(){
         (c.unread>0?'<span class="wa-badge">'+c.unread+'</span>':(c.windowOpen?'':'<span class="wa-ctime" title="Ventana de 24 h cerrada">🔒</span>'))+'</div>'+
         '</div></div>';
     });
-    box.innerHTML=h;
+    if(total>list.length)h+='<button class="wa-more" onclick="WA.more()">Cargar más conversaciones ('+(total-list.length)+' más)</button>';
+    var st=box.scrollTop; box.innerHTML=h; box.scrollTop=st;
   }
+  var listLim=60;
+  function more(){listLim+=60;renderList();}
+  function moreScroll(b){if(b.scrollHeight-b.scrollTop-b.clientHeight<200&&b.querySelector('.wa-more'))more();}
   function skeletonThread(){
     var open=winOpen();
     var h='<div class="wa-th"><div class="wa-thead"><button class="wa-back" onclick="WA.back()">←</button>'+
@@ -12575,21 +12593,37 @@ var WA = (function(){
     if(m.type==='video')return '<span style="font-size:22px">🎬</span>';
     return '<span class="wa-dico gen">'+esc((ext||'DOC').toUpperCase().slice(0,4))+'</span>';
   }
+  /* r543 (EFCH t1248): adjuntos en Storage privado «wa-media» (ops-api los copia la 1.ª vez y entrega URL firmada).
+     Imagen = miniatura → visor grande con «← Volver» y «⬇ Descargar»; documento = Abrir + Descargar; si Meta ya no lo
+     entrega, se dice. Nunca más «sin copia en Drive». */
   function mediaHtml(m){
-    var h='';
+    var h='', isImg=m.type==='image'||m.type==='sticker'||/^image\//.test(m.mime||'');
     if(m.url){
-      if(m.type==='image'||m.type==='sticker'||/^image\//.test(m.mime)){
-        var th=m.fileId?'https://drive.google.com/thumbnail?id='+encodeURIComponent(m.fileId)+'&sz=w640':m.url;
-        h+='<a href="'+esc(m.url)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+esc(th)+'" alt="imagen"></a>';
+      var dl=m.dl||m.url;
+      if(isImg){
+        h+='<img class="wa-img" loading="lazy" src="'+esc(m.url)+'" alt="Foto" data-dl="'+esc(dl)+'" onclick="WA.ver(this)">';
       }else{
         var nm=m.filename||(m.type==='audio'?'Audio':(m.type==='video'?'Video':'Documento'));
-        h+='<a class="wa-doc" href="'+esc(m.url)+'" target="_blank" rel="noopener">'+docIcon(m)+'<span class="wa-dname">'+esc(nm)+'</span><span class="wa-dopen">Abrir ↗</span></a>';
+        h+='<a class="wa-doc" href="'+esc(m.url)+'" target="_blank" rel="noopener">'+docIcon(m)+'<span class="wa-dname">'+esc(nm)+'</span><span class="wa-dopen">Abrir ↗</span></a>'+
+          '<div class="wa-dbtns"><a href="'+esc(m.url)+'" target="_blank" rel="noopener">Abrir</a><a href="'+esc(dl)+'" download="'+esc(nm)+'">⬇ Descargar</a></div>';
       }
+    }else if(m.type==='unsupported'){
+      h+='<div class="wa-unsup">⚠ WhatsApp no entrega este mensaje a la API (p. ej. foto de «ver una vez», encuesta o reacción). Revísalo en el teléfono.</div>';
     }else if(/^(image|video|audio|document|sticker)$/.test(m.type)||(m.type==='template'&&m.filename)){
-      h+='<div class="wa-doc">'+docIcon(m)+'<span class="wa-dname">'+esc(m.filename||m.type)+'</span><span class="wa-dopen">sin copia en Drive</span></div>';
+      var lbl=isImg?'📷 Foto':(m.filename||({video:'🎬 Video',audio:'🎧 Audio',document:'📄 Documento'})[m.type]||m.type);
+      h+='<div class="wa-doc">'+docIcon(m)+'<span class="wa-dname">'+esc(lbl)+'</span></div><div class="wa-unsup">'+
+        esc(m.media_err?('No se pudo copiar el archivo: '+m.media_err+'. Pídelo de nuevo al contacto.'):'Copiando el archivo… aparece en unos segundos.')+'</div>';
     }
     return h;
   }
+  function ver(img){
+    var v=$('wa-viewer'); if(v)v.remove();
+    v=document.createElement('div'); v.id='wa-viewer';
+    v.innerHTML='<div class="wa-vbar"><button type="button" onclick="WA.cerrarVer()">← Volver</button><span style="flex:1"></span><a href="'+esc(img.getAttribute('data-dl')||img.src)+'" download="foto-whatsapp.jpg">⬇ Descargar</a></div><div class="wa-vimg"><img src="'+esc(img.src)+'" alt="Foto"></div>';
+    v.addEventListener('click',function(e){if(e.target===v||e.target.className==='wa-vimg')cerrarVer();});
+    document.body.appendChild(v);
+  }
+  function cerrarVer(){var v=$('wa-viewer');if(v)v.remove();}
   function renderThread(scrollEnd){
     var c=chatOf(sel);
     var realNm=(thread&&thread.name)||(c&&c.name)||'';
@@ -12641,7 +12675,8 @@ var WA = (function(){
     }
   }
   return {init:init,stop:stop,open:open,back:back,onSearch:onSearch,send:send,onKey:onKey,onInput:onInput,
-    toggleTpl:toggleTpl,tplChange:tplChange,sendTpl:sendTpl,refresh:refresh,rename:rename,older:loadOlder};
+    toggleTpl:toggleTpl,tplChange:tplChange,sendTpl:sendTpl,refresh:refresh,rename:rename,older:loadOlder,
+    more:more,moreScroll:moreScroll,ver:ver,cerrarVer:cerrarVer};
 })();
 
 /* ===================== COTIZACIONES y ÓRDENES DE VENTA (b239, nativo Minecore · Supabase) =====================
@@ -14238,7 +14273,7 @@ try{if(document.head)MCbtnCss();else document.addEventListener('DOMContentLoaded
 function mcDirtyAsk(guardar,descartar){var d=document.getElementById('mc-dirty-m');if(d)d.remove();d=document.createElement('div');d.id='mc-dirty-m';d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center';
   MCbtnCss();d.innerHTML='<div class="cbz-card mcd-card"><b>Tienes cambios sin guardar</b><div class="cbz-muted" style="margin:8px 0 14px">¿Qué quieres hacer?</div><div class="mcd-row"><button class="cbz-btn cbz-btn-primary" id="mcd-g">Guardar</button><button class="cbz-btn" id="mcd-d" style="color:#e05c5c">Descartar</button><button class="cbz-btn" id="mcd-s">Seguir editando</button></div></div>';
   document.body.appendChild(d);var x=function(f){d.remove();if(f)f();};d.querySelector('#mcd-g').onclick=function(){x(guardar);};d.querySelector('#mcd-d').onclick=function(){x(descartar);};d.querySelector('#mcd-s').onclick=function(){x(null);};}
-function openMod(m){try{if(window.MCNav&&!MCNav.on()&&getUserName()&&!document.body.classList.contains('mc-nav'))MCNav.render(getProfile());}catch(_e){} /* b508.8: un usuario con sesión nunca queda sin menú (Viendo como Emma R: barra no pintada → header con 👤/↺) */if(m==='crec'||m==='cdocs')m='vov';if((m==='dash'||m==='dashboard'||m==='cdashboard')&&typeof mcEsCliV==='function'&&mcEsCliV()&&mcCliMod('cdash'))m='cdash';if(typeof mcEsProvV==='function'&&mcEsProvV()){var _pa={pvdash:'dash',pvoc:'voc',pvpend:'voc',pvrec:'voc',pvprod:'vprod',pvpag:'vpagprov'};if(_pa[m])m=_pa[m];if(m==='dash'||m==='dashboard'||m==='cdashboard')m='cdash';} /* b508.92 EFCH «la estructura es la misma»: proveedor = rutas y pantallas del admin; el tablero es el mismo componente de tablero (dv-*) con datos de su empresa */ /* b508.6: toda entrada al Dashboard de un cliente abre el suyo */ /* b508.5: enlaces/Avisos viejos a Documentos/Recibidos → Órdenes de venta */if(/^usr:/.test(String(m||''))){window._mcUsrIni=String(m).slice(4);m='users';} /* r518-b506: aviso «Solicitar acceso» → editor del usuario */if(/^ant:/.test(String(m||''))){MCAnt.abrir(m);return;} /* r494 */if(/^vproy:/.test(String(m||''))){window._mcProyIni=String(m).slice(6);m='vproy';} /* r513 b504 */if(m!=='inv')window.MC_despSoloVer=null;if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirtyAsk(function(){if(Compras.pDirty())Compras.pG();else if(MCFD.dirty())MCFD.g();else Ventas.ieG();},function(){Ventas.ieD();Compras.pD();MCFD.clear();openMod._ok=1;try{openMod(m);}finally{openMod._ok=0;}});}
+function openMod(m){try{if(window.MCNav&&!MCNav.on()&&getUserName()&&!document.body.classList.contains('mc-nav'))MCNav.render(getProfile());}catch(_e){} /* b508.8: un usuario con sesión nunca queda sin menú (Viendo como Emma R: barra no pintada → header con 👤/↺) */if(m==='crec'||m==='cdocs')m='vov';if((m==='dash'||m==='dashboard'||m==='cdashboard')&&typeof mcEsCliV==='function'&&mcEsCliV()&&mcCliMod('cdash'))m='cdash';if(typeof mcEsProvV==='function'&&mcEsProvV()){var _pa={pvdash:'dash',pvoc:'voc',pvpend:'voc',pvrec:'voc',pvprod:'vprod',pvpag:'vpagprov'};if(_pa[m])m=_pa[m];if(m==='dash'||m==='dashboard'||m==='cdashboard')m='cdash';} /* b508.92 EFCH «la estructura es la misma»: proveedor = rutas y pantallas del admin; el tablero es el mismo componente de tablero (dv-*) con datos de su empresa */ /* b508.6: toda entrada al Dashboard de un cliente abre el suyo */ /* b508.5: enlaces/Avisos viejos a Documentos/Recibidos → Órdenes de venta */if(/^usr:/.test(String(m||''))){window._mcUsrIni=String(m).slice(4);m='users';} /* r518-b506: aviso «Solicitar acceso» → editor del usuario */if(/^ant:/.test(String(m||''))){MCAnt.abrir(m);return;} /* r494 */if(/^vproy:/.test(String(m||''))){window._mcProyIni=String(m).slice(6);m='vproy';}if(/^wa:/.test(String(m||''))){window._mcWaIni=String(m).slice(3);m='wa';} /* r543: Aviso WhatsApp → chat exacto */ /* r513 b504 */if(m!=='inv')window.MC_despSoloVer=null;if(window.MC_DIRTY&&MC_DIRTY()&&!openMod._ok){return mcDirtyAsk(function(){if(Compras.pDirty())Compras.pG();else if(MCFD.dirty())MCFD.g();else Ventas.ieG();},function(){Ventas.ieD();Compras.pD();MCFD.clear();openMod._ok=1;try{openMod(m);}finally{openMod._ok=0;}});}
   if(typeof MCnavRutaOk==='function'&&!(m==='inv'&&window._mcDespOpen&&mcEsCliV())&&!MCnavRutaOk(m)){alert('Esta sección está apagada para tu usuario. Pide acceso al administrador.');return;}
   try{MCroute.set(m);}catch(e){}
   try{var _hf=document.getElementById('mc-hfab');if(_hf){_hf.style.display='none';MCFab.toggle(false);}}catch(e){}
@@ -14282,7 +14317,7 @@ function openMod(m){try{if(window.MCNav&&!MCNav.on()&&getUserName()&&!document.b
     document.getElementById('title').textContent='RUTAS Y CAJA CHICA';
     try{ if(window.Caja&&Caja.init) Caja.init(); }catch(e){ cs.innerHTML='<div class="cbz-error">No se pudo abrir Caja: '+(e&&e.message?e.message:e)+'</div>'; }
   }
-  if(m==='wa'){document.getElementById('wa-screen').style.display='block';document.getElementById('title').textContent='WHATSAPP';WA.init();}
+  if(m==='wa'){document.getElementById('wa-screen').style.display='block';document.getElementById('title').textContent='WHATSAPP';var _wi=window._mcWaIni;window._mcWaIni=null;WA.init(_wi);}
   if(m==='cdash'){if(!mcCliMod('cdash')&&!mcProvMod('dash')){alert('Esta sección está apagada para tu usuario. Pide acceso al administrador.');return goHome();}document.getElementById('cdash-screen').style.display='block';document.getElementById('title').textContent='DASHBOARD';MCCDash.init();} /* r508 b498 */
   if(m==='cproy'){if(!mcCliMod('proyectos')){alert('Esta sección está apagada para tu usuario. Pide acceso al administrador.');return goHome();}document.getElementById('cproy-screen').style.display='block';document.getElementById('title').textContent='PROYECTOS';MCCProy.init();} /* r508 b498 */
   if(m==='vproy'){if(!mcEsAdmin()){window._mcProyIni='';alert('Proyectos de clientes es solo para administración.');return goHome();}document.getElementById('vproy-screen').style.display='block';document.getElementById('title').textContent='PROYECTOS DE CLIENTES';var _pi=window._mcProyIni||'';window._mcProyIni='';MCVProy.init(_pi);} /* r513 b504 */
@@ -14589,13 +14624,14 @@ var MCNav=(function(){
   function mas(on){var m=document.getElementById('mc-mas'),bg=document.getElementById('mc-masbg'),bb=document.getElementById('mc-bbar');if(!m)return; /* b386 */
     if(on===undefined)on=!m.classList.contains('on');
     if(on){var prin=['crear','bod','ventas','inv','compras'],h='';grupos.filter(function(g){return !g.sep&&prin.indexOf(g.k)<0;}).forEach(function(g){h+=flyHtml(g);});h+=cuentaHtml();m.innerHTML='<div class="mm-in">'+h+'</div>';var s=document.getElementById('mc-sheet');if(s)s.style.display='none';}
-    m.classList.toggle('on',on);if(bg)bg.classList.toggle('on',on);if(bb)bb.classList.toggle('mas-on',on);}
+    m.classList.toggle('on',on);if(bg)bg.classList.toggle('on',on);if(bb)bb.classList.toggle('mas-on',on);if(!on)m.innerHTML='';} /* r543: cerrado = vacío */
   /* b508.4 EFCH t1193: Mi cuenta y Cerrar sesión salen de la barra superior y viven en el menú (⋯ en móvil, abajo en la barra lateral) */
   function cuentaHtml(){return '<div class="mf-t" style="color:#8fa3b8">Mi cuenta</div><button class="mf-o" onclick="MCNav.mas(false);MCCuenta.abrir()"><span class="mf-ic">👤</span>Mi cuenta</button><button class="mf-o" onclick="MCNav.mas(false);doLogout()"><span class="mf-ic">⎋</span>Cerrar sesión</button>';}
   function go(k,j){var g=grupos.filter(function(x){return x.k===k;})[0];if(g&&g.items[j])ir(g.items[j][2]);}
   function inicio(){cerrar();var d=MC_NAVCAT()[0];if(P&&MCnavOk(P,d,d.items[0]))openMod('dash');else goHome();}
   return {render:render,on:on,hover:hover,toggle:toggle,leave:leave,cerrar:cerrar,sheet:sheet,go:go,inicio:inicio,mas:mas,_g:function(){return grupos;}}; /* r513 b504: lectura para pruebas */
 })();
+try{matchMedia('(min-width:900px)').addEventListener('change',function(){MCNav.cerrar();});}catch(e){} /* r543: al cambiar móvil↔escritorio se cierra todo menú */
 document.addEventListener('click',function(e){try{if(!e.target.closest('#mc-rail')&&!e.target.closest('#mc-fly')&&!e.target.closest('#mc-mas')&&!e.target.closest('.mb-dots')&&!e.target.closest('#mc-masbg'))MCNav.cerrar();}catch(x){}},true);
 
 /* b275: pantallas base que leen Supabase — Reorden (y pronóstico) y Registro de auditoría */
@@ -19264,7 +19300,7 @@ var MCPush=(function(){
   function esAdmin(){try{return mcEsAdmin()&&!!getUserName();}catch(e){return false;}}
   var reg=null;
   function registrar(){if(!('serviceWorker' in navigator))return Promise.resolve(null);if(reg)return Promise.resolve(reg);
-    return navigator.serviceWorker.register('sw.js?v=519',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
+    return navigator.serviceWorker.register('sw.js?v=520',{scope:'./'}).then(function(r){reg=r;return navigator.serviceWorker.ready;}).catch(function(){return null;});}
   /* número de avisos abiertos para el ícono = los «Avisos» del panel 🔔 (sin los cerrados con ✕) */
   function conteo(){try{return MCAvisos._L().filter(function(x){return /^av_/.test(x.tipo)&&!MCAvisos.oculto('i:'+x.id);}).length;}catch(e){return 0;}}
   function badge(n){if(n==null)n=conteo();try{if(!esAdmin())n=0;if(navigator.setAppBadge){if(n>0)navigator.setAppBadge(n).catch(function(){});else navigator.clearAppBadge().catch(function(){});}}catch(e){}return n;}
