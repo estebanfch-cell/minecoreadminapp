@@ -582,7 +582,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='534'; /* r571: varias actas por entrega (cobertura por producto) + acta de devolución visible en Envío */ /* r570: Fulfill por producto (preparado+empacado ⇒ solo Ship); acta recibida ⇒ despachada, sin «Enviar recepción digital» */ /* r569: Banco — simular desmarcado, resultado claro + Guardar de verdad, avisos cobrados/duplicados */ /* r565: Facturas del período y Margen por factura → tocar abre la OV (DashV2.irOV) y Volver regresa al Dashboard */ /* r564: cancelar OV devuelve TODO al inventario (preview + resultado) */ /* r540: cliente BLOQUEADO → «Desbloquear solo para esta edición» (excepción temporal por orden/usuario, sin tocar el flag real) */ /* r561: MCdiag vigilante de congelamiento + freno de bucles MutationObserver + iePick focus sin scroll */ /* r547: OC «Detalle de costos» editable: costos adicionales manuales (flete / no relacionados con el proveedor) con concepto y referencia */ /* r543: WhatsApp lista con scroll + adjuntos en línea (Storage wa-media) + Aviso por mensaje entrante */ /* r542: redondeo half-up decimal (mcR2) + Pagos proveedores filas apiladas */ /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='535'; /* r571: varias actas por entrega (cobertura por producto) + acta de devolución visible en Envío */ /* r570: Fulfill por producto (preparado+empacado ⇒ solo Ship); acta recibida ⇒ despachada, sin «Enviar recepción digital» */ /* r569: Banco — simular desmarcado, resultado claro + Guardar de verdad, avisos cobrados/duplicados */ /* r565: Facturas del período y Margen por factura → tocar abre la OV (DashV2.irOV) y Volver regresa al Dashboard */ /* r564: cancelar OV devuelve TODO al inventario (preview + resultado) */ /* r540: cliente BLOQUEADO → «Desbloquear solo para esta edición» (excepción temporal por orden/usuario, sin tocar el flag real) */ /* r561: MCdiag vigilante de congelamiento + freno de bucles MutationObserver + iePick focus sin scroll */ /* r547: OC «Detalle de costos» editable: costos adicionales manuales (flete / no relacionados con el proveedor) con concepto y referencia */ /* r543: WhatsApp lista con scroll + adjuntos en línea (Storage wa-media) + Aviso por mensaje entrante */ /* r542: redondeo half-up decimal (mcR2) + Pagos proveedores filas apiladas */ /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -1628,6 +1628,12 @@ function mcBlobFrom_(b64OrBlob, mime){
   for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
   return new Blob([arr],{type:mime||'application/pdf'});
 }
+/* b535 · EFCH t1317: en iPhone/iPad el PDF dentro del iframe se pinta a 100 % (A4 ≈ 612 px) y las columnas de la derecha quedaban cortadas.
+   Se fija el iframe al ancho A4 y se escala al ancho de la pantalla (nada cortado; se puede hacer zoom/scroll). Escritorio/Android: sin cambios. */
+function mcPdfFit_(win){try{var d=win.document,f=d.getElementById('pf'),w=d.getElementById('pw');if(!f||!w)return;
+  var n=win.navigator||{},ios=/iPhone|iPad|iPod/.test(n.userAgent||'')||(/Macintosh/.test(n.userAgent||'')&&(n.maxTouchPoints||0)>1);if(!ios)return;
+  function fit(){var W=w.clientWidth||win.innerWidth,A=612,s=Math.min(1,W/A),H=Math.max(w.clientHeight,400)/s;f.style.width=A+'px';f.style.height=H+'px';f.style.transformOrigin='0 0';f.style.transform='scale('+s+')';w.style.overflow='hidden';f.setAttribute('data-fit',String(s));}
+  fit();win.addEventListener('resize',fit);win.addEventListener('orientationchange',function(){setTimeout(fit,200);});}catch(e){}}
 function mcOpenPdfTab_(win, blob, filename){
   filename=mcSanitizeFilename(filename);
   var url=URL.createObjectURL(blob);
@@ -1641,8 +1647,8 @@ function mcOpenPdfTab_(win, blob, filename){
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px 10px;color:#e8eef6"><b style="flex:1 1 100%;min-width:0;font-size:15px;word-break:break-word">'+esc(filename)+'</b>'+
       '<button id="sh" style="white-space:nowrap;min-height:44px;padding:0 16px;border:0;border-radius:10px;background:#E8FF00;color:#161926;font-weight:800;font-size:15px">📤 Compartir</button>'+
       '<a id="dl" download="'+esc(filename)+'" href="'+url+'" style="white-space:nowrap;min-height:44px;line-height:44px;padding:0 14px;border-radius:10px;background:#3d7ec9;color:#fff;font-weight:800;font-size:15px;text-decoration:none">⬇ Guardar</a></div>'+
-      '<iframe title="'+esc(title)+'" src="'+url+'" style="flex:1;border:0;background:#fff;width:100%"></iframe></body></html>');
-    d.close();mcBindPdfBack_(win);
+      '<div id="pw" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff"><iframe id="pf" title="'+esc(title)+'" src="'+url+'" style="border:0;background:#fff;width:100%;height:100%;display:block"></iframe></div></body></html>');
+    d.close();mcBindPdfBack_(win);mcPdfFit_(win);
     var bt=d.getElementById('sh');
     bt.onclick=function(){var F=null;try{F=new win.File([blob],filename,{type:'application/pdf'});}catch(e){try{F=new File([blob],filename,{type:'application/pdf'});}catch(e2){}}
       var nv=win.navigator;if(F&&nv.share&&(!nv.canShare||nv.canShare({files:[F]})))nv.share({files:[F],title:title}).catch(function(){});else d.getElementById('dl').click();};
@@ -3075,18 +3081,34 @@ function MCEcPdf(c,nivel){
   function cortar(s,max){s=String(s==null?'':s).replace(/\s+/g,' ').trim();return s.length>max?s.slice(0,max-1)+'…':s;}
   function r2(x){return mcRound(x*100)/100;}
   var hoyISO=new Date(Date.now()-5*3600e3).toISOString().slice(0,10),today=ds(hoyISO);
-  var F=(c.facturas||[]).map(function(f){var ret=r2(f.retencion||0),pag=r2(f.pagado||0);return {factura:f.factura,ov:f.ov,fecha:f.fecha,vence:f.vence,total:f.total,_ret:ret,_pag:r2(pag-ret),saldo:f.saldo,mora:f.dias};});
-  var ven=F.filter(function(f){return f.mora>0;}).sort(function(a,b){return b.mora-a.mora;}),ald=F.filter(function(f){return f.mora<=0;}).sort(function(a,b){return b.mora-a.mora;});
+  var F=(c.facturas||[]).map(function(f){var ret=r2(f.retencion||0),pag=r2(f.pagado||0);return {factura:f.factura,ov:f.ov,fecha:f.fecha,vence:f.vence,total:f.total,_ret:ret,_pag:r2(pag-ret),saldo:f.saldo,mora:f.dias,_q:(f.cuotas_todas&&f.cuotas_todas.length)?f.cuotas_todas:null};});
+  /* b535 · EFCH t1317 (r571c): OV con plan de pagos → fila principal «PLAN n CUOTAS» (informativa, no suma) + una subfila por cuota (↳, «Cuota i/n», vence, monto, abonado, pendiente, estado propio).
+     Cada cuota pendiente va a su sección (vencida / por vencer); las pagadas acompañan a la primera pendiente. Los totales suman cuotas, no la fila principal. */
+  function grupos(venc){var G=[];F.forEach(function(f){
+      if(!f._q){if((f.mora>0)===venc)G.push({m:f.mora,r:[f]});return;}
+      var pend=f._q.filter(function(q){return q.estado!=='pagada'&&q.pendiente>0.005;}),ref=pend[0]||f._q[0];
+      var sel=f._q.filter(function(q){var p=q.estado!=='pagada'&&q.pendiente>0.005;return p?((q.dias>0)===venc):((ref.dias>0)===venc);});
+      if(!sel.length)return;var n=f._q.length;
+      var cab={factura:f.factura,ov:f.ov,fecha:f.fecha,vence:ref.vence,total:f.total,_ret:f._ret,_pag:f._pag,saldo:f.saldo,mora:ref.dias,_plan:n};
+      var sub=sel.map(function(q){return {factura:f.factura,ov:f.ov,_et:'Cuota '+(q.i||q.seq)+'/'+n,vence:q.vence,total:q.monto,_ret:0,_pag:q.abonado,saldo:q.pendiente,mora:q.dias,_cuota:1,_pagada:!(q.estado!=='pagada'&&q.pendiente>0.005)};});
+      if(!sub.some(function(q){return !q._pagada;})&&!venc&&pend.length)return;
+      G.push({m:Math.max.apply(null,sub.filter(function(q){return !q._pagada;}).map(function(q){return q.mora;}).concat([-99999])),r:[cab].concat(sub),plan:1});});
+    return G.sort(function(a,b){return b.m-a.m;});}
+  var GV=grupos(true),GA=grupos(false);
+  function plano(G){return [].concat.apply([],G.map(function(g){return g.r;}));}
+  function sumables(G){return plano(G).filter(function(x){return !x._plan;});}
+  var ven=sumables(GV),ald=sumables(GA);
   function suma(l,k){return r2(l.reduce(function(s,f){return s+(parseFloat(f[k])||0);},0));}
   if(nivel==null){var mx=F.reduce(function(m,f){return Math.max(m,f.mora||0);},0);nivel=mx>250?5:mx>90?4:mx>60?3:mx>30?2:1;}
   var tV=suma(ven,'saldo'),tG=suma(F,'saldo'),tP=r2(tG-tV);
+  var nV=GV.length,nA=GA.length;
   var conRet=F.some(function(f){return mcRound(f._ret*100)!==0;});
   var COLS=conRet?[['Factura',15.5,'left'],['Orden',14.5,'left'],['Emisión',9,'left'],['Vence',9,'left'],['Estado',11,'center'],['Valor',10.5,'right'],['Retención',9.5,'right'],['Pagos',10,'right'],['Saldo',11,'right']]
     :[['Factura',18,'left'],['Orden',17,'left'],['Emisión',9,'left'],['Vence',9,'left'],['Estado',11,'center'],['Valor',12,'right'],['Pagos',11.5,'right'],['Saldo',12.5,'right']];
   function sinRet(a,i){if(!conRet)a.splice(i,1);return a;}
-  function est(f){return f.mora>0?{t:'VENCIDA '+f.mora+' D',c:RED}:(f.mora===0?{t:'VENCE HOY',c:AMBER}:{t:'EN '+Math.abs(f.mora)+' D',c:LIME});}
+  function est(f){if(f._plan)return {t:'PLAN '+f._plan+' CUOTAS',c:BLUE};if(f._pagada)return {t:'PAGADA',c:GREY};return f.mora>0?{t:'VENCIDA '+f.mora+' D',c:RED}:(f.mora===0?{t:'VENCE HOY',c:AMBER}:{t:'EN '+Math.abs(f.mora)+' D',c:LIME});}
   var larg=COLS.map(function(x){return x[0].length;});
-  F.forEach(function(f){sinRet([cortar(f.factura||'-',20),cortar(f.ov||'-',20),'00/00/0000','00/00/0000',est(f).t,fmt(f.total),fmt(f._ret),fmt(f._pag),fmt(f.saldo)],6).forEach(function(v,j){if(String(v).length>larg[j])larg[j]=String(v).length;});});
+  plano(GV).concat(plano(GA)).forEach(function(f){sinRet([(f._cuota?'xx':'')+cortar(f.factura||'-',20),cortar(f.ov||'-',20),'00/00/0000','00/00/0000',est(f).t,fmt(f.total),fmt(f._ret),fmt(f._pag),fmt(f.saldo)],6).forEach(function(v,j){if(String(v).length>larg[j])larg[j]=String(v).length;});});
   sinRet([fmt(suma(F,'total')),fmt(suma(F,'_ret')),fmt(suma(F,'_pag')),fmt(tG)],1).forEach(function(v,k){if(v.length+1>larg[5+k])larg[5+k]=v.length+1;});
   var fs=9;COLS.forEach(function(x,j){var px=700*x[1]/100-8,cabe=px/(larg[j]*0.62);if(cabe<fs)fs=cabe;});fs=Math.max(5.5,Math.floor(fs*10)/10);
   return mcPlanillaLoadJsPDF().then(function(jsPDF){
@@ -3101,25 +3123,28 @@ function MCEcPdf(c,nivel){
     ['MINECORE S.A.S.','RUC 1793194965001','Quito, Ecuador','cobranzas@minecore.ec'].forEach(function(l,i){T(l,M+186,y+(14+i*11)*PX,8,false,GREY,'right');});
     y+=60*PX;col(LIME,'setDrawColor');doc.setLineWidth(1.5*PX);doc.line(M,y,M+186,y);
     y+=8*PX+12*PX;var cx=M;
-    [['SALDO ABIERTO '+fmt(tG),LIME],[F.length+(F.length===1?' FACTURA':' FACTURAS'),DARK],['VENCIDO '+fmt(tV)+' ('+ven.length+')',ven.length?RED:GREY],['POR VENCER '+fmt(tP)+' ('+ald.length+')',ald.length?BLUE:GREY]].forEach(function(q){cx+=chip(q[0],cx,y,8,q[1],true)+4*PX;});
+    [['SALDO ABIERTO '+fmt(tG),LIME],[F.length+(F.length===1?' FACTURA':' FACTURAS'),DARK],['VENCIDO '+fmt(tV)+' ('+nV+')',nV?RED:GREY],['POR VENCER '+fmt(tP)+' ('+nA+')',nA?BLUE:GREY]].forEach(function(q){cx+=chip(q[0],cx,y,8,q[1],true)+4*PX;});
     y+=6*PX;
     var xs=[],x=M;COLS.forEach(function(k){xs.push(x);x+=186*k[1]/100;});
     var rowH=(fs*1.25+5)*PX;
     function tx2(s,j,yy,b,k){var c0=COLS[j],w=186*c0[1]/100,pad=4*PX,xx=c0[2]==='right'?xs[j]+w-pad:c0[2]==='center'?xs[j]+w/2:xs[j]+pad;doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(fs*0.75);col(k||BODY);doc.text(String(s),xx,yy,c0[2]!=='left'?{align:c0[2]}:undefined);}
     function brk(h){if(y+h>H-M){doc.addPage();y=M+4;}}
     function th(){brk(rowH*2);doc.setFont('helvetica','bold');var f2=Math.max(5.5,fs-0.6);COLS.forEach(function(k,j){var w=186*k[1]/100,pad=4*PX;doc.setFontSize(f2*0.75);col(GREY);doc.text(k[0],k[2]==='right'?xs[j]+w-pad:k[2]==='center'?xs[j]+w/2:xs[j]+pad,y+(3+f2)*PX,k[2]!=='left'?{align:k[2]}:undefined);});y+=(f2*1.25+6)*PX;col(LIME,'setDrawColor');doc.setLineWidth(1*PX);doc.line(M,y,M+186,y);}
-    function filas(l){l.forEach(function(f){brk(rowH);var e=est(f),yy=y+(2.5+fs)*PX;
-      tx2(cortar(f.factura||'-',20),0,yy);tx2(cortar(f.ov||'-',20),1,yy,false,GREY);tx2(ds(f.fecha),2,yy,false,GREY);tx2(ds(f.vence),3,yy);
+    function filas(G){plano(G).forEach(function(f){brk(rowH);var e=est(f),yy=y+(2.5+fs)*PX;
+      if(f._cuota){/* ↳ dibujado (helvetica no tiene el glifo) */var gx=xs[0]+5*PX,gy=yy-fs*0.75*PX*0.9;col(GREY,'setDrawColor');doc.setLineWidth(0.8*PX);doc.line(gx,gy,gx,yy-fs*0.2*PX);doc.line(gx,yy-fs*0.2*PX,gx+7*PX,yy-fs*0.2*PX);doc.line(gx+5*PX,yy-fs*0.2*PX-2*PX,gx+7*PX,yy-fs*0.2*PX);doc.line(gx+5*PX,yy-fs*0.2*PX+2*PX,gx+7*PX,yy-fs*0.2*PX);
+        doc.setFont('helvetica','normal');doc.setFontSize(fs*0.75);col(GREY);doc.text(cortar(f.factura||'-',20),gx+10*PX,yy);tx2(cortar(f.ov||'-',20),1,yy,false,GREY);tx2(f._et,2,yy,true,DARK);}
+      else{tx2(cortar(f.factura||'-',20),0,yy,!!f._plan);tx2(cortar(f.ov||'-',20),1,yy,false,GREY);tx2(ds(f.fecha),2,yy,false,GREY);}
+      tx2(ds(f.vence),3,yy);
       doc.setFont('helvetica','bold');var cf=Math.max(5.5,fs-1.2);doc.setFontSize(cf*0.75);var cw=doc.getTextWidth(e.t)+8*PX,ch=cf*PX+2*PX,cxx=xs[4]+186*COLS[4][1]/200-cw/2;col(e.c,'setFillColor');doc.roundedRect(cxx,yy-ch*0.8,cw,ch,3*PX,3*PX,'F');col([255,255,255]);doc.text(e.t,cxx+4*PX,yy-0.1);
-      var j=5;tx2(fmt(f.total),j++,yy);if(conRet)tx2(fmt(f._ret),j++,yy,false,GREY);tx2(fmt(f._pag),j++,yy,false,GREY);tx2(fmt(f.saldo),j,yy,true,e.c);
-      y+=rowH;col(HAIR,'setDrawColor');doc.setLineWidth(0.5*PX);doc.line(M,y,M+186,y);});}
+      var j=5;tx2(fmt(f.total),j++,yy);if(conRet)tx2(fmt(f._ret),j++,yy,false,GREY);tx2(fmt(f._pag),j++,yy,false,GREY);tx2(fmt(f.saldo),j,yy,true,f._plan?DARK:e.c);
+      y+=rowH;col(HAIR,'setDrawColor');doc.setLineWidth(0.5*PX);doc.line(f._plan?M+10*PX:M,y,M+186,y);});}
     function tot(l,et,k){brk(rowH);col(LIME,'setDrawColor');doc.setLineWidth(1*PX);doc.line(M,y,M+186,y);var yy=y+(4+fs)*PX;
       doc.setFont('helvetica','bold');doc.setFontSize(fs*0.75);col(DARK);doc.text(et,xs[0]+4*PX,yy);var j=5;tx2(fmt(suma(l,'total')),j++,yy,true,DARK);if(conRet)tx2(fmt(suma(l,'_ret')),j++,yy,true,DARK);tx2(fmt(suma(l,'_pag')),j++,yy,true,DARK);tx2(fmt(suma(l,'saldo')),j,yy,true,k);y+=rowH+2*PX;}
     function h2(s){brk(30*PX);y+=14*PX+13*PX;T(s,M,y,13,true,LIME);y+=4*PX;}
-    if(ven.length){h2('Facturas vencidas');th();filas(ven);tot(ven,'TOTAL VENCIDO',RED);}
-    if(ald.length){h2('Facturas por vencer');th();filas(ald);tot(ald,'TOTAL POR VENCER',LIME);}
+    if(GV.length){h2('Facturas vencidas');th();filas(GV);tot(ven,'TOTAL VENCIDO',RED);}
+    if(GA.length){h2('Facturas por vencer');th();filas(GA);tot(ald,'TOTAL POR VENCER',LIME);}
     brk(20*PX);y+=10*PX+12*PX;doc.setFont('helvetica','bold');doc.setFontSize(12*0.75);var am=fmt(tG);col(LIME);doc.text(am,M+186,y,{align:'right'});var wa=doc.getTextWidth(am);col(DARK);doc.text('TOTAL CARTERA: ',M+186-wa,y,{align:'right'});
-    var foot=(conRet?'Retención: comprobantes de retención en la fuente (renta + IVA) aplicados a la factura. Pagos: transferencias, depósitos y otros abonos recibidos. Saldo = Valor − Retención − Pagos.':'Pagos: transferencias, depósitos y otros abonos recibidos. Saldo = Valor − Pagos.')+'\n'+
+    var foot=(conRet?'Retención: comprobantes de retención en la fuente (renta + IVA) aplicados a la factura. Pagos: transferencias, depósitos y otros abonos recibidos. Saldo = Valor - Retención - Pagos.':'Pagos: transferencias, depósitos y otros abonos recibidos. Saldo = Valor - Pagos.')+'\n'+
       'Documento generado automáticamente por el sistema de cartera de Minecore S.A.S. Los valores reflejan los registros al '+today+'. Si su pago ya fue realizado, por favor compártanos el comprobante.';
     doc.setFont('helvetica','normal');doc.setFontSize(8*0.75);var fl=[];foot.split('\n').forEach(function(p){fl=fl.concat(doc.splitTextToSize(p,186));});
     brk(20*PX+fl.length*10*PX+6*PX);y+=20*PX;col(HAIR,'setDrawColor');doc.setLineWidth(0.5*PX);doc.line(M,y,M+186,y);y+=6*PX+8*PX;col(GREY);fl.forEach(function(l){doc.text(l,M,y);y+=10.5*PX;});
