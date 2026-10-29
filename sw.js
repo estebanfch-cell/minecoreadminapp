@@ -2,7 +2,7 @@
    b480 EFCH t1065: la página (navegación) se pide SIEMPRE a la red sin caché HTTP, para que cada build nuevo llegue al iPhone; sin red ⇒ intento normal.
    b474 REGLA GLOBAL: cada push de aviso lleva tag estable = clave del aviso («av:tipo:ref»); tocarla abre el registro exacto (#/doc/<número>);
    al cerrar/leer el aviso (en este u otro equipo) el banner lo quita la APP (mensaje «mc-sync»/«mc-close»); nunca hay push de cierre. */
-var SWV='b538';
+var SWV='b539';
 /* r572 REGLA: miniaturas de fotos (…/fotos/th160/…) cache-first en Cache Storage «mc-th-v1» (URL inmutable) => salen al instante. */
 var THC='mc-th-v1';
 function thGet(req){return caches.open(THC).then(function(c){return c.match(req).then(function(hit){if(hit)return hit;
