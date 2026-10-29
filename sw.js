@@ -2,8 +2,14 @@
    b480 EFCH t1065: la página (navegación) se pide SIEMPRE a la red sin caché HTTP, para que cada build nuevo llegue al iPhone; sin red ⇒ intento normal.
    b474 REGLA GLOBAL: cada push de aviso lleva tag estable = clave del aviso («av:tipo:ref»); tocarla abre el registro exacto (#/doc/<número>);
    al cerrar/leer el aviso (en este u otro equipo) el banner lo quita la APP (mensaje «mc-sync»/«mc-close»); nunca hay push de cierre. */
-var SWV='b535';
-self.addEventListener('fetch',function(e){var r=e.request;if(r.mode!=='navigate'||r.method!=='GET')return;
+var SWV='b536';
+/* r572 REGLA: miniaturas de fotos (…/fotos/th160/…) cache-first en Cache Storage «mc-th-v1» (URL inmutable) => salen al instante. */
+var THC='mc-th-v1';
+function thGet(req){return caches.open(THC).then(function(c){return c.match(req).then(function(hit){if(hit)return hit;
+  return fetch(req).then(function(res){if(res&&(res.ok||res.type==='opaque'))c.put(req,res.clone()).catch(function(){});return res;});});});}
+self.addEventListener('fetch',function(e){var r=e.request;
+  if(r.method==='GET'&&r.url.indexOf('/storage/v1/object/public/fotos/th160/')>0&&!/_top\.json/.test(r.url)){e.respondWith(thGet(r).catch(function(){return fetch(r);}));return;}
+  if(r.mode!=='navigate'||r.method!=='GET')return;
   e.respondWith(fetch(r.url,{cache:'no-store',credentials:'same-origin'}).catch(function(){return fetch(r);}));});
 self.addEventListener('install',function(e){self.skipWaiting();});
 self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim());});
@@ -22,6 +28,10 @@ self.addEventListener('push',function(e){
   e.waitUntil(Promise.all([show,badgeP]));
 });
 self.addEventListener('message',function(e){var m=e.data||{};
+  /* precarga en segundo plano: de a 3 a la vez para no competir con las fotos que se están viendo */
+  if(m.type==='mc-th-warm'&&Array.isArray(m.urls))e.waitUntil(caches.open(THC).then(function(c){var L=m.urls.slice(0,900),i=0;
+    function sig(){if(i>=L.length)return Promise.resolve();var u=L[i++];return c.match(u).then(function(h){if(!h)return fetch(u,{mode:'cors'}).then(function(res){if(res.ok)return c.put(u,res);});}).catch(function(){}).then(sig);}
+    return Promise.all([sig(),sig(),sig()]);}));
   if(m.type==='mc-close'&&m.clave)e.waitUntil(mcCerrar(function(x){return x.tag===m.clave;}));
   if(m.type==='mc-sync'&&Array.isArray(m.abiertos))e.waitUntil(mcCerrar(function(x){return x.tag==='mc-badge'||(/^av:/.test(x.tag)&&m.abiertos.indexOf(x.tag)<0);}));});
 self.addEventListener('notificationclick',function(e){e.notification.close();var dt=e.notification.data||{},url=dt.url||mcLink({texto:e.notification.body});
