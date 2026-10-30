@@ -42,13 +42,23 @@ post({op:'ver'}).then(function(r){
   if(!r.ok){var T={vencida:['⏰','Enlace vencido'],cancelada:['🚫','Enlace anulado']}[r.codigo]||['⚠️','Enlace no válido'];aviso(T[0],T[1],r.error);return;}
   D=r;form();
 }).catch(function(){aviso('📶','Sin conexión','No se pudo cargar. Revise su internet y vuelva a abrir el enlace.');});
-function docs(){if(D.ordenes&&D.ordenes.length)return docsL();return '<div class="c"><h2>Sus documentos</h2><div class="k" style="margin-top:0">Este link es válido por 4 días (hasta '+e(String(D.expira_txt||'').replace(' (EC)',''))+'). Descargue su orden de venta'+(D.factura?' y su factura':'')+'.</div>'+
+function docs(){if(D.ordenes&&D.ordenes.length)return docsL();return '<div class="c" id="docs"><h2>Sus documentos</h2><div class="k" style="margin-top:0">'+vig()+' Descargue su orden de venta'+(D.factura?' y su factura':'')+'.</div>'+
   '<div class="row"><button class="bs" type="button" onclick="MCdoc(\'ov\',this)">Ver orden de venta</button></div>'+
   (D.factura?'<div class="row"><button class="bs" type="button" onclick="MCdoc(\'factura\',this)">Ver factura</button></div>':'')+
   (D.firmada&&D.recibido?'<div class="row"><button class="bs" type="button" onclick="MCdoc(\'recibido\',this)">Descargar recibido (PDF)</button></div>':'')+'</div>';}
+/* b548 t1373u: vigencia real del link (D.expira_at / expira_txt), sin número fijo de días */
+function vig(){var h=String(D.expira_txt||'').replace(' (EC)',''),ms=D.expira_at?new Date(D.expira_at).getTime()-Date.now():NaN,n=isFinite(ms)?Math.ceil(ms/864e5):null;
+  if(!h&&!(n>0))return '';return 'Este link es válido'+(h?' hasta '+e(h):'')+(n>0?' ('+(n===1?'queda 1 día':'quedan '+n+' días')+')':'')+'.';}
+/* b548: si la factura llega después, la página se actualiza sola (cada ~60 s visible y al volver a primer plano) sin tocar la firma en curso */
+function fk(x){return x?(x.factura?1:0)+'|'+(x.recibido?1:0)+'|'+(x.ordenes||[]).map(function(o){return (o.factura?1:0)+''+(o.recibido?1:0);}).join(','):'';}
+var refT=null,refBusy=false;function refrescar(){if(!D||refBusy||document.visibilityState==='hidden')return;refBusy=true;
+  post({op:'ver'}).then(function(r){refBusy=false;if(!r||!r.ok)return;var cambio=fk(r)!==fk(D);var fs=D.firmada;D=Object.assign(D,r);if(!cambio&&r.firmada===fs)return;
+    if(r.firmada&&!fs){hecho();return;}var b=document.getElementById('docs');if(b){var t=document.createElement('div');t.innerHTML=docs();b.parentNode.replaceChild(t.firstChild,b);}}).catch(function(){refBusy=false;});}
+window.MCfRef=refrescar;refT=setInterval(refrescar,60000);document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')refrescar();});
+window.addEventListener('focus',refrescar);
 /* r511 b501: link COMBINADO (varias órdenes del mismo cliente, una sola firma). Los links de una orden siguen igual. */
 function L(){return D.ordenes||[];}
-function docsL(){return '<div class="c"><h2>Sus documentos</h2><div class="k" style="margin-top:0">Este link es válido por 4 días (hasta '+e(String(D.expira_txt||'').replace(' (EC)',''))+'). Descargue los documentos de cada orden.</div>'+
+function docsL(){return '<div class="c" id="docs"><h2>Sus documentos</h2><div class="k" style="margin-top:0">'+vig()+' Descargue los documentos de cada orden.</div>'+
   L().map(function(o){var id=e(o.id);return '<div style="border-top:1px solid #e3e8ee;margin-top:10px;padding-top:8px"><div class="v">'+e(o.orden)+(o.fecha?' <span class="k" style="display:inline">· '+e(fecha(o.fecha))+'</span>':'')+'</div>'+
     '<div class="row"><button class="bs" type="button" data-o="'+id+'" onclick="MCdoc(\'ov\',this,\''+id+'\')">Orden de venta</button>'+(o.factura?' <button class="bs" type="button" onclick="MCdoc(\'factura\',this,\''+id+'\')">Factura</button>':'')+(D.firmada&&o.recibido?' <button class="bs" type="button" onclick="MCdoc(\'recibido\',this,\''+id+'\')">Recibido (PDF)</button>':'')+'</div></div>';}).join('')+'</div>';}
 function cabL(){return '<div class="c"><div class="k" style="margin-top:0">Cliente</div><div class="v">'+e(D.cliente||'')+'</div><div class="k">Órdenes en esta recepción ('+L().length+')</div><div class="v">'+L().map(function(o){return e(o.orden);}).join(', ')+'</div><div class="k">Con una sola firma quedan recibidas todas estas órdenes.</div></div>';}
