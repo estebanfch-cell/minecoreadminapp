@@ -665,7 +665,7 @@ var mcIdb=(function(){var dbp=null;function db(){if(!dbp)dbp=new Promise(functio
   return {get:function(k){return tx('readonly',function(s){return s.get(k);});},set:function(k,v){return tx('readwrite',function(s){return s.put(v,k);}).catch(function(){});},del:function(k){return tx('readwrite',function(s){return s.delete(k);}).catch(function(){});}};})();
 </script>
 <script>
-  var MC_BUILD='551'; /* b550 EFCH t1384u: sin textos/chips/pestañas de inFlow tras el corte 30-oct (solo histórico) */ /* b549 EFCH t1375u: 💬 escritorio abre WhatsApp sin destinatario (whatsapp://send?text, fallback web.whatsapp.com) */ /* b548: acta de entrega PDF (fotos, firmas recibe/aprueba) + Banco una línea por movimiento con Notas/Cruce propuesto */ /* r587 b547: 💬 WhatsApp escritorio = descarga + wa.me/WhatsApp Web (sin Web Share), nunca colgado */ /* r583 EFCH t1349u: packing fila — nombre una vez, SKU+Prov debajo, OC y Factura en columnas separadas, Llegaron input visible */ /* r582 fix: action «packing» solo Supabase (antes caía a Apps Script ⇒ «Usuario o PIN incorrectos») */ /* r582 EFCH t1344u: ⚡ Bodega «Recibir packing list» reemplaza a «Recibir orden»; packing solo en Bodega */ /* r581: Recibir packing list + Órdenes pendientes + Actas de recepción firmadas */ /* r580: anticipo íntegro; retención repartida en las cuotas */ /* r578: 🧾 Historial de pagos en la ficha del cliente (pago→factura, reversos, PDF/Excel) */ /* r573: pagos con bloqueo+spinner+resultado visible (MCPayGuard) + Banco recuadro grande para arrastrar */ /* r571: varias actas por entrega (cobertura por producto) + acta de devolución visible en Envío */ /* r570: Fulfill por producto (preparado+empacado ⇒ solo Ship); acta recibida ⇒ despachada, sin «Enviar recepción digital» */ /* r569: Banco — simular desmarcado, resultado claro + Guardar de verdad, avisos cobrados/duplicados */ /* r565: Facturas del período y Margen por factura → tocar abre la OV (DashV2.irOV) y Volver regresa al Dashboard */ /* r564: cancelar OV devuelve TODO al inventario (preview + resultado) */ /* r540: cliente BLOQUEADO → «Desbloquear solo para esta edición» (excepción temporal por orden/usuario, sin tocar el flag real) */ /* r561: MCdiag vigilante de congelamiento + freno de bucles MutationObserver + iePick focus sin scroll */ /* r547: OC «Detalle de costos» editable: costos adicionales manuales (flete / no relacionados con el proveedor) con concepto y referencia */ /* r543: WhatsApp lista con scroll + adjuntos en línea (Storage wa-media) + Aviso por mensaje entrante */ /* r542: redondeo half-up decimal (mcR2) + Pagos proveedores filas apiladas */ /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
+  var MC_BUILD='552'; /* b552 EFCH t1403u: portal 100 % Supabase — sin Apps Script (sin URL ni respaldo de Google) */ /* b550 EFCH t1384u: sin textos/chips/pestañas de inFlow tras el corte 30-oct (solo histórico) */ /* b549 EFCH t1375u: 💬 escritorio abre WhatsApp sin destinatario (whatsapp://send?text, fallback web.whatsapp.com) */ /* b548: acta de entrega PDF (fotos, firmas recibe/aprueba) + Banco una línea por movimiento con Notas/Cruce propuesto */ /* r587 b547: 💬 WhatsApp escritorio = descarga + wa.me/WhatsApp Web (sin Web Share), nunca colgado */ /* r583 EFCH t1349u: packing fila — nombre una vez, SKU+Prov debajo, OC y Factura en columnas separadas, Llegaron input visible */ /* r582 fix: action «packing» solo Supabase (antes caía a Apps Script ⇒ «Usuario o PIN incorrectos») */ /* r582 EFCH t1344u: ⚡ Bodega «Recibir packing list» reemplaza a «Recibir orden»; packing solo en Bodega */ /* r581: Recibir packing list + Órdenes pendientes + Actas de recepción firmadas */ /* r580: anticipo íntegro; retención repartida en las cuotas */ /* r578: 🧾 Historial de pagos en la ficha del cliente (pago→factura, reversos, PDF/Excel) */ /* r573: pagos con bloqueo+spinner+resultado visible (MCPayGuard) + Banco recuadro grande para arrastrar */ /* r571: varias actas por entrega (cobertura por producto) + acta de devolución visible en Envío */ /* r570: Fulfill por producto (preparado+empacado ⇒ solo Ship); acta recibida ⇒ despachada, sin «Enviar recepción digital» */ /* r569: Banco — simular desmarcado, resultado claro + Guardar de verdad, avisos cobrados/duplicados */ /* r565: Facturas del período y Margen por factura → tocar abre la OV (DashV2.irOV) y Volver regresa al Dashboard */ /* r564: cancelar OV devuelve TODO al inventario (preview + resultado) */ /* r540: cliente BLOQUEADO → «Desbloquear solo para esta edición» (excepción temporal por orden/usuario, sin tocar el flag real) */ /* r561: MCdiag vigilante de congelamiento + freno de bucles MutationObserver + iePick focus sin scroll */ /* r547: OC «Detalle de costos» editable: costos adicionales manuales (flete / no relacionados con el proveedor) con concepto y referencia */ /* r543: WhatsApp lista con scroll + adjuntos en línea (Storage wa-media) + Aviso por mensaje entrante */ /* r542: redondeo half-up decimal (mcR2) + Pagos proveedores filas apiladas */ /* r540: «← Volver» en visor PDF (close→back→replace) */ /* r539: esc en MCKyc + lint no-undef */ /* r531: editor OC/cotización de compra = editor OV (foto, buscador, más bajo comprado, Revisa el precio) */ /* r518-b506b */ /* r518-b506: 505 + Último ingreso (r519) + Dashboard cliente = informe del servidor (visor) + Documentos + sin «Mi equipo» (Solicitar acceso) + barra cliente + buscadores resaltados */ /* r518-b505: 504 + fel (503.1) + invitaciones pendientes en grupos de org */ /* r513-b504: proyectos de clientes + aterrizaje en Dashboard */ /* r510 b501: selección masiva OV + recepción digital combinada + invitación = editor + buscador proveedor/organización */ /* r510: búsqueda lista OV/COT repinta (pintaRes duplicado) */ /* r509 b500: PORTAL PROVEEDOR (rol proveedor, solo lectura, solo su proveedor) */ /* b495 r506: búsqueda única por palabras (AND, prefijo, HQ=HO) en todos los buscadores */ /* b494: 492 (491+Preparada+Eliminar docs) + 490 (cliente módulos solo lectura) */ /* b492 r504: «Eliminar» en Documentos de la OV (borrado lógico, admin o quien lo subió) + r505 estado «Preparada» */ /* b487 r499: barra inferior fija en iOS tras cerrar teclado/modal (fix global visualViewport) */ /* b485 r497: antenas en acordeón (título·cliente·proyecto) + filtro por cliente */ /* b484 r496: ant_* solo Supabase (antes caían a Apps Script ⇒ «Acción desconocida: ant_data») */
   /* b469: regla permanente al dividir: la original pasa a -1 y la nueva a -2 (luego -3…); si ya tiene sufijo, la nueva es el siguiente hermano libre */
   window.mcSplitTxt=function(n){n=String(n||'');var m=n.match(/^([A-Z]+-[A-Z]+-\d+)(-\d+)+$/);return m?n+' se queda con lo disponible y lo que falta pasa a la siguiente parte libre ('+m[1]+'-…)':n+' pasa a '+n+'-1 con lo disponible y lo que falta pasa a '+n+'-2';};
   /* b468: tarjetas KPI (etiqueta arriba, monto abajo, una línea c/u, sin desbordar). Regla: nada apachurrado. */
@@ -792,7 +792,7 @@ function mcShowUpdateBanner(){
   }catch(e){}
 })();
 
-var API_URL = 'https://script.google.com/macros/s/AKfycbyfoS1EX0V9YdqN35jiJ7CDMkxpkX5Gd0XQZJxQAxTiM76vjAoVXyEam2Vzo_WNihZQ/exec';
+/* b552: sin URL de Apps Script */
 /* v129: errores honestos — distingue "sin red" de "el servidor respondió algo que no es JSON" (páginas de error de Google, timeouts) */
 function MCjson(r){return r.text().then(function(t){try{return JSON.parse(t);}catch(e){var s2=String(t||'').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180);if(/no se pudo abrir el archivo|Drive|Google Drive|tiempo máximo|exceeded maximum execution/i.test(s2))s2='Google no pudo atender la solicitud en este momento (error temporal de Apps Script/Drive)';throw new Error('HTTP '+r.status+' — '+(s2||'respuesta vacía'));}});}
 function MCerr(e){var m2=(e&&e.message)?String(e.message):'';if(m2==='TIMEOUT')return 'El servidor tardó demasiado en responder (probablemente el servidor está ocupado). Intenta de nuevo en un momento.';if(!m2||/Failed to fetch|Load failed|NetworkError|network|abort/i.test(m2))return 'Sin conexión.';return 'Error del servidor: '+m2;}
@@ -839,7 +839,7 @@ var MC_SB_LECT=/^(nav_reorden|nav_auditoria|meta|clientes|catalogos|productos|li
 /* b344: escrituras de bodega/recepción/stock directo a Supabase (portal-api → ventas-api), sin el salto por Apps Script; Apps Script solo si no hay sesión o Supabase no responde */
 var MC_SB_ESCR=/^(pick|pack|ship|fulfill|pick_edit|pick_undo|pack_undo|ship_edit|ship_undo|po_receive|stk_transfer|stk_adjust|stk_count_start|stk_count_save|stk_count_complete|stk_cancel)$/;
 var MC_SB_DOWN=0,MC_SB_REF=null;
-var MC_SB_ONLY=/^(packing|acc_solicitar|ant_data|ant_sol_crear|ant_sol_visto|cli_nombres|precot_bandeja|costeo|getCotDetalle|guardarCotizacion|guardarEntregasCot|guardarItemsCot|crearCotInflow|vincularClienteCot|getClienteInflowData|crearSolicitudInterna|editarCotCreada|editarOrdenInflow|convertirCotOrden|borrarPreCot|getUbicacionesCot|getPrecotsConvertidas|borrarPrecotsConvertidas|misCotizaciones|aprobarCotCliente|rechazarCotCliente|enviarCarrito)$/ /* b433: Cotizaciones 100 % Supabase (sin Apps Script ni hoja) */;var MC_COT_W=/^(crearCotInflow|editarCotCreada|editarOrdenInflow|convertirCotOrden|crearSolicitudInterna|enviarCarrito|aprobarCotCliente|rechazarCotCliente|borrarPrecotsConvertidas)$/ /* b364: costeo solo Supabase (Apps Script no conoce 'costeo') */; /* b360-gas-cot: cotizador solo Supabase */
+var MC_SB_ONLY=/^(packing|acc_solicitar|ant_data|ant_sol_crear|ant_sol_visto|cli_nombres|precot_bandeja|costeo|getCotDetalle|guardarCotizacion|guardarEntregasCot|guardarItemsCot|crearCotInflow|vincularClienteCot|getClienteInflowData|crearSolicitudInterna|editarCotCreada|editarOrdenInflow|convertirCotOrden|borrarPreCot|getUbicacionesCot|getPrecotsConvertidas|borrarPrecotsConvertidas|misCotizaciones|aprobarCotCliente|rechazarCotCliente|enviarCarrito|proyectos_adm)$/ /* b552: proyectos_adm → portal-api */ /* b433: Cotizaciones 100 % Supabase (sin Apps Script ni hoja) */;var MC_COT_W=/^(crearCotInflow|editarCotCreada|editarOrdenInflow|convertirCotOrden|crearSolicitudInterna|enviarCarrito|aprobarCotCliente|rechazarCotCliente|borrarPrecotsConvertidas)$/ /* b364: costeo solo Supabase (Apps Script no conoce 'costeo') */; /* b360-gas-cot: cotizador solo Supabase */
 var MC_CAJA_RX=/^(getRutas|getGastos|getEntregas|getBalanceCaja|getConfig|updateConfig|crearRuta|editarRuta|aprobarRuta|rechazarRuta|crearGasto|aprobarGasto|rechazarGasto|crearEntrega|eliminarLineaCaja|eliminarEntrega|eliminarGasto|eliminarRuta|cerrarCorte|savePhoto)$/;
 function MCsbGet(){try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null');if(s&&s.u===getUserName()&&s.t&&s.exp>Date.now()/1000+20)return s;}catch(e){}return null;}
 function MCsbSet(t){try{if(!t){sessionStorage.removeItem('mc_sbt');return;}var c=JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));sessionStorage.setItem('mc_sbt',JSON.stringify({u:c.u,t:t,exp:c.exp}));}catch(e){}}
@@ -977,7 +977,7 @@ function MCsbEligible(c){
 function MCcxcSet(el,campo,valor){var cli=decodeURIComponent(el.getAttribute('data-c')||'');el.disabled=true;
   MCpost({action:'ventas',op:'cxc_update',cliente:cli,campo:campo,valor:valor,user:getUserName(),pin:getPin()}).then(function(r){el.disabled=false;if(!r||!r.ok)throw new Error((r&&r.error)||'No se guardó');})
   .catch(function(e){el.disabled=false;alert(MCerr(e));});}
-function MCcxcUpd(p){p.user=getUserName();p.pin=getPin();var g=Object.assign({},p);try{MCpost0(g).catch(function(){});}catch(e){}
+function MCcxcUpd(p){p.user=getUserName();p.pin=getPin(); /* b552: sin copia a Google */
   return MCpost({action:'ventas',op:'cxc_update',cliente:p.cliente,campo:p.campo,valor:p.valor,user:p.user,pin:p.pin});}
 /* b345-cxc: estado del formulario «Conoce a tu cliente» (pendiente/enviado/completo) + «Enviar formulario» */
 var MCKyc=(function(){
@@ -1041,9 +1041,7 @@ var MCKyc=(function(){
 function MCsbOnly(sb){sb.user=getUserName();sb.pin=getPin();return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');});} /* b360-gas-cot */
 /* b363-notif: solo Supabase (mismo contrato que MCsbOr, sin caer a Google) */
 function MCsbSolo(sb){sb.user=getUserName();sb.pin=getPin();return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');});}
-function MCsbOr(sb,gas){sb.user=getUserName();sb.pin=getPin();gas.user=sb.user;gas.pin=sb.pin;
-  return MCpost(sb).then(function(r){if(r&&r.ok)return r;throw new Error((r&&r.error)||'sin datos');})
-    .catch(function(e){try{console.warn('Supabase falló ('+sb.op+'), uso Google:',e&&e.message);}catch(x){}return MCpost(gas);});}
+function MCsbOr(sb){return MCsbSolo(sb);} /* b552: solo Supabase; 2º argumento (acción vieja) ignorado */
 
 /* b291: cualquier operación que mueve stock invalida las listas en memoria (Productos, Inventario) */
 var MC_STK_V=0,MC_STK_RX=/^(prod_save|stk_|po_receive|po_cancel|pick|pack|ship|fulfill|restock|undo|mo_complete|mo_cancel|cancel|split|consig_|reubicar)/;
@@ -1080,7 +1078,7 @@ function MCpost0(p){
   if(esCaja&&!s&&false){if(!p._sbw2){p._sbw2=1;MCsbRefresh();return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
     return Promise.resolve({ok:false,error:'No se pudo abrir la sesión con el servidor. Revisa tu conexión y vuelve a intentar.',_transport:true});}
   if(!s&&MCsbEligible(p))return MCsbRetry(p,{message:navigator.onLine===false?'OFF':'SBTOK'}); /* b372 */
-  if(!s)return MCpostAS(p).then(function(res){if(res&&res.sbt)MCsbSet(res.sbt);return res;});
+  if(!s)return MCsinRuta(p);
   var body={t:s.t};for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&k.charAt(0)!=='_'&&k!=='pin'&&k!=='user')body[k]=p[k];}
   var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
   var esW=(p.action==='ventas'&&!MC_SB_LECT2.test(String(p.op||'')))||MC_COT_W.test(String(p.action||'')); /* b433: escrituras de cotización sin reintento automático (90 s) */var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},esW?90000:Math.min(p._timeout||20000,20000)):null;
@@ -1099,57 +1097,12 @@ function MCpost0(p){
       if(esCaja){if(e&&e.message==='SB401'&&!p._sb401){p._sb401=1;return Promise.resolve(MC_SB_REF).then(function(){return MCpost0(p);},function(){return MCpost0(p);});}
         return {ok:false,error:(e&&e.name==='AbortError')?'TIMEOUT':'Sin conexión con el servidor de Minecore (Supabase). Intenta de nuevo en un momento.',_transport:true};} /* b360-gas: sin respaldo Google */
       if(!(e&&e.message==='SB401'))MC_SB_DOWN=Date.now()+60000;
-      try{console.warn('Supabase directo falló, uso Apps Script:',e&&e.message);}catch(e2){}
-      return MCpostAS(p);
+      return MCsbEligible(p)?{ok:false,error:MC_SB_CAIDO,_transport:true}:MCsinRuta(p);
     });
 }
-function MCpostAS(p){
-  p=p||{};
-  var timeoutMs=75000; // v145: tope por defecto
-  var maxRetry=3;
-  if(p._timeout)timeoutMs=p._timeout;
-  if(p._retries!=null)maxRetry=p._retries;
-  var clean={};
-  for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k)&&String(k).charAt(0)!=='_')clean[k]=p[k];}
-  var body=JSON.stringify(clean);
-  var accion=String(clean.action||'');
-  var lectura=/^(get|list|mi|ping|syncNow)/.test(accion);
-  var idem=!!(clean.clientReqId&&MC_IDEM_CAJA.test(accion));
-  function go(){
-    var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
-    var timer=ctl?setTimeout(function(){try{ctl.abort();}catch(e){}},timeoutMs):null;
-    return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body,signal:ctl?ctl.signal:undefined})
-      .then(function(r){if(timer)clearTimeout(timer);return r;},function(e){if(timer)clearTimeout(timer);if(e&&e.name==='AbortError')throw new Error('TIMEOUT');throw e;})
-      .then(MCjson).then(function(res){
-    if(MCesDoGet(res)){var e2=new Error('DOGET');e2.doget=true;throw e2;}
-    return res;});}
-  function esPaginaGoogle(e){return !!(e&&e.message&&/^HTTP \d+/.test(e.message));}
-  /* v204: HTML 404/500 de Drive/Apps Script en lecturas — más intentos y más espera */
-  function esGoogleTransitorio(e){
-    if(!e||!e.message)return false;
-    var m=String(e.message);
-    if(/error temporal de Apps Script\/Drive|no se pudo abrir el archivo|unable to open the file|Google Drive/i.test(m))return true;
-    return /^HTTP (404|500|502|503)\b/.test(m);
-  }
-  function intento(n){
-    return go().catch(function(e){
-      if(e&&e.doget){
-        if(MC_NO_REPETIR.test(accion)&&!idem)throw new Error('Google devolvió una respuesta vacía para "'+accion+'". Verifica en la app si la acción se aplicó antes de repetirla.');
-        if(n>=maxRetry)throw new Error('Google respondió sin ejecutar la acción "'+accion+'" ('+(maxRetry+1)+' intentos). Reintenta en unos segundos.');
-        return new Promise(function(ok){setTimeout(ok,[700,1500,3000][n]||3000);}).then(function(){return intento(n+1);});
-      }
-      var trans=!!(lectura&&esGoogleTransitorio(e));
-      var tope=trans?Math.max(maxRetry,6):maxRetry;
-      /* b220: una página HTML de Google puede llegar DESPUÉS de que el script escribió (p.ej. la redirección
-         a googleusercontent falla con 404/500 «no se pudo abrir el archivo»). Las altas no repetibles
-         (crearEntrega/crearGasto/crearRuta/cerrarCorte) NO se reintentan solas: duplicaban la línea en Caja_*. */
-      var puede=(esPaginaGoogle(e)&&(!MC_ALTA_CAJA.test(accion)||idem))||(lectura&&!esPaginaGoogle(e));
-      if(n>=tope||!puede)throw e;
-      var espera=trans?([800,1500,2500,4000,6000,8000][n]||8000):([900,1800,3200][n]||3200);
-      return new Promise(function(ok){setTimeout(ok,espera);}).then(function(){return intento(n+1);});
-    });
-  }
-  return intento(0);}
+/* b552: acciones sin ruta Supabase ⇒ error claro (nunca Apps Script) */
+var MC_SIN_RUTA='Servidor no disponible para esta acción (Minecore la está migrando a Supabase).';
+function MCsinRuta(p){try{console.warn('Sin ruta Supabase:',p&&p.action);}catch(e){}return Promise.resolve({ok:false,error:MC_SIN_RUTA});}
 /* b224: id único por alta de pre-cotización. MCpost reenvía el MISMO cuerpo en sus reintentos, así que el motor v133
    (crearSolicitudInterna idempotente) reconoce el reintento y devuelve la misma fila en vez de duplicarla. */
 function MCreqId(){return 'R'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
@@ -9492,7 +9445,7 @@ var Edc = (function(){
   }
   function solicitar(btn){
     if(btn){btn.disabled=true;btn.textContent='Enviando...';}
-    api({action:'solicitarEdc'}).then(function(res){
+    Promise.resolve({ok:false,error:'No disponible por ahora (en migración)'}).then(function(res){
       var m=document.getElementById('edc-sol-msg');
       if(btn){btn.disabled=false;btn.textContent='📨 Solicitar autorización';}
       if(m)m.innerHTML=res.ok?'<div style="color:#6fd68f">✅ '+res.mensaje+'</div>':'<div class="cbz-error">'+(res.error||'No se pudo enviar')+'</div>';
@@ -9749,7 +9702,7 @@ var MailCfg = (function(){
   function el(){return document.getElementById('mailcfg-body');}
   function init(){
     el().innerHTML='<div class="cbz-loading">Cargando configuración...</div>';
-    api({action:'getMailConfig'}).then(function(res){
+    Promise.resolve({ok:false,error:'No disponible por ahora (en migración)'}).then(function(res){
       if(!res.ok){el().innerHTML='<div class="cbz-error">'+res.error+'</div>';return;}
       cfg=res;render();
     }).catch(function(e){el().innerHTML='<div class="cbz-error">'+MCerr(e)+'</div>';});
@@ -9785,11 +9738,7 @@ var MailCfg = (function(){
       '4. Volver aquí: escribir los remitentes, tu BCC, Guardar (los semáforos deben ponerse ✅) y Enviar prueba.</div></div>';
   }
   function guardar(){
-    api({action:'setMailConfig',
-      senderCobranza:(document.getElementById('mc-cob')||{}).value||'',
-      senderCotizaciones:(document.getElementById('mc-cot')||{}).value||'',
-      senderKyc:(document.getElementById('mc-kyc')||{}).value||'',
-      bccEmail:(document.getElementById('mc-bcc')||{}).value||''}).then(function(res){
+    Promise.resolve({ok:false,error:'No disponible por ahora (en migración)'}).then(function(res){
       if(!res.ok){alert(res.error);return;}
       alert(res.alerta?('💾 Guardado.\n\n'+res.alerta):'💾 Configuración guardada. El motor de correos ya la usa desde ahora.');
       init();
@@ -9797,7 +9746,7 @@ var MailCfg = (function(){
   }
   function probar(){
     var API_T0=Date.now();
-    api({action:'testMailConfig'}).then(function(res){
+    Promise.resolve({ok:false,error:'No disponible por ahora (en migración)'}).then(function(res){
       if(!res.ok){alert('No se pudo enviar: '+res.error);return;}
       alert('📨 Correo de prueba enviado a '+res.enviado+'.\nRevisa DE QUÉ remitente llegó — esa es la verificación real.');
     }).catch(function(err){
@@ -12504,7 +12453,7 @@ var LiqMod = (function(){
         return 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
       return err;
     }
-    MCpost({action:'liqPrepareCliente',cliente:name,user:getUserName(),pin:getPin()})
+    Promise.resolve({ok:false,error:'No disponible por ahora (en migración)'})
     .then(function(res){
       if(res&&res.ok&&(res.token||res.url)){
         return afterMin(function(){finishOk(res.token,res.url);});
@@ -15380,7 +15329,7 @@ var MCImp=(function(){
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ini);else ini();
   }
   /* MCping se redefine más abajo en el index (login v2): estos ganchos se instalan justo antes del auto-login */
-  function hook(){if(S){MCping=function(){return Promise.resolve({ok:true});};MCpostAS=function(){return Promise.resolve({ok:false,error:'No disponible mientras estás en «Entrar como»'});};MCsbTok=function(){return Promise.resolve(S?{ok:true,sbt:S.t}:{ok:false,error:'Sin sesión'});};return;}
+  function hook(){if(S){MCping=function(){return Promise.resolve({ok:true});};MCsbTok=function(){return Promise.resolve(S?{ok:true,sbt:S.t}:{ok:false,error:'Sin sesión'});};return;}
   {var vt=0;try{vt=+sessionStorage.getItem('mc_imp_vuelta')||0;sessionStorage.removeItem('mc_imp_vuelta');}catch(e){}
     if(vt&&Date.now()-vt<120000){var _ping=MCping;MCping=function(u,p){MCping=_ping;var s0=MCsbGet();
       if(!s0||String(s0.u).toUpperCase()!==String(u).toUpperCase())return _ping(u,p);
@@ -15499,8 +15448,6 @@ MCping=function(usr,pin){return MCsbFetch({action:'login',v2:true,user:usr,pin:p
   .catch(function(){return {ok:false,error:MC_SB_CAIDO};});};
 MCloginAlt=MCping;
 /* r511: MCsbTok de arriba (token/refresh token) queda vigente: sin sbToken con PIN */
-(function(){var _as=MCpostAS;function elig(c){var d=MC_SB_DOWN;MC_SB_DOWN=0;try{return MCsbEligible(c);}catch(e){return false;}finally{MC_SB_DOWN=d;}}
-  MCpostAS=function(p){var a=String((p&&p.action)||'');if(a==='ping'||a==='sbToken'||MC_USR_RX.test(a)||elig(p||{}))return Promise.resolve({ok:false,error:MC_SB_CAIDO});return _as(p);};})();
 MCperm.start();
 /* Pantalla de Usuarios */
 Users=(function(){
