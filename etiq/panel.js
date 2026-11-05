@@ -70,7 +70,6 @@
   }
   function actions(st) {
     var h = '<div class="etiq-acts"><button type="button" class="cbz-btn" onclick="MCEtiq.click(this)">Imprimir etiquetas</button>' +
-      '<button type="button" class="chip" onclick="MCEtiq.pair(this)">Código para el iMac</button>' +
       '<button type="button" class="chip" onclick="MCEtiq.pdf(this)">PDF 19×51 en este equipo</button>';
     if (st === 'ambiguo') h += '<button type="button" class="etiq-retry" onclick="MCEtiq.retry(this)">Reintentar envío incierto</button>';
     if (st === 'error_envio') h += '<button type="button" class="etiq-retry" onclick="MCEtiq.retry(this)">Reintentar envío</button>';
@@ -85,7 +84,6 @@
     return '<div class="etiq-box" data-ok="1" data-state="' + esc(st) + '" data-ctx="' + esc(model.ctx || '') + '" data-id="' + esc(model.id || '') + '" data-key="' + esc(model.key || '') + '" data-last="' + esc(model.last || '') + '">' +
       '<b>Etiquetas clientes</b>' + actions(st) +
       '<div class="etiq-meta">' + esc(model.order_number || '') + (model.cliente ? ' · ' + esc(model.cliente) : '') + '</div>' +
-      (model.code ? '<div class="etiq-st">Código para el instalador del iMac. Vale 10 minutos. Escríbelo allí y no lo mandes por chat: <b>' + esc(model.code) + '</b></div>' : '') +
       '<div class="etiq-st ' + tone(st) + '">' + esc(texto(st, model)) + '</div></div>';
   }
   function cssTag() {
@@ -97,18 +95,21 @@
       root.document.head.appendChild(s);
     } catch (e) {}
   }
-  function vincularHtml(model) {
+  function impresionHtml(model) {
     model = model || {};
     if (!ok() && model.state !== 'sin_permiso') return '';
     cssTag();
-    var st = model.state || 'aviso';
-    var code = model.code ? '<div class="etiq-st">Código para el instalador del iMac. Vale 10 minutos. Escríbelo allí y no lo mandes por chat: <b>' + esc(model.code) + '</b></div>' : '';
-    var msg = st === 'aviso' ? 'Vincular el iMac de bodega. No imprime ni cambia órdenes.' : texto(st, { vincular: true, job_id: model.job_id });
+    var st = model.state || 'listo';
+    var code = model.code ? '<div class="etiq-st etiq-code">Código para el instalador. Vale 10 minutos. Escríbelo en el iMac y no lo mandes por chat: <b>' + esc(model.code) + '</b></div>' : '';
+    var msg = st === 'listo'
+      ? 'El iMac que ya está vinculado sigue igual. Pide un código solo para vincular una Mac nueva. No aparece hasta que lo pidas.'
+      : texto(st === 'aviso' ? 'servicio_no_publicado' : st, { vincular: true });
+    if (st === 'aviso' && model.code) msg = 'Úsalo en el instalador de esa Mac. El puente que ya está cargado no se revoca.';
     return '<div class="etiq-box etiq-vinc" data-ok="1" data-id="vincular" data-state="' + esc(st) + '">' +
-      '<b>Vincular iMac</b><div class="etiq-acts"><button type="button" class="cbz-btn" onclick="MCEtiq.pair(this)">Código para el iMac</button></div>' +
-      code + '<div class="etiq-st ' + tone(st) + '">' + esc(msg) + '</div></div>';
+      '<div class="etiq-acts"><button type="button" class="cbz-btn" onclick="MCEtiq.pair(this)">Código para el iMac</button></div>' +
+      code + '<div class="etiq-st ' + tone(st === 'listo' ? 'aviso' : st) + '">' + esc(msg) + '</div></div>';
   }
-  function vincular() { return vincularHtml(); }
+  function impresion() { return impresionHtml(); }
   function panel(o, ctx) {
     if (!ok()) return '';
     cssTag();
@@ -242,7 +243,7 @@
     var vinc = box.className.indexOf('etiq-vinc') >= 0;
     var id = box.getAttribute('data-id') || '';
     if (!ok()) {
-      if (vinc) replaceBox(box, vincularHtml({ state: 'sin_permiso' }));
+      if (vinc) replaceBox(box, impresionHtml({ state: 'sin_permiso' }));
       else paint(box, { state: 'sin_permiso', physically_printed: false });
       return;
     }
@@ -254,7 +255,7 @@
       var malo = !codigo || /operaci[oó]n no v[aá]lida/i.test(err);
       if (vinc) {
         var st = r && r.code === 'sin_permiso' && !codigo ? 'sin_permiso' : (malo ? 'servicio_no_publicado' : 'aviso');
-        replaceBox(host, vincularHtml({ state: st, code: malo ? '' : codigo }));
+        replaceBox(host, impresionHtml({ state: st, code: malo ? '' : codigo }));
         return;
       }
       if (malo) { paint(host, { state: 'servicio_no_publicado', physically_printed: false }); return; }
@@ -269,7 +270,7 @@
     permisos: permisos,
     ok: ok,
     panel: panel,
-    vincular: vincular,
+    impresion: impresion,
     decide: decide,
     interpret: interpret,
     texto: texto,
