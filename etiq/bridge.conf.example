@@ -1,0 +1,8 @@
+# Copiar a ~/.minecore-dymo/bridge.conf y luego: chmod 600
+# BRIDGE_TOKEN lo entrega Minecore una sola vez, cuando exista el alta del puente.
+# No pegar aquí la credencial de servicio del proyecto.
+# CUPS_QUEUE es el nombre local de la DYMO LabelWriter Wireless en el iMac de bodega.
+# No asumir el nombre de la cola del mini de oficina.
+BRIDGE_TOKEN=
+CUPS_QUEUE=
+API_BASE=https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api
