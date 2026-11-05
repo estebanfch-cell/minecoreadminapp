@@ -111,28 +111,106 @@ def pdf_escape(text):
     return blob.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
 
 
+# Helvetica-Bold, milésimas de em, caracteres 32..126. CapHeight 729.
+# El signo × (U+00D7) mide 584.
+_HB = (
+    278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278,
+    556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611,
+    975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778,
+    667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556,
+    333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611,
+    611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
+)
+_CAP = 0.729
+_LEAD = 1.05
+DRAW = "v4-bandas"
+
+
+def _mm(v):
+    return float(v) / 25.4 * 72.0
+
+
+def hb_units(ch):
+    o = ord(ch)
+    if o == 0xD7:
+        return 584
+    if 32 <= o <= 126:
+        return _HB[o - 32]
+    return 722
+
+
+def hb_width(text, pt):
+    total = 0
+    for ch in u_text(text):
+        total += hb_units(ch)
+    return total * float(pt) / 1000.0
+
+
 def wrap_words(text, size_pt, max_w_pt):
-    """Parte el texto en líneas. No descarta palabras."""
+    """Parte por palabras. None si una palabra no cabe a este cuerpo."""
     words = u_text(text).split()
     if not words:
-        return [""]
-    max_chars = max(1, int(max_w_pt / max(size_pt * 0.5, 0.1)))
+        return [u""]
     lines = []
-    cur = ""
+    cur = u""
     for word in words:
-        trial = word if not cur else cur + " " + word
-        if len(trial) <= max_chars:
+        if hb_width(word, size_pt) > max_w_pt + 0.2:
+            return None
+        trial = word if not cur else cur + u" " + word
+        if hb_width(trial, size_pt) <= max_w_pt + 0.2:
             cur = trial
-            continue
-        if cur:
-            lines.append(cur)
-        while len(word) > max_chars:
-            lines.append(word[:max_chars])
-            word = word[max_chars:]
-        cur = word
+        else:
+            if cur:
+                lines.append(cur)
+            cur = word
     if cur:
         lines.append(cur)
     return lines
+
+
+def _split_token(word, size_pt, max_w_pt):
+    out = []
+    cur = u""
+    for ch in u_text(word):
+        trial = cur + ch
+        if cur and hb_width(trial, size_pt) > max_w_pt + 0.2:
+            out.append(cur)
+            cur = ch
+        else:
+            cur = trial
+    if cur:
+        out.append(cur)
+    return out or [u""]
+
+
+def fit_name(text, max_w, max_h):
+    size = 8.6
+    while size >= 2.8:
+        lines = wrap_words(text, size, max_w)
+        if lines is not None:
+            block = (len(lines) - 1) * size * _LEAD + size * _CAP
+            if block <= max_h + 0.15:
+                return size, lines, block
+        size = round(size - 0.1, 2)
+    size = 2.8
+    words = u_text(text).split() or [u""]
+    lines = []
+    cur = u""
+    for word in words:
+        parts = [word] if hb_width(word, size) <= max_w + 0.2 else _split_token(word, size, max_w)
+        for part in parts:
+            trial = part if not cur else cur + u" " + part
+            if cur and hb_width(trial, size) > max_w + 0.2:
+                lines.append(cur)
+                cur = part
+            else:
+                cur = trial
+    if cur:
+        lines.append(cur)
+    if not lines:
+        lines = [u""]
+    block = (len(lines) - 1) * size * _LEAD + size * _CAP
+    return size, lines, block
 
 
 _PAT = "212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112".split()
@@ -179,7 +257,7 @@ def code128_codes(text):
     return codes
 
 
-def code128_bars(sku, page_w, page_h):
+def code128_bars(sku, page_w, y_pt, bar_h):
     """Rectángulos PDF en puntos. Módulo >= 0.19 mm y zona quieta de 10 módulos."""
     codes = code128_codes(sku)
     pats = [_PAT[c] for c in codes]
@@ -193,10 +271,9 @@ def code128_bars(sku, page_w, page_h):
     min_mod = 0.19 / 25.4 * 72.0
     if module < min_mod:
         module = min_mod
-    bar_h = 6.2 / 25.4 * 72.0
     total = (mods + quiet * 2) * module
     x = (page_w - total) / 2.0 + quiet * module
-    y = 1.0 / 25.4 * 72.0
+    y = y_pt
     ops = []
     for p in pats:
         black = True
@@ -211,67 +288,85 @@ def code128_bars(sku, page_w, page_h):
 
 def place_ids(sku, qty, ov):
     """Una fila centrada. SKU, cantidad y OV al mismo tamaño, achicados juntos."""
-    gap = 1.15 / 25.4 * 72.0
-    sep = 2.4 / 25.4 * 72.0
-    maxw = (51.0 - 3.0) / 25.4 * 72.0
-
-    def width(text, pt):
-        return len(text) * pt * 0.60
-
+    gap = _mm(1.15)
+    sep = _mm(2.4) if ov else 0.0
+    maxw = _mm(51.0 - 3.0)
     sz = 8.2
-    while sz >= 3.4:
-        sw, qw, ow = width(sku, sz), width(qty, sz), width(ov, sz)
-        if sw + gap + qw + sep + ow <= maxw + 0.4:
+    while sz >= 3.2:
+        sw, qw = hb_width(sku, sz), hb_width(qty, sz)
+        ow = hb_width(ov, sz) if ov else 0.0
+        if sw + gap + qw + sep + ow <= maxw + 0.3:
             return 1, sz, sw, qw, ow
         sz = round(sz - 0.1, 2)
-    return 1, 3.4, width(sku, 3.4), width(qty, 3.4), width(ov, 3.4)
+    sz = 3.2
+    ow = hb_width(ov, sz) if ov else 0.0
+    return 1, sz, hb_width(sku, sz), hb_width(qty, sz), ow
+
+
+def layout_label(fields, page_w, page_h):
+    """Bandas que no se pisan: nombre, fila SKU × cantidad y SO, código de barras."""
+    nombre = u_text(fields.get("nombre", ""))
+    sku = u_text(fields.get("sku", ""))
+    qty = u"\u00d7" + u_text(fields.get("qty", ""))
+    ov = u_text(fields.get("ov", ""))
+    max_w = page_w - 2 * _mm(1.5)
+    bottom = _mm(0.55)
+    bar_h = _mm(4.6)
+    rows, pt, sw, qw, ow = place_ids(sku, qty, ov)
+    gap = _mm(1.15)
+    sep = _mm(2.4) if ov else 0.0
+    row = sw + gap + qw + (sep + ow if ov else 0.0)
+    x0 = (page_w - row) / 2.0
+    base = bottom + bar_h + _mm(0.40)
+    code_top = base + pt * _CAP + _mm(0.32)
+    name_top = page_h - _mm(0.50)
+    name_h = name_top - code_top
+    if name_h < _mm(3.0):
+        name_h = _mm(3.0)
+        code_top = name_top - name_h
+    size, lines, block = fit_name(nombre, max_w, name_h)
+    slack = name_h - block
+    if slack < 0:
+        slack = 0
+    first_top = name_top - slack / 2.0
+    y_name = first_top - size * _CAP
+    lead = size * _LEAD
+    names = []
+    y = y_name
+    for line in lines:
+        w = hb_width(line, size)
+        names.append(((page_w - w) / 2.0, y, w, size * _CAP, line))
+        y -= lead
+    return {
+        "sku": sku, "qty": qty, "ov": ov, "pt": pt, "size": size, "lines": lines,
+        "names": names, "x0": x0, "sw": sw, "qw": qw, "ow": ow, "gap": gap, "sep": sep,
+        "base": base, "code_top": code_top, "bar_y": bottom, "bar_h": bar_h,
+        "name_top": name_top, "page_w": page_w, "page_h": page_h,
+    }
 
 
 def render_pdf(labels):
     """PDF 51×19 mm. Nombre completo, código, cantidad, OV y Code128 del SKU."""
     width = round(WIDTH_MM / 25.4 * 72.0, 2)
     height = round(HEIGHT_MM / 25.4 * 72.0, 2)
-    max_w = width - 2 * (1.5 / 25.4 * 72.0)
     contents = []
     for lab in labels:
-        fields = lab["fields"]
-        nombre = u_text(fields.get("nombre", ""))
-        size = 11.0
-        lines = wrap_words(nombre, size, max_w)
-        while size > 4.6 and len(lines) * (size * 1.16) > 12.0 / 25.4 * 72.0:
-            size = round(size - 0.2, 2)
-            lines = wrap_words(nombre, size, max_w)
+        lay = layout_label(lab["fields"], width, height)
         parts = [b"BT"]
-        y = height - (1.3 / 25.4 * 72.0) - size * 0.8
-        step = size * 1.16
-        for line in lines:
-            est = len(line) * size * 0.60
-            x_name = (width - est) / 2.0
-            if x_name < 1.5 / 25.4 * 72.0:
-                x_name = 1.5 / 25.4 * 72.0
-            parts.append(b"/F2 %.2f Tf" % size)
+        for x_name, y, w_name, h_name, line in lay["names"]:
+            parts.append(b"/F2 %.2f Tf" % lay["size"])
             parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_name, y) + pdf_escape(line) + b") Tj")
-            y -= step
-        sku = u_text(fields.get("sku", ""))
-        qty = u"\u00d7" + u_text(fields.get("qty", ""))
-        ov = u_text(fields.get("ov", ""))
-        rows, pt, sw, qw, ow = place_ids(sku, qty, ov)
-        gap = 1.15 / 25.4 * 72.0
-        sep = 2.4 / 25.4 * 72.0
-        row = sw + gap + qw + sep + ow
-        x0 = (width - row) / 2.0
-        bar_top = (1.0 + 6.2) / 25.4 * 72.0
-        y_sku = bar_top + 3
-        y_ov = y_sku
-        x_ov = x0 + sw + gap + qw + sep
-        parts.append(b"/F2 %.2f Tf" % pt)
-        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x0, y_sku) + pdf_escape(sku) + b") Tj")
-        parts.append(b"/F2 %.2f Tf" % pt)
-        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x0 + sw + gap, y_sku) + pdf_escape(qty) + b") Tj")
-        parts.append(b"/F2 %.2f Tf" % pt)
-        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_ov, y_ov) + pdf_escape(ov) + b") Tj")
+        x_qty = lay["x0"] + lay["sw"] + lay["gap"]
+        x_ov = x_qty + lay["qw"] + lay["sep"]
+        parts.append(b"/F2 %.2f Tf" % lay["pt"])
+        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (lay["x0"], lay["base"]) + pdf_escape(lay["sku"]) + b") Tj")
+        parts.append(b"/F2 %.2f Tf" % lay["pt"])
+        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_qty, lay["base"]) + pdf_escape(lay["qty"]) + b") Tj")
+        if lay["ov"]:
+            parts.append(b"/F2 %.2f Tf" % lay["pt"])
+            parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_ov, lay["base"]) + pdf_escape(lay["ov"]) + b") Tj")
         parts.append(b"ET")
-        for op in code128_bars(sku, width, height):
+        for op in code128_bars(lay["sku"], width, lay["bar_y"], lay["bar_h"]):
             parts.append(op.encode("ascii"))
         contents.append(b"\n".join(parts))
 
@@ -281,8 +376,8 @@ def render_pdf(labels):
         objects.append(blob)
         return len(objects)
 
-    font_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-    bold_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>")
+    font_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>")
+    bold_id = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
     page_ids = []
     content_ids = []
     for blob in contents:
@@ -355,12 +450,18 @@ def job_ok(job):
 
 
 def cups_online(queue, run):
-    code, out, err = run(["lpstat", "-p", queue], 15)
+    """La cola existe y no está parada ni sin enlace. No certifica papel ni el aparato."""
+    code, out, err = run(["lpstat", "-p", "-l", queue], 15)
     text = ((out or "") + "\n" + (err or "")).lower()
     if code != 0:
         return False
-    if "disabled" in text or "offline" in text or "not available" in text:
-        return False
+    for word in (
+        "disabled", "offline", "not available", "paused",
+        "unable to connect", "cannot connect", "connecting-to-device",
+        "offline-report", "unreachable",
+    ):
+        if word in text:
+            return False
     return ("idle" in text) or ("printing" in text) or ("enabled" in text)
 
 
@@ -593,7 +694,7 @@ def main(argv):
                 sys.stdout.flush()
             except Exception:
                 pass
-        time.sleep(20)
+        time.sleep(3)
 
 
 if __name__ == "__main__":

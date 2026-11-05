@@ -40,6 +40,10 @@ class Cups(object):
                 return 0, "printer DYMO_PRUEBA is idle. enabled since today\nprinter DYMO_PRUEBA disabled\n", ""
             if self.mode == "missing":
                 return 1, "", "unknown printer"
+            if self.mode == "paused":
+                return 0, "printer DYMO_PRUEBA is idle. enabled since today paused\n", ""
+            if self.mode == "stuck":
+                return 0, "printer DYMO_PRUEBA is idle. enabled since today\n\tUnable to connect to printer; connecting-to-device\n", ""
             return 0, "printer DYMO_PRUEBA is idle. enabled since today\n", ""
         if self.mode == "timeout":
             raise subprocess.TimeoutExpired(argv, timeout)
@@ -146,6 +150,67 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(lp[0][0], "lp")
         self.assertNotIn("reboot", " ".join(lp[0]))
         self.assertTrue(lp[0][2] == "DYMO_PRUEBA")
+
+    def test_paused_or_unreachable_does_not_submit(self):
+        for mode in ("paused", "stuck"):
+            cups = Cups(mode)
+            ops = []
+
+            def transport(op, body):
+                ops.append(op)
+                if op == "claim":
+                    return {"job": job(), "attempt_id": "att"}
+                return {"etiq": 1, "physically_printed": False}
+
+            out = bridge.step(transport, "DYMO_PRUEBA", cups)
+            self.assertEqual(out["did"], "printer_offline", mode)
+            self.assertEqual(out["lp"], 0, mode)
+            self.assertEqual(ops, ["heartbeat"], mode)
+            self.assertFalse(any(c[0] == "lp" for c in cups.calls), mode)
+
+    def test_layout_bands_for_real_names(self):
+        page_w = round(51.0 / 25.4 * 72.0, 2)
+        page_h = round(19.0 / 25.4 * 72.0, 2)
+        self.assertGreater(page_w, page_h)
+        names = [
+            ("HO KH CORE LIFTER SLOTTED - BOYLES BROS", "MCOR001081", "3", "PRUEBA-SO-001289"),
+            ("3 7/8 TRICONE TC PIN SEALED/BEA THROUGH HOLE - BOYLES BROS", "MCOR000900", "1", "PRUEBA-SO-001289"),
+            ("HO KH STOP RING - BOYLES BROS", "MCOR000520", "3", ""),
+            ("PIN", "MCOR000001", "1", ""),
+            ("ALFA BRAVO CHARLIE DELTA ECHO FOXTROT GOLF HOTEL INDIA JULIETT KILO LIMA MIKE NOVEMBER", "MCOR000900", "8", "PRUEBA-SO-001044-5-2"),
+            ("SUPERCALIFRAGILISTICEXPIALIDOCIOUS PIEZA", "MCOR001081", "1", ""),
+        ]
+        labs = []
+        for nombre, sku, qty, ov in names:
+            fields = {"nombre": nombre, "sku": sku, "qty": qty, "ov": ov}
+            lay = bridge.layout_label(fields, page_w, page_h)
+            self.assertTrue(lay["lines"])
+            blob = " ".join(lay["lines"])
+            self.assertNotIn("...", blob)
+            for word in nombre.split():
+                self.assertIn(word, blob)
+            name_low = min(box[1] for box in lay["names"])
+            self.assertGreaterEqual(name_low + 0.05, lay["code_top"])
+            self.assertGreaterEqual(lay["base"] + 0.15, lay["bar_y"] + lay["bar_h"])
+            for x, y, w, h, line in lay["names"]:
+                self.assertGreaterEqual(x, 3.0, line)
+                self.assertLessEqual(x + w, page_w - 3.0, line)
+            row_right = lay["x0"] + lay["sw"] + lay["gap"] + lay["qw"]
+            if ov:
+                row_right += lay["sep"] + lay["ow"]
+            self.assertLessEqual(row_right, page_w - 3.0)
+            self.assertGreaterEqual(lay["x0"], 3.0)
+            labs.append({"profile": "clientes", "width_mm": 51, "height_mm": 19, "paper": "30330", "copies": 1, "fields": fields})
+        raw = bridge.render_pdf(labs)
+        self.assertIn(b"/MediaBox [0 0 144.57 53.86]", raw)
+        self.assertIn(b"/Encoding /WinAnsiEncoding", raw)
+        self.assertNotIn(b"0 1 -1 0", raw)
+        self.assertIn("MCOR001081".encode("latin-1"), raw)
+        self.assertIn(b"\xd7", raw)
+        with open(bridge.__file__, encoding="utf-8") as handle:
+            src = handle.read()
+        self.assertIn("time.sleep(3)", src)
+        self.assertNotIn("time.sleep(20)", src)
 
     def test_offline_does_not_submit(self):
         cups = Cups("offline")

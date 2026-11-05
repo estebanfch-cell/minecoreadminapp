@@ -83,7 +83,11 @@ const cases = [
   { nombre: longName, sku, qty: 3, ov: 'PRUEBA-SO-0001' },
   { nombre: 'BROCA DE PRUEBA', sku: 'PRUEBA000261', qty: 1, ov: 'PRUEBA-SO-001285-1' },
   { nombre: longName, sku: 'PRUEBA000261', qty: 12, ov: 'PRUEBA-SO-001285-2' },
-  { nombre: 'PIEZA DE PRUEBA CON VARIOS SPLITS', sku: 'PRUEBA000261', qty: 4, ov: 'PRUEBA-SO-001044-5-2' }
+  { nombre: 'PIEZA DE PRUEBA CON VARIOS SPLITS', sku: 'PRUEBA000261', qty: 4, ov: 'PRUEBA-SO-001044-5-2' },
+  { nombre: 'HO KH CORE LIFTER SLOTTED - BOYLES BROS', sku: 'MCOR001081', qty: 3, ov: 'PRUEBA-SO-001289' },
+  { nombre: '3 7/8 TRICONE TC PIN SEALED/BEA THROUGH HOLE - BOYLES BROS', sku: 'MCOR000900', qty: 1, ov: 'PRUEBA-SO-001289' },
+  { nombre: 'PIN', sku: 'MCOR000001', qty: 1, ov: '' },
+  { nombre: 'ALFA BRAVO CHARLIE DELTA ECHO FOXTROT GOLF HOTEL INDIA JULIETT KILO LIMA MIKE', sku: 'MCOR000900', qty: 8, ov: 'PRUEBA-SO-001289' }
 ];
 const infos = cases.map(function (c, i) {
   if (i) doc.addPage([51, 19], 'landscape');
@@ -120,7 +124,7 @@ const bodega = html.slice(html.indexOf('else o=txt', i), html.indexOf('else o=tx
 if (!bodega.includes('bc(')) throw new Error('bodega sin barras');
 const labels = html.slice(html.indexOf("kind==='labels'"), html.indexOf("kind==='labels'") + 400);
 if (labels.includes('mcCode128')) throw new Error('labels sigue con el barcode viejo a todo el ancho');
-if (!html.includes("MC_BUILD='568'")) throw new Error('build');
+if (!html.includes("MC_BUILD='569'")) throw new Error('build');
 console.log('etiq-clientes-layout OK', cases.map(function (c, i) {
   return c.ov + ' lineas=' + infos[i].lines + ' pt=' + infos[i].skuPt + ' gap=' + infos[i].gap.toFixed(2);
 }).join(' | '), 'zbar', sku);
