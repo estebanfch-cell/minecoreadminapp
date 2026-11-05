@@ -222,14 +222,14 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(ctx.verify_mode, __import__("ssl").CERT_REQUIRED)
         self.assertTrue(ctx.check_hostname)
         rows, pt, sw, qw, ow = bridge.place_ids("PRUEBA000261", "\u00d73", "PRUEBA-SO-001285-2")
-        self.assertIn(rows, (1, 2))
+        self.assertEqual(rows, 1)
         long_rows, long_pt, sw2, qw2, ow2 = bridge.place_ids("PRUEBA000261", "\u00d712", "PRUEBA-SO-001044-5-2")
-        self.assertEqual(long_rows, 2)
-        self.assertGreaterEqual(long_pt, 5.4)
+        self.assertEqual(long_rows, 1)
+        self.assertLess(long_pt, pt)
         gap = 1.15 / 25.4 * 72.0
+        sep = 2.4 / 25.4 * 72.0
         maxw = (51.0 - 3.0) / 25.4 * 72.0
-        self.assertLessEqual(sw2 + gap + qw2, maxw + 0.5)
-        self.assertLessEqual(ow2, maxw + 0.5)
+        self.assertLessEqual(sw2 + gap + qw2 + sep + ow2, maxw + 0.5)
 
     def test_vincular_keeps_token_out_of_stdout(self):
         token = "prueba-token-123456"

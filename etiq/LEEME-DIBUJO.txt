@@ -1,0 +1,12 @@
+Minecore — dibujo nuevo de la etiqueta Clientes
+
+La fila del código queda en una sola línea, centrada, con el SKU y el número de orden al mismo tamaño. Si no caben, la letra se achica. El nombre va centrado y completo.
+
+Si ya estás instalando o instalaste la v2, no la repitas y no vuelvas a pedir un código.
+
+1. Termina la v2 si todavía está abierta.
+2. Doble clic en actualizar-dibujo.command.
+   Si macOS no lo abre: clic derecho, Abrir, Abrir.
+3. Eso solo reemplaza el dibujo. No pregunta la cola ni el código.
+
+Si la v2 aún no se instaló, puedes usar instalar-bodega.command de este ZIP. El vínculo es el mismo de antes.

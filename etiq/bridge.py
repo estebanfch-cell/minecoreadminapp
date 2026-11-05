@@ -210,29 +210,21 @@ def code128_bars(sku, page_w, page_h):
 
 
 def place_ids(sku, qty, ov):
-    """SKU y OV al mismo tamaño. Si no caben en una línea, la OV baja. Anchos en puntos."""
+    """Una fila centrada. SKU, cantidad y OV al mismo tamaño, achicados juntos."""
     gap = 1.15 / 25.4 * 72.0
-    sep = 2.0 / 25.4 * 72.0
+    sep = 2.4 / 25.4 * 72.0
     maxw = (51.0 - 3.0) / 25.4 * 72.0
 
     def width(text, pt):
-        # Helvetica-Bold en mayúsculas: ~0.60 del cuerpo. Así el corte de línea
-        # coincide con el PDF del portal (un SO con dos sufijos baja de línea).
         return len(text) * pt * 0.60
 
     sz = 8.2
-    while sz >= 6.4:
+    while sz >= 3.4:
         sw, qw, ow = width(sku, sz), width(qty, sz), width(ov, sz)
         if sw + gap + qw + sep + ow <= maxw + 0.4:
             return 1, sz, sw, qw, ow
         sz = round(sz - 0.1, 2)
-    sz = 8.0
-    while sz >= 5.4:
-        sw, qw, ow = width(sku, sz), width(qty, sz), width(ov, sz)
-        if sw + gap + qw <= maxw + 0.4 and ow <= maxw + 0.4:
-            return 2, sz, sw, qw, ow
-        sz = round(sz - 0.1, 2)
-    return 2, 5.4, width(sku, 5.4), width(qty, 5.4), width(ov, 5.4)
+    return 1, 3.4, width(sku, 3.4), width(qty, 3.4), width(ov, 3.4)
 
 
 def render_pdf(labels):
@@ -252,8 +244,11 @@ def render_pdf(labels):
         parts = [b"BT"]
         y = height - (1.3 / 25.4 * 72.0) - size * 0.8
         step = size * 1.16
-        x_name = 1.5 / 25.4 * 72.0
         for line in lines:
+            est = len(line) * size * 0.60
+            x_name = (width - est) / 2.0
+            if x_name < 1.5 / 25.4 * 72.0:
+                x_name = 1.5 / 25.4 * 72.0
             parts.append(b"/F2 %.2f Tf" % size)
             parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_name, y) + pdf_escape(line) + b") Tj")
             y -= step
@@ -261,17 +256,14 @@ def render_pdf(labels):
         qty = u"\u00d7" + u_text(fields.get("qty", ""))
         ov = u_text(fields.get("ov", ""))
         rows, pt, sw, qw, ow = place_ids(sku, qty, ov)
-        x0 = 1.5 / 25.4 * 72.0
         gap = 1.15 / 25.4 * 72.0
+        sep = 2.4 / 25.4 * 72.0
+        row = sw + gap + qw + sep + ow
+        x0 = (width - row) / 2.0
         bar_top = (1.0 + 6.2) / 25.4 * 72.0
-        if rows == 1:
-            y_sku = bar_top + 3
-            y_ov = y_sku
-            x_ov = width - (1.5 / 25.4 * 72.0) - ow
-        else:
-            y_ov = bar_top + 2
-            y_sku = y_ov + pt * 1.25
-            x_ov = x0
+        y_sku = bar_top + 3
+        y_ov = y_sku
+        x_ov = x0 + sw + gap + qw + sep
         parts.append(b"/F2 %.2f Tf" % pt)
         parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x0, y_sku) + pdf_escape(sku) + b") Tj")
         parts.append(b"/F2 %.2f Tf" % pt)

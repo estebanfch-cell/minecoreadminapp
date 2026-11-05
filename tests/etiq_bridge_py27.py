@@ -45,11 +45,12 @@ def main():
     check(ctx.check_hostname is True, "hostname")
 
     rows, pt, sw, qw, ow = bridge.place_ids(u"PRUEBA000261", u"\u00d73", u"PRUEBA-SO-001285-1")
-    check(rows in (1, 2), "filas")
+    check(rows == 1, "filas")
     check(pt >= 5.4, "pt")
     rows2, pt2, sw2, qw2, ow2 = bridge.place_ids(u"PRUEBA000261", u"\u00d712", u"PRUEBA-SO-001044-5-2")
-    check(rows2 == 2, "split largo en una linea")
-    check(sw2 + (1.15 / 25.4 * 72.0) + qw2 <= (51.0 - 3.0) / 25.4 * 72.0 + 0.5, "solape")
+    check(rows2 == 1, "el SO largo bajo de fila")
+    check(pt2 < pt, "no achico")
+    check(sw2 + (1.15 / 25.4 * 72.0) + qw2 + (2.4 / 25.4 * 72.0) + ow2 <= (51.0 - 3.0) / 25.4 * 72.0 + 0.5, "solape")
     # Un solo tamaño para SKU, cantidad y OV: place_ids devuelve un pt.
     check(pt2 == pt2, "tamano")
 

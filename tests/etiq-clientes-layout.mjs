@@ -67,12 +67,16 @@ if (dec.status !== 0 || dec.stdout.trim() !== sku) {
 const req = createRequire('/tmp/jspdfpkg/package.json');
 const { jsPDF } = req('jspdf');
 function check(info, label) {
-  if (info.skuPt !== info.ovPt) throw new Error(label + ' tamanos ' + info.skuPt + ' ' + info.ovPt);
+  if (info.lines !== 1) throw new Error(label + ' no es una sola fila');
+  if (info.skuPt !== info.ovPt || info.skuPt !== info.qtyPt) throw new Error(label + ' tamanos ' + info.skuPt + ' ' + info.ovPt);
+  if (info.ySku !== info.yOv) throw new Error(label + ' la OV no comparte la fila');
   if (info.gap < 0.7 || info.gap > 1.8) throw new Error(label + ' gap ' + info.gap);
+  if (info.sep < 1.6) throw new Error(label + ' sep ' + info.sep);
   if (info.qtyX < info.skuX + info.skuW + 0.6) throw new Error(label + ' solape sku/cantidad');
-  if (info.lines === 1 && info.qtyX + info.qtyW > info.ovX - 1.2) throw new Error(label + ' solape cantidad/OV');
-  if (info.skuX < 1.4 || info.ovX + info.ovW > 49.7) throw new Error(label + ' margen');
-  if (info.lines === 2 && info.yOv <= info.ySku) throw new Error(label + ' OV no bajo de linea');
+  if (info.qtyX + info.qtyW > info.ovX - 1.2) throw new Error(label + ' solape cantidad/OV');
+  if (info.skuX < 1.3 || info.ovX + info.ovW > 49.7) throw new Error(label + ' margen');
+  if (Math.abs(info.rowMid - 25.5) > 0.25) throw new Error(label + ' centro ' + info.rowMid);
+  if (info.nameBottom > info.ySku - 0.4) throw new Error(label + ' nombre pisa la fila');
 }
 const doc = new jsPDF({ unit: 'mm', format: [51, 19], orientation: 'landscape' });
 const cases = [
@@ -98,7 +102,14 @@ for (const ov of ['PRUEBA-SO-0001', 'PRUEBA-SO-001285-1', 'PRUEBA-SO-001285-2', 
 if (infos[0].moduleMm < 0.19) throw new Error('modulo pdf');
 const xml = lay.xml({ nombre: longName, sku, qty: 3, ov: 'PRUEBA-SO-001285-1' });
 const sizes = xml.match(/Name>O<[\s\S]*?Size="(\d+)"|Name>SQ<[\s\S]*?Size="(\d+)"/g) || [];
-if (!xml.includes('Size="8"') || !xml.includes('PRUEBA-SO-001285-1') || !xml.includes('Code128Auto')) throw new Error('xml');
+if (!xml.includes('PRUEBA-SO-001285-1') || !xml.includes('Code128Auto') || !xml.includes('HorizontalAlignment>Center')) throw new Error('xml');
+const sqAt = xml.indexOf('<Name>SQ</Name>');
+const sq = xml.slice(sqAt, xml.indexOf('</ObjectInfo>', sqAt));
+const sz = sq.match(/Size="(\d+(?:\.\d+)?)"/g) || [];
+if (sz.length < 3 || sz.some(function (s) { return s !== sz[0]; })) throw new Error('xml tamanos ' + sz.join(','));
+if (xml.indexOf('<Name>O</Name>') >= 0) throw new Error('xml sigue con una segunda fila para la OV');
+if (infos[1].nameY < 3.2) throw new Error('broca pegada arriba ' + infos[1].nameY);
+if (!(infos[3].skuPt < infos[0].skuPt)) throw new Error('el SO largo no achico la letra');
 writeFileSync('/opt/cursor/artifacts/etiq-clientes-prueba.pdf', Buffer.from(doc.output('arraybuffer')));
 
 const html = readFileSync(join(root, 'index.html'), 'utf8');
@@ -109,7 +120,7 @@ const bodega = html.slice(html.indexOf('else o=txt', i), html.indexOf('else o=tx
 if (!bodega.includes('bc(')) throw new Error('bodega sin barras');
 const labels = html.slice(html.indexOf("kind==='labels'"), html.indexOf("kind==='labels'") + 400);
 if (labels.includes('mcCode128')) throw new Error('labels sigue con el barcode viejo a todo el ancho');
-if (!html.includes("MC_BUILD='562'")) throw new Error('build');
+if (!html.includes("MC_BUILD='563'")) throw new Error('build');
 console.log('etiq-clientes-layout OK', cases.map(function (c, i) {
   return c.ov + ' lineas=' + infos[i].lines + ' pt=' + infos[i].skuPt + ' gap=' + infos[i].gap.toFixed(2);
 }).join(' | '), 'zbar', sku);
