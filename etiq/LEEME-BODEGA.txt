@@ -1,0 +1,15 @@
+Minecore — puente de etiquetas en el iMac de bodega (Catalina)
+
+Este ZIP no trae contraseñas ni el programa del servidor. No instala Homebrew, Python ni las herramientas de desarrollador de Apple.
+
+1. Descomprime el ZIP.
+2. Doble clic en instalar-bodega.command.
+   Si macOS dice que no se puede abrir: clic derecho, Abrir, Abrir.
+3. Si sale un cuadro pidiendo «herramientas para desarrolladores de línea de comandos», pulsa Cancelar. No hace falta. El instalador no debe abrir ese cuadro.
+4. En la lista, escribe el nombre EXACTO de la cola de la DYMO LabelWriter Wireless. No es la DYMO 450 USB.
+5. En el portal, con EFCH u Oswal: Preparar orden, botón «Código para el iMac». El código vale 10 minutos. Escríbelo en el instalador. No lo mandes por chat.
+6. Al terminar, el puente queda para ese usuario. Con la sesión iniciada sigue aunque bloquees la pantalla. Si la Mac duerme el sistema, se apaga o cierras sesión, se detiene. Después de reiniciar hay que entrar una vez. Esto no abre FileVault solo.
+
+Imprimir desde el teléfono manda el trabajo a la cola. Que CUPS lo acepte no confirma que el papel haya salido: míralo en la impresora. No se hizo una prueba física en esta Catalina desde aquí.
+
+El token del puente no se muestra. Queda en un archivo privado de tu usuario.

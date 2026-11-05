@@ -5,4 +5,4 @@
 # No asumir el nombre de la cola del mini de oficina.
 BRIDGE_TOKEN=
 CUPS_QUEUE=
-API_BASE=https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api
+API_BASE=https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api

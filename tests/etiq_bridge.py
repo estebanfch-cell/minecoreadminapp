@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Puente con CUPS simulado y datos de prueba. No imprime y no habla con Supabase."""
 import ast
+import io
 import os
 import stat
 import subprocess
@@ -65,7 +66,7 @@ class BridgeTest(unittest.TestCase):
         with open(bridge.__file__, encoding="utf-8") as handle:
             src = handle.read()
         tree = ast.parse(src)
-        banned = (ast.Match, ast.NamedExpr) if hasattr(ast, "Match") else (ast.NamedExpr,)
+        banned = tuple(getattr(ast, name) for name in ("Match", "NamedExpr", "JoinedStr", "AsyncFunctionDef") if hasattr(ast, name))
         for node in ast.walk(tree):
             self.assertFalse(isinstance(node, banned), type(node).__name__)
         self.assertNotIn("shell=True", src)
@@ -211,6 +212,64 @@ class BridgeTest(unittest.TestCase):
     def test_main_takes_no_argv_secrets(self):
         with self.assertRaises(SystemExit):
             bridge.main(["bridge.py", "--token", "sekreto"])
+
+    def test_tls_stays_on_and_same_size(self):
+        with open(bridge.__file__, encoding="utf-8") as handle:
+            src = handle.read()
+        self.assertNotIn("CERT_NONE", src)
+        self.assertNotIn("check_hostname = False", src)
+        ctx = bridge.https_context()
+        self.assertEqual(ctx.verify_mode, __import__("ssl").CERT_REQUIRED)
+        self.assertTrue(ctx.check_hostname)
+        rows, pt, sw, qw, ow = bridge.place_ids("PRUEBA000261", "\u00d73", "PRUEBA-SO-001285-2")
+        self.assertIn(rows, (1, 2))
+        long_rows, long_pt, sw2, qw2, ow2 = bridge.place_ids("PRUEBA000261", "\u00d712", "PRUEBA-SO-001044-5-2")
+        self.assertEqual(long_rows, 2)
+        self.assertGreaterEqual(long_pt, 5.4)
+        gap = 1.15 / 25.4 * 72.0
+        maxw = (51.0 - 3.0) / 25.4 * 72.0
+        self.assertLessEqual(sw2 + gap + qw2, maxw + 0.5)
+        self.assertLessEqual(ow2, maxw + 0.5)
+
+    def test_vincular_keeps_token_out_of_stdout(self):
+        token = "prueba-token-123456"
+        home = tempfile.mkdtemp()
+        conf = os.path.join(home, "bridge.conf")
+        spec = os.path.join(home, "code.json")
+        with open(spec, "w", encoding="utf-8") as handle:
+            handle.write('{"code":"AB23CD45EF67","queue":"DYMO_PRUEBA"}\n')
+        os.chmod(spec, 0o600)
+        seen = {}
+
+        class Res(object):
+            def read(self):
+                return ('{"ok":true,"token":"%s","physically_printed":false,"etiq":1}' % token).encode("utf-8")
+
+            def close(self):
+                return None
+
+        def opener(req):
+            seen["url"] = req.full_url
+            seen["body"] = req.data
+            return Res()
+
+        old = sys.stdout
+        buf = io.StringIO()
+        sys.stdout = buf
+        try:
+            bridge.vincular(spec, conf_path=conf, opener=opener)
+        finally:
+            out = buf.getvalue()
+            sys.stdout = old
+        self.assertNotIn(token, out)
+        self.assertNotIn("AB23CD45EF67", out)
+        self.assertFalse(os.path.exists(spec))
+        self.assertIn("ventas-api", seen["url"])
+        self.assertNotIn(token.encode("utf-8"), seen["body"])
+        with open(conf, encoding="utf-8") as handle:
+            body = handle.read()
+        self.assertIn(token, body)
+        self.assertEqual(stat.S_IMODE(os.stat(conf).st_mode), 0o600)
 
 
 if __name__ == "__main__":

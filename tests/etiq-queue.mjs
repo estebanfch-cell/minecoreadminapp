@@ -244,10 +244,10 @@ assert.match(slice, /w=51;h=19/);
 assert.match(slice, /T\('N'/);
 assert.match(slice, /T\('S'/);
 assert.match(slice, /T\('L'/);
-assert.match(html, /MC_BUILD='561'/);
+assert.match(html, /MC_BUILD='562'/);
 assert.match(html, /Imprimir etiquetas/);
 assert.match(html, /prep\.e\.etiq/);
-assert.match(html, /etiq\/panel\.js\?v=561/);
+assert.match(html, /etiq\/panel\.js\?v=562/);
 assert.match(html, /Ventas\.etiquetas\(\)/);
 assert.match(html, /Ventas\.pqConfirmar\(\)/);
 assert.equal(html.includes('service_role'), false);
@@ -293,6 +293,9 @@ assert.match(ui.boxHtml({ state: 'ambiguo', id: 'ov-prueba-1', order_number: 'PR
 assert.match(ui.boxHtml({ state: 'aceptado_cups', id: 'ov-prueba-1', order_number: 'PRUEBA-SO-0001' }), /Reimprimir/);
 assert.doesNotMatch(ui.boxHtml({ state: 'ambiguo', id: '1' }), /Reimprimir/);
 assert.match(ui.boxHtml({ state: 'aviso', id: 'ov-prueba-1', order_number: 'PRUEBA-SO-0001', n: 1 }), /Imprimir etiquetas/);
+assert.match(ui.boxHtml({ state: 'aviso', id: 'ov-prueba-1', order_number: 'PRUEBA-SO-0001', code: 'AB23CD' }), /AB23CD/);
+assert.equal(panelSrc.includes('console.log'), false);
+assert.equal(typeof ui.pair, 'function');
 
 for (const name of fs.readdirSync(join(root, 'etiq'))) {
   const p = join(root, 'etiq', name);

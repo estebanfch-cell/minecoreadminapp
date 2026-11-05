@@ -68,6 +68,7 @@
   }
   function actions(st) {
     var h = '<div class="etiq-acts"><button type="button" class="cbz-btn" onclick="MCEtiq.click(this)">Imprimir etiquetas</button>' +
+      '<button type="button" class="chip" onclick="MCEtiq.pair(this)">Código para el iMac</button>' +
       '<button type="button" class="chip" onclick="MCEtiq.pdf(this)">PDF 19×51 en este equipo</button>';
     if (st === 'ambiguo') h += '<button type="button" class="etiq-retry" onclick="MCEtiq.retry(this)">Reintentar envío incierto</button>';
     if (st === 'error_envio') h += '<button type="button" class="etiq-retry" onclick="MCEtiq.retry(this)">Reintentar envío</button>';
@@ -82,6 +83,7 @@
     return '<div class="etiq-box" data-ok="1" data-state="' + esc(st) + '" data-ctx="' + esc(model.ctx || '') + '" data-id="' + esc(model.id || '') + '" data-key="' + esc(model.key || '') + '" data-last="' + esc(model.last || '') + '">' +
       '<b>Etiquetas clientes</b>' + actions(st) +
       '<div class="etiq-meta">' + esc(model.order_number || '') + (model.cliente ? ' · ' + esc(model.cliente) : '') + '</div>' +
+      (model.code ? '<div class="etiq-st">Código para el instalador del iMac. Vale 10 minutos. Escríbelo allí y no lo mandes por chat: <b>' + esc(model.code) + '</b></div>' : '') +
       '<div class="etiq-st ' + tone(st) + '">' + esc(texto(st, model)) + '</div></div>';
   }
   function cssTag() {
@@ -155,7 +157,8 @@
       key: box.getAttribute('data-key'),
       last: box.getAttribute('data-last'),
       job_id: d.job_id,
-      cups_job_id: d.cups_job_id
+      cups_job_id: d.cups_job_id,
+      code: d.code || ''
     };
     if (extra) for (var k in extra) model[k] = extra[k];
     var host = box.parentNode;
@@ -213,6 +216,22 @@
     }
     root.MCDymo.abrir('despacho', items, 'Etiquetas clientes · ' + o.order_number);
   }
+  function pair(btn) {
+    var box = btn && btn.closest ? btn.closest('.etiq-box') : null;
+    if (!box) return;
+    if (!ok()) { paint(box, { state: 'sin_permiso', physically_printed: false }); return; }
+    var id = box.getAttribute('data-id') || '';
+    post('etiq_pair_begin', {}).then(function (r) {
+      var box2 = root.document && root.document.querySelector('.etiq-box[data-id="' + id + '"]');
+      var host = box2 || box;
+      var err = r && r.error ? String(r.error) : '';
+      if (!r || /operaci[oó]n no v[aá]lida/i.test(err) || r.etiq !== 1 || r.physically_printed !== false || !r.code) {
+        paint(host, { state: 'servicio_no_publicado', physically_printed: false });
+        return;
+      }
+      paint(host, { state: 'aviso', physically_printed: false, code: String(r.code) });
+    });
+  }
   root.MCEtiq = {
     LIVE: false,
     gatewayOpen: gatewayOpen,
@@ -229,6 +248,7 @@
     retry: function (btn) { return blocked(btn, 'servicio_no_publicado'); },
     reprint: function (btn) { return blocked(btn, 'servicio_no_publicado'); },
     pdf: pdf,
+    pair: pair,
     norm: norm
   };
 })(typeof window !== 'undefined' ? window : globalThis);

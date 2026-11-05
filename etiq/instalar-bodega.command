@@ -1,23 +1,26 @@
 #!/bin/bash
-# Instalador del puente Minecore en el iMac de bodega (Catalina).
-# No abre puertos, no cambia el candado de pantalla, no toca FileVault ni el reposo.
-# El token no se imprime. Hay que tener un código de un solo uso del portal.
+# Instalador del puente Minecore en el iMac de bodega (Catalina 10.15).
+# Doble clic. Pide la cola CUPS y el código del portal. No abre puertos,
+# no cambia el candado, FileVault ni el reposo, y no instala Python ni
+# las herramientas de desarrollador de Apple.
 set -eu
 say() { printf '%s\n' "$1"; }
 die() { say "No se instaló: $1"; exit 1; }
 
-DEST="$HOME/minecore-dymo"
-PY=""
-for c in python3 python2.7 python2 python; do
-  if command -v "$c" >/dev/null 2>&1; then PY="$(command -v "$c")"; break; fi
-done
-[ -n "$PY" ] || die "no hay Python en esta Mac. No instalo Homebrew ni Python por mi cuenta."
-
 HERE="$(cd "$(dirname "$0")" && pwd)"
 [ -f "$HERE/bridge.py" ] || die "falta bridge.py junto a este instalador."
+[ -f "$HERE/pick-python.sh" ] || die "falta pick-python.sh junto a este instalador."
+# shellcheck disable=SC1091
+. "$HERE/pick-python.sh"
 
-say "Python: $PY"
-"$PY" -c 'import sys; raise SystemExit(0 if sys.version_info[0]>=2 else 1)' || die "Python demasiado viejo."
+if [ -x "${MINECORE_USR_PYTHON3:-/usr/bin/python3}" ]; then
+  say "No ejecuto /usr/bin/python3. En Catalina ese comando abre el cuadro de herramientas de Apple. Cancelar está bien."
+fi
+
+PY="$(minecore_pick_python)"
+[ -n "$PY" ] || die "no hay un Python usable. Catalina ya trae /usr/bin/python2.7. No instalo Homebrew, Python ni las herramientas de Apple."
+VER="$("$PY" -c 'import sys; sys.stdout.write("%d.%d.%d" % sys.version_info[:3])')"
+say "Python: $PY ($VER). No instalo otro."
 
 say "Colas CUPS de esta Mac:"
 lpstat -p 2>/dev/null || say "(lpstat no listó colas)"
@@ -29,55 +32,32 @@ case "$QUEUE" in
 esac
 lpstat -p "$QUEUE" >/dev/null 2>&1 || die "CUPS no tiene la cola $QUEUE."
 
-say "En el portal, con el permiso de imprimir etiquetas, pide un código de vincular (vale 10 minutos)."
+say "En el portal, EFCH u Oswal: Preparar orden, «Código para el iMac». Vale 10 minutos."
 printf 'Código: '
 read -r CODE
-[ -n "$CODE" ] || die "sin código."
+printf '%s' "$CODE" | grep -Eq '^[A-Za-z0-9]{6,32}$' || die "el código no tiene la forma esperada."
 
-mkdir -p "$DEST"
-cp "$HERE/bridge.py" "$DEST/bridge.py"
-RESP="$(mktemp)"
-"$PY" - "$CODE" "$RESP" <<'PY'
-import json,sys
-sys.path.insert(0,".")
-# el código se manda una vez; la respuesta con el token se escribe en un archivo, no en pantalla
-code, path = sys.argv[1], sys.argv[2]
-try:
-    from urllib.request import Request, urlopen
-except ImportError:
-    from urllib2 import Request, urlopen
-body=json.dumps({"op":"etiq_pair_finish","code":code.strip().upper()}).encode("utf-8")
-req=Request("https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api", data=body)
-req.add_header("Content-Type","application/json")
-req.add_header("x-etiq-pair","1")
-try:
-    res=urlopen(req, timeout=25)
-    raw=res.read()
-except Exception as e:
-    sys.stderr.write("sin servicio: %s\n"%e.__class__.__name__)
-    sys.exit(2)
-if not isinstance(raw, str):
-    raw=raw.decode("utf-8","replace")
-open(path,"w").write(raw)
-PY
-EC=$?
-if [ "$EC" != 0 ]; then rm -f "$RESP"; die "ventas-api no entregó el vínculo. El servicio puede no estar desplegado todavía."; fi
-TOKEN="$("$PY" -c 'import json,sys; d=json.load(open(sys.argv[1]));
-import sys as s
-ok=d.get("ok") and d.get("token") and d.get("physically_printed") is False
-s.stdout.write(d.get("token","") if ok else "")' "$RESP")"
-rm -f "$RESP"
-[ -n "$TOKEN" ] || die "el código no sirvió o el servicio respondió otra cosa. No quedó token."
-
+DEST="$HOME/.minecore-dymo"
 umask 077
-cat > "$DEST/bridge.conf" <<EOF
-BRIDGE_TOKEN=$TOKEN
-CUPS_QUEUE=$QUEUE
-API_BASE=https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api
-EOF
-chmod 600 "$DEST/bridge.conf"
-unset TOKEN
+mkdir -p "$DEST"
+chmod 700 "$DEST"
+cp "$HERE/bridge.py" "$DEST/bridge.py"
+REQ="$(mktemp "$DEST/pair.XXXXXX")"
+chmod 600 "$REQ"
+printf '{"code":"%s","queue":"%s"}\n' "$CODE" "$QUEUE" > "$REQ"
+unset CODE
+if "$PY" "$DEST/bridge.py" --vincular "$REQ"; then
+  rm -f "$REQ"
+else
+  rm -f "$REQ"
+  die "no se pudo vincular. El código pudo vencer o ventas-api no respondió. No quedó un token en pantalla."
+fi
+[ -f "$DEST/bridge.conf" ] || die "no quedó la configuración."
 
+xml_escape() { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+PY_XML="$(xml_escape "$PY")"
+BR_XML="$(xml_escape "$DEST/bridge.py")"
+LOG_XML="$(xml_escape "$DEST/puente.log")"
 PLIST="$HOME/Library/LaunchAgents/com.minecore.dymo-clientes.plist"
 mkdir -p "$HOME/Library/LaunchAgents"
 cat > "$PLIST" <<EOF
@@ -86,9 +66,11 @@ cat > "$PLIST" <<EOF
 <plist version="1.0"><dict>
 <key>Label</key><string>com.minecore.dymo-clientes</string>
 <key>ProgramArguments</key>
-<array><string>$PY</string><string>$DEST/bridge.py</string></array>
+<array><string>${PY_XML}</string><string>${BR_XML}</string></array>
 <key>RunAtLoad</key><true/>
 <key>KeepAlive</key><true/>
+<key>StandardOutPath</key><string>${LOG_XML}</string>
+<key>StandardErrorPath</key><string>${LOG_XML}</string>
 </dict></plist>
 EOF
 launchctl unload "$PLIST" >/dev/null 2>&1 || true
@@ -98,3 +80,4 @@ say "No sigue si la Mac entra en reposo del sistema, se apaga o se cierra la ses
 say "Después de reiniciar hay que entrar con la contraseña una vez. Esto no desbloquea FileVault solo."
 pmset -g 2>/dev/null | grep -E 'sleep|displaysleep' || true
 say "Si sleep del sistema no es 0, el puente se detiene cuando la Mac duerme. No lo cambié."
+say "CUPS aceptó un trabajo no significa que la etiqueta ya salió. Mírala en la impresora."

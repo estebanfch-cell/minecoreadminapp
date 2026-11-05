@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Puente saliente a ventas-api y a la DYMO Wireless (perfil Clientes).
 
-Corre en Python 2.7 o 3, el que haya en la Mac. No se validó en Catalina.
-No abre puertos, no trae token y no habla con portal-api.
+Corre en Python 2.7.16 (el de Catalina) o en un Python 3 real.
+No abre puertos, no imprime el token y no habla con portal-api.
 """
 
 from __future__ import print_function
@@ -29,10 +29,15 @@ COMPAT = {
     "declared": "Python 2.7 o 3, biblioteca estándar, CUPS lp/lpstat, HTTPS saliente a ventas-api",
     "os_target": "macOS 10.15 Catalina",
     "validated_on_target": False,
-    "validated_on": "Linux CPython 3, CUPS simulado",
+    "validated_on": "Linux CPython 2.7.18 y 3.12, CUPS simulado. No corrido en el iMac.",
     "api": "https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api",
-    "notes": "No impone Python 3.8 ni Homebrew. Pantalla bloqueada no detiene un LaunchAgent de la sesión. Reposo del sistema, apagado o cerrar sesión sí lo detienen.",
+    "notes": "No usa /usr/bin/python3 de Catalina: ese archivo abre el cuadro de Command Line Tools. No instala Homebrew ni esas herramientas. TLS se verifica; no se apaga. Pantalla bloqueada no detiene un LaunchAgent de la sesión. Reposo del sistema, apagado o cerrar sesión sí lo detienen.",
 }
+CA_FILES = (
+    "/etc/ssl/cert.pem",
+    "/private/etc/ssl/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+)
 
 PROFILE = "clientes"
 WIDTH_MM = 51.0
@@ -84,13 +89,31 @@ def load_config(path):
     return {"token": token, "queue": queue, "api_base": base}
 
 
+def u_text(value):
+    """Texto unicode en Python 2 y 3. No pasa por el encoding ascii del sistema."""
+    if value is None:
+        return u""
+    if type(value) is type(u""):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return u"%s" % value
+
+
+def as_bytes(value):
+    if isinstance(value, bytes) and type(value) is not type(u""):
+        return value
+    return u_text(value).encode("utf-8")
+
+
 def pdf_escape(text):
-    return str(text).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    blob = u_text(text).encode("latin-1", "replace")
+    return blob.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
 
 
 def wrap_words(text, size_pt, max_w_pt):
     """Parte el texto en líneas. No descarta palabras."""
-    words = str(text or "").split()
+    words = u_text(text).split()
     if not words:
         return [""]
     max_chars = max(1, int(max_w_pt / max(size_pt * 0.5, 0.1)))
@@ -116,7 +139,7 @@ _PAT = "212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 22
 
 
 def code128_codes(text):
-    text = "" if text is None else str(text)
+    text = u_text(text).encode("ascii", "replace").decode("ascii")
     def digits_at(i):
         n = 0
         while i + n < len(text) and "0" <= text[i + n] <= "9":
@@ -193,7 +216,9 @@ def place_ids(sku, qty, ov):
     maxw = (51.0 - 3.0) / 25.4 * 72.0
 
     def width(text, pt):
-        return len(text) * pt * 0.52
+        # Helvetica-Bold en mayúsculas: ~0.60 del cuerpo. Así el corte de línea
+        # coincide con el PDF del portal (un SO con dos sufijos baja de línea).
+        return len(text) * pt * 0.60
 
     sz = 8.2
     while sz >= 6.4:
@@ -218,23 +243,23 @@ def render_pdf(labels):
     contents = []
     for lab in labels:
         fields = lab["fields"]
-        nombre = str(fields.get("nombre", ""))
+        nombre = u_text(fields.get("nombre", ""))
         size = 11.0
         lines = wrap_words(nombre, size, max_w)
         while size > 4.6 and len(lines) * (size * 1.16) > 12.0 / 25.4 * 72.0:
             size = round(size - 0.2, 2)
             lines = wrap_words(nombre, size, max_w)
-        parts = ["BT"]
+        parts = [b"BT"]
         y = height - (1.3 / 25.4 * 72.0) - size * 0.8
         step = size * 1.16
+        x_name = 1.5 / 25.4 * 72.0
         for line in lines:
-            raw = line.encode("latin-1", "replace").decode("latin-1")
-            parts.append("/F2 %.2f Tf" % size)
-            parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (1.5 / 25.4 * 72.0, y, pdf_escape(raw)))
+            parts.append(b"/F2 %.2f Tf" % size)
+            parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_name, y) + pdf_escape(line) + b") Tj")
             y -= step
-        sku = str(fields.get("sku", "")).encode("latin-1", "replace").decode("latin-1")
-        qty = (u"\u00d7" + str(fields.get("qty", ""))).encode("latin-1", "replace").decode("latin-1")
-        ov = str(fields.get("ov", "")).encode("latin-1", "replace").decode("latin-1")
+        sku = u_text(fields.get("sku", ""))
+        qty = u"\u00d7" + u_text(fields.get("qty", ""))
+        ov = u_text(fields.get("ov", ""))
         rows, pt, sw, qw, ow = place_ids(sku, qty, ov)
         x0 = 1.5 / 25.4 * 72.0
         gap = 1.15 / 25.4 * 72.0
@@ -247,15 +272,16 @@ def render_pdf(labels):
             y_ov = bar_top + 2
             y_sku = y_ov + pt * 1.25
             x_ov = x0
-        parts.append("/F2 %.2f Tf" % pt)
-        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x0, y_sku, pdf_escape(sku)))
-        parts.append("/F2 %.2f Tf" % pt)
-        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x0 + sw + gap, y_sku, pdf_escape(qty)))
-        parts.append("/F2 %.2f Tf" % pt)
-        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x_ov, y_ov, pdf_escape(ov)))
-        parts.append("ET")
-        parts.extend(code128_bars(str(fields.get("sku", "")), width, height))
-        contents.append("\n".join(parts).encode("latin-1", "replace"))
+        parts.append(b"/F2 %.2f Tf" % pt)
+        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x0, y_sku) + pdf_escape(sku) + b") Tj")
+        parts.append(b"/F2 %.2f Tf" % pt)
+        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x0 + sw + gap, y_sku) + pdf_escape(qty) + b") Tj")
+        parts.append(b"/F2 %.2f Tf" % pt)
+        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_ov, y_ov) + pdf_escape(ov) + b") Tj")
+        parts.append(b"ET")
+        for op in code128_bars(sku, width, height):
+            parts.append(op.encode("ascii"))
+        contents.append(b"\n".join(parts))
 
     objects = []
 
@@ -451,6 +477,22 @@ def default_run(argv, timeout):
     return proc.returncode, _text(out), _text(err)
 
 
+def https_context():
+    """Verifica el certificado. No baja verify_mode ni check_hostname."""
+    ctx = ssl.create_default_context()
+    for path in CA_FILES:
+        if os.path.isfile(path):
+            ctx.load_verify_locations(path)
+            break
+    if ctx.verify_mode != ssl.CERT_REQUIRED or not ctx.check_hostname:
+        raise RuntimeError("tls")
+    return ctx
+
+
+def _open(req):
+    return urlopen(req, timeout=25, context=https_context())
+
+
 def post(cfg, op, body):
     payload = dict(body or {})
     payload["op"] = "etiq_" + op
@@ -458,7 +500,7 @@ def post(cfg, op, body):
     req = Request(cfg["api_base"], data=data)
     req.add_header("Content-Type", "application/json")
     req.add_header("x-etiq-bridge", cfg["token"])
-    res = urlopen(req, timeout=25, context=ssl.create_default_context())
+    res = _open(req)
     try:
         raw = _text(res.read())
     finally:
@@ -469,9 +511,80 @@ def post(cfg, op, body):
     return parsed
 
 
+def write_secret_file(path, text):
+    blob = as_bytes(text)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    try:
+        os.write(fd, blob)
+    finally:
+        os.close(fd)
+    os.chmod(path, 0o600)
+    if os.stat(path).st_mode & 0o077:
+        raise RuntimeError("permisos")
+
+
+def vincular(path, conf_path=None, opener=None):
+    """Canjea el código de un solo uso. El token queda en bridge.conf y no se imprime."""
+    if os.stat(path).st_mode & 0o077:
+        raise ValueError("archivo del codigo")
+    try:
+        with io.open(path, "r", encoding="utf-8") as handle:
+            spec = json.load(handle)
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    if not isinstance(spec, dict):
+        raise ValueError("archivo del codigo")
+    code = u_text(spec.get("code")).strip().upper()
+    queue = u_text(spec.get("queue")).strip()
+    if not code or not QUEUE_RX.match(queue) or "450" in queue:
+        raise ValueError("codigo o cola")
+    url = "https://%s/functions/v1/ventas-api" % ALLOWED_HOSTS[0]
+    data = json.dumps({"op": "etiq_pair_finish", "code": code}).encode("utf-8")
+    req = Request(url, data=data)
+    req.add_header("Content-Type", "application/json")
+    req.add_header("x-etiq-pair", "1")
+    res = (opener or _open)(req)
+    try:
+        raw = _text(res.read())
+    finally:
+        closer = getattr(res, "close", None)
+        if closer:
+            closer()
+    parsed = json.loads(raw)
+    token = parsed.get("token") if isinstance(parsed, dict) else None
+    token_s = u_text(token).strip()
+    if (not isinstance(parsed, dict) or not parsed.get("ok") or not token_s
+            or parsed.get("physically_printed") is not False or len(token_s) < 16):
+        raise RuntimeError("codigo no sirvio")
+    if u"\n" in token_s or u"\r" in token_s or u" " in token_s:
+        raise RuntimeError("codigo no sirvio")
+    dest = conf_path or os.path.expanduser("~/.minecore-dymo/bridge.conf")
+    parent = os.path.dirname(dest)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    if parent:
+        os.chmod(parent, 0o700)
+    conf = u"BRIDGE_TOKEN=%s\nCUPS_QUEUE=%s\nAPI_BASE=%s\n" % (token_s, queue, url)
+    write_secret_file(dest, conf)
+
+
 def main(argv):
+    if len(argv) == 3 and argv[1] == "--vincular":
+        try:
+            vincular(argv[2])
+        except Exception as exc:
+            sys.stdout.write("no-vinculado %s\n" % exc.__class__.__name__)
+            return 2
+        sys.stdout.write("vinculado\n")
+        return 0
     if len(argv) > 1:
-        raise SystemExit("sin argumentos: el token se lee del archivo, no de la línea de comandos")
+        raise SystemExit("sin argumentos: el token se lee del archivo, no de la linea de comandos")
     path = os.path.expanduser("~/.minecore-dymo/bridge.conf")
     cfg = load_config(path)
 
@@ -492,4 +605,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    sys.exit(main(sys.argv) or 0)

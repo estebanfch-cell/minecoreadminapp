@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- NO INSTALAR todavía. No abre puertos. Solo arranca el proceso local que sale hacia Minecore. -->
+<!-- Lo escribe instalar-bodega.command. No apuntes ProgramArguments a /usr/bin/python3. -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
   <string>com.minecore.dymo-clientes</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/python3</string>
-    <string>/Users/bodega/minecore-dymo/bridge.py</string>
+    <string>/usr/bin/python2.7</string>
+    <string>/Users/REEMPLAZA/.minecore-dymo/bridge.py</string>
   </array>
   <key>RunAtLoad</key>
   <false/>
