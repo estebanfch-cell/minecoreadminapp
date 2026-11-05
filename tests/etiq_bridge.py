@@ -112,7 +112,7 @@ class BridgeTest(unittest.TestCase):
         self.assertIn("PRUEBA-SKU", text)
         width = round(51.0 / 25.4 * 72.0, 2)
         height = round(19.0 / 25.4 * 72.0, 2)
-        self.assertIn("%.2f %.2f" % (width, height), text)
+        self.assertIn("85.04 144.57", text)
 
     def test_rejects_bodega_shell_and_url(self):
         cups = Cups("ok")
@@ -173,6 +173,8 @@ class BridgeTest(unittest.TestCase):
         page_h = round(19.0 / 25.4 * 72.0, 2)
         self.assertGreater(page_w, page_h)
         names = [
+            ("BO WIRELINE DRILL - BOYLES BROS", "MCOR000836", "38", "PRUEBA-SO-001289"),
+            ("BO WIRELINE DRILL - BOYLES BROS", "MCOR000836", "38", ""),
             ("HO KH CORE LIFTER SLOTTED - BOYLES BROS", "MCOR001081", "3", "PRUEBA-SO-001289"),
             ("3 7/8 TRICONE TC PIN SEALED/BEA THROUGH HOLE - BOYLES BROS", "MCOR000900", "1", "PRUEBA-SO-001289"),
             ("HO KH STOP RING - BOYLES BROS", "MCOR000520", "3", ""),
@@ -189,22 +191,27 @@ class BridgeTest(unittest.TestCase):
             self.assertNotIn("...", blob)
             for word in nombre.split():
                 self.assertIn(word, blob)
+            seam = lay["seam"]
             name_low = min(box[1] for box in lay["names"])
-            self.assertGreaterEqual(name_low + 0.05, lay["code_top"])
-            self.assertGreaterEqual(lay["base"] + 0.15, lay["bar_y"] + lay["bar_h"])
+            self.assertGreaterEqual(name_low, seam + 1.0)
+            self.assertLess(lay["bar_y"] + lay["bar_h"], seam - 1.0)
+            self.assertGreater(lay["base"], seam)
             for x, y, w, h, line in lay["names"]:
                 self.assertGreaterEqual(x, 3.0, line)
-                self.assertLessEqual(x + w, page_w - 3.0, line)
+                self.assertLessEqual(x + w, lay["logic_w"] - 3.0, line)
+                self.assertLessEqual(y + h, 29.4 / 25.4 * 72.0)
             row_right = lay["x0"] + lay["sw"] + lay["gap"] + lay["qw"]
             if ov:
                 row_right += lay["sep"] + lay["ow"]
-            self.assertLessEqual(row_right, page_w - 3.0)
+            self.assertLessEqual(row_right, lay["logic_w"] - 3.0)
             self.assertGreaterEqual(lay["x0"], 3.0)
             labs.append({"profile": "clientes", "width_mm": 51, "height_mm": 19, "paper": "30330", "copies": 1, "fields": fields})
         raw = bridge.render_pdf(labs)
-        self.assertIn(b"/MediaBox [0 0 144.57 53.86]", raw)
+        self.assertIn(b"/MediaBox [0 0 85.04 144.57]", raw)
+        self.assertIn(b"Custom.30x51mm", open(bridge.__file__, encoding="utf-8").read().encode("utf-8"))
+        self.assertIn(b"0 -1 1 0", raw)
+        self.assertNotIn(b"fit-to-page", open(bridge.__file__, encoding="utf-8").read().encode("utf-8"))
         self.assertIn(b"/Encoding /WinAnsiEncoding", raw)
-        self.assertNotIn(b"0 1 -1 0", raw)
         self.assertIn("MCOR001081".encode("latin-1"), raw)
         self.assertIn(b"\xd7", raw)
         with open(bridge.__file__, encoding="utf-8") as handle:

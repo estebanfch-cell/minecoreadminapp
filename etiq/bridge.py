@@ -123,7 +123,14 @@ _HB = (
 )
 _CAP = 0.729
 _LEAD = 1.05
-DRAW = "v4-bandas"
+# El JSON del trabajo sigue en 51×19. El papel medido es 30 mm de ancho
+# por 50 mm de avance, partido a lo largo en 20 mm y 10 mm.
+PAGE_W_MM = 30.0
+PAGE_H_MM = 51.0
+LOGIC_W_MM = 51.0
+LOGIC_H_MM = 30.0
+SEAM_MM = 10.0
+DRAW = "v5-dos-stickers"
 
 
 def _mm(v):
@@ -274,23 +281,23 @@ def code128_bars(sku, page_w, y_pt, bar_h):
     total = (mods + quiet * 2) * module
     x = (page_w - total) / 2.0 + quiet * module
     y = y_pt
-    ops = []
+    rects = []
     for p in pats:
         black = True
         for ch in p:
             ww = int(ch) * module
             if black and ww > 0:
-                ops.append("%.2f %.2f %.2f %.2f re f" % (x, y, ww, bar_h))
+                rects.append((x, y, ww, bar_h))
             x += ww
             black = not black
-    return ops
+    return rects
 
 
 def place_ids(sku, qty, ov):
     """Una fila centrada. SKU, cantidad y OV al mismo tamaño, achicados juntos."""
     gap = _mm(1.15)
     sep = _mm(2.4) if ov else 0.0
-    maxw = _mm(51.0 - 3.0)
+    maxw = _mm(LOGIC_W_MM - 3.0)
     sz = 8.2
     while sz >= 3.2:
         sw, qw = hb_width(sku, sz), hb_width(qty, sz)
@@ -303,27 +310,26 @@ def place_ids(sku, qty, ov):
     return 1, sz, hb_width(sku, sz), hb_width(qty, sz), ow
 
 
-def layout_label(fields, page_w, page_h):
-    """Bandas que no se pisan: nombre, fila SKU × cantidad y SO, código de barras."""
+def layout_label(fields, page_w=None, page_h=None):
+    """Plano de 50×30 mm. Abajo, 10 mm solo para el código. Arriba, 20 mm para el texto.
+    page_w y page_h se ignoran: el papel medido sustituye al 51×19."""
     nombre = u_text(fields.get("nombre", ""))
     sku = u_text(fields.get("sku", ""))
     qty = u"\u00d7" + u_text(fields.get("qty", ""))
     ov = u_text(fields.get("ov", ""))
-    max_w = page_w - 2 * _mm(1.5)
-    bottom = _mm(0.55)
-    bar_h = _mm(4.6)
+    logic_w = _mm(LOGIC_W_MM)
+    max_w = logic_w - 2 * _mm(1.5)
+    bar_y = _mm(1.3)
+    bar_h = _mm(6.2)
     rows, pt, sw, qw, ow = place_ids(sku, qty, ov)
     gap = _mm(1.15)
     sep = _mm(2.4) if ov else 0.0
     row = sw + gap + qw + (sep + ow if ov else 0.0)
-    x0 = (page_w - row) / 2.0
-    base = bottom + bar_h + _mm(0.40)
-    code_top = base + pt * _CAP + _mm(0.32)
-    name_top = page_h - _mm(0.50)
-    name_h = name_top - code_top
-    if name_h < _mm(3.0):
-        name_h = _mm(3.0)
-        code_top = name_top - name_h
+    x0 = (logic_w - row) / 2.0
+    base = _mm(SEAM_MM + 1.6)
+    code_top = base + pt * _CAP
+    name_top = _mm(LOGIC_H_MM - 0.7)
+    name_h = name_top - (code_top + _mm(0.45))
     size, lines, block = fit_name(nombre, max_w, name_h)
     slack = name_h - block
     if slack < 0:
@@ -335,39 +341,41 @@ def layout_label(fields, page_w, page_h):
     y = y_name
     for line in lines:
         w = hb_width(line, size)
-        names.append(((page_w - w) / 2.0, y, w, size * _CAP, line))
+        names.append(((logic_w - w) / 2.0, y, w, size * _CAP, line))
         y -= lead
     return {
         "sku": sku, "qty": qty, "ov": ov, "pt": pt, "size": size, "lines": lines,
         "names": names, "x0": x0, "sw": sw, "qw": qw, "ow": ow, "gap": gap, "sep": sep,
-        "base": base, "code_top": code_top, "bar_y": bottom, "bar_h": bar_h,
-        "name_top": name_top, "page_w": page_w, "page_h": page_h,
+        "base": base, "code_top": code_top, "bar_y": bar_y, "bar_h": bar_h,
+        "name_top": name_top, "logic_w": logic_w, "seam": _mm(SEAM_MM),
     }
 
 
+def _emit_feed_text(parts, text, size, lx, ly):
+    """El texto empieza por el borde que sale primero y sigue hacia la impresora. El nombre queda a la derecha."""
+    parts.append(b"/F2 %.2f Tf" % size)
+    parts.append(b"0 -1 1 0 %.2f %.2f Tm (" % (ly, _mm(PAGE_H_MM) - lx) + pdf_escape(text) + b") Tj")
+
+
 def render_pdf(labels):
-    """PDF 51×19 mm. Nombre completo, código, cantidad, OV y Code128 del SKU."""
-    width = round(WIDTH_MM / 25.4 * 72.0, 2)
-    height = round(HEIGHT_MM / 25.4 * 72.0, 2)
+    """Página 30×51 mm. El texto va a lo largo del avance. Sin marcas de corte."""
+    width = round(_mm(PAGE_W_MM), 2)
+    height = round(_mm(PAGE_H_MM), 2)
     contents = []
     for lab in labels:
-        lay = layout_label(lab["fields"], width, height)
+        lay = layout_label(lab["fields"])
         parts = [b"BT"]
         for x_name, y, w_name, h_name, line in lay["names"]:
-            parts.append(b"/F2 %.2f Tf" % lay["size"])
-            parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_name, y) + pdf_escape(line) + b") Tj")
+            _emit_feed_text(parts, line, lay["size"], x_name, y)
         x_qty = lay["x0"] + lay["sw"] + lay["gap"]
         x_ov = x_qty + lay["qw"] + lay["sep"]
-        parts.append(b"/F2 %.2f Tf" % lay["pt"])
-        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (lay["x0"], lay["base"]) + pdf_escape(lay["sku"]) + b") Tj")
-        parts.append(b"/F2 %.2f Tf" % lay["pt"])
-        parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_qty, lay["base"]) + pdf_escape(lay["qty"]) + b") Tj")
+        _emit_feed_text(parts, lay["sku"], lay["pt"], lay["x0"], lay["base"])
+        _emit_feed_text(parts, lay["qty"], lay["pt"], x_qty, lay["base"])
         if lay["ov"]:
-            parts.append(b"/F2 %.2f Tf" % lay["pt"])
-            parts.append(b"1 0 0 1 %.2f %.2f Tm (" % (x_ov, lay["base"]) + pdf_escape(lay["ov"]) + b") Tj")
+            _emit_feed_text(parts, lay["ov"], lay["pt"], x_ov, lay["base"])
         parts.append(b"ET")
-        for op in code128_bars(lay["sku"], width, lay["bar_y"], lay["bar_h"]):
-            parts.append(op.encode("ascii"))
+        for x, y, w, h in code128_bars(lay["sku"], lay["logic_w"], lay["bar_y"], lay["bar_h"]):
+            parts.append(("%.2f %.2f %.2f %.2f re f" % (y, _mm(PAGE_H_MM) - (x + w), h, w)).encode("ascii"))
         contents.append(b"\n".join(parts))
 
     objects = []
@@ -478,7 +486,7 @@ def submit(queue, pdf_bytes, run):
         os.write(fd, pdf_bytes)
         os.close(fd)
         fd = None
-        argv = ["lp", "-d", queue, "-t", "Minecore-clientes", "-o", "media=Custom.51x19mm", "-o", "fit-to-page", path]
+        argv = ["lp", "-d", queue, "-t", "Minecore-clientes", "-o", "media=Custom.30x51mm", path]
         try:
             code, out, err = run(argv, 30)
         except Exception as exc:
