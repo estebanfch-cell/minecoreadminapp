@@ -110,6 +110,84 @@
       code + '<div class="etiq-st ' + tone(st === 'listo' ? 'aviso' : st) + '">' + esc(msg) + '</div></div>';
   }
   function impresion() { return impresionHtml(); }
+  function entero(v, min, max) {
+    var s = String(v == null ? '' : v).trim();
+    if (!/^\d+$/.test(s)) return null;
+    var n = parseInt(s, 10);
+    if (n < min || n > max) return null;
+    return n;
+  }
+  function uuidOk(v) { return /^[0-9a-f-]{36}$/i.test(String(v || '')); }
+  function formHtml(spec) {
+    spec = spec || {};
+    cssTag();
+    var nonce = String(Date.now());
+    var opts = (spec.lines || []).map(function (l) {
+      return '<option value="' + esc(l.id) + '">' + esc(l.sku) + ' · ' + esc(l.nombre) + '</option>';
+    }).join('');
+    var qty0 = spec.lines && spec.lines.length ? spec.lines[0].qty : 1;
+    return '<div class="etiq-box etiq-uno" data-kind="' + esc(spec.kind) + '" data-id="' + esc(spec.id) + '" data-nonce="' + nonce + '">' +
+      '<b>' + esc(spec.titulo) + '</b>' +
+      '<div class="etiq-st">Va al iMac de bodega ya vinculado. No es Compartir ni AirPrint. No cambia la orden ni el stock. El PDF de este equipo sigue aparte.</div>' +
+      (opts ? '<label class="etiq-meta">Producto<select class="etiq-linea" style="display:block;width:100%;margin-top:4px">' + opts + '</select></label>' : '<div class="etiq-meta">El servidor pone el nombre y el SKU. Esta etiqueta no lleva número de orden.</div>') +
+      '<div class="etiq-acts"><label class="etiq-meta">Cantidad en la etiqueta (×)<input class="etiq-qty" type="number" min="1" max="999" value="' + esc(qty0) + '" style="display:block;width:88px"></label>' +
+      '<label class="etiq-meta">Número de etiquetas<input class="etiq-copias" type="number" min="1" max="20" value="1" style="display:block;width:88px"></label>' +
+      '<button type="button" class="cbz-btn" onclick="MCEtiq.enviar(this)">Enviar al iMac</button></div>' +
+      '<div class="etiq-st etiq-out"></div></div>';
+  }
+  function ov(cur) {
+    if (!ok() || !cur || !cur.orden || cur.orden.is_quote || cur.orden.is_cancelled) return '';
+    var lines = (cur.lineas || []).filter(function (l) {
+      return l && l.item_type !== 'service' && l.id && Number(l.quantity) > 0;
+    }).map(function (l) {
+      return { id: String(l.id), sku: String(l.sku || ''), nombre: String(l.nombre || l.description || ''), qty: Math.max(1, Math.round(Number(l.quantity) || 1)) };
+    });
+    if (!lines.length || !uuidOk(cur.orden.id)) return '';
+    return formHtml({ kind: 'ov', id: String(cur.orden.id), titulo: 'Una etiqueta de esta orden', lines: lines });
+  }
+  function prod(id) {
+    if (!ok() || !uuidOk(id) || !root.document) return;
+    var host = root.document.getElementById('etiq-prod');
+    if (!host) return;
+    host.innerHTML = formHtml({ kind: 'prod', id: String(id), titulo: 'Una etiqueta de este producto' });
+  }
+  function pintarSalida(box, st) {
+    var out = box && box.querySelector ? box.querySelector('.etiq-out') : null;
+    if (!out) return;
+    out.textContent = st === 'servicio_no_publicado'
+      ? 'No se encoló. El servidor todavía no acepta esta impresión, o no dejó pasar la orden. No se imprimió nada y la orden no cambió.'
+      : texto(st, {});
+  }
+  function enviar(btn) {
+    var box = btn && btn.closest ? btn.closest('.etiq-uno') : null;
+    if (!box) return;
+    if (!ok()) { pintarSalida(box, 'sin_permiso'); return; }
+    var qty = entero(box.querySelector('.etiq-qty').value, 1, 999);
+    var copies = entero(box.querySelector('.etiq-copias').value, 1, 20);
+    if (qty == null || copies == null) { pintarSalida(box, 'entrada_rechazada'); return; }
+    var kind = box.getAttribute('data-kind');
+    var id = box.getAttribute('data-id') || '';
+    var line = kind === 'ov' ? (box.querySelector('.etiq-linea') || {}).value || '' : '';
+    if (!uuidOk(id) || (kind === 'ov' && !uuidOk(line))) { pintarSalida(box, 'entrada_rechazada'); return; }
+    var key = 'uno:' + id + ':' + line + ':' + qty + ':' + copies + ':' + (box.getAttribute('data-nonce') || '');
+    if (busy[key]) return;
+    busy[key] = 1;
+    var extra = { copies: copies, qty_etiqueta: qty, idempotency_key: key };
+    if (kind === 'prod') extra.product_id = id;
+    else { extra.ov_id = id; extra.line_id = line; }
+    post('etiq_enqueue', extra).then(function (r) {
+      busy[key] = 0;
+      var err = r && r.error ? String(r.error) : '';
+      if (!r || /operaci[oó]n no v[aá]lida/i.test(err)) { pintarSalida(box, 'servicio_no_publicado'); return; }
+      if (r.ok === false && (err === 'ov_ajena' || err === 'nada_que_imprimir' || err === 'entrada_rechazada')) {
+        pintarSalida(box, err === 'entrada_rechazada' ? 'entrada_rechazada' : 'servicio_no_publicado');
+        return;
+      }
+      var d = interpret(r);
+      if (d.state === 'puente_desconectado' && r.job && r.job.status === 'queued') d.state = 'en_cola';
+      pintarSalida(box, d.state);
+    });
+  }
   function panel(o, ctx) {
     if (!ok()) return '';
     cssTag();
@@ -271,6 +349,9 @@
     ok: ok,
     panel: panel,
     impresion: impresion,
+    ov: ov,
+    prod: prod,
+    enviar: enviar,
     decide: decide,
     interpret: interpret,
     texto: texto,
