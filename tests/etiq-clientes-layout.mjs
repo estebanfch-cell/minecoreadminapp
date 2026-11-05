@@ -120,7 +120,7 @@ const bodega = html.slice(html.indexOf('else o=txt', i), html.indexOf('else o=tx
 if (!bodega.includes('bc(')) throw new Error('bodega sin barras');
 const labels = html.slice(html.indexOf("kind==='labels'"), html.indexOf("kind==='labels'") + 400);
 if (labels.includes('mcCode128')) throw new Error('labels sigue con el barcode viejo a todo el ancho');
-if (!html.includes("MC_BUILD='563'")) throw new Error('build');
+if (!html.includes("MC_BUILD='564'")) throw new Error('build');
 console.log('etiq-clientes-layout OK', cases.map(function (c, i) {
   return c.ov + ' lineas=' + infos[i].lines + ' pt=' + infos[i].skuPt + ' gap=' + infos[i].gap.toFixed(2);
 }).join(' | '), 'zbar', sku);

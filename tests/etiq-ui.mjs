@@ -51,6 +51,7 @@ document.getElementById('gallery').innerHTML=
   MCEtiq.boxHtml({state:'aceptado_cups',id:'ov-prueba-4',order_number:'PRUEBA-SO-0001',cliente:'CLIENTE DE PRUEBA',cups_job_id:'Wireless-PRUEBA-88'})+
   MCEtiq.boxHtml({state:'ambiguo',id:'ov-prueba-5',order_number:'PRUEBA-SO-0001',cliente:'CLIENTE DE PRUEBA',job_id:'job-prueba'});
 var live=document.querySelector('.etiq-box button.cbz-btn');
+document.getElementById('result').textContent='PEND';
 live.click();
 function overlap(a,b){return !(a.right<=b.left||a.left>=b.right||a.bottom<=b.top||a.top>=b.bottom);}
 function check(){
@@ -71,7 +72,7 @@ function check(){
   document.getElementById('result').textContent=bad.length?('FAIL '+bad.join(' | ')):'OK';
   document.title=bad.length?('FAIL '+bad.join(' | ')):'OK';
 }
-check();
+setTimeout(check, 40);
 </script>`;
 
 const htmlPath = join(outDir, 'etiq-ui.html');

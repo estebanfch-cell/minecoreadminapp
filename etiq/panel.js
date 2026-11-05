@@ -19,9 +19,10 @@
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function permisos(modulos) {
+  function permisos(modulos, rol) {
     var m = modulos || [];
     if (m.indexOf(PERM) < 0) return false;
+    if (rol === 'admin') return true;
     return m.some(function (x) { return PREP.test(x) || FINE.test(x); });
   }
   function ok() {
@@ -30,7 +31,7 @@
       if (!P) return false;
       if (P.rol === 'cliente' || P.rol === 'proveedor') return false;
       if (typeof root.mcEsCliV === 'function' && root.mcEsCliV()) return false;
-      return permisos(P.modulos);
+      return permisos(P.modulos, P.rol);
     } catch (e) { return false; }
   }
   function norm(o) {
@@ -49,6 +50,7 @@
     var id = info.job_id ? ' ' + info.job_id : '';
     var cups = info.cups_job_id ? ' ' + info.cups_job_id : '';
     if (st === 'aviso') return 'Perfil Clientes · 19×51 mm (30330) · DYMO LabelWriter Wireless. No usa la DYMO 450 de bodega. ' + (n === '' ? '' : n + ' etiqueta(s), una por línea. ') + 'Si el servicio aún no deja pasar la orden, no se envía nada y la orden no cambia.';
+    if (st === 'servicio_no_publicado' && info.vincular) return 'No se obtuvo el código. El servidor no aceptó la solicitud. No se vinculó el iMac y no se imprimió nada.';
     if (st === 'servicio_no_publicado') return 'No se envió ningún trabajo. La cola no está publicada en el servidor y el puente del iMac de bodega no está instalado. No está impreso. El stock y la preparación no cambian.';
     if (st === 'sin_permiso') return 'No tienes el permiso de imprimir etiquetas. Hay que encenderlo en Usuarios para esta persona.';
     if (st === 'ov_ajena') return 'No puedes imprimir etiquetas de esta orden.';
@@ -95,6 +97,18 @@
       root.document.head.appendChild(s);
     } catch (e) {}
   }
+  function vincularHtml(model) {
+    model = model || {};
+    if (!ok() && model.state !== 'sin_permiso') return '';
+    cssTag();
+    var st = model.state || 'aviso';
+    var code = model.code ? '<div class="etiq-st">Código para el instalador del iMac. Vale 10 minutos. Escríbelo allí y no lo mandes por chat: <b>' + esc(model.code) + '</b></div>' : '';
+    var msg = st === 'aviso' ? 'Vincular el iMac de bodega. No imprime ni cambia órdenes.' : texto(st, { vincular: true, job_id: model.job_id });
+    return '<div class="etiq-box etiq-vinc" data-ok="1" data-id="vincular" data-state="' + esc(st) + '">' +
+      '<b>Vincular iMac</b><div class="etiq-acts"><button type="button" class="cbz-btn" onclick="MCEtiq.pair(this)">Código para el iMac</button></div>' +
+      code + '<div class="etiq-st ' + tone(st) + '">' + esc(msg) + '</div></div>';
+  }
+  function vincular() { return vincularHtml(); }
   function panel(o, ctx) {
     if (!ok()) return '';
     cssTag();
@@ -216,20 +230,35 @@
     }
     root.MCDymo.abrir('despacho', items, 'Etiquetas clientes · ' + o.order_number);
   }
+  function replaceBox(box, html) {
+    if (!box || !box.parentNode || !root.document) return;
+    var wrap = root.document.createElement('div');
+    wrap.innerHTML = html;
+    if (wrap.firstChild) box.parentNode.replaceChild(wrap.firstChild, box);
+  }
   function pair(btn) {
     var box = btn && btn.closest ? btn.closest('.etiq-box') : null;
     if (!box) return;
-    if (!ok()) { paint(box, { state: 'sin_permiso', physically_printed: false }); return; }
+    var vinc = box.className.indexOf('etiq-vinc') >= 0;
     var id = box.getAttribute('data-id') || '';
+    if (!ok()) {
+      if (vinc) replaceBox(box, vincularHtml({ state: 'sin_permiso' }));
+      else paint(box, { state: 'sin_permiso', physically_printed: false });
+      return;
+    }
     post('etiq_pair_begin', {}).then(function (r) {
-      var box2 = root.document && root.document.querySelector('.etiq-box[data-id="' + id + '"]');
-      var host = box2 || box;
+      var sel = vinc ? '.etiq-vinc' : '.etiq-box[data-id="' + id + '"]';
+      var host = (root.document && root.document.querySelector(sel)) || box;
       var err = r && r.error ? String(r.error) : '';
-      if (!r || /operaci[oó]n no v[aá]lida/i.test(err) || r.etiq !== 1 || r.physically_printed !== false || !r.code) {
-        paint(host, { state: 'servicio_no_publicado', physically_printed: false });
+      var codigo = r && r.etiq === 1 && r.physically_printed === false && r.code && String(r.code) !== 'sin_permiso' ? String(r.code) : '';
+      var malo = !codigo || /operaci[oó]n no v[aá]lida/i.test(err);
+      if (vinc) {
+        var st = r && r.code === 'sin_permiso' && !codigo ? 'sin_permiso' : (malo ? 'servicio_no_publicado' : 'aviso');
+        replaceBox(host, vincularHtml({ state: st, code: malo ? '' : codigo }));
         return;
       }
-      paint(host, { state: 'aviso', physically_printed: false, code: String(r.code) });
+      if (malo) { paint(host, { state: 'servicio_no_publicado', physically_printed: false }); return; }
+      paint(host, { state: 'aviso', physically_printed: false, code: codigo });
     });
   }
   root.MCEtiq = {
@@ -240,6 +269,7 @@
     permisos: permisos,
     ok: ok,
     panel: panel,
+    vincular: vincular,
     decide: decide,
     interpret: interpret,
     texto: texto,
