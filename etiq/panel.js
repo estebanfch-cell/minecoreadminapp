@@ -15,6 +15,9 @@
     '.etiq-reprint{background:#1c2a3a;color:#dce6f0;border:1px solid #2e4257;border-radius:8px;padding:8px 12px;cursor:pointer}' +
     '.etiq-help{font-size:11.5px;color:#8fa3b8;margin-top:4px}' +
     '.etiq-remote{flex:1 1 100%;max-width:100%;box-sizing:border-box;text-align:center;white-space:nowrap}' +
+    '.etiq-count{font-size:12px;color:#8fa3b8;margin-top:4px;min-height:0}' +
+    '.etiq-spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:etiqsp .7s linear infinite;vertical-align:-2px}' +
+    '@keyframes etiqsp{to{transform:rotate(360deg)}}' +
     '@media(max-width:420px){.etiq-acts .cbz-btn,.etiq-acts .chip,.etiq-acts .etiq-retry,.etiq-acts .etiq-reprint{flex:1 1 100%}}';
 
   function esc(s) {
@@ -47,44 +50,26 @@
   }
   function texto(st, info) {
     info = info || {};
-    var n = info.n != null ? info.n : '';
-    var id = info.job_id ? ' ' + info.job_id : '';
-    var cups = info.cups_job_id ? ' ' + info.cups_job_id : '';
-    if (st === 'aviso') return 'Perfil Clientes · 19×51 mm (30330) · DYMO LabelWriter Wireless. No usa la DYMO 450 de bodega. ' + (n === '' ? '' : n + ' etiqueta(s), una por línea. ') + 'Si el servicio aún no deja pasar la orden, no se envía nada y la orden no cambia.';
     if (st === 'servicio_no_publicado' && info.vincular) return 'No se obtuvo el código. El servidor no aceptó la solicitud. No se vinculó el iMac y no se imprimió nada.';
-    if (st === 'servicio_no_publicado') return 'No se envió ningún trabajo. No está impreso. El stock y la preparación no cambian.';
-    if (st === 'sin_permiso') return 'No tienes el permiso de imprimir etiquetas. Hay que encenderlo en Usuarios para esta persona.';
-    if (st === 'ov_ajena') return 'No puedes imprimir etiquetas de esta orden.';
-    if (st === 'puente_desconectado') return 'Trabajo en la cola de Minecore' + id + '. El puente de la impresora de bodega no está conectado. No se envió a la impresora.';
-    if (st === 'impresora_offline') return 'El puente está conectado, pero la DYMO LabelWriter Wireless figura offline. El trabajo sigue en cola y no se mandó a CUPS.';
-    if (st === 'error_envio') return 'La impresora no aceptó el envío' + id + '. No quedó confirmado en CUPS. El reintento es seguro: no hay una copia a medias.';
-    if (st === 'aceptado_cups') return 'CUPS aceptó el trabajo' + cups + '. Eso no confirma que la etiqueta haya salido. Revisa la impresora.';
-    if (st === 'ambiguo') return 'El envío a CUPS quedó incierto' + id + '. No se reimprime solo. Si hace falta, revisa la impresora y usa el reintento explícito: puede salir una segunda etiqueta.';
-    if (st === 'en_cola') return 'Trabajo en cola' + id + '. Todavía no se envía a la impresora.';
-    if (st === 'entrada_rechazada') return 'La solicitud trae datos que no se aceptan. No se creó un trabajo.';
-    return 'No se envió ningún trabajo.';
+    if (st === 'en_cola' || st === 'puente_desconectado' || st === 'impresora_offline') return 'En cola';
+    if (st === 'ambiguo') return 'Sin confirmar';
+    if (st === 'aceptado_cups') return 'Enviada a impresora';
+    if (st === 'sin_permiso') return 'Sin permiso';
+    if (st === 'aviso' || st === 'espera') return '';
+    return 'Error';
   }
   function tone(st) {
-    if (st === 'error_envio' || st === 'sin_permiso' || st === 'ov_ajena' || st === 'entrada_rechazada') return 'bad';
-    if (st === 'aviso') return '';
+    if (st === 'error_envio' || st === 'sin_permiso' || st === 'ov_ajena' || st === 'entrada_rechazada' || st === 'servicio_no_publicado') return 'bad';
+    if (st === 'aviso' || st === 'espera' || st === 'aceptado_cups') return '';
     return 'warn';
-  }
-  function actions(st) {
-    var h = '<div class="etiq-acts"><button type="button" class="cbz-btn" onclick="MCEtiq.click(this)">Imprimir etiquetas</button>' +
-      '<button type="button" class="chip" onclick="MCEtiq.pdf(this)">PDF 19×51 en este equipo</button>';
-    if (st === 'ambiguo') h += '<button type="button" class="etiq-retry" onclick="MCEtiq.retry(this)">Reintentar envío incierto</button>';
-    if (st === 'error_envio') h += '<button type="button" class="etiq-retry" onclick="MCEtiq.retry(this)">Reintentar envío</button>';
-    if (st === 'aceptado_cups') h += '<button type="button" class="etiq-reprint" onclick="MCEtiq.reprint(this)">Reimprimir</button>';
-    h += '</div>';
-    if (st === 'aceptado_cups') h += '<div class="etiq-help">Reimprimir es voluntario: pide otra etiqueta. No es un reintento de un envío dudoso.</div>';
-    if (st === 'ambiguo') h += '<div class="etiq-help">Reintentar envío incierto no es una reimpresión. Úsalo solo después de mirar la impresora.</div>';
-    return h;
   }
   function boxHtml(model) {
     var st = model.state || 'aviso';
-    return '<div class="etiq-box" data-ok="1" data-state="' + esc(st) + '" data-ctx="' + esc(model.ctx || '') + '" data-id="' + esc(model.id || '') + '" data-key="' + esc(model.key || '') + '" data-last="' + esc(model.last || '') + '">' +
-      '<b>Etiquetas clientes</b>' + actions(st) +
-      '<div class="etiq-meta">' + esc(model.order_number || '') + (model.cliente ? ' · ' + esc(model.cliente) : '') + '</div>' +
+    var n = typeof model.enviadas === 'number' ? String(model.enviadas) : '';
+    return '<div class="etiq-box" data-ok="1" data-state="' + esc(st) + '" data-ctx="' + esc(model.ctx || '') + '" data-id="' + esc(model.id || '') + '" data-key="' + esc(model.key || '') + '">' +
+      '<div class="etiq-acts"><button type="button" class="chip etiq-remote" onclick="MCEtiq.click(this)">Imprimir etiquetas remotas</button>' +
+      '<button type="button" class="chip" onclick="MCEtiq.pdf(this)">PDF 19×51 en este equipo</button></div>' +
+      '<div class="etiq-count">' + (n === '' ? '' : 'Enviadas a impresora ' + esc(n)) + '</div>' +
       '<div class="etiq-st ' + tone(st) + '">' + esc(texto(st, model)) + '</div></div>';
   }
   function cssTag() {
@@ -119,32 +104,93 @@
     return n;
   }
   function uuidOk(v) { return /^[0-9a-f-]{36}$/i.test(String(v || '')); }
-  function formHtml(spec) {
-    spec = spec || {};
-    cssTag();
-    var nonce = String(Date.now());
-    var opts = (spec.lines || []).map(function (l) {
-      return '<option value="' + esc(l.id) + '">' + esc(l.sku) + ' · ' + esc(l.nombre) + '</option>';
-    }).join('');
-    var qty0 = spec.lines && spec.lines.length ? spec.lines[0].qty : 1;
-    return '<div class="etiq-box etiq-uno" data-kind="' + esc(spec.kind) + '" data-id="' + esc(spec.id) + '" data-nonce="' + nonce + '">' +
-      '<b>' + esc(spec.titulo) + '</b>' +
-      '<div class="etiq-st">Va a la impresora de bodega, que ya está vinculada. No es Compartir ni AirPrint. No cambia la orden ni el stock. El PDF de este equipo sigue aparte.</div>' +
-      (opts ? '<label class="etiq-meta">Producto<select class="etiq-linea" style="display:block;width:100%;margin-top:4px">' + opts + '</select></label>' : '<div class="etiq-meta">El servidor pone el nombre y el SKU. Esta etiqueta no lleva número de orden.</div>') +
-      '<div class="etiq-acts"><label class="etiq-meta">Cantidad en la etiqueta (×)<input class="etiq-qty" type="number" min="1" max="999" value="' + esc(qty0) + '" style="display:block;width:88px"></label>' +
-      '<label class="etiq-meta">Número de etiquetas<input class="etiq-copias" type="number" min="1" max="20" value="1" style="display:block;width:88px"></label>' +
-      '<button type="button" class="cbz-btn etiq-remote" onclick="MCEtiq.enviar(this)">Imprimir etiqueta remota</button></div>' +
-      '<div class="etiq-st etiq-out"></div></div>';
+  function ov() { return ''; }
+  function pasoMs() {
+    var n = root.MCEtiq && root.MCEtiq._paso;
+    return n > 0 ? n : 2000;
   }
-  function ov(cur) {
-    if (!ok() || !cur || !cur.orden || cur.orden.is_quote || cur.orden.is_cancelled) return '';
-    var lines = (cur.lineas || []).filter(function (l) {
-      return l && l.item_type !== 'service' && l.id && Number(l.quantity) > 0;
-    }).map(function (l) {
-      return { id: String(l.id), sku: String(l.sku || ''), nombre: String(l.nombre || l.description || ''), qty: Math.max(1, Math.round(Number(l.quantity) || 1)) };
+  function estadoRes(r) {
+    if (!r || typeof r !== 'object') return 'servicio_no_publicado';
+    var err = String(r.error || '');
+    if (/operaci[oó]n no v[aá]lida/i.test(err)) return 'servicio_no_publicado';
+    if (err === 'sin_permiso' || r.code === 'sin_permiso') return 'sin_permiso';
+    if (err === 'entrada_rechazada' || err === 'nada_que_imprimir' || err === 'ov_ajena') return 'entrada_rechazada';
+    var d = interpret(r);
+    if (d.state === 'aceptado_cups' || d.state === 'error_envio' || d.state === 'ambiguo') return d.state;
+    if (r.job && (r.job.status === 'queued' || r.job.status === 'claimed')) return 'en_cola';
+    if (d.state === 'en_cola' || d.state === 'puente_desconectado' || d.state === 'impresora_offline') return 'en_cola';
+    return d.state || 'servicio_no_publicado';
+  }
+  function seguir(jobId, pintar) {
+    var n = 0;
+    return new Promise(function (resolve) {
+      function tick() {
+        n += 1;
+        post('etiq_status', { job_id: jobId }).then(function (r) {
+          var st = estadoRes(r);
+          if (st === 'aceptado_cups' || st === 'error_envio' || st === 'ambiguo' || n >= 15) {
+            resolve(st === 'aceptado_cups' || st === 'error_envio' || st === 'ambiguo' ? st : 'en_cola');
+            return;
+          }
+          pintar('en_cola', true);
+          setTimeout(tick, pasoMs());
+        });
+      }
+      setTimeout(tick, pasoMs());
     });
-    if (!lines.length || !uuidOk(cur.orden.id)) return '';
-    return formHtml({ kind: 'ov', id: String(cur.orden.id), titulo: 'Una etiqueta de esta orden', lines: lines });
+  }
+  function marcar(el, st, vivo) {
+    if (!el) return;
+    el.className = 'etiq-st' + (tone(st) ? ' ' + tone(st) : '');
+    if (vivo) el.innerHTML = '<span class="etiq-spin"></span> ' + esc(texto(st));
+    else el.textContent = texto(st);
+  }
+  function girar(btn, on, etiqueta) {
+    if (!btn) return;
+    if (on) {
+      btn.disabled = true;
+      if (!btn.getAttribute('data-label')) btn.setAttribute('data-label', btn.textContent || etiqueta || '');
+      btn.innerHTML = '<span class="etiq-spin"></span>';
+    } else {
+      btn.disabled = false;
+      btn.textContent = btn.getAttribute('data-label') || etiqueta || 'Imprimir etiqueta remota';
+    }
+  }
+  function leerCuenta(r) {
+    if (!r || r.etiq !== 1 || r.physically_printed !== false || r.cuenta !== 'enviadas_a_impresora') return null;
+    var n = r.enviadas;
+    if (typeof n !== 'number' || !isFinite(n) || n < 0 || Math.floor(n) !== n) return null;
+    return n;
+  }
+  function pedirCuenta(el, extra) {
+    if (!el) return Promise.resolve(null);
+    return post('etiq_cuenta', extra).then(function (r) {
+      var n = leerCuenta(r);
+      if (n == null) return null;
+      el.textContent = 'Enviadas a impresora ' + n;
+      return n;
+    });
+  }
+  function hostProd() {
+    var host = root.document && root.document.getElementById('etiq-prod');
+    if (!host) return null;
+    if (!host.querySelector('.etiq-count')) host.innerHTML = '<div class="etiq-count"></div><div class="etiq-st"></div>';
+    return host;
+  }
+  function despues(st, btn, etiqueta, el, cuentaEl, cuentaExtra) {
+    girar(btn, false, etiqueta);
+    marcar(el, st);
+    if (st === 'aceptado_cups') return pedirCuenta(cuentaEl, cuentaExtra);
+    return Promise.resolve(null);
+  }
+  function vigilar(r, pintar) {
+    var st = estadoRes(r);
+    var jobId = r && r.job && r.job.id;
+    if (st === 'en_cola' && uuidOk(jobId)) {
+      pintar('en_cola', true);
+      return seguir(jobId, pintar);
+    }
+    return Promise.resolve(st);
   }
   function toda(cur) {
     if (!ok() || !cur || !cur.orden || cur.orden.is_quote || cur.orden.is_cancelled || !uuidOk(cur.orden.id)) return;
@@ -154,70 +200,64 @@
     if (busy[key]) return;
     busy[key] = 1;
     var host = root.document && root.document.getElementById('etiq-toda');
-    if (host) host.textContent = 'Enviando las etiquetas de esta orden…';
+    var cuenta = root.document && root.document.getElementById('etiq-ov-n');
+    marcar(host, 'espera', true);
     post('etiq_enqueue', { ov_id: id, idempotency_key: key }).then(function (r) {
+      return vigilar(r, function (st, vivo) { marcar(host, st, vivo); });
+    }).then(function (st) {
       busy[key] = 0;
-      if (!host) return;
-      var err = r && r.error ? String(r.error) : '';
-      if (!r || /operaci[oó]n no v[aá]lida/i.test(err) || err === 'entrada_rechazada') {
-        host.textContent = 'No se encoló. El servidor no aceptó la orden completa. No se imprimió nada y la orden no cambió.';
-        return;
-      }
-      var d = interpret(r);
-      if (d.state === 'puente_desconectado' && r.job && r.job.status === 'queued') d.state = 'en_cola';
-      host.textContent = texto(d.state, d);
+      marcar(host, st);
+      if (st === 'aceptado_cups') pedirCuenta(cuenta, { ov_id: id });
     });
   }
-  function prod(id) {
-    if (!ok() || !uuidOk(id) || !root.document) return;
-    var host = root.document.getElementById('etiq-prod');
+  function ver(id) {
+    if (!ok() || !uuidOk(id)) return;
+    var host = hostProd();
     if (!host) return;
-    host.innerHTML = formHtml({ kind: 'prod', id: String(id), titulo: 'Una etiqueta de este producto' });
+    pedirCuenta(host.querySelector('.etiq-count'), { product_id: String(id) });
   }
-  function pintarSalida(box, st) {
-    var out = box && box.querySelector ? box.querySelector('.etiq-out') : null;
-    if (!out) return;
-    out.textContent = st === 'servicio_no_publicado'
-      ? 'No se encoló. El servidor todavía no acepta esta impresión, o no dejó pasar la orden. No se imprimió nada y la orden no cambió.'
-      : texto(st, {});
+  function verOv(id) {
+    if (!ok() || !uuidOk(id)) return;
+    var el = root.document && root.document.getElementById('etiq-ov-n');
+    pedirCuenta(el, { ov_id: String(id) });
   }
-  function enviar(btn) {
-    var box = btn && btn.closest ? btn.closest('.etiq-uno') : null;
-    if (!box) return;
-    if (!ok()) { pintarSalida(box, 'sin_permiso'); return; }
-    var qty = entero(box.querySelector('.etiq-qty').value, 1, 999);
-    var copies = entero(box.querySelector('.etiq-copias').value, 1, 20);
-    if (qty == null || copies == null) { pintarSalida(box, 'entrada_rechazada'); return; }
-    var kind = box.getAttribute('data-kind');
-    var id = box.getAttribute('data-id') || '';
-    var line = kind === 'ov' ? (box.querySelector('.etiq-linea') || {}).value || '' : '';
-    if (!uuidOk(id) || (kind === 'ov' && !uuidOk(line))) { pintarSalida(box, 'entrada_rechazada'); return; }
-    var key = 'uno:' + id + ':' + line + ':' + qty + ':' + copies + ':' + (box.getAttribute('data-nonce') || '');
-    if (busy[key]) return;
-    busy[key] = 1;
-    var extra = { copies: copies, qty_etiqueta: qty, idempotency_key: key };
-    if (kind === 'prod') extra.product_id = id;
-    else { extra.ov_id = id; extra.line_id = line; }
-    post('etiq_enqueue', extra).then(function (r) {
-      busy[key] = 0;
+  var claves = {};
+  var busy = {};
+  function directo(btn, id) {
+    if (!ok()) return;
+    id = String(id || '');
+    if (!uuidOk(id)) return;
+    var lock = 'prod:' + id;
+    if (busy[lock]) return;
+    busy[lock] = 1;
+    if (!claves[id]) claves[id] = 'uno:' + id + '::1:1:' + Date.now();
+    var host = hostProd();
+    var stEl = host && host.querySelector('.etiq-st');
+    var cuentaEl = host && host.querySelector('.etiq-count');
+    girar(btn, true, 'Imprimir etiqueta remota');
+    marcar(stEl, 'espera', true);
+    post('etiq_enqueue', { copies: 1, qty_etiqueta: 1, idempotency_key: claves[id], product_id: id }).then(function (r) {
       var err = r && r.error ? String(r.error) : '';
-      if (!r || /operaci[oó]n no v[aá]lida/i.test(err)) { pintarSalida(box, 'servicio_no_publicado'); return; }
-      if (r.ok === false && (err === 'ov_ajena' || err === 'nada_que_imprimir' || err === 'entrada_rechazada')) {
-        pintarSalida(box, err === 'entrada_rechazada' ? 'entrada_rechazada' : 'servicio_no_publicado');
-        return;
-      }
-      var d = interpret(r);
-      if (d.state === 'puente_desconectado' && r.job && r.job.status === 'queued') d.state = 'en_cola';
-      pintarSalida(box, d.state);
+      if (!r || err === 'entrada_rechazada' || err === 'nada_que_imprimir') delete claves[id];
+      return vigilar(r, function (st, vivo) { marcar(stEl, st, vivo); });
+    }).then(function (st) {
+      busy[lock] = 0;
+      return despues(st, btn, 'Imprimir etiqueta remota', stEl, cuentaEl, { product_id: id });
     });
   }
+  function prod(id) { directo(null, id); }
   function panel(o, ctx) {
     if (!ok()) return '';
     cssTag();
     var n = norm(o);
     CACHE[n.id] = n;
     var fp = n.lineas.map(function (l) { return l.sku + '|' + l.qty; }).join(',');
-    return boxHtml({ state: 'aviso', ctx: ctx, id: n.id, order_number: n.order_number, cliente: n.cliente, n: n.lineas.length, key: 'print:' + n.id + ':' + fp });
+    var id = n.id;
+    if (uuidOk(id)) setTimeout(function () {
+      var box = root.document && root.document.querySelector('.etiq-box[data-id="' + id + '"]');
+      if (box) pedirCuenta(box.querySelector('.etiq-count'), { ov_id: id });
+    }, 0);
+    return boxHtml({ state: 'aviso', ctx: ctx, id: id, key: 'print:' + id + ':' + fp });
   }
   function decide(input) {
     if (!input.permitted) return { state: 'sin_permiso', sent: false, job_id: null, duplicate: false, physically_printed: false };
@@ -285,28 +325,21 @@
     host.replaceChild(wrap.firstChild, box);
     return html;
   }
-  var busy = {};
   function click(btn) {
     var box = btn && btn.closest ? btn.closest('.etiq-box') : null;
     if (!box) return decide({ permitted: false, live: false });
     var id = box.getAttribute('data-id') || '';
     var key = box.getAttribute('data-key') || '';
-    if (!ok()) { paint(box, { state: 'sin_permiso', physically_printed: false }); return; }
-    if (busy[key]) return;
+    if (!ok()) { marcar(box.querySelector('.etiq-st'), 'sin_permiso'); return; }
+    if (!uuidOk(id) || busy[key]) return;
     busy[key] = 1;
-    box.setAttribute('data-last', key);
-    post('etiq_status', { job_id: '00000000-0000-0000-0000-000000000000' }).then(function (probe) {
-      if (!gatewayOpen(probe)) {
-        busy[key] = 0;
-        paint(box, { state: 'servicio_no_publicado', physically_printed: false });
-        return null;
-      }
-      return post('etiq_enqueue', { ov_id: id, idempotency_key: key, intent: 'print' });
-    }).then(function (r) {
-      if (!r) return;
+    girar(btn, true, 'Imprimir etiquetas remotas');
+    marcar(box.querySelector('.etiq-st'), 'espera', true);
+    post('etiq_enqueue', { ov_id: id, idempotency_key: key }).then(function (r) {
+      return vigilar(r, function (st, vivo) { marcar(box.querySelector('.etiq-st'), st, vivo); });
+    }).then(function (st) {
       busy[key] = 0;
-      var box2 = root.document && root.document.querySelector('.etiq-box[data-id="' + id + '"]');
-      paint(box2 || box, interpret(r));
+      return despues(st, btn, 'Imprimir etiquetas remotas', box.querySelector('.etiq-st'), box.querySelector('.etiq-count'), { ov_id: id });
     });
   }
   function blocked(btn, state) {
@@ -375,7 +408,11 @@
     ov: ov,
     toda: toda,
     prod: prod,
-    enviar: enviar,
+    directo: directo,
+    ver: ver,
+    verOv: verOv,
+    leerCuenta: leerCuenta,
+    estadoRes: estadoRes,
     decide: decide,
     interpret: interpret,
     texto: texto,
