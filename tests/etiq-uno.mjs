@@ -30,7 +30,7 @@ const ovHtml = ui.ov({ orden: { id, is_quote: false, is_cancelled: false }, line
   { id: line, sku: 'SKU-REAL', nombre: 'NOMBRE REAL', quantity: 2, item_type: 'product' },
   { id: '33333333-3333-3333-3333-333333333333', sku: 'OTRO', nombre: 'SERV', quantity: 1, item_type: 'service' }
 ] });
-if (!ovHtml.includes('Enviar al iMac') || !ovHtml.includes('SKU-REAL') || ovHtml.includes('SERV')) throw new Error('form ov');
+if (!ovHtml.includes('Imprimir etiqueta remota') || !ovHtml.includes('SKU-REAL') || ovHtml.includes('SERV')) throw new Error('form ov');
 if (ui.ov({ orden: { id, is_quote: true }, lineas: [] })) throw new Error('cotizacion');
 const posts = [];
 sandbox.MCpost = function (p) { posts.push(p); return Promise.resolve({ ok: true, etiq: 1, physically_printed: false, bridge: 'desconectado', printer: 'desconocida', job: { id: 'job', status: 'queued' } }); };
@@ -87,7 +87,7 @@ const page = `<!doctype html><meta charset="utf-8"><title>uno</title>
 getProfile=function(){return {rol:'usuario',modulos:['inventario','~prep.e.etiq=1']};};
 document.getElementById('app').innerHTML=MCEtiq.ov({orden:{id:'${id}',is_quote:false,is_cancelled:false},lineas:[{id:'${line}',sku:'SKU-REAL',nombre:'NOMBRE REAL',quantity:2,item_type:'product'}]});
 var t=document.body.innerText, bad=[];
-if(t.indexOf('Enviar al iMac')<0) bad.push('boton');
+if(t.indexOf('Imprimir etiqueta remota')<0) bad.push('boton');
 if(t.indexOf('AirPrint')<0) bad.push('aviso');
 if(/[A-Z]{2,}-SO-/.test(t)) bad.push('orden inventada');
 document.getElementById('result').textContent=bad.length?('FAIL '+bad.join(' | ')):'OK';

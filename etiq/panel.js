@@ -14,6 +14,7 @@
     '.etiq-retry{background:#3a2e00;color:#f0c040;border:1px solid #f0c040;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}' +
     '.etiq-reprint{background:#1c2a3a;color:#dce6f0;border:1px solid #2e4257;border-radius:8px;padding:8px 12px;cursor:pointer}' +
     '.etiq-help{font-size:11.5px;color:#8fa3b8;margin-top:4px}' +
+    '.etiq-remote{flex:1 1 100%;max-width:100%;box-sizing:border-box;text-align:center;white-space:nowrap}' +
     '@media(max-width:420px){.etiq-acts .cbz-btn,.etiq-acts .chip,.etiq-acts .etiq-retry,.etiq-acts .etiq-reprint{flex:1 1 100%}}';
 
   function esc(s) {
@@ -51,10 +52,10 @@
     var cups = info.cups_job_id ? ' ' + info.cups_job_id : '';
     if (st === 'aviso') return 'Perfil Clientes · 19×51 mm (30330) · DYMO LabelWriter Wireless. No usa la DYMO 450 de bodega. ' + (n === '' ? '' : n + ' etiqueta(s), una por línea. ') + 'Si el servicio aún no deja pasar la orden, no se envía nada y la orden no cambia.';
     if (st === 'servicio_no_publicado' && info.vincular) return 'No se obtuvo el código. El servidor no aceptó la solicitud. No se vinculó el iMac y no se imprimió nada.';
-    if (st === 'servicio_no_publicado') return 'No se envió ningún trabajo. La cola no está publicada en el servidor y el puente del iMac de bodega no está instalado. No está impreso. El stock y la preparación no cambian.';
+    if (st === 'servicio_no_publicado') return 'No se envió ningún trabajo. No está impreso. El stock y la preparación no cambian.';
     if (st === 'sin_permiso') return 'No tienes el permiso de imprimir etiquetas. Hay que encenderlo en Usuarios para esta persona.';
     if (st === 'ov_ajena') return 'No puedes imprimir etiquetas de esta orden.';
-    if (st === 'puente_desconectado') return 'Trabajo en la cola de Minecore' + id + '. El puente del iMac de bodega no está conectado. No se envió a la impresora.';
+    if (st === 'puente_desconectado') return 'Trabajo en la cola de Minecore' + id + '. El puente de la impresora de bodega no está conectado. No se envió a la impresora.';
     if (st === 'impresora_offline') return 'El puente está conectado, pero la DYMO LabelWriter Wireless figura offline. El trabajo sigue en cola y no se mandó a CUPS.';
     if (st === 'error_envio') return 'La impresora no aceptó el envío' + id + '. No quedó confirmado en CUPS. El reintento es seguro: no hay una copia a medias.';
     if (st === 'aceptado_cups') return 'CUPS aceptó el trabajo' + cups + '. Eso no confirma que la etiqueta haya salido. Revisa la impresora.';
@@ -128,11 +129,11 @@
     var qty0 = spec.lines && spec.lines.length ? spec.lines[0].qty : 1;
     return '<div class="etiq-box etiq-uno" data-kind="' + esc(spec.kind) + '" data-id="' + esc(spec.id) + '" data-nonce="' + nonce + '">' +
       '<b>' + esc(spec.titulo) + '</b>' +
-      '<div class="etiq-st">Va al iMac de bodega ya vinculado. No es Compartir ni AirPrint. No cambia la orden ni el stock. El PDF de este equipo sigue aparte.</div>' +
+      '<div class="etiq-st">Va a la impresora de bodega, que ya está vinculada. No es Compartir ni AirPrint. No cambia la orden ni el stock. El PDF de este equipo sigue aparte.</div>' +
       (opts ? '<label class="etiq-meta">Producto<select class="etiq-linea" style="display:block;width:100%;margin-top:4px">' + opts + '</select></label>' : '<div class="etiq-meta">El servidor pone el nombre y el SKU. Esta etiqueta no lleva número de orden.</div>') +
       '<div class="etiq-acts"><label class="etiq-meta">Cantidad en la etiqueta (×)<input class="etiq-qty" type="number" min="1" max="999" value="' + esc(qty0) + '" style="display:block;width:88px"></label>' +
       '<label class="etiq-meta">Número de etiquetas<input class="etiq-copias" type="number" min="1" max="20" value="1" style="display:block;width:88px"></label>' +
-      '<button type="button" class="cbz-btn" onclick="MCEtiq.enviar(this)">Enviar al iMac</button></div>' +
+      '<button type="button" class="cbz-btn etiq-remote" onclick="MCEtiq.enviar(this)">Imprimir etiqueta remota</button></div>' +
       '<div class="etiq-st etiq-out"></div></div>';
   }
   function ov(cur) {
@@ -144,6 +145,28 @@
     });
     if (!lines.length || !uuidOk(cur.orden.id)) return '';
     return formHtml({ kind: 'ov', id: String(cur.orden.id), titulo: 'Una etiqueta de esta orden', lines: lines });
+  }
+  function toda(cur) {
+    if (!ok() || !cur || !cur.orden || cur.orden.is_quote || cur.orden.is_cancelled || !uuidOk(cur.orden.id)) return;
+    var id = String(cur.orden.id);
+    if (!cur._etiqNonce) cur._etiqNonce = String(Date.now());
+    var key = 'all:' + id + ':' + cur._etiqNonce;
+    if (busy[key]) return;
+    busy[key] = 1;
+    var host = root.document && root.document.getElementById('etiq-toda');
+    if (host) host.textContent = 'Enviando las etiquetas de esta orden…';
+    post('etiq_enqueue', { ov_id: id, idempotency_key: key }).then(function (r) {
+      busy[key] = 0;
+      if (!host) return;
+      var err = r && r.error ? String(r.error) : '';
+      if (!r || /operaci[oó]n no v[aá]lida/i.test(err) || err === 'entrada_rechazada') {
+        host.textContent = 'No se encoló. El servidor no aceptó la orden completa. No se imprimió nada y la orden no cambió.';
+        return;
+      }
+      var d = interpret(r);
+      if (d.state === 'puente_desconectado' && r.job && r.job.status === 'queued') d.state = 'en_cola';
+      host.textContent = texto(d.state, d);
+    });
   }
   function prod(id) {
     if (!ok() || !uuidOk(id) || !root.document) return;
@@ -350,6 +373,7 @@
     panel: panel,
     impresion: impresion,
     ov: ov,
+    toda: toda,
     prod: prod,
     enviar: enviar,
     decide: decide,
