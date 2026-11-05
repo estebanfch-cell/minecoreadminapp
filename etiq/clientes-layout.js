@@ -41,33 +41,64 @@
     while (s > min) { doc.setFontSize(s); if (doc.getTextWidth(text) <= maxW + 0.01) return s; s = Math.round((s - 0.15) * 100) / 100; }
     doc.setFontSize(min); return min;
   }
+  /* SKU y OV/SO comparten un solo tamaño. ×cantidad va pegada al SKU.
+     Si no caben en una línea, la OV baja completa a la siguiente, al mismo tamaño. */
+  function place(doc, sku, qty, ov) {
+    var gap = 1.15, sep = 2.0, maxW = W - MX * 2, size = 8.2, m, one = null, sz;
+    function measure(sz) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(sz);
+      return { sw: doc.getTextWidth(sku), qw: doc.getTextWidth(qty), ow: doc.getTextWidth(ov) };
+    }
+    for (sz = 8.2; sz >= 6.4; sz = Math.round((sz - 0.1) * 100) / 100) {
+      m = measure(sz);
+      if (m.sw + gap + m.qw + sep + m.ow <= maxW + 0.05) { one = { size: sz, m: m }; break; }
+    }
+    if (one) {
+      return {
+        lines: 1, skuPt: one.size, ovPt: one.size, qtyPt: one.size,
+        skuX: MX, skuW: one.m.sw, qtyX: MX + one.m.sw + gap, qtyW: one.m.qw,
+        ovX: W - MX - one.m.ow, ovW: one.m.ow, gap: gap
+      };
+    }
+    size = 8;
+    var chosen = 5.4, mm;
+    for (sz = 8; sz >= 5.4; sz = Math.round((sz - 0.1) * 100) / 100) {
+      mm = measure(sz);
+      if (mm.sw + gap + mm.qw <= maxW + 0.05 && mm.ow <= maxW + 0.05) { chosen = sz; break; }
+    }
+    mm = measure(chosen);
+    return {
+      lines: 2, skuPt: chosen, ovPt: chosen, qtyPt: chosen,
+      skuX: MX, skuW: mm.sw, qtyX: MX + mm.sw + gap, qtyW: mm.qw,
+      ovX: MX, ovW: mm.ow, gap: gap
+    };
+  }
   function draw(doc, d) {
     d = d || {};
     var nombre = String(d.nombre || ''), sku = String(d.sku || ''), ov = String(d.ov || ''), qty = qtyText(d.qty);
-    var bar = fit(sku), barY = H - MY - BAR_H, nameTop = MY, nameH = 7.2, maxW = W - MX * 2;
+    var bar = fit(sku), idn = place(doc, sku, qty, ov);
+    var identH = idn.lines === 1 ? 3.3 : 6.4;
+    var barY = H - MY - BAR_H, nameTop = MY, maxW = W - MX * 2;
+    var nameH = Math.max(4.2, barY - 0.45 - identH - nameTop);
     var size = 9.2, lines, lh;
     doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold');
-    while (size >= 4.8) {
+    while (size >= 4.6) {
       doc.setFontSize(size); lines = doc.splitTextToSize(nombre, maxW); lh = lead(size);
       if (lines.length * lh <= nameH) break;
       size = Math.round((size - 0.2) * 100) / 100;
     }
-    if (size < 4.8) size = 4.8;
+    if (size < 4.6) size = 4.6;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(size);
     lines = doc.splitTextToSize(nombre, maxW); lh = lead(size);
     if (lines.length * lh > nameH) lh = nameH / Math.max(lines.length, 1);
     var y = nameTop + size * PT * 0.78;
     lines.forEach(function (line) { doc.text(String(line), MX, y); y += lh; });
-    var foot = barY - 0.7;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    var qW = doc.getTextWidth(qty);
-    var ovSize = fitW(doc, ov, 'bold', 7, 4.6, 18);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(ovSize);
-    var ovW = doc.getTextWidth(ov), qtyX = W - MX - ovW - 1.3 - qW;
-    var skuSize = fitW(doc, sku, 'bold', 8.2, 5, Math.max(8, qtyX - MX - 1));
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(skuSize); doc.text(sku, MX, foot);
-    doc.setFontSize(10); doc.text(qty, qtyX, foot);
-    doc.setFontSize(ovSize); doc.text(ov, W - MX, foot, { align: 'right' });
+    var base = barY - 1.15;
+    var yOv = base, ySku = idn.lines === 1 ? base : base - lead(idn.skuPt) - 0.15;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(idn.skuPt);
+    doc.text(sku, idn.skuX, ySku);
+    doc.setFontSize(idn.qtyPt); doc.text(qty, idn.qtyX, ySku);
+    doc.setFontSize(idn.ovPt); doc.text(ov, idn.lines === 1 ? W - MX : idn.ovX, yOv, idn.lines === 1 ? { align: 'right' } : undefined);
     var x = (W - bar.totalW) / 2 + bar.quietMm;
     doc.setFillColor(0, 0, 0);
     bar.sym.pats.forEach(function (p) {
@@ -78,21 +109,30 @@
         x += ww; black = !black;
       }
     });
-    return { page: { w: W, h: H }, nameLines: lines, namePt: size, moduleMm: bar.module, quiet: QUIET, barH: BAR_H, sku: sku, qty: qty, ov: ov, clipped: false };
+    return {
+      page: { w: W, h: H }, nameLines: lines, namePt: size, moduleMm: bar.module, quiet: QUIET, barH: BAR_H,
+      sku: sku, qty: qty, ov: ov, clipped: false, lines: idn.lines,
+      skuPt: idn.skuPt, ovPt: idn.ovPt, qtyPt: idn.qtyPt,
+      skuX: idn.skuX, skuW: idn.skuW, qtyX: idn.qtyX, qtyW: idn.qtyW, ovX: idn.ovX, ovW: idn.ovW,
+      gap: idn.qtyX - (idn.skuX + idn.skuW), ySku: ySku, yOv: yOv, nameBottom: y - lh
+    };
   }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function tw(mm) { return Math.round(mm / 25.4 * 1440); }
   function piece(n, s, x, y, w, h, sz, bold, al) {
     return '<ObjectInfo><TextObject><Name>' + n + '</Name><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/><BackColor Alpha="0" Red="255" Green="255" Blue="255"/><LinkedObjectName></LinkedObjectName><Rotation>Rotation0</Rotation><IsMirrored>False</IsMirrored><IsVariable>False</IsVariable><HorizontalAlignment>' + (al || 'Left') + '</HorizontalAlignment><VerticalAlignment>Middle</VerticalAlignment><TextFitMode>ShrinkToFit</TextFitMode><UseFullFontHeight>True</UseFullFontHeight><Verticalized>False</Verticalized><StyledText><Element><String>' + esc(s) + '</String><Attributes><Font Family="Arial" Size="' + sz + '" Bold="' + (bold ? 'True' : 'False') + '" Italic="False" Underline="False" Strikeout="False"/><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/></Attributes></Element></StyledText></TextObject><Bounds X="' + tw(x) + '" Y="' + tw(y) + '" Width="' + tw(w) + '" Height="' + tw(h) + '"/></ObjectInfo>';
   }
+  function block(sku, qty) {
+    var q = ' ' + qty;
+    return '<ObjectInfo><TextObject><Name>SQ</Name><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/><BackColor Alpha="0" Red="255" Green="255" Blue="255"/><LinkedObjectName></LinkedObjectName><Rotation>Rotation0</Rotation><IsMirrored>False</IsMirrored><IsVariable>False</IsVariable><HorizontalAlignment>Left</HorizontalAlignment><VerticalAlignment>Middle</VerticalAlignment><TextFitMode>ShrinkToFit</TextFitMode><UseFullFontHeight>True</UseFullFontHeight><Verticalized>False</Verticalized><StyledText><Element><String>' + esc(sku) + '</String><Attributes><Font Family="Arial" Size="8" Bold="True" Italic="False" Underline="False" Strikeout="False"/><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/></Attributes></Element><Element><String>' + esc(q) + '</String><Attributes><Font Family="Arial" Size="8" Bold="True" Italic="False" Underline="False" Strikeout="False"/><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/></Attributes></Element></StyledText></TextObject><Bounds X="' + tw(1.5) + '" Y="' + tw(6.8) + '" Width="' + tw(48) + '" Height="' + tw(2.8) + '"/></ObjectInfo>';
+  }
   function xml(L) {
     var q = qtyText(L && L.qty), sku = L && L.sku || '';
     var quiet = tw(1.6);
-    return piece('N', L && L.nombre, 1.5, 0.6, 48, 7.2, 11, true) +
-      piece('S', sku, 1.5, 7.8, 22, 3.4, 9, true) +
-      piece('Q', q, 24, 7.6, 10, 3.6, 13, true, 'Center') +
-      piece('O', L && L.ov, 34, 7.9, 15.5, 3.3, 8, true, 'Right') +
-      '<ObjectInfo><BarcodeObject><Name>BC</Name><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/><BackColor Alpha="0" Red="255" Green="255" Blue="255"/><LinkedObjectName></LinkedObjectName><Rotation>Rotation0</Rotation><IsMirrored>False</IsMirrored><IsVariable>False</IsVariable><Text>' + esc(sku) + '</Text><Type>Code128Auto</Type><Size>Medium</Size><TextPosition>None</TextPosition><TextFont Family="Arial" Size="6" Bold="False" Italic="False" Underline="False" Strikeout="False"/><CheckSumFont Family="Arial" Size="6" Bold="False" Italic="False" Underline="False" Strikeout="False"/><TextEmbedding>None</TextEmbedding><ECLevel>0</ECLevel><HorizontalAlignment>Center</HorizontalAlignment><QuietZonesPadding Left="' + quiet + '" Top="0" Right="' + quiet + '" Bottom="0"/></BarcodeObject><Bounds X="' + tw(1.5) + '" Y="' + tw(11.6) + '" Width="' + tw(48) + '" Height="' + tw(BAR_H) + '"/></ObjectInfo>';
+    return piece('N', L && L.nombre, 1.5, 0.5, 48, 6.2, 10, true) +
+      block(sku, q) +
+      piece('O', L && L.ov, 1.5, 9.6, 48, 2.5, 8, true) +
+      '<ObjectInfo><BarcodeObject><Name>BC</Name><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/><BackColor Alpha="0" Red="255" Green="255" Blue="255"/><LinkedObjectName></LinkedObjectName><Rotation>Rotation0</Rotation><IsMirrored>False</IsMirrored><IsVariable>False</IsVariable><Text>' + esc(sku) + '</Text><Type>Code128Auto</Type><Size>Medium</Size><TextPosition>None</TextPosition><TextFont Family="Arial" Size="6" Bold="False" Italic="False" Underline="False" Strikeout="False"/><CheckSumFont Family="Arial" Size="6" Bold="False" Italic="False" Underline="False" Strikeout="False"/><TextEmbedding>None</TextEmbedding><ECLevel>0</ECLevel><HorizontalAlignment>Center</HorizontalAlignment><QuietZonesPadding Left="' + quiet + '" Top="0" Right="' + quiet + '" Bottom="0"/></BarcodeObject><Bounds X="' + tw(1.5) + '" Y="' + tw(12.3) + '" Width="' + tw(48) + '" Height="' + tw(5.6) + '"/></ObjectInfo>';
   }
   root.MCCliLay = { W: W, H: H, MIN_MOD: MIN_MOD, QUIET: QUIET, BAR_H: BAR_H, encode: encode, symbol: symbol, fit: fit, draw: draw, xml: xml, qtyText: qtyText };
 })(typeof window !== 'undefined' ? window : globalThis);

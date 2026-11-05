@@ -1,5 +1,5 @@
-/* Impresión remota de etiquetas Clientes. El portal no llama a un endpoint nuevo:
-   MC_ETIQ_LIVE queda en false hasta que ventas-api publique la cola. */
+/* Impresión remota. No hay LIVE fijo: se pregunta al gateway y solo se encola
+   si responde el contrato etiq. Si portal-api todavía filtra la operación, no se envía nada. */
 (function (root) {
   'use strict';
   var LIVE = false;
@@ -48,7 +48,7 @@
     var n = info.n != null ? info.n : '';
     var id = info.job_id ? ' ' + info.job_id : '';
     var cups = info.cups_job_id ? ' ' + info.cups_job_id : '';
-    if (st === 'aviso') return 'Perfil Clientes · 19×51 mm (30330) · DYMO LabelWriter Wireless. No usa la DYMO 450 de bodega. ' + (n === '' ? '' : n + ' etiqueta(s), una por línea. ') + 'La cola todavía no está publicada: este botón no envía un trabajo y no cambia la orden.';
+    if (st === 'aviso') return 'Perfil Clientes · 19×51 mm (30330) · DYMO LabelWriter Wireless. No usa la DYMO 450 de bodega. ' + (n === '' ? '' : n + ' etiqueta(s), una por línea. ') + 'Si el servicio aún no deja pasar la orden, no se envía nada y la orden no cambia.';
     if (st === 'servicio_no_publicado') return 'No se envió ningún trabajo. La cola no está publicada en el servidor y el puente del iMac de bodega no está instalado. No está impreso. El stock y la preparación no cambian.';
     if (st === 'sin_permiso') return 'No tienes el permiso de imprimir etiquetas. Hay que encenderlo en Usuarios para esta persona.';
     if (st === 'ov_ajena') return 'No puedes imprimir etiquetas de esta orden.';
@@ -107,8 +107,28 @@
     if (!input.live) return { state: 'servicio_no_publicado', sent: false, job_id: null, duplicate: !!input.sameKey, physically_printed: false };
     return { state: 'pendiente_respuesta', sent: true, job_id: null, duplicate: false, physically_printed: false };
   }
+  function gatewayOpen(res) {
+    if (!res || typeof res !== 'object') return false;
+    var err = String(res.error || '');
+    if (/operaci[oó]n no v[aá]lida/i.test(err)) return false;
+    if (res.etiq === 1 && res.physically_printed === false) return true;
+    var code = String(res.code || '');
+    return code === 'ov_ajena' || code === 'sin_permiso' || code === 'entrada_rechazada' || code === 'nada_que_imprimir' || code === 'confirma_reintento' || code === 'confirma_reimpresion' || code === 'no_reintento';
+  }
+  function post(op, extra) {
+    if (typeof root.MCpost !== 'function') return Promise.resolve(null);
+    var p = { action: 'ventas', op: op };
+    try { p.user = root.getUserName ? root.getUserName() : ''; p.pin = root.getPin ? root.getPin() : ''; } catch (e) {}
+    if (extra) for (var k in extra) p[k] = extra[k];
+    return Promise.resolve(root.MCpost(p)).catch(function () { return null; });
+  }
   function interpret(res) {
-    if (!res || res.ok !== true || res.etiq !== 1 || res.physically_printed !== false) {
+    if (!res || typeof res !== 'object') return { state: 'servicio_no_publicado', sent: false, physically_printed: false, job_id: null };
+    var err = String(res.error || '');
+    if (/operaci[oó]n no v[aá]lida/i.test(err)) return { state: 'servicio_no_publicado', sent: false, physically_printed: false, job_id: null };
+    if (res.code === 'sin_permiso') return { state: 'sin_permiso', sent: false, physically_printed: false, job_id: null };
+    if (res.code === 'ov_ajena') return { state: 'ov_ajena', sent: false, physically_printed: false, job_id: null };
+    if (!res.ok || res.etiq !== 1 || res.physically_printed !== false) {
       return { state: 'servicio_no_publicado', sent: false, physically_printed: false, job_id: null };
     }
     var job = res.job || {};
@@ -146,19 +166,29 @@
     host.replaceChild(wrap.firstChild, box);
     return html;
   }
+  var busy = {};
   function click(btn) {
     var box = btn && btn.closest ? btn.closest('.etiq-box') : null;
-    if (!box) return decide({ permitted: false, live: LIVE });
+    if (!box) return decide({ permitted: false, live: false });
+    var id = box.getAttribute('data-id') || '';
     var key = box.getAttribute('data-key') || '';
-    var d = decide({
-      permitted: box.getAttribute('data-ok') === '1' && ok(),
-      live: LIVE,
-      sameKey: box.getAttribute('data-last') === key,
-      forbidden: false
-    });
+    if (!ok()) { paint(box, { state: 'sin_permiso', physically_printed: false }); return; }
+    if (busy[key]) return;
+    busy[key] = 1;
     box.setAttribute('data-last', key);
-    paint(box, d);
-    return d;
+    post('etiq_status', { job_id: '00000000-0000-0000-0000-000000000000' }).then(function (probe) {
+      if (!gatewayOpen(probe)) {
+        busy[key] = 0;
+        paint(box, { state: 'servicio_no_publicado', physically_printed: false });
+        return null;
+      }
+      return post('etiq_enqueue', { ov_id: id, idempotency_key: key, intent: 'print' });
+    }).then(function (r) {
+      if (!r) return;
+      busy[key] = 0;
+      var box2 = root.document && root.document.querySelector('.etiq-box[data-id="' + id + '"]');
+      paint(box2 || box, interpret(r));
+    });
   }
   function blocked(btn, state) {
     var box = btn && btn.closest ? btn.closest('.etiq-box') : null;
@@ -184,7 +214,8 @@
     root.MCDymo.abrir('despacho', items, 'Etiquetas clientes · ' + o.order_number);
   }
   root.MCEtiq = {
-    LIVE: LIVE,
+    LIVE: false,
+    gatewayOpen: gatewayOpen,
     PERM: PERM,
     CSS: CSS,
     permisos: permisos,

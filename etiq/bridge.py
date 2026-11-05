@@ -186,6 +186,30 @@ def code128_bars(sku, page_w, page_h):
     return ops
 
 
+def place_ids(sku, qty, ov):
+    """SKU y OV al mismo tamaño. Si no caben en una línea, la OV baja. Anchos en puntos."""
+    gap = 1.15 / 25.4 * 72.0
+    sep = 2.0 / 25.4 * 72.0
+    maxw = (51.0 - 3.0) / 25.4 * 72.0
+
+    def width(text, pt):
+        return len(text) * pt * 0.52
+
+    sz = 8.2
+    while sz >= 6.4:
+        sw, qw, ow = width(sku, sz), width(qty, sz), width(ov, sz)
+        if sw + gap + qw + sep + ow <= maxw + 0.4:
+            return 1, sz, sw, qw, ow
+        sz = round(sz - 0.1, 2)
+    sz = 8.0
+    while sz >= 5.4:
+        sw, qw, ow = width(sku, sz), width(qty, sz), width(ov, sz)
+        if sw + gap + qw <= maxw + 0.4 and ow <= maxw + 0.4:
+            return 2, sz, sw, qw, ow
+        sz = round(sz - 0.1, 2)
+    return 2, 5.4, width(sku, 5.4), width(qty, 5.4), width(ov, 5.4)
+
+
 def render_pdf(labels):
     """PDF 51×19 mm. Nombre completo, código, cantidad, OV y Code128 del SKU."""
     width = round(WIDTH_MM / 25.4 * 72.0, 2)
@@ -208,17 +232,27 @@ def render_pdf(labels):
             parts.append("/F2 %.2f Tf" % size)
             parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (1.5 / 25.4 * 72.0, y, pdf_escape(raw)))
             y -= step
-        foot = 1.9 / 25.4 * 72.0
         sku = str(fields.get("sku", "")).encode("latin-1", "replace").decode("latin-1")
         qty = (u"\u00d7" + str(fields.get("qty", ""))).encode("latin-1", "replace").decode("latin-1")
         ov = str(fields.get("ov", "")).encode("latin-1", "replace").decode("latin-1")
+        rows, pt, sw, qw, ow = place_ids(sku, qty, ov)
         x0 = 1.5 / 25.4 * 72.0
-        parts.append("/F1 7.4 Tf")
-        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x0, foot, pdf_escape(sku)))
-        parts.append("/F2 11 Tf")
-        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (width * 0.42, foot, pdf_escape(qty)))
-        parts.append("/F2 7.2 Tf")
-        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (width * 0.62, foot, pdf_escape(ov)))
+        gap = 1.15 / 25.4 * 72.0
+        bar_top = (1.0 + 6.2) / 25.4 * 72.0
+        if rows == 1:
+            y_sku = bar_top + 3
+            y_ov = y_sku
+            x_ov = width - (1.5 / 25.4 * 72.0) - ow
+        else:
+            y_ov = bar_top + 2
+            y_sku = y_ov + pt * 1.25
+            x_ov = x0
+        parts.append("/F2 %.2f Tf" % pt)
+        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x0, y_sku, pdf_escape(sku)))
+        parts.append("/F2 %.2f Tf" % pt)
+        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x0 + sw + gap, y_sku, pdf_escape(qty)))
+        parts.append("/F2 %.2f Tf" % pt)
+        parts.append("1 0 0 1 %.2f %.2f Tm (%s) Tj" % (x_ov, y_ov, pdf_escape(ov)))
         parts.append("ET")
         parts.extend(code128_bars(str(fields.get("sku", "")), width, height))
         contents.append("\n".join(parts).encode("latin-1", "replace"))
