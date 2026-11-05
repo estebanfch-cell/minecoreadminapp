@@ -20,10 +20,9 @@ LABEL = {
     "copies": 1,
     "fields": {
         "nombre": "PRODUCTO DE PRUEBA",
-        "cod_prov": "PROV-TEST",
-        "categoria": "CATEGORIA PRUEBA",
         "sku": "PRUEBA-SKU",
-        "linea": "LINEA PRUEBA",
+        "qty": "3",
+        "ov": "PRUEBA-SO-0001",
     },
 }
 
@@ -94,9 +93,11 @@ class BridgeTest(unittest.TestCase):
             bridge.load_config(path)
         os.remove(path)
         with self.assertRaises(ValueError):
-            bridge.resolve_base("http://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api")
-        ok = bridge.resolve_base("https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api")
-        self.assertTrue(ok.startswith("https://bklbvwpkrdaojbezljsd.supabase.co/"))
+            bridge.resolve_base("http://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api")
+        with self.assertRaises(ValueError):
+            bridge.resolve_base("https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/portal-api")
+        ok = bridge.resolve_base("https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api")
+        self.assertEqual(ok, "https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api")
 
     def test_pdf_size_and_fields(self):
         raw = bridge.render_pdf([LABEL])

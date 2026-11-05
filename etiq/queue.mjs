@@ -32,10 +32,10 @@ export function buildLabels(ov) {
       copies: 1,
       fields: {
         nombre: String(l.nombre || l.description || ''),
-        cod_prov: String(l.cod_prov || ''),
-        categoria: String(l.categoria || l.cat_contable || ''),
         sku: String(l.sku || ''),
-        linea: String(l.linea || '')
+        qty: String(qty),
+        ov: String(ov.order_number || ''),
+        barcode: String(l.sku || '')
       }
     });
   });
