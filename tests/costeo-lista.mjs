@@ -15,12 +15,15 @@ const F = window.MCCosteoFmt;
 function pct(n){return (n * 100).toFixed(2) + '%';}
 
 test('el incremento es sobre el FOB, no sobre el costo en bodega', () => {
-  const a = F.incSobreFob(6819.35, 8577.80);
-  const b = F.incSobreFob(8100, 11628.66);
-  assert.equal(pct(a), '25.79%');
-  assert.equal(pct(b), '43.56%');
+  const casos = [
+    [6819.35, 8577.80, '25.79%'],
+    [8100, 11628.66, '43.56%'],
+    [27470, 36133.80, '31.54%'],
+    [43731.93, 50300.83, '15.02%']
+  ];
+  for (const [fob, bodega, esp] of casos) assert.equal(pct(F.incSobreFob(fob, bodega)), esp);
   assert.equal(pct((8577.80 - 6819.35) / 8577.80), '20.50%');
-  assert.notEqual(pct(a), '20.50%');
+  assert.notEqual(pct(F.incSobreFob(6819.35, 8577.80)), '20.50%');
   assert.equal(F.incSobreFob(0, 100), null);
   assert.equal(F.incSobreFob(100, 80) < 0, true);
 });
@@ -30,8 +33,9 @@ test('la lista y el detalle usan FOB y costo en bodega, e ignoran el ratio viejo
   const detalle = F.incDe({ M: 8100, AF: 11628.66, incremento: 0.3034 });
   assert.equal(pct(lista), '25.79%');
   assert.equal(pct(detalle), '43.56%');
-  const linea = F.incLin({ M: 100, AF: 125, AP: 0.2 });
+  const linea = F.incLin({ J: 100, AH: 125, M: 80, AF: 90, AP: 0.2 });
   assert.equal(pct(linea), '25.00%');
+  assert.equal(F.incLin({ M: 100, AF: 125 }), null);
   assert.equal(F.incDe({ incremento: 0.205 }), null);
 });
 
@@ -44,7 +48,7 @@ test('varias OCs caben en un botón; una sola también', () => {
   assert.match(html, /etiquetaOcs\(L\.length\)/);
   assert.match(html, /Incremento sobre FOB/);
   assert.match(html, /cst-home/);
-  assert.match(html, /var MC_BUILD='574'/);
-  assert.match(sw, /var SWV='b574'/);
+  assert.match(html, /var MC_BUILD='576'/);
+  assert.match(sw, /var SWV='b576'/);
   assert.doesNotMatch(html, /pc\(t\.incremento\)|pc\(T\.incremento\)|pc\(x\.AP\)/);
 });
