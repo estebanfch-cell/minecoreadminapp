@@ -69,6 +69,18 @@ test('una ráfaga de pistola no se queda en la cantidad', () => {
   assert.equal(enter.out.scan, '');
 });
 
+test('559 en la sección enfoca la primera línea sin contar', () => {
+  const ccElegirLinea = new Function(extrae('ccElegirLinea') + '\nreturn ccElegirLinea;')();
+  const a = { id: 'a', product_id: 'p559', contado: 5 };
+  const b = { id: 'b', product_id: 'p559', contado: null };
+  const c = { id: 'c', product_id: 'otro', contado: null };
+  assert.equal(ccElegirLinea([a, b, c], 'p559', {}).id, 'b');
+  assert.equal(ccElegirLinea([a, c], 'p559', {}).id, 'a');
+  assert.equal(ccElegirLinea([c], 'p559', {}), null);
+  assert.match(html, /if\(aqui\)\{irCant\(aqui\);return;\}/);
+  assert.match(html, /ccElegirLinea\(S\.sec&&S\.sec\.lineas,elegido\.id,S\.dirty\)/);
+});
+
 test('escribir no rehace el buscador', () => {
   const filtro = extrae('filtro');
   assert.doesNotMatch(filtro, /rSec\(|setSelectionRange|\.focus\(/);
