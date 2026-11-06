@@ -44,7 +44,7 @@ test('varias OCs caben en un botón; una sola también', () => {
   assert.match(html, /etiquetaOcs\(L\.length\)/);
   assert.match(html, /Incremento sobre FOB/);
   assert.match(html, /cst-home/);
-  assert.match(html, /var MC_BUILD='575'/);
-  assert.match(sw, /var SWV='b575'/);
+  assert.match(html, /var MC_BUILD='576'/);
+  assert.match(sw, /var SWV='b576'/);
   assert.doesNotMatch(html, /pc\(t\.incremento\)|pc\(T\.incremento\)|pc\(x\.AP\)/);
 });
