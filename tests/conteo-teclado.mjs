@@ -91,4 +91,7 @@ test('escribir no rehace el buscador', () => {
   assert.match(html, /id="cc-add-q" class="cc-add-q" type="text" inputmode="numeric"/);
   assert.match(html, /body=\{op:'cc_buscar',q:q\}/);
   assert.match(html, /p\.por_barcode/);
+  assert.match(html, /k==='inv\.e\.historial'/);
+  assert.match(html, /Ac\('inv\.e\.historial','Historial del producto','inventario',1\)/);
+  assert.match(html, /x\[1\]!=='inv\.e\.historial'/);
 });
