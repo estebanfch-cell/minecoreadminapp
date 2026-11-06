@@ -9,8 +9,8 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
 test('la cantidad vacía es casilla verde y la medida no cambia', () => {
-  assert.match(html, /var MC_BUILD='576'/);
-  assert.match(sw, /var SWV='b576'/);
+  assert.match(html, /var MC_BUILD='577'/);
+  assert.match(sw, /var SWV='b577'/);
   assert.match(html, /cc-vacio/);
   assert.match(html, /html body #cc input\.cc-q\.cc-vacio\{background:rgba\(183,243,74,\.16\)!important;border:2px solid #b7f34a!important\}/);
   assert.match(html, /width:58px!important/);
@@ -22,7 +22,7 @@ test('la cantidad vacía es casilla verde y la medida no cambia', () => {
   assert.match(html, /Código Minecore/);
   assert.match(html, /function addBuscar\(\)\{var e=\$\('cc-add-q'\);var v=e\?String\(e\.value\|\|''\)\.trim\(\):'';if\(!v\)\{if\(e\)e\.focus\(\);return;\}S\.add=false;scan\(v\);\}/);
   assert.match(html, /if\(hallazgoOn\(\)\)body\.seccion/);
-  assert.match(html, /S\.hz=hzDe\(P\[0\],r\)/);
+  assert.match(html, /S\.hz=hzDe\(uso\[0\],r\)/);
   assert.match(html, /bar\.innerHTML=barHtml\(\)/);
   assert.doesNotMatch(html.slice(html.indexOf('function addAbrir'), html.indexOf('function scan')), /cc_sec_guardar|stk_|insert\(/);
   assert.match(html, /function barHtml\(\)\{var nd=Object\.keys\(S\.dirty\)\.length;return \(nd\?'<span class="cc-pend">'\+nd\+' sin guardar<\/span><button class="chip" onclick="MCCC\.descartar\(\)">Descartar<\/button><button class="cbz-btn" onclick="MCCC\.guardar\(\)">Guardar<\/button>':'<span class="cc-pend" style="color:#8fa3b8">✓ Guardado<\/span>'\)\+'<button class="cbz-btn" style="background:#1e4976" onclick="MCCC\.cerrarSec\(\)">Terminar<\/button>';\}/);
