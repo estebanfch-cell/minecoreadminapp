@@ -1,9 +1,19 @@
+// Modelo, fórmula y fuentes. No abre el portal ni un conteo real: no es una prueba de punta a punta.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const here = path.dirname(fileURLToPath(import.meta.url));
+function primero(candidatos) {
+  for (const p of candidatos) if (p && fs.existsSync(p)) return p;
+  throw new Error('No está el archivo. Busqué: ' + candidatos.join(' | '));
+}
+const indexPath = primero([process.env.HALLAZGO_INDEX, path.join(here, '..', 'index.html'), path.join(here, 'fixtures', 'index.html')]);
+const swPath = primero([process.env.HALLAZGO_SW, path.join(here, '..', 'sw.js'), path.join(here, 'fixtures', 'sw.js')]);
+const html = fs.readFileSync(indexPath, 'utf8');
+const sw = fs.readFileSync(swPath, 'utf8');
 const bloque = html.match(/\/\* MCHALLAZGO-BEGIN \*\/([\s\S]*?)\/\* MCHALLAZGO-END \*\//);
 if (!bloque) throw new Error('falta MCHallazgo');
 const window = {};
@@ -144,9 +154,10 @@ test('origen en revisión, ya contado o de otra bodega no se escribe', () => {
 });
 
 test('el portal deja el permiso apagado y no cambia el cierre ni cancela una sección', () => {
-  assert.match(html, /var MC_BUILD='572'/);
-  assert.match(sw, /var SWV='b572'/);
-  assert.match(html, /Ac\('co\.e\.hallazgo'/);
+  assert.match(html, /var MC_BUILD='573'/);
+  assert.match(sw, /var SWV='b573'/);
+  assert.match(html, /Ac\('co\.e\.hallazgo','Agregar productos encontrados','conteo',1\)/);
+  assert.doesNotMatch(html, /Ac\('co\.e\.hallazgo','Cruce al encontrar'/);
   assert.match(html, /function MCea\(k\)\{return \/\\\.e\\\./);
   assert.match(html, /hallazgoOn\(\)/);
   assert.match(html, /if\(hallazgoOn\(\)\)body\.seccion/);
@@ -156,4 +167,76 @@ test('el portal deja el permiso apagado y no cambia el cierre ni cancela una sec
   assert.match(html, /Sin existencias registradas/);
   assert.match(html, /Hay varias estanterías/);
   assert.match(html, /queda anotado ahí/);
+  assert.match(html, /x\[1\]!=='co\.e\.hallazgo'/);
+});
+
+test('el interruptor se guarda y se relee apagado o encendido, sin plantilla que lo prenda', () => {
+  const cuerpo = html.match(/function MCea\(k\)\{return ([^}]+)\}/);
+  assert.ok(cuerpo, 'falta MCea');
+  const MCea = new Function('k', 'return ' + cuerpo[1]);
+  assert.equal(MCea('co.e.hallazgo'), true);
+  assert.equal(MCea('co.agregar'), true);
+  const fila = ['s', 'co.e.hallazgo', 1, 'Agregar productos encontrados', 'a', 'conteo'];
+  function emitir(sub) {
+    const t = [];
+    Object.keys(sub).forEach((k) => {
+      if (k === 'ui.e.vdos') return;
+      if (MCea(k)) { if (sub[k] === true) t.push('~' + k + '=1'); }
+      else if (sub[k] === false) t.push('~' + k + '=0');
+    });
+    return t;
+  }
+  function releer(toks) {
+    const o = {};
+    toks.forEach((t) => {
+      const x = /^~([a-z]+(?:\.[a-z]+){1,2})=([01])$/.exec(t);
+      if (x) o[x[1]] = x[2] === '1';
+    });
+    return o;
+  }
+  function visible(niv, sub) {
+    const x = fila;
+    if (x[5] && (niv[x[5]] || 0) < x[2]) return false;
+    return MCea(x[1]) ? sub[x[1]] === true : sub[x[1]] !== false;
+  }
+  assert.deepEqual(emitir({}), []);
+  assert.equal(visible({ conteo: 1 }, releer(emitir({}))), false);
+  const guardado = emitir({ 'co.e.hallazgo': true });
+  assert.deepEqual(guardado, ['~co.e.hallazgo=1']);
+  assert.equal(/^~[a-z]+(\.[a-z]+){1,2}=[01]$/.test(guardado[0]), true);
+  assert.equal(releer(guardado)['co.e.hallazgo'], true);
+  assert.equal(visible({ conteo: 1 }, releer(guardado)), true);
+  assert.equal(visible({ conteo: 0 }, releer(guardado)), false);
+  const plantilla = {};
+  const catalogo = [["s", "co.agregar", 1, "Agregar producto no listado", "a", "conteo"], fila];
+  catalogo.forEach((x) => {
+    if (x[0] === 's' && x[5] && MCea(x[1]) && x[1] !== 'co.e.hallazgo' && 1 >= x[2]) plantilla[x[1]] = true;
+  });
+  assert.equal(plantilla['co.agregar'], true);
+  assert.equal(plantilla['co.e.hallazgo'], undefined);
+  assert.equal(emitir(plantilla).includes('~co.e.hallazgo=1'), false);
+});
+
+const servidor = path.join(here, '..', 'src', 'conteos.ts');
+test('servidor: el cruce exige el permiso, no mueve stock y no enciende el interruptor solo', { skip: !fs.existsSync(servidor) }, () => {
+  const conteos = fs.readFileSync(servidor, 'utf8');
+  const perm = fs.readFileSync(path.join(here, '..', 'src', 'perm.ts'), 'utf8');
+  const portal = fs.readFileSync(path.join(here, '..', 'src', 'index.ts'), 'utf8');
+  const i = conteos.indexOf('if (b.cruzar)');
+  const j = conteos.indexOf('for (const x of b.lineas', i);
+  const bloque = conteos.slice(i, j);
+  assert.ok(i > 0 && j > i);
+  assert.match(bloque, /permisos\.hallazgo !== true/);
+  assert.doesNotMatch(bloque, /stock\(|stk_adjust|stk_transfer/);
+  assert.match(conteos, /quantity: mcRound\(\(\(x\.c \|\| 0\) \+ x\.oq \+ \(x\.extras \|\| \[\]\)\.reduce\(\(a, y\)=>a \+ \(Number\(y\.qty\) \|\| 0\), 0\) - x\.e\) \* 10000\) \/ 10000,/);
+  assert.match(conteos, /producto\(s\) en «Buscar después»/);
+  assert.doesNotMatch(conteos, /cc_sec_cancelar|cc_sec_abandonar/);
+  assert.match(perm, /b\.cruzar && !sub\(u, "co\.e\.hallazgo"\)/);
+  const ea = perm.slice(perm.indexOf('export const EA_KEYS'), perm.indexOf('export function derivarEA'));
+  assert.doesNotMatch(ea, /co\.e\.hallazgo/);
+  assert.match(portal, /hallazgo: permSub\(u, "co\.e\.hallazgo"\)/);
+  const tok = '~co.e.hallazgo=1';
+  const rx = /^(~[a-z]+(\.[a-z]+){1,2}=[01])$/;
+  assert.equal(rx.test(tok), true);
+  assert.doesNotMatch(fs.readFileSync(path.join(here, '..', 'sql', 'abandon_seccion6_NO_EJECUTAR.sql'), 'utf8'), /delete from app\.inv_doc_lines/);
 });
