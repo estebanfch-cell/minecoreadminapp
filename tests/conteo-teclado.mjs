@@ -94,4 +94,9 @@ test('escribir no rehace el buscador', () => {
   assert.match(html, /k==='inv\.e\.historial'/);
   assert.match(html, /Ac\('inv\.e\.historial','Historial del producto','inventario',1\)/);
   assert.match(html, /x\[1\]!=='inv\.e\.historial'/);
+  assert.match(html, /window\.MCProdHist=/);
+  assert.match(html, /MCProdHist\.abrir\(l\.product_id/);
+  assert.match(html, /MCHist\.abrir\('prep'\)/);
+  assert.match(html, /stock_historial\|/);
+  assert.doesNotMatch(html, /window\.MCHist=/);
 });
