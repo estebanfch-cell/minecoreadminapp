@@ -9,8 +9,8 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
 test('la cantidad vacía es casilla verde y la medida no cambia', () => {
-  assert.match(html, /var MC_BUILD='575'/);
-  assert.match(sw, /var SWV='b575'/);
+  assert.match(html, /var MC_BUILD='576'/);
+  assert.match(sw, /var SWV='b576'/);
   assert.match(html, /cc-vacio/);
   assert.match(html, /html body #cc input\.cc-q\.cc-vacio\{background:rgba\(183,243,74,\.16\)!important;border:2px solid #b7f34a!important\}/);
   assert.match(html, /width:58px!important/);
@@ -25,4 +25,16 @@ test('la cantidad vacía es casilla verde y la medida no cambia', () => {
   assert.match(html, /S\.hz=hzDe\(P\[0\],r\)/);
   assert.match(html, /bar\.innerHTML=barHtml\(\)/);
   assert.doesNotMatch(html.slice(html.indexOf('function addAbrir'), html.indexOf('function scan')), /cc_sec_guardar|stk_|insert\(/);
+  assert.match(html, /function barHtml\(\)\{var nd=Object\.keys\(S\.dirty\)\.length;return \(nd\?'<span class="cc-pend">'\+nd\+' sin guardar<\/span><button class="chip" onclick="MCCC\.descartar\(\)">Descartar<\/button><button class="cbz-btn" onclick="MCCC\.guardar\(\)">Guardar<\/button>':'<span class="cc-pend" style="color:#8fa3b8">✓ Guardado<\/span>'\)\+'<button class="cbz-btn" style="background:#1e4976" onclick="MCCC\.cerrarSec\(\)">Terminar<\/button>';\}/);
+  assert.match(html, /#cc \.cc-bar\{position:static/);
+  assert.doesNotMatch(html, /cc-bar\{position:sticky/);
+  assert.match(html, /Figuraba en:/);
+  assert.match(html, /＋ Crear ubicación/);
+  assert.match(html, /pr\.sin_sub=true/);
+  assert.doesNotMatch(html, /queda anotado ahí/);
+  const top = html.slice(html.indexOf('class="cc-top"'), html.indexOf('cc-res'));
+  assert.match(top, /addBtn\(\)/);
+  const btn = html.slice(html.indexOf('function addBtn'), html.indexOf('function barHtml'));
+  assert.equal(btn.split('＋ Agregar producto').length - 1, 1);
+  assert.doesNotMatch(html.slice(html.indexOf('function barHtml'), html.indexOf('function addHtml')), /Agregar producto/);
 });

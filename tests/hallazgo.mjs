@@ -154,8 +154,8 @@ test('origen en revisión, ya contado o de otra bodega no se escribe', () => {
 });
 
 test('el portal deja el permiso apagado y no cambia el cierre ni cancela una sección', () => {
-  assert.match(html, /var MC_BUILD='575'/);
-  assert.match(sw, /var SWV='b575'/);
+  assert.match(html, /var MC_BUILD='576'/);
+  assert.match(sw, /var SWV='b576'/);
   assert.match(html, /Ac\('co\.e\.hallazgo','Agregar productos encontrados','conteo',1\)/);
   assert.doesNotMatch(html, /Ac\('co\.e\.hallazgo','Cruce al encontrar'/);
   assert.match(html, /function MCea\(k\)\{return \/\\\.e\\\./);
@@ -166,7 +166,9 @@ test('el portal deja el permiso apagado y no cambia el cierre ni cancela una sec
   assert.match(html, /¿Cancelar el conteo general/);
   assert.match(html, /Sin existencias registradas/);
   assert.match(html, /Hay varias estanterías/);
-  assert.match(html, /queda anotado ahí/);
+  assert.match(html, /Figuraba en:/);
+  assert.doesNotMatch(html, /queda anotado ahí/);
+  assert.match(html, /pr\.sin_sub=true/);
   assert.match(html, /x\[1\]!=='co\.e\.hallazgo'/);
 });
 
