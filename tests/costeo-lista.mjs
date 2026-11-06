@@ -30,8 +30,9 @@ test('la lista y el detalle usan FOB y costo en bodega, e ignoran el ratio viejo
   const detalle = F.incDe({ M: 8100, AF: 11628.66, incremento: 0.3034 });
   assert.equal(pct(lista), '25.79%');
   assert.equal(pct(detalle), '43.56%');
-  const linea = F.incLin({ M: 100, AF: 125, AP: 0.2 });
+  const linea = F.incLin({ J: 100, AH: 125, M: 80, AF: 90, AP: 0.2 });
   assert.equal(pct(linea), '25.00%');
+  assert.equal(F.incLin({ M: 100, AF: 125 }), null);
   assert.equal(F.incDe({ incremento: 0.205 }), null);
 });
 
@@ -44,7 +45,15 @@ test('varias OCs caben en un botón; una sola también', () => {
   assert.match(html, /etiquetaOcs\(L\.length\)/);
   assert.match(html, /Incremento sobre FOB/);
   assert.match(html, /cst-home/);
-  assert.match(html, /var MC_BUILD='580'/);
-  assert.match(sw, /var SWV='b580'/);
+  assert.match(html, /var MC_BUILD='581'/);
+  assert.match(sw, /var SWV='b581'/);
+  const caja = F.menuCaja(12, 220, 390);
+  assert.equal(caja.left, 12);
+  assert.ok(caja.left + caja.width <= 390 - 8);
+  const derecha = F.menuCaja(300, 220, 390);
+  assert.ok(derecha.left >= 8);
+  assert.ok(derecha.left + derecha.width <= 382);
+  assert.match(html, /OV atendibles/);
+  assert.match(html, /menuCaja\(r\.left,220,view\)/);
   assert.doesNotMatch(html, /pc\(t\.incremento\)|pc\(T\.incremento\)|pc\(x\.AP\)/);
 });
