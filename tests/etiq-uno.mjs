@@ -16,7 +16,8 @@ if (!html.includes("['etiq','Imprimir etiquetas remotas']")) throw new Error('fa
 if (!html.includes('MCEtiq.directo(this,')) throw new Error('el producto no envía directo');
 if (html.includes('MCEtiq.ov(cur)')) throw new Error('la OV sigue abriendo el formulario');
 if (panel.includes('Una etiqueta de')) throw new Error('sigue el panel');
-if (panel.includes('Una por unidad') || panel.includes('Una por producto') || html.includes('Una por unidad')) throw new Error('fase 2 no va en este build');
+if (!panel.includes('Una por unidad')) throw new Error('falta el modal de tickets');
+if (!html.includes('MCEtiq.elegir(cur)')) throw new Error('Print no abre el modal');
 if (html.includes("openMod('voc')") && html.slice(html.indexOf('MCEtiq.directo'), html.indexOf('MCEtiq.directo') + 80).includes('voc')) throw new Error('OC');
 
 function child() {

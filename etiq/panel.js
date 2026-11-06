@@ -18,7 +18,14 @@
     '.etiq-count{font-size:12px;color:#8fa3b8;margin-top:4px;min-height:0}' +
     '.etiq-spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:etiqsp .7s linear infinite;vertical-align:-2px}' +
     '@keyframes etiqsp{to{transform:rotate(360deg)}}' +
-    '@media(max-width:420px){.etiq-acts .cbz-btn,.etiq-acts .chip,.etiq-acts .etiq-retry,.etiq-acts .etiq-reprint{flex:1 1 100%}}';
+    '@media(max-width:420px){.etiq-acts .cbz-btn,.etiq-acts .chip,.etiq-acts .etiq-retry,.etiq-acts .etiq-reprint{flex:1 1 100%}}' +
+    '.etiq-mod{position:fixed;inset:0;z-index:9500;background:rgba(5,10,16,.78);overflow:auto;padding:12px;box-sizing:border-box}' +
+    '.etiq-sheet{max-width:520px;width:100%;margin:0 auto;background:#111a26;color:#e8eef6;border:1px solid #2a3d52;border-radius:12px;padding:12px;box-sizing:border-box}' +
+    '.etiq-row{display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #1c2a3a}' +
+    '.etiq-row .nm{flex:1;min-width:0}.etiq-row .nm b{display:block;overflow-wrap:anywhere}.etiq-row .nm span{color:#8fa3b8;font-size:12px}' +
+    '.etiq-step{display:flex;align-items:center;gap:4px;flex:0 0 auto}.etiq-step button{width:36px;height:36px;border-radius:8px;border:1px solid #2f4258;background:#0f1720;color:#e8eef6;font-size:18px}' +
+    '.etiq-step input{width:52px;height:36px;text-align:center;border-radius:8px;border:1px solid #2f4258;background:#0b1520;color:#e8eef6;font-size:16px}' +
+    '.etiq-foot{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.etiq-foot .etiq-go{margin-left:auto}';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -396,6 +403,87 @@
       paint(host, { state: 'aviso', physically_printed: false, code: codigo });
     });
   }
+  var MAXC = 20;
+  var SEL = null;
+  function filasOv(cur) {
+    var lines = cur && cur.lineas || [];
+    return lines.filter(function (l) {
+      return l && l.item_type !== 'service' && l.product_id && uuidOk(l.id) && Number(l.quantity) > 0;
+    }).map(function (l) {
+      return { id: String(l.id), sku: String(l.sku || ''), nombre: String(l.nombre || l.description || ''), qty: Math.max(1, Math.round(Number(l.quantity) || 1)), tickets: 1, on: true };
+    });
+  }
+  function totalTickets(rows) {
+    var n = 0;
+    (rows || []).forEach(function (r) { if (r.on && r.tickets > 0) n += r.tickets; });
+    return n;
+  }
+  function unaPorUnidad(rows) {
+    (rows || []).forEach(function (r) { if (r.on) r.tickets = Math.max(1, r.qty); });
+    return rows;
+  }
+  function trozos(n) {
+    var out = [], left = Math.max(0, Math.floor(Number(n) || 0));
+    while (left > 0) { var c = Math.min(MAXC, left); out.push(c); left -= c; }
+    return out;
+  }
+  function pintarModal() {
+    if (!SEL || !root.document) return;
+    cssTag();
+    var box = root.document.getElementById('etiq-mod');
+    if (!box) { box = root.document.createElement('div'); box.id = 'etiq-mod'; box.className = 'etiq-mod'; root.document.body.appendChild(box); }
+    var rows = SEL.rows.map(function (r, i) {
+      return '<div class="etiq-row"' + (SEL.focus === r.id ? ' style="background:#13283a;border-radius:8px;padding:8px"' : '') + '>' +
+        '<input type="checkbox"' + (r.on ? ' checked' : '') + ' onchange="MCEtiq.tixOn(' + i + ',this.checked)">' +
+        '<div class="nm"><b>' + esc(r.sku) + '</b><span>' + esc(r.nombre) + ' · pedido ' + r.qty + '</span></div>' +
+        '<div class="etiq-step"><button type="button" onclick="MCEtiq.tixN(' + i + ',-1)">−</button>' +
+        '<input inputmode="numeric" value="' + r.tickets + '" onchange="MCEtiq.tixSet(' + i + ',this.value)">' +
+        '<button type="button" onclick="MCEtiq.tixN(' + i + ',1)">+</button></div></div>';
+    }).join('');
+    var tot = totalTickets(SEL.rows);
+    box.innerHTML = '<div class="etiq-sheet"><div style="display:flex;gap:8px;align-items:center"><b>Imprimir etiquetas</b></div>' +
+      '<div class="etiq-meta">' + esc(SEL.num) + '</div>' +
+      '<button type="button" class="chip" onclick="MCEtiq.porUnidad()">Una por unidad</button>' +
+      (rows || '<div class="etiq-st">No hay productos para etiquetar.</div>') +
+      '<div class="etiq-foot"><b>Total ' + tot + (tot === 1 ? ' etiqueta' : ' etiquetas') + '</b>' +
+      '<button type="button" class="chip" onclick="MCEtiq.cerrar()">Cancelar</button>' +
+      '<button type="button" class="cbz-btn etiq-go" onclick="MCEtiq.enviar()"' + (tot ? '' : ' disabled') + '>Imprimir</button></div>' +
+      '<div class="etiq-help">No cambia la cantidad de la orden ni el stock.</div></div>';
+  }
+  function elegir(cur, focus) {
+    if (!ok() || !cur || !cur.orden || cur.orden.is_quote || cur.orden.is_cancelled || !uuidOk(cur.orden.id)) return;
+    var rows = filasOv(cur);
+    SEL = { id: String(cur.orden.id), num: String(cur.orden.order_number || ''), rows: rows, focus: focus ? String(focus) : '', nonce: String(Date.now()) };
+    pintarModal();
+  }
+  function tixOn(i, on) { if (!SEL || !SEL.rows[i]) return; SEL.rows[i].on = !!on; if (on && !(SEL.rows[i].tickets > 0)) SEL.rows[i].tickets = 1; pintarModal(); }
+  function tixN(i, d) { if (!SEL || !SEL.rows[i]) return; var r = SEL.rows[i]; r.tickets = Math.max(1, Math.min(999, (r.tickets || 1) + d)); r.on = true; pintarModal(); }
+  function tixSet(i, v) { if (!SEL || !SEL.rows[i]) return; var n = entero(v, 1, 999); if (n == null) { pintarModal(); return; } SEL.rows[i].tickets = n; SEL.rows[i].on = true; pintarModal(); }
+  function porUnidad() { if (!SEL) return; unaPorUnidad(SEL.rows); pintarModal(); }
+  function cerrar() { SEL = null; var b = root.document && root.document.getElementById('etiq-mod'); if (b && b.remove) b.remove(); }
+  function enviar() {
+    if (!ok() || !SEL) return;
+    var sel = SEL, rows = sel.rows.filter(function (r) { return r.on && r.tickets > 0; });
+    if (!rows.length) return;
+    cerrar();
+    var host = root.document && root.document.getElementById('etiq-toda');
+    marcar(host, 'espera', true);
+    var jobs = [];
+    rows.forEach(function (r) { trozos(r.tickets).forEach(function (c, i) { jobs.push({ line_id: r.id, copies: c, part: i }); }); });
+    var k = 0;
+    function sig() {
+      if (k >= jobs.length) { marcar(host, 'en_cola'); return; }
+      var j = jobs[k++];
+      var key = 'tix:' + sel.id + ':' + j.line_id + ':' + j.copies + ':' + j.part + ':' + sel.nonce;
+      post('etiq_enqueue', { ov_id: sel.id, line_id: j.line_id, copies: j.copies, qty_etiqueta: 1, idempotency_key: key }).then(function (r) {
+        return vigilar(r, function (st, vivo) { marcar(host, st, vivo); });
+      }).then(function (st) {
+        if (st === 'sin_permiso' || st === 'entrada_rechazada' || st === 'servicio_no_publicado' || st === 'ov_ajena') { marcar(host, st); return; }
+        sig();
+      });
+    }
+    sig();
+  }
   root.MCEtiq = {
     LIVE: false,
     gatewayOpen: gatewayOpen,
@@ -422,6 +510,17 @@
     reprint: function (btn) { return blocked(btn, 'servicio_no_publicado'); },
     pdf: pdf,
     pair: pair,
-    norm: norm
+    norm: norm,
+    filasOv: filasOv,
+    totalTickets: totalTickets,
+    unaPorUnidad: unaPorUnidad,
+    trozos: trozos,
+    elegir: elegir,
+    tixOn: tixOn,
+    tixN: tixN,
+    tixSet: tixSet,
+    porUnidad: porUnidad,
+    cerrar: cerrar,
+    enviar: enviar
   };
 })(typeof window !== 'undefined' ? window : globalThis);
