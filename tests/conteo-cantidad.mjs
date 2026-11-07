@@ -9,8 +9,8 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
 test('la cantidad vacía es casilla verde y la medida no cambia', () => {
-  assert.match(html, /var MC_BUILD='597'/);
-  assert.match(sw, /var SWV='b597'/);
+  assert.match(html, /var MC_BUILD='598'/);
+  assert.match(sw, /var SWV='b598'/);
   assert.match(html, /cc-vacio/);
   assert.match(html, /html body #cc input\.cc-q\.cc-vacio\{background:rgba\(183,243,74,\.16\)!important;border:2px solid #b7f34a!important\}/);
   assert.match(html, /width:58px!important/);
