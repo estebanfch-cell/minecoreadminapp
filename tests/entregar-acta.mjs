@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='594'")) throw new Error('build');
-if (!sw.includes("var SWV='b594'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='595'")) throw new Error('build');
+if (!sw.includes("var SWV='b595'")) throw new Error('sw');
 if (!html.includes("c.fotos.length||c.firma")) throw new Error('evidencia');
 const mcrow = html.slice(html.indexOf('var MCrow='), html.indexOf('/* b476 REGLA'));
 const ent = html.slice(html.indexOf('var MCEnt=(function(){'), html.indexOf('/* b353 t628:'));
@@ -40,7 +40,10 @@ function MCpost(b){posts.push(JSON.parse(JSON.stringify(b)));
     {id:'so-1291',order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S',lineas:1,ship_estado:window._ENV?'enviado':'empacada'},
     {id:'so-env',order_number:'MCOR-SO-001300',cliente:'SIN ACTA',lineas:1,ship_estado:'enviado'}
   ],entregadas:[{id:'so-1209',order_number:'MCOR-SO-001209',cliente:'ROCKEXPLORE S.A.S',receptor:'Gabriel Cabrera',entregado_at:'2026-11-04'}]});
-  if(b.op==='ent_get')return Promise.resolve({ok:true,orden:{id:b.id,order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S'},lineas:[{nombre:'ITEM',sku:'MCOR1',cantidad:1}],fotos:[],entrega:null});
+  if(b.op==='ent_get'){
+    if(b.id==='so-1209')return Promise.resolve({ok:true,orden:{id:b.id,order_number:'MCOR-SO-001209',cliente:'ROCKEXPLORE S.A.S'},lineas:[{nombre:'ITEM',sku:'MCOR1',cantidad:1}],fotos:[{id:1,url:'#',tipo:'paquete',ts:'10:00',nombre:'foto.jpg'}],entrega:{receptor:'Gabriel Cabrera',firma_url:'#firma',firma_ts:'10:01'}});
+    return Promise.resolve({ok:true,orden:{id:b.id,order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S'},lineas:[{nombre:'ITEM',sku:'MCOR1',cantidad:1}],fotos:[],entrega:null});
+  }
   if(b.op==='ship')return Promise.resolve({ok:true});
   return Promise.resolve({ok:false,error:'no'});
 }
@@ -61,6 +64,10 @@ setTimeout(function(){
   var sin=document.querySelector('[data-ent="so-env"]');
   if(!sin||sin.textContent.indexOf('✓ Enviada')<0||sin.textContent.indexOf('Acta pendiente ✗')<0)return mal('enviada sin acta');
   if(sin.querySelector('.ent-acta').textContent.indexOf('✓')===0)return mal('check de mas');
+  var pend=document.querySelector('[data-ent="so-1291"]'),entg=document.querySelector('[data-ent="so-1209"]');
+  if((pend.getAttribute('onclick')||'').indexOf("MCEnt.abrir('so-1291')")<0)return mal('tap pendiente');
+  if((entg.getAttribute('onclick')||'').indexOf("MCEnt.abrir('so-1209')")<0)return mal('tap entregada');
+  if(pend.hasAttribute('data-mcdocs-id')||entg.hasAttribute('data-mcdocs-id'))return mal('abre pdf');
   MCFirmaR._fir['so-env']=true;MCEnt.syncFirma();
   if(document.querySelector('[data-ent="so-env"] .ent-st').textContent!=='Acta recibida ✓')return mal('sync');
   if(document.querySelector('[data-ent="so-env"] .ent-acta').textContent.indexOf('✓')!==0)return mal('sync acta');
@@ -103,8 +110,19 @@ setTimeout(function(){
           var on=[].filter.call(document.querySelectorAll('.up-bar .chip'),function(b){return b.getAttribute('style')&&b.getAttribute('style').indexOf('E8FF00')>=0;})[0];
           if(!on||on.textContent.indexOf('Ticket')<0)return mal('tipo '+(on&&on.textContent));
           if(!cams)return mal('camara');
-          document.getElementById('result').textContent='OK';
-          document.title='OK';
+          MCEnt.abrir('so-1209');
+          setTimeout(function(){
+            if(!posts.some(function(p){return p.op==='ent_get'&&p.id==='so-1209';}))return mal('get entregada');
+            var d=document.getElementById('ent');
+            var tx=d.textContent;
+            if(tx.indexOf('DIGITAL')<0)return mal('digital entregada');
+            var recIn=document.getElementById('ent-rec');
+            if(!recIn||recIn.value!=='Gabriel Cabrera')return mal('receptor');
+            if(tx.indexOf('Ver acta de entrega')<0)return mal('acta');
+            if(!d.querySelector('.e-ph img'))return mal('foto');
+            document.getElementById('result').textContent='OK';
+            document.title='OK';
+          },40);
         },80);
       },40);
     },40);
