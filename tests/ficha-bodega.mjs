@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='604'")) throw new Error('build');
-if (!sw.includes("var SWV='b604'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='605'")) throw new Error('build');
+if (!sw.includes("var SWV='b605'")) throw new Error('sw');
 const css = html.slice(html.indexOf('.stk2-l{'), html.indexOf('#maes-screen #pf2-host'));
 const ms = html.slice(html.indexOf('<style id="ms-b339">'), html.indexOf('</style>', html.indexOf('<style id="ms-b339">')) + 8);
 let iife = html.slice(html.indexOf('/* ===== b276: Maestros'), html.indexOf("</script>\n<script>/* b276: Banco"));
@@ -35,6 +35,7 @@ function MCcan(){return true;}
 function mcCfP(k,d){return d;}function mcRound(n){return Math.round(n*100)/100;}
 function mcRoV(){return false;}function MCRO(){return false;}function mcEsCliV(){return false;}
 function MCth(s){return s;}function toast(){}function MCerr(e){return String(e&&e.message||e);}
+window.MCnom={nom:function(u){return u||'';},quien:function(u){return u||'';}};
 window.MCroute={set:function(){}};
 ${iife}
 function mal(s){document.getElementById('result').textContent='FAIL '+s;document.title='FAIL';}
