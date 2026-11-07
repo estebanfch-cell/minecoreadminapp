@@ -14,7 +14,7 @@ const end = html.indexOf('function printMenu(');
 if (start < 0 || end < start) throw new Error('falta anclarPrint');
 const fn = html.slice(start, end);
 if (!fn.includes("position='fixed'") && !fn.includes('position=\'fixed\'')) throw new Error('el menú no se fija a la pantalla');
-if (!html.includes("MC_BUILD='599'")) throw new Error('build');
+if (!html.includes("MC_BUILD='600'")) throw new Error('build');
 if (html.includes('right:0;left:auto;min-width:240px')) throw new Error('sigue el anclaje que se sale');
 
 const items = ['Orden de venta', 'Recibo', 'Lista de preparación', 'Packing list', 'Box label', 'Box content list', 'Factura', 'Labels (DYMO 19×51 mm)', 'Imprimir etiquetas remotas'];
