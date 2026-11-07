@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='599'")) throw new Error('build');
-if (!sw.includes("var SWV='b599'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='600'")) throw new Error('build');
+if (!sw.includes("var SWV='b600'")) throw new Error('sw');
 if (!html.includes("'Personal'")) throw new Error('menu');
 if (!html.includes("b('roles','Roles de pago')")) throw new Error('pestana roles');
 if (!html.includes('W.permisos')) throw new Error('permisos');
@@ -64,11 +64,16 @@ function MCpost(b){window._posts.push(JSON.parse(JSON.stringify(b)));
   if(b.op==='rp_whoami')return Promise.resolve(${modo === 'conta' ? '{ok:true,admin:false,conta:true,ver:false,permisos:false,empleado_id:""}' : modo === 'off' ? '{ok:true,admin:false,conta:false,ver:false,permisos:false}' : modo === 'emp' ? '{ok:true,admin:false,conta:false,ver:true,permisos:false,empleado_id:"e1"}' : modo === 'perm' ? '{ok:true,admin:true,conta:false,ver:false,permisos:true,empleado_id:"e1"}' : '{ok:true,admin:true,conta:false,ver:true,permisos:false,empleado_id:"e1"}'});
   if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:'cerrado',firma_estado:window._fe||'pendiente',neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,firmado_at:window._fe==='firmado'?'2026-11-02T15:00:00Z':null}]});
   if(b.op==='rp_preview'){var r=${ROL};return Promise.resolve({ok:true,rol:r});}
-  if(b.op==='rp_rol_get'){var g=${ROL};g.estado='cerrado';g.firma_estado=window._fe||'pendiente';if(g.firma_estado==='firmado'){g.firmado_at='2026-11-02T15:00:00Z';g.firma_url='data:image/png;base64,'+(window._fb||'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');g.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:g});}
+  if(b.op==='rp_rol_get'){var g=${ROL};g.estado='cerrado';g.firma_estado=window._fe||'pendiente';if(g.firma_estado==='firmado'){g.firmado_at='2026-11-02T15:00:00Z';g.firmado_nombre='EFCH';g.firma_url='data:image/png;base64,'+(window._fb||'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');g.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:g});}
   if(b.op==='rp_no_firmar'){window._fe='no_firmado';return Promise.resolve({ok:true});}
   if(b.op==='rp_firmar'){if(!b.firma_png_base64)return Promise.resolve({ok:false,error:'sin firma'});window._fe='firmado';window._fb=b.firma_png_base64;return Promise.resolve({ok:true,firma_estado:'firmado',firmado_at:'2026-11-02T15:00:00Z',firma_url:'data:image/png;base64,'+b.firma_png_base64});}
   if(b.op==='rp_empleados_list')return Promise.resolve({ok:true,empleados:[{id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',cedula:'1709456055',cargo:'Asistente',sueldo:600,roles:[{id:'r1',periodo:'2026-10',estado:'provisional',faltan:['firma']}]}]});
-  if(b.op==='rp_empleado_get')return Promise.resolve({ok:true,empleado:{id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',cedula:'1709456055',cargo:'Asistente',sueldo:600,ciudad:'Quito',fecha_ingreso:'2020-01-15',fecha_ingreso_confirmada:true,portal_user:'EFCH',iess:true,decimos_mensual:false,fondo_reserva_modo:'mensual',bono_rutas:80,caja_users:'OPM',bono_etiqueta:'Reembolso',bono_tipo:'reembolso',bono_corte:'26-25',conceptos:[{clave:'hex',etiqueta:'Horas extras',monto:49.98,aporta:true,en13:false}]}});
+  if(b.op==='rp_empleado_get'){var emp={id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',cedula:'1709456055',cargo:'Asistente',sueldo:600,ciudad:'Quito',fecha_ingreso:'2020-01-15',fecha_ingreso_confirmada:true,portal_user:'EFCH',iess:true,decimos_mensual:false,fondo_reserva_modo:'mensual',bono_rutas:80,caja_users:'OPM',bono_etiqueta:'Reembolso',bono_tipo:'reembolso',bono_corte:'26-25',conceptos:[{clave:'hex',etiqueta:'Horas extras',monto:49.98,aporta:true,en13:false}]};if(MODO==='perm')emp.dias_laborables=[1,2,3,4,5];return Promise.resolve({ok:true,empleado:emp});}
+  if(b.op==='rp_saldo')return Promise.resolve({ok:true,saldo:{empleado_id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',fecha_ingreso:'2020-01-15',al:'2026-11-07',meses_cumplidos:82,devengados:40,usados:10,saldo:12,pendientes:2,regla:'15 días al año'}});
+  if(b.op==='rp_sol_list')return Promise.resolve({ok:true,solicitudes:[{id:'s1',empleado_id:'e2',nombre_completo:'OTRO EMPLEADO',fechas:['2026-11-20'],dias:1,motivo:'Médico',estado:'pendiente',creado_nombre:'OTRO',created_at:'2026-11-01'},{id:'s2',empleado_id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',fechas:['2026-10-10'],dias:1,motivo:'Viaje',estado:'aprobada',clasificacion:'permiso_corto'}]});
+  if(b.op==='rp_sol_aprobar')return Promise.resolve({ok:true});
+  if(b.op==='rp_sol_rechazar'||b.op==='rp_sol_anular'){if(!b.motivo)return Promise.resolve({ok:false,error:'El motivo es obligatorio.'});return Promise.resolve({ok:true});}
+  if(b.op==='rp_sol_crear'){if(window._solMal)return Promise.resolve({ok:false,error:'Ese día no es laborable.'});return Promise.resolve({ok:true,solicitud:{id:'s9'},saldo:{saldo:11}}); }
   if(b.op==='rp_empleado_save')return Promise.resolve({ok:true,id:b.id||'e9'});
   if(b.op==='rp_novedades_list')return Promise.resolve({ok:true,novedades:[{id:'n1',tipo:'anticipo',monto:200,fecha:'2026-10-05',pagado:0,cuotas_cerradas:0},{id:'n2',tipo:'prestamo_quiro',valor:72.07,pagado:720.7,cuotas_cerradas:10}]});
   if(b.op==='rp_docs_list')return Promise.resolve({ok:true,docs:[{id:'d1',nombre:'Contrato.pdf',tipo:'contrato'}]});
@@ -110,9 +115,38 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
   if(MODO==='perm'){
     if(!document.querySelector('[data-rp="tab"][data-k="permisos"]'))return mal('sin permisos');
     document.querySelector('[data-rp="tab"][data-k="permisos"]').click();
-    if(txt().indexOf('Permisos y vacaciones')<0||txt().indexOf('aparecerá aquí')<0)return mal('perm vacio');
-    if(window._posts.some(function(p){return /^rp_perm/.test(p.op);}))return mal('op permisos');
-    document.getElementById('result').textContent='OK';document.title='OK';return;
+    setTimeout(function(){
+      var p=document.getElementById('rp-perm');
+      if(!p||p.textContent.indexOf('Días disponibles')<0||p.textContent.indexOf('12')<0)return mal('saldo');
+      if(p.textContent.indexOf('Devengados')<0||p.textContent.indexOf('Usados')<0||p.textContent.indexOf('Pendientes')<0)return mal('detalle saldo');
+      var cards=p.querySelectorAll('.rp-card');
+      if(!cards.length||cards[0].textContent.indexOf('OTRO EMPLEADO')<0)return mal('pendientes arriba');
+      if(p.textContent.indexOf('Descuenta vacaciones')<0||p.textContent.indexOf('Día cambiado')<0||p.textContent.indexOf('Permiso corto')<0)return mal('botones');
+      var pasado=[].filter.call(p.querySelectorAll('.rp-cd'),function(el){return el.getAttribute('data-d')==='2026-11-01';})[0];
+      var domingo=[].filter.call(p.querySelectorAll('.rp-cd'),function(el){return el.getAttribute('data-d')==='2026-11-08';})[0];
+      var lunes=[].filter.call(p.querySelectorAll('.rp-cd'),function(el){return el.getAttribute('data-d')==='2026-11-09';})[0];
+      if(!pasado||!pasado.disabled||!domingo||!domingo.disabled)return mal('dias bloqueados');
+      if(!lunes||lunes.disabled)return mal('lunes');
+      lunes.click();
+      if(document.getElementById('rp-sol-mot'))document.getElementById('rp-sol-mot').value='Cita';
+      document.querySelector('[data-rp="sol-crear"]').click();
+      setTimeout(function(){
+        var cr=window._posts.filter(function(q){return q.op==='rp_sol_crear';}).pop();
+        if(!cr||cr.fechas.join(',')!=='2026-11-09'||cr.motivo!=='Cita')return mal('crear');
+        document.querySelector('[data-rp="sol-ok"][data-c="descuenta_vacaciones"]').click();
+        setTimeout(function(){
+          var ap=window._posts.filter(function(q){return q.op==='rp_sol_aprobar';}).pop();
+          if(!ap||ap.id!=='s1'||ap.clasificacion!=='descuenta_vacaciones')return mal('aprobar');
+          document.querySelector('[data-rp="sol-no"]').click();
+          document.querySelector('[data-rp="sol-no-ok"]').click();
+          var er=document.getElementById('rp-err');
+          if(!er||er.textContent!=='El motivo es obligatorio.')return mal('motivo');
+          if(window._posts.some(function(q){return q.op==='rp_sol_rechazar';}))return mal('rechazo vacio');
+          document.getElementById('result').textContent='OK';document.title='OK';
+        },40);
+      },40);
+    },40);
+    return;
   }
   if(MODO==='conta'){
     if(txt().indexOf('+ Empleado')>=0||txt().indexOf('Generar')>=0||txt().indexOf('Permisos y vacaciones')>=0)return mal('conta edita');
@@ -270,7 +304,7 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
 const dir = '/tmp/roles-pago';
 mkdirSync(dir, { recursive: true });
 const chrome = '/usr/local/bin/google-chrome';
-const jobs = [320, 375, 390, 430, 1280].map((w) => ['adm', w]).concat([['conta', 390], ['conta', 1280], ['off', 390], ['emp', 390], ['perm', 390]]);
+const jobs = [320, 375, 390, 430, 1280].map((w) => ['adm', w]).concat([['conta', 390], ['conta', 1280], ['off', 390], ['emp', 390], ['perm', 320], ['perm', 390]]);
 const only = process.env.ONLY || '';
 for (const [modo, w] of jobs) {
   if (only && only !== modo + ' ' + w) continue;
