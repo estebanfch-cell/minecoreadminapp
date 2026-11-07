@@ -3,6 +3,7 @@
  *   node tests/roles-pago.mjs
  */
 import { spawnSync } from 'node:child_process';
+import vm from 'node:vm';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,8 +11,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='601'")) throw new Error('build');
-if (!sw.includes("var SWV='b601'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='602'")) throw new Error('build');
+if (!sw.includes("var SWV='b602'")) throw new Error('sw');
 if (!html.includes("'Personal'")) throw new Error('menu');
 if (!html.includes("b('roles','Roles de pago')")) throw new Error('pestana roles');
 if (!html.includes('W.permisos')) throw new Error('permisos');
@@ -27,6 +28,9 @@ for (const op of ['rp_generar', 'rp_cerrar', 'rp_empleado_save', 'rp_firmar', 'r
 const mod = html.slice(html.indexOf('var MCRoles='), html.indexOf('/* b597-rp-fin */'));
 if (!mod.includes('usd(rol.neto)') || !mod.includes('usd(rol.total_ingresos)')) throw new Error('totales');
 if (!mod.includes("doc.addImage(firma,'PNG'")) throw new Error('firma en pdf');
+if (!mod.includes('copyPages') || !mod.includes('Adjuntar pago') || !mod.includes('Mis préstamos y anticipos')) throw new Error('prepago');
+const fit = vm.runInNewContext(mod.slice(mod.indexOf('function fitA4('), mod.indexOf('function loadPdfLib()')) + '\nfitA4(2000,1000);');
+if (Math.abs(fit.w - (595.28 - 72)) > 0.2 || Math.abs(fit.x - 36) > 0.2) throw new Error('fitA4 ' + JSON.stringify(fit));
 if (mod.includes('MC_EC_LOGO')) throw new Error('logo');
 
 const ROL = `{
@@ -62,7 +66,7 @@ window.open=function(u){window._open.push(u);};
 window.mcDownloadBlob=function(b,n){window._dl.push(n);};
 function MCpost(b){window._posts.push(JSON.parse(JSON.stringify(b)));
   if(b.op==='rp_whoami')return Promise.resolve(${modo === 'conta' ? '{ok:true,admin:false,conta:true,ver:false,permisos:false,empleado_id:""}' : modo === 'off' ? '{ok:true,admin:false,conta:false,ver:false,permisos:false}' : modo === 'emp' ? '{ok:true,admin:false,conta:false,ver:true,permisos:false,empleado_id:"e1"}' : modo === 'perm' ? '{ok:true,admin:true,conta:false,ver:false,permisos:true,empleado_id:"e1"}' : '{ok:true,admin:true,conta:false,ver:true,permisos:false,empleado_id:"e1"}'});
-  if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:'cerrado',firma_estado:window._fe||'pendiente',neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,firmado_at:window._fe==='firmado'?'2026-11-02T15:00:00Z':null}]});
+  if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:'cerrado',firma_estado:window._fe||'pendiente',pagado:true,neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,firmado_at:window._fe==='firmado'?'2026-11-02T15:00:00Z':null}]});
   if(b.op==='rp_preview'){var r=${ROL};return Promise.resolve({ok:true,rol:r});}
   if(b.op==='rp_rol_get'){var g=${ROL};g.estado='cerrado';g.firma_estado=window._fe||'pendiente';if(g.firma_estado==='firmado'){g.firmado_at='2026-11-02T15:00:00Z';g.firmado_nombre='EFCH';g.firma_url='data:image/png;base64,'+(window._fb||'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');g.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:g});}
   if(b.op==='rp_no_firmar'){window._fe='no_firmado';return Promise.resolve({ok:true});}
@@ -221,7 +225,7 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
           if(d.indexOf('740.15')>=0||d.indexOf('511.88')>=0)return mal('sumo');
           if(d.indexOf('Alimentación')>=0)return mal('cero');
           if(d.indexOf('340')>=0||d.indexOf('detalle interno')>=0)return mal('rutas en vista');
-          if(d.indexOf('Descargar PDF')<0||d.indexOf('Corregir')<0||d.indexOf('Publicar')<0)return mal('acciones');
+          if(d.indexOf('Descargar PDF')<0||d.indexOf('Corregir')<0||d.indexOf('Publicar')<0||d.indexOf('Adjuntar pago')<0)return mal('acciones');
           if(d.indexOf('Borrador — no visible para el empleado')<0)return mal('no publicado');
           var pv=window._posts.filter(function(p){return p.op==='rp_preview'||p.op==='rp_rol_get';}).pop();
           if(!pv||pv.op!=='rp_preview')return mal('fuente');
@@ -249,7 +253,7 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
             setTimeout(function(){
             var mis=document.querySelector('[data-rp="mios"]');if(!mis)return mal('sin mis roles');mis.click();
             setTimeout(function(){
-              if(txt().indexOf('OCTUBRE 2026')<0||txt().indexOf('$391.38')<0)return mal('mios');
+              if(txt().indexOf('OCTUBRE 2026')<0||txt().indexOf('$391.38')<0||txt().indexOf('Pagado ✓')<0)return mal('mios');
               if(txt().indexOf('Recibí conforme')>=0)return mal('boton viejo');
               if(txt().indexOf('Pendiente de firma')<0)return mal('pendiente');
               document.querySelector('[data-rp="rol"]').click();
