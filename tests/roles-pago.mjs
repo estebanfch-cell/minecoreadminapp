@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='598'")) throw new Error('build');
-if (!sw.includes("var SWV='b598'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='599'")) throw new Error('build');
+if (!sw.includes("var SWV='b599'")) throw new Error('sw');
 if (!html.includes("'Personal'")) throw new Error('menu');
 if (!html.includes("b('roles','Roles de pago')")) throw new Error('pestana roles');
 if (!html.includes('W.permisos')) throw new Error('permisos');
@@ -21,12 +21,13 @@ const lect = html.slice(html.indexOf('var MC_SB_LECT2'), html.indexOf('var MC_SB
 for (const op of ['rp_whoami', 'rp_mis_roles', 'rp_rol_get', 'rp_preview', 'rp_docs_list']) {
   if (!lect.includes(op)) throw new Error('lectura ' + op);
 }
-for (const op of ['rp_generar', 'rp_cerrar', 'rp_empleado_save', 'rp_recibir', 'rp_doc_registrar']) {
+for (const op of ['rp_generar', 'rp_cerrar', 'rp_empleado_save', 'rp_firmar', 'rp_no_firmar', 'rp_doc_registrar']) {
   if (lect.includes(op)) throw new Error('escritura en lectura ' + op);
 }
 const mod = html.slice(html.indexOf('var MCRoles='), html.indexOf('/* b597-rp-fin */'));
 if (!mod.includes('usd(rol.neto)') || !mod.includes('usd(rol.total_ingresos)')) throw new Error('totales');
-if (mod.includes('addImage')) throw new Error('logo');
+if (!mod.includes("doc.addImage(firma,'PNG'")) throw new Error('firma en pdf');
+if (mod.includes('MC_EC_LOGO')) throw new Error('logo');
 
 const ROL = `{
   id:'r1', periodo:'2026-10', mes:'OCTUBRE 2026',
@@ -61,9 +62,11 @@ window.open=function(u){window._open.push(u);};
 window.mcDownloadBlob=function(b,n){window._dl.push(n);};
 function MCpost(b){window._posts.push(JSON.parse(JSON.stringify(b)));
   if(b.op==='rp_whoami')return Promise.resolve(${modo === 'conta' ? '{ok:true,admin:false,conta:true,ver:false,permisos:false,empleado_id:""}' : modo === 'off' ? '{ok:true,admin:false,conta:false,ver:false,permisos:false}' : modo === 'emp' ? '{ok:true,admin:false,conta:false,ver:true,permisos:false,empleado_id:"e1"}' : modo === 'perm' ? '{ok:true,admin:true,conta:false,ver:false,permisos:true,empleado_id:"e1"}' : '{ok:true,admin:true,conta:false,ver:true,permisos:false,empleado_id:"e1"}'});
-  if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:window._rec>1?'recibido':'provisional',neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,recibido_at:window._rec>1?'2026-11-02T15:00:00Z':null}]});
-  if(b.op==='rp_rol_get'||b.op==='rp_preview'){var r=${ROL};if(window._rec>1){r.recibido_at='2026-11-02T15:00:00Z';r.estado='recibido';r.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:r});}
-  if(b.op==='rp_recibir'){window._rec=(window._rec||0)+1;if(window._rec===1)return Promise.resolve({ok:false,error:'El rol todavía no está cerrado.'});return Promise.resolve({ok:true});}
+  if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:'cerrado',firma_estado:window._fe||'pendiente',neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,firmado_at:window._fe==='firmado'?'2026-11-02T15:00:00Z':null}]});
+  if(b.op==='rp_preview'){var r=${ROL};return Promise.resolve({ok:true,rol:r});}
+  if(b.op==='rp_rol_get'){var g=${ROL};g.estado='cerrado';g.firma_estado=window._fe||'pendiente';if(g.firma_estado==='firmado'){g.firmado_at='2026-11-02T15:00:00Z';g.firma_url='data:image/png;base64,'+(window._fb||'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');g.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:g});}
+  if(b.op==='rp_no_firmar'){window._fe='no_firmado';return Promise.resolve({ok:true});}
+  if(b.op==='rp_firmar'){if(!b.firma_png_base64)return Promise.resolve({ok:false,error:'sin firma'});window._fe='firmado';window._fb=b.firma_png_base64;return Promise.resolve({ok:true,firma_estado:'firmado',firmado_at:'2026-11-02T15:00:00Z',firma_url:'data:image/png;base64,'+b.firma_png_base64});}
   if(b.op==='rp_empleados_list')return Promise.resolve({ok:true,empleados:[{id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',cedula:'1709456055',cargo:'Asistente',sueldo:600,roles:[{id:'r1',periodo:'2026-10',estado:'provisional',faltan:['firma']}]}]});
   if(b.op==='rp_empleado_get')return Promise.resolve({ok:true,empleado:{id:'e1',nombre_completo:'HIDALGO IZA LOURDES PIEDAD',cedula:'1709456055',cargo:'Asistente',sueldo:600,ciudad:'Quito',fecha_ingreso:'2020-01-15',fecha_ingreso_confirmada:true,portal_user:'EFCH',iess:true,decimos_mensual:false,fondo_reserva_modo:'mensual',bono_rutas:80,caja_users:'OPM',bono_etiqueta:'Reembolso',bono_tipo:'reembolso',bono_corte:'26-25',conceptos:[{clave:'hex',etiqueta:'Horas extras',monto:49.98,aporta:true,en13:false}]}});
   if(b.op==='rp_empleado_save')return Promise.resolve({ok:true,id:b.id||'e9'});
@@ -167,6 +170,10 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
       document.querySelector('[data-rp="tab"][data-k="roles"]').click();
       setTimeout(function(){
       if(txt().indexOf('Provisional')<0||txt().indexOf('firma')<0)return mal('chip');
+      document.querySelector('[data-rp="hist"]').click();
+      setTimeout(function(){
+      if(txt().indexOf('Historial')<0||txt().indexOf('OCTUBRE 2026')<0||!document.querySelector('[data-rp="pdfid"]'))return mal('historial');
+      document.querySelector('[data-rp="back"]').click();
       document.querySelector('[data-rp="genall"]').click();
       setTimeout(function(){
         var g=txt();
@@ -202,15 +209,32 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
             var mis=document.querySelector('[data-rp="mios"]');if(!mis)return mal('sin mis roles');mis.click();
             setTimeout(function(){
               if(txt().indexOf('OCTUBRE 2026')<0||txt().indexOf('$391.38')<0)return mal('mios');
-              document.querySelector('[data-rp="ok"]').click();
+              if(txt().indexOf('Recibí conforme')>=0)return mal('boton viejo');
+              if(txt().indexOf('Pendiente de firma')<0)return mal('pendiente');
+              document.querySelector('[data-rp="rol"]').click();
               setTimeout(function(){
-                var er=document.getElementById('rp-err');
-                if(!er||er.textContent!=='El rol todavía no está cerrado.')return mal('error');
-                document.querySelector('[data-rp="ok"]').click();
+                var shf=document.getElementById('rp-sh');
+                if(!shf||document.getElementById('rp-sheet').hidden||!document.getElementById('rp-firma'))return mal('modal');
+                if(shf.textContent.indexOf('Ver el rol')>=0)return mal('modal se cierra');
+                document.querySelector('[data-rp="nofirmar"]').click();
                 setTimeout(function(){
-                  if(txt().indexOf('Recibido')<0)return mal('recibido');
-                  document.querySelector('[data-rp="rol"]').click();
+                  var nf=window._posts.filter(function(p){return p.op==='rp_no_firmar';}).pop();
+                  if(!nf||nf.id!=='r1'||nf.motivo)return mal('no firmar');
+                  if(txt().indexOf('No firmado')<0)return mal('chip rojo');
+                  var otra=document.querySelector('[data-rp="firmar-de-nuevo"]');if(!otra)return mal('sin firmar de nuevo');otra.click();
                   setTimeout(function(){
+                    if(document.getElementById('rp-sh').textContent.indexOf('Ver el rol')<0)return mal('otra vez');
+                    var c=document.getElementById('rp-firma'),rc=c.getBoundingClientRect();
+                    function pe(t,x,y){c.dispatchEvent(new PointerEvent(t,{bubbles:true,clientX:rc.left+x,clientY:rc.top+y,pointerId:1}));}
+                    pe('pointerdown',8,8);pe('pointermove',30,20);pe('pointermove',60,40);pe('pointermove',90,30);pe('pointerup',90,30);
+                    document.querySelector('[data-rp="firmar-ok"]').click();
+                    setTimeout(function(){
+                      var sf=window._posts.filter(function(p){return p.op==='rp_firmar';}).pop();
+                      if(!sf||!sf.firma_png_base64)return mal('firmar');
+                      if(window._posts.some(function(p){return p.op==='rp_recibir';}))return mal('recibir');
+                      if(txt().indexOf('Recibido')<0)return mal('recibido');
+                      document.querySelector('[data-rp="pdf"]').click();
+                      setTimeout(function(){
                     var e=txt();
                     if(e.indexOf('340')>=0||e.indexOf('detalle interno')>=0||/transporte|camioneta|\\brutas\\b|\\bbono\\b/i.test(e))return mal('empleado ve detalle');
                     if(e.indexOf('Reembolso')<0||e.indexOf('$391.38')<0||e.indexOf('Descargar PDF')<0)return mal('empleado detalle');
@@ -221,6 +245,9 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
                     if(box.scrollWidth>box.clientWidth+2)return mal('scroll '+box.scrollWidth+'/'+box.clientWidth);
                     var nb=document.querySelector('.rp-kv b');if(nb&&nb.scrollWidth>nb.clientWidth+2)return mal('recorte '+nb.scrollWidth+'/'+nb.clientWidth+' '+nb.textContent);
                     if(e.indexOf('Confirmado digitalmente')<0||e.indexOf('Esteban Ferlito')<0)return mal('firma digital');
+                    var ops2=(window._doc&&window._doc.ops)||[];
+                    if(!ops2.some(function(o){return o.op==='img';}))return mal('firma pdf');
+                    if(!ops2.some(function(o){return o.t==='Recibí conforme:';}))return mal('leyenda');
                     document.getElementById('result').textContent='OK';document.title='OK';
                   },40);
                 },40);
@@ -230,6 +257,9 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
         },40);
       },40);
     },40);
+  },40);
+  },40);
+  },40);
   },40);
   },40);
   },40);
