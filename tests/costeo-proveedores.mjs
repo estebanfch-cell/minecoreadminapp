@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='609'")) throw new Error('build');
-if (!sw.includes("var SWV='b609'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='610'")) throw new Error('build');
+if (!sw.includes("var SWV='b610'")) throw new Error('sw');
 const fmt = html.slice(html.indexOf('/* MCCOSTEO-FMT-BEGIN */'), html.indexOf('/* MCCOSTEO-FMT-END */') + '/* MCCOSTEO-FMT-END */'.length);
 const pack = html.slice(html.indexOf('var MCCosteo=(function(){'), html.indexOf('/* ---------- b357: Configuración'));
 
