@@ -45,8 +45,8 @@ test('varias OCs caben en un botón; una sola también', () => {
   assert.match(html, /etiquetaOcs\(L\.length\)/);
   assert.match(html, /Incremento sobre FOB/);
   assert.match(html, /cst-home/);
-  assert.match(html, /var MC_BUILD='588'/);
-  assert.match(sw, /var SWV='b588'/);
+  assert.match(html, /var MC_BUILD='589'/);
+  assert.match(sw, /var SWV='b589'/);
   const caja = F.menuCaja(12, 220, 390);
   assert.equal(caja.left, 12);
   assert.ok(caja.left + caja.width <= 390 - 8);

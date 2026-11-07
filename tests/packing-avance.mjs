@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='588'")) throw new Error('build');
-if (!sw.includes("var SWV='b588'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='589'")) throw new Error('build');
+if (!sw.includes("var SWV='b589'")) throw new Error('sw');
 if (!html.includes('-webkit-text-fill-color:#111!important')) throw new Error('contraste');
 const pack = html.slice(html.indexOf('window.MCPack=(function(){'), html.indexOf('window.MCActas=(function(){'));
 if (!pack.includes('Guardar avance')) throw new Error('boton');
@@ -24,6 +24,10 @@ const avance = pack.slice(pack.indexOf('function persistir('), pack.indexOf('fun
 if (/firma\s*:/.test(avance)) throw new Error('avance manda firma');
 const enviarFn = pack.slice(pack.indexOf('function enviarFirmado('), pack.indexOf('return {init'));
 if (enviarFn.includes('avance:true')) throw new Error('enviar con avance');
+if (enviarFn.includes('packing_acta_firmar')) throw new Error('firma doble');
+if (!enviarFn.includes('borrarLocal()') || !enviarFn.includes('setTimeout(function(){init();},2000)')) throw new Error('vuelve a la lista');
+if (!pack.includes('Ya enviado — solo lectura')) throw new Error('banner');
+if (!html.includes('Firmar de nuevo') || !html.includes("op:'packing_acta_firmar'")) throw new Error('firmar de nuevo');
 const abrir = pack.slice(pack.indexOf('function abrir('), pack.indexOf('function opts('));
 if (abrir.includes('pk-firma') || abrir.includes('popupFirma')) throw new Error('firma al abrir');
 
@@ -97,7 +101,7 @@ setTimeout(function(){
         var env=posts.filter(function(p){return p.op==='packing_guardar'&&p.avance!==true;});
         if(env.length!==1||!env[0].firma)return mal('envios '+env.length);
         if(env[0].lineas[0].id!=='doc-40560:0')return mal('id envio');
-        if(!posts.some(function(p){return p.op==='packing_acta_firmar';}))return mal('acta');
+        if(posts.some(function(p){return p.op==='packing_acta_firmar';}))return mal('firmo dos veces');
         if(document.getElementById('pk-firma-ov')||document.querySelector('#maes-screen #pk-firma'))return mal('firma quedo');
         document.getElementById('result').textContent='OK';
         document.title='OK';
