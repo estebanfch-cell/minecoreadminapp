@@ -10,9 +10,12 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='597'")) throw new Error('build');
-if (!sw.includes("var SWV='b597'")) throw new Error('sw');
-if (!html.includes("'Roles de pago'")) throw new Error('menu');
+if (!html.includes("var MC_BUILD='598'")) throw new Error('build');
+if (!sw.includes("var SWV='b598'")) throw new Error('sw');
+if (!html.includes("'Personal'")) throw new Error('menu');
+if (!html.includes("b('roles','Roles de pago')")) throw new Error('pestana roles');
+if (!html.includes('W.permisos')) throw new Error('permisos');
+if (!html.includes('dias_laborables')) throw new Error('dias');
 if (!html.includes('MCRoles.puede()')) throw new Error('whoami');
 const lect = html.slice(html.indexOf('var MC_SB_LECT2'), html.indexOf('var MC_SB_LECT2') + 900);
 for (const op of ['rp_whoami', 'rp_mis_roles', 'rp_rol_get', 'rp_preview', 'rp_docs_list']) {
@@ -57,7 +60,7 @@ window._posts=[];window._open=[];window._dl=[];
 window.open=function(u){window._open.push(u);};
 window.mcDownloadBlob=function(b,n){window._dl.push(n);};
 function MCpost(b){window._posts.push(JSON.parse(JSON.stringify(b)));
-  if(b.op==='rp_whoami')return Promise.resolve(${modo === 'conta' ? '{ok:true,admin:false,conta:true,ver:false,empleado_id:""}' : modo === 'off' ? '{ok:true,admin:false,conta:false,ver:false}' : '{ok:true,admin:true,conta:false,ver:true,empleado_id:"e1"}'});
+  if(b.op==='rp_whoami')return Promise.resolve(${modo === 'conta' ? '{ok:true,admin:false,conta:true,ver:false,permisos:false,empleado_id:""}' : modo === 'off' ? '{ok:true,admin:false,conta:false,ver:false,permisos:false}' : modo === 'emp' ? '{ok:true,admin:false,conta:false,ver:true,permisos:false,empleado_id:"e1"}' : modo === 'perm' ? '{ok:true,admin:true,conta:false,ver:false,permisos:true,empleado_id:"e1"}' : '{ok:true,admin:true,conta:false,ver:true,permisos:false,empleado_id:"e1"}'});
   if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:window._rec>1?'recibido':'provisional',neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,recibido_at:window._rec>1?'2026-11-02T15:00:00Z':null}]});
   if(b.op==='rp_rol_get'||b.op==='rp_preview'){var r=${ROL};if(window._rec>1){r.recibido_at='2026-11-02T15:00:00Z';r.estado='recibido';r.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:r});}
   if(b.op==='rp_recibir'){window._rec=(window._rec||0)+1;if(window._rec===1)return Promise.resolve({ok:false,error:'El rol todavía no está cerrado.'});return Promise.resolve({ok:true});}
@@ -90,9 +93,27 @@ var MODO='${modo}';
 setTimeout(function(){MCRoles.init();setTimeout(function(){
   var box=document.getElementById('maes-screen');
   if(MODO==='off'){if(txt().indexOf('No tienes acceso')<0)return mal('oculto');document.getElementById('result').textContent='OK';document.title='OK';return;}
+  if(MODO==='emp'){
+    if(txt().indexOf('+ Empleado')>=0||txt().indexOf('Permisos y vacaciones')>=0)return mal('emp ve de mas');
+    if(txt().indexOf('Fichas')<0||txt().indexOf('Roles de pago')<0||txt().indexOf('Documentos')<0)return mal('emp tabs');
+    if(window._posts.some(function(p){return p.op==='rp_empleados_list';}))return mal('emp lista ajena');
+    document.querySelector('[data-rp="tab"][data-k="roles"]').click();
+    setTimeout(function(){
+      if(txt().indexOf('OCTUBRE 2026')<0||txt().indexOf('Generar')>=0)return mal('emp roles');
+      document.getElementById('result').textContent='OK';document.title='OK';
+    },40);
+    return;
+  }
+  if(MODO==='perm'){
+    if(!document.querySelector('[data-rp="tab"][data-k="permisos"]'))return mal('sin permisos');
+    document.querySelector('[data-rp="tab"][data-k="permisos"]').click();
+    if(txt().indexOf('Permisos y vacaciones')<0||txt().indexOf('aparecerá aquí')<0)return mal('perm vacio');
+    if(window._posts.some(function(p){return /^rp_perm/.test(p.op);}))return mal('op permisos');
+    document.getElementById('result').textContent='OK';document.title='OK';return;
+  }
   if(MODO==='conta'){
-    if(txt().indexOf('+ Empleado')>=0||txt().indexOf('Generar')>=0)return mal('conta edita');
-    if(txt().indexOf('HIDALGO IZA LOURDES PIEDAD')<0||txt().indexOf('Provisional')<0)return mal('conta lista');
+    if(txt().indexOf('+ Empleado')>=0||txt().indexOf('Generar')>=0||txt().indexOf('Permisos y vacaciones')>=0)return mal('conta edita');
+    if(txt().indexOf('HIDALGO IZA LOURDES PIEDAD')<0)return mal('conta lista');
     document.querySelector('[data-rp="emp"]').click();
     setTimeout(function(){
       var sh=document.getElementById('rp-sh');
@@ -113,8 +134,9 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
     return;
   }
   if(!MCRoles.puede())return mal('puede');
-  if(txt().indexOf('+ Empleado')<0||txt().indexOf('Generar / Regenerar')<0)return mal('admin');
-  if(txt().indexOf('Provisional')<0||txt().indexOf('firma')<0)return mal('chip');
+  if(txt().indexOf('Fichas')<0||txt().indexOf('Roles de pago')<0||txt().indexOf('Documentos')<0)return mal('tabs');
+  if(txt().indexOf('Permisos y vacaciones')>=0)return mal('permisos visible');
+  if(txt().indexOf('+ Empleado')<0)return mal('admin');
   var f0=fuera(box);if(f0)return mal('lista '+f0);
   document.querySelector('[data-rp="emp"]').click();
   setTimeout(function(){
@@ -129,6 +151,11 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
     if(document.getElementById('rp-user').value!=='EFCH')return mal('usuario');
     if(sh.textContent.indexOf('Esteban Ferlito')<0)return mal('select');
     if(sh.textContent.indexOf('Reembolso por rutas')<0)return mal('bloque');
+    if(sh.textContent.indexOf('Días laborables')<0)return mal('dias');
+    ['L','M','X','J','V','S','D'].forEach(function(x){if(sh.textContent.indexOf(x)<0)mal('letra '+x);});
+    if(document.title==='FAIL')return;
+    document.querySelector('#rp-dias input[value="1"]').checked=true;
+    document.querySelector('#rp-dias input[value="3"]').checked=true;
     document.querySelector('[data-rp="con-add"]').click();
     nom.value='perez ana';ced.value='1709456055';
     document.querySelector('[data-rp="guardar"]').click();
@@ -136,6 +163,10 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
       var sv=window._posts.filter(function(p){return p.op==='rp_empleado_save';}).pop();
       if(!sv||sv.nombre_completo!=='PEREZ ANA'||sv.cedula!=='1709456055'||sv.portal_user!=='EFCH')return mal('save');
       if(sv.user!=='EFCH')return mal('actor');
+      if(!sv.dias_laborables||sv.dias_laborables.join(',')!=='1,3')return mal('dias save '+(sv.dias_laborables&&sv.dias_laborables.join(',')));
+      document.querySelector('[data-rp="tab"][data-k="roles"]').click();
+      setTimeout(function(){
+      if(txt().indexOf('Provisional')<0||txt().indexOf('firma')<0)return mal('chip');
       document.querySelector('[data-rp="genall"]').click();
       setTimeout(function(){
         var g=txt();
@@ -201,6 +232,7 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
     },40);
   },40);
   },40);
+  },40);
 },60);},30);
 </script>`;
 }
@@ -208,7 +240,7 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
 const dir = '/tmp/roles-pago';
 mkdirSync(dir, { recursive: true });
 const chrome = '/usr/local/bin/google-chrome';
-const jobs = [320, 375, 390, 430, 1280].map((w) => ['adm', w]).concat([['conta', 390], ['conta', 1280], ['off', 390]]);
+const jobs = [320, 375, 390, 430, 1280].map((w) => ['adm', w]).concat([['conta', 390], ['conta', 1280], ['off', 390], ['emp', 390], ['perm', 390]]);
 const only = process.env.ONLY || '';
 for (const [modo, w] of jobs) {
   if (only && only !== modo + ' ' + w) continue;
