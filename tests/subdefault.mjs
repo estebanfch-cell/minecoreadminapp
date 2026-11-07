@@ -99,13 +99,35 @@ test("varias bodegas: cambiar una no mueve la otra", () => {
   assert.equal(plan.adj[LOC], undefined);
 });
 
-test("la predeterminada se muestra y el portal no la guarda", () => {
-  assert.match(html, /Automática: la de más stock; si no hay stock, la última actualizada/);
-  assert.equal(html.includes("setUbicacionDefault"), false);
-  assert.equal(html.includes("stk_sub_default"), false);
-  assert.equal(html.includes("MC_BUILD='606'"), true);
-  assert.equal(sw.includes("SWV='b606'"), true);
-  assert.equal(html.includes("MCRoles"), false);
+test("la ficha no repite la bodega y la predeterminada se confirma al releer", () => {
+  assert.equal(html.includes("Automática:"), false);
+  assert.match(html, /op:'setUbicacionDefault'/);
+  assert.match(html, /op:'prod_get',id:p\.id/);
+  assert.match(html, /MCStk2\.def/);
+  assert.equal(html.includes("MC_BUILD='607'"), true);
+  assert.equal(sw.includes("SWV='b607'"), true);
+  const lines = new Function(html.slice(html.indexOf("function pf2Principal"), html.indexOf("function pf2StkHtml")) + "\nreturn pf2StkLines;")();
+  const una = lines({
+    stock: [
+      { bodega: "BODEGA PRINCIPAL", sublocation: "BS-3-B", q: 38 },
+      { bodega: "CONSIGNACIÓN", sublocation: "CONSIGNACIÓN KLUANE", q: 0 }
+    ],
+    sub_defaults: [
+      { bodega: "BODEGA PRINCIPAL", sub: "BS-3-B" },
+      { bodega: "CONSIGNACIÓN", sub: "CONSIGNACIÓN KLUANE" }
+    ]
+  });
+  assert.deepEqual(una, [{ bod: "BODEGA PRINCIPAL", sub: "BS-3-B", q: 38, p: 1 }]);
+  const dos = lines({
+    stock: [
+      { bodega: "BODEGA PRINCIPAL", sublocation: "BS-3-B", q: 38 },
+      { bodega: "CONSIGNACIÓN", sublocation: "KLUANE", q: 2 }
+    ],
+    sub_defaults: [{ bodega: "BODEGA PRINCIPAL", sub: "BS-3-B" }]
+  });
+  assert.equal(dos.length, 2);
+  assert.equal(dos[0].bod, "BODEGA PRINCIPAL");
+  assert.equal(dos[1].q, 2);
 });
 
 const ui = html.slice(html.indexOf("window.MCSubDef="), html.indexOf("window.MCStkEd="));
@@ -123,22 +145,26 @@ function MCpost(){return Promise.resolve({ok:true});}
 var avisos=[],llamadas=[];
 function toast(t){avisos.push(t);}
 function alert(m){avisos.push('ALERT '+m);}
-function api(p){llamadas.push(p.op);return Promise.resolve({ok:true});}
+var releer=${JSON.stringify(w === 390 ? "2-A-1" : "2-A-2")};
+function api(p){llamadas.push(p.op+(avisos.length?':tarde':''));
+  if(p.op==='setUbicacionDefault')return Promise.resolve({ok:true,sublocation:p.sublocation});
+  if(p.op==='prod_get')return Promise.resolve({ok:true,producto:{id:'p1'},stock:PF.cur.stock,sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:releer}]});
+  return Promise.resolve({ok:true});}
 function stkFin(r,msg){toast(msg);}
 ${ui}
-var PF={stkO:{bodegas:[],motivos:[{id:'m1',name:'Corrección'}]},cur:{producto:{id:'p1'},stock:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:' 2-a-2 ',q:1},{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:'2-A-1',q:1}],sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:'2-A-2'}],subs_bod:{bp:['SIN STOCK']}}};
+var PF={stkO:{bodegas:[],motivos:[]},cur:{producto:{id:'p1'},stock:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:' 2-a-2 ',q:1},{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:'2-A-1',q:1},{location_id:'co',bodega:'CONSIGNACIÓN',sublocation:'KLUANE',q:0}],sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:'2-A-2'},{location_id:'co',bodega:'CONSIGNACIÓN',sub:'KLUANE'}]}};
 document.getElementById('pf-stk2').innerHTML=MCStk2.html();
 var box=document.getElementById('pf-stk2');
 var txt=box.textContent;
-var circ=box.querySelector('[title="Recibir aquí por defecto"]');
-var inp=box.querySelector('input[inputmode="decimal"]');
-if(inp){inp.value='3';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+var circ=[].slice.call(box.querySelectorAll('[role="button"]')).filter(function(b){return b.textContent==='○'||b.textContent==='●';});
+if(circ.length)circ[circ.length-1].click();
 var btn=document.getElementById('pf-sg2');
 if(btn)btn.click();
 setTimeout(function(){
   var fuera=box.scrollWidth>box.clientWidth+2;
-  var ok=!circ&&txt.indexOf('Automática: la de más stock')>=0&&txt.indexOf('predeterminada 2-A-2')>=0&&llamadas.indexOf('stk_adjust')>=0&&llamadas.indexOf('setUbicacionDefault')<0&&llamadas.indexOf('stk_sub_default')<0;
-  document.getElementById('result').textContent=(!fuera&&ok)?'OK':('FAIL '+(fuera?'fuera ':'')+llamadas.join(',')+' | '+txt.slice(0,180));
+  var bien=${w === 390 ? "avisos.indexOf('Predeterminada guardada')>=0&&avisos.join(' ').indexOf('ALERT')<0" : "avisos.join(' ').indexOf('no quedó guardada')>=0&&avisos.indexOf('Predeterminada guardada')<0"};
+  var ok=!fuera&&txt.indexOf('Automática')<0&&txt.indexOf('predeterminada 2-A-2')>=0&&circ.length===2&&llamadas[0]==='setUbicacionDefault'&&llamadas[1]==='prod_get'&&llamadas.indexOf('stk_adjust')<0&&bien;
+  document.getElementById('result').textContent=ok?'OK':('FAIL '+(fuera?'fuera ':'')+llamadas.join(',')+' | '+avisos.join(' | ')+' | circ '+circ.length);
   document.title=document.getElementById('result').textContent;
 },80);
 </script>`;
