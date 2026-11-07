@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='593'")) throw new Error('build');
-if (!sw.includes("var SWV='b593'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='594'")) throw new Error('build');
+if (!sw.includes("var SWV='b594'")) throw new Error('sw');
 if (!html.includes("c.fotos.length||c.firma")) throw new Error('evidencia');
 const mcrow = html.slice(html.indexOf('var MCrow='), html.indexOf('/* b476 REGLA'));
 const ent = html.slice(html.indexOf('var MCEnt=(function(){'), html.indexOf('/* b353 t628:'));
@@ -34,9 +34,12 @@ function getUserName(){return 'EFCH';}function getPin(){return '1';}
 function getProfile(){return window._P||{rol:'usuario',modulos:['cotizaciones+']};}
 function MCcan(k){return k==='pick.e.enviar'&&window._PICK;}
 function MCerr(e){return String(e&&e.message||e);}function toast(){}
-var MCFirmaR={opened:null,boton:function(id){return '<span class="dig" data-id="'+id+'">DIGITAL</span>';},abrir:function(id,num){this.opened=id+'|'+num;}};
+var MCFirmaR={opened:null,_fir:{},boton:function(id){return '<span class="dig" data-id="'+id+'">DIGITAL</span>';},abrir:function(id,num){this.opened=id+'|'+num;}};
 function MCpost(b){posts.push(JSON.parse(JSON.stringify(b)));
-  if(b.op==='ent_list')return Promise.resolve({ok:true,ordenes:[{id:'so-1291',order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S',lineas:1,ship_estado:window._ENV?'enviado':'empacada'}],entregadas:[{id:'so-1209',order_number:'MCOR-SO-001209',cliente:'ROCKEXPLORE S.A.S',receptor:'Gabriel Cabrera',entregado_at:'2026-11-04'}]});
+  if(b.op==='ent_list')return Promise.resolve({ok:true,ordenes:[
+    {id:'so-1291',order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S',lineas:1,ship_estado:window._ENV?'enviado':'empacada'},
+    {id:'so-env',order_number:'MCOR-SO-001300',cliente:'SIN ACTA',lineas:1,ship_estado:'enviado'}
+  ],entregadas:[{id:'so-1209',order_number:'MCOR-SO-001209',cliente:'ROCKEXPLORE S.A.S',receptor:'Gabriel Cabrera',entregado_at:'2026-11-04'}]});
   if(b.op==='ent_get')return Promise.resolve({ok:true,orden:{id:b.id,order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S'},lineas:[{nombre:'ITEM',sku:'MCOR1',cantidad:1}],fotos:[],entrega:null});
   if(b.op==='ship')return Promise.resolve({ok:true});
   return Promise.resolve({ok:false,error:'no'});
@@ -54,9 +57,21 @@ setTimeout(function(){
   var t=card.textContent;
   if(t.indexOf('DIGITAL')>=0||t.indexOf('Enviar recepción digital')>=0)return mal('digital en lista');
   if(t.indexOf('Enviar orden')<0||t.indexOf('Acta de entrega')<0)return mal('botones');
+  if(card.querySelector('.ent-st').textContent!=='Acta pendiente ✗')return mal('pendiente');
+  var sin=document.querySelector('[data-ent="so-env"]');
+  if(!sin||sin.textContent.indexOf('✓ Enviada')<0||sin.textContent.indexOf('Acta pendiente ✗')<0)return mal('enviada sin acta');
+  if(sin.querySelector('.ent-acta').textContent.indexOf('✓')===0)return mal('check de mas');
+  MCFirmaR._fir['so-env']=true;MCEnt.syncFirma();
+  if(document.querySelector('[data-ent="so-env"] .ent-st').textContent!=='Acta recibida ✓')return mal('sync');
+  if(document.querySelector('[data-ent="so-env"] .ent-acta').textContent.indexOf('✓')!==0)return mal('sync acta');
+  delete MCFirmaR._fir['so-env'];MCEnt.syncFirma();
+  if(document.querySelector('[data-ent="so-env"] .ent-st').textContent!=='Acta pendiente ✗')return mal('sync off');
+  var rec=document.querySelector('[data-ent="so-1209"]');
+  if(!rec||rec.textContent.indexOf('Acta recibida ✓')<0||rec.textContent.indexOf('✓ Enviada')<0||rec.textContent.indexOf('✓ Acta de entrega')<0)return mal('recibida');
   var acc=card.querySelectorAll('.ent-act');
-  var borde=box.getBoundingClientRect().right;
-  if([].some.call(acc,function(b){var r=b.getBoundingClientRect();return r.right>borde+1||r.left<box.getBoundingClientRect().left-1||r.width<40;}))return mal('ancho');
+  var borde=box.getBoundingClientRect().right,izq=box.getBoundingClientRect().left;
+  var piezas=[].slice.call(box.querySelectorAll('.ent-act,.ent-st'));
+  if([].some.call(piezas,function(b){var r=b.getBoundingClientRect();return r.right>borde+1||r.left<izq-1;}))return mal('ancho');
   acc[1].click();
   var mn=document.getElementById('ent-mn');
   if(!mn)return mal('menu');
@@ -71,6 +86,9 @@ setTimeout(function(){
     var sh=posts.filter(function(p){return p.op==='ship';});
     if(sh.length!==1||sh[0].transportista!=='Servientrega'||sh[0].guia!=='G-9'||sh[0].id!=='so-1291')return mal('ship');
     if(posts.some(function(p){return p.op==='ent_save'||p.op==='ent_firma';}))return mal('entrego');
+    if(posts.filter(function(p){return p.op==='ent_list';}).length!==1)return mal('recargo');
+    var envb=document.querySelector('[data-ent="so-1291"] .ent-env');
+    if(!envb||!envb.disabled||envb.textContent!=='✓ Enviada')return mal('marca '+(envb&&envb.textContent));
     window._P={rol:'usuario',modulos:[]};window._PICK=false;window._ENV=false;posts=[];
     MCEnt.init();
     setTimeout(function(){
