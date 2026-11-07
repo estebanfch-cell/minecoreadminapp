@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='600'")) throw new Error('build');
-if (!sw.includes("var SWV='b600'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='601'")) throw new Error('build');
+if (!sw.includes("var SWV='b601'")) throw new Error('sw');
 if (!html.includes("'Personal'")) throw new Error('menu');
 if (!html.includes("b('roles','Roles de pago')")) throw new Error('pestana roles');
 if (!html.includes('W.permisos')) throw new Error('permisos');
@@ -203,7 +203,7 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
       if(!sv.dias_laborables||sv.dias_laborables.join(',')!=='1,3')return mal('dias save '+(sv.dias_laborables&&sv.dias_laborables.join(',')));
       document.querySelector('[data-rp="tab"][data-k="roles"]').click();
       setTimeout(function(){
-      if(txt().indexOf('Provisional')<0||txt().indexOf('firma')<0)return mal('chip');
+      if(txt().indexOf('Vista previa')<0||txt().indexOf('Borrador — no visible para el empleado')<0)return mal('chip');
       document.querySelector('[data-rp="hist"]').click();
       setTimeout(function(){
       if(txt().indexOf('Historial')<0||txt().indexOf('OCTUBRE 2026')<0||!document.querySelector('[data-rp="pdfid"]'))return mal('historial');
@@ -220,7 +220,14 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
           if(d.indexOf('$820.15')<0||d.indexOf('$391.38')<0||d.indexOf('$428.77')<0)return mal('totales servidor');
           if(d.indexOf('740.15')>=0||d.indexOf('511.88')>=0)return mal('sumo');
           if(d.indexOf('Alimentación')>=0)return mal('cero');
-          if(d.indexOf('340')<0||d.indexOf('detalle interno')<0)return mal('admin detalle');
+          if(d.indexOf('340')>=0||d.indexOf('detalle interno')>=0)return mal('rutas en vista');
+          if(d.indexOf('Descargar PDF')<0||d.indexOf('Corregir')<0||d.indexOf('Publicar')<0)return mal('acciones');
+          if(d.indexOf('Borrador — no visible para el empleado')<0)return mal('no publicado');
+          var pv=window._posts.filter(function(p){return p.op==='rp_preview'||p.op==='rp_rol_get';}).pop();
+          if(!pv||pv.op!=='rp_preview')return mal('fuente');
+          document.querySelector('[data-rp="publicar"]').click();
+          if((document.getElementById('rp-sh')||{}).textContent.indexOf('Una vez publicado, HIDALGO IZA LOURDES PIEDAD lo verá y deberá firmarlo.')<0)return mal('confirma');
+          document.querySelector('[data-rp="sheet-x"]').click();
           if(d.indexOf('10/10')<0||d.indexOf('Reembolso')<0)return mal('etiqueta');
           var ing=document.getElementById('rp-ing'),ded=document.getElementById('rp-ded');
           var ib=ing.getBoundingClientRect(),db=ded.getBoundingClientRect();
