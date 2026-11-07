@@ -11,8 +11,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='602'")) throw new Error('build');
-if (!sw.includes("var SWV='b602'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='603'")) throw new Error('build');
+if (!sw.includes("var SWV='b603'")) throw new Error('sw');
 if (!html.includes("'Personal'")) throw new Error('menu');
 if (!html.includes("b('roles','Roles de pago')")) throw new Error('pestana roles');
 if (!html.includes('W.permisos')) throw new Error('permisos');
@@ -29,6 +29,9 @@ const mod = html.slice(html.indexOf('var MCRoles='), html.indexOf('/* b597-rp-fi
 if (!mod.includes('usd(rol.neto)') || !mod.includes('usd(rol.total_ingresos)')) throw new Error('totales');
 if (!mod.includes("doc.addImage(firma,'PNG'")) throw new Error('firma en pdf');
 if (!mod.includes('copyPages') || !mod.includes('Adjuntar pago') || !mod.includes('Mis préstamos y anticipos')) throw new Error('prepago');
+if (!mod.includes('comprobante_view_url') || !mod.includes('class="rp-cv"')) throw new Error('visor');
+const pagoDe = mod.slice(mod.indexOf('function pagoDe'), mod.indexOf('function pagoHtml'));
+if (pagoDe.includes('comprobante_view_url')) throw new Error('el visor no va al pdf del rol');
 const fit = vm.runInNewContext(mod.slice(mod.indexOf('function fitA4('), mod.indexOf('function loadPdfLib()')) + '\nfitA4(2000,1000);');
 if (Math.abs(fit.w - (595.28 - 72)) > 0.2 || Math.abs(fit.x - 36) > 0.2) throw new Error('fitA4 ' + JSON.stringify(fit));
 if (mod.includes('MC_EC_LOGO')) throw new Error('logo');
@@ -67,6 +70,7 @@ window.mcDownloadBlob=function(b,n){window._dl.push(n);};
 function MCpost(b){window._posts.push(JSON.parse(JSON.stringify(b)));
   if(b.op==='rp_whoami')return Promise.resolve(${modo === 'conta' ? '{ok:true,admin:false,conta:true,ver:false,permisos:false,empleado_id:""}' : modo === 'off' ? '{ok:true,admin:false,conta:false,ver:false,permisos:false}' : modo === 'emp' ? '{ok:true,admin:false,conta:false,ver:true,permisos:false,empleado_id:"e1"}' : modo === 'perm' ? '{ok:true,admin:true,conta:false,ver:false,permisos:true,empleado_id:"e1"}' : '{ok:true,admin:true,conta:false,ver:true,permisos:false,empleado_id:"e1"}'});
   if(b.op==='rp_mis_roles')return Promise.resolve({ok:true,roles:[{id:'r1',periodo:'2026-10',estado:'cerrado',firma_estado:window._fe||'pendiente',pagado:true,neto:391.38,total_ingresos:820.15,total_egresos:428.77,total_reembolsos:120.5,firmado_at:window._fe==='firmado'?'2026-11-02T15:00:00Z':null}]});
+  if(b.op==='rp_prestamo_list')return Promise.resolve({ok:true,prestamos:[{id:'p1',tipo:'anticipo',saldo:80,justificacion:'Viaje',comprobante_view_url:'https://example.test/comp.png',descuentos:[{periodo:'2026-11',monto:20}]}]});
   if(b.op==='rp_preview'){var r=${ROL};return Promise.resolve({ok:true,rol:r});}
   if(b.op==='rp_rol_get'){var g=${ROL};g.estado='cerrado';g.firma_estado=window._fe||'pendiente';if(g.firma_estado==='firmado'){g.firmado_at='2026-11-02T15:00:00Z';g.firmado_nombre='EFCH';g.firma_url='data:image/png;base64,'+(window._fb||'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');g.recibido_nombre='EFCH';}return Promise.resolve({ok:true,rol:g});}
   if(b.op==='rp_no_firmar'){window._fe='no_firmado';return Promise.resolve({ok:true});}
@@ -112,7 +116,18 @@ setTimeout(function(){MCRoles.init();setTimeout(function(){
     document.querySelector('[data-rp="tab"][data-k="roles"]').click();
     setTimeout(function(){
       if(txt().indexOf('OCTUBRE 2026')<0||txt().indexOf('Generar')>=0)return mal('emp roles');
-      document.getElementById('result').textContent='OK';document.title='OK';
+      if(document.querySelector('[data-k="presta"]'))return mal('emp presta');
+      document.querySelector('[data-rp="tab"][data-k="mispre"]').click();
+      setTimeout(function(){
+        var box=document.getElementById('rp-pre-list');
+        var cv=box&&box.querySelector('.rp-cv');
+        if(!cv||cv.getAttribute('data-cv').indexOf('comp.png')<0)return mal('visor');
+        var img=cv.querySelector('img');
+        if(!img||img.getAttribute('draggable')!=='false'||img.getAttribute('src').indexOf('comp.png')<0)return mal('imagen');
+        if(box.querySelector('a')||box.textContent.indexOf('Descargar')>=0)return mal('descarga');
+        if(box.innerHTML.indexOf('_blank')>=0)return mal('pestaña');
+        document.getElementById('result').textContent='OK';document.title='OK';
+      },40);
     },40);
     return;
   }
