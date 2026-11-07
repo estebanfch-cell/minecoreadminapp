@@ -99,18 +99,17 @@ test("varias bodegas: cambiar una no mueve la otra", () => {
   assert.equal(plan.adj[LOC], undefined);
 });
 
-test("el portal avisa si el servidor no confirma y no trata setUbicacionDefault como lectura", () => {
-  assert.match(html, /La predeterminada no quedó guardada/);
-  assert.match(html, /setUbicacionDefault\)/);
-  assert.match(html, /op:'prod_get',id:p\.id/);
-  assert.match(html, /setUbicacionDefault\)/);
-  assert.equal(html.includes("MC_BUILD='605'"), true);
-  assert.equal(sw.includes("SWV='b605'"), true);
+test("la predeterminada se muestra y el portal no la guarda", () => {
+  assert.match(html, /Automática: la de más stock; si no hay stock, la última actualizada/);
+  assert.equal(html.includes("setUbicacionDefault"), false);
+  assert.equal(html.includes("stk_sub_default"), false);
+  assert.equal(html.includes("MC_BUILD='606'"), true);
+  assert.equal(sw.includes("SWV='b606'"), true);
   assert.equal(html.includes("MCRoles"), false);
 });
 
 const ui = html.slice(html.indexOf("window.MCSubDef="), html.indexOf("window.MCStkEd="));
-function pagina(w, releer) {
+function pagina(w) {
   return `<!doctype html><meta charset="utf-8"><title>sub</title>
 <style>html,body{width:${w}px;margin:0;background:#0b1520;color:#e8eef5;font:14px sans-serif}
 #pf-stk2{width:${w}px;box-sizing:border-box}.cbz-btn,.chip{min-height:44px;font-size:16px}
@@ -124,23 +123,22 @@ function MCpost(){return Promise.resolve({ok:true});}
 var avisos=[],llamadas=[];
 function toast(t){avisos.push(t);}
 function alert(m){avisos.push('ALERT '+m);}
-function api(p){llamadas.push(p.op+(avisos.length?':tarde':''));
-  if(p.op==='setUbicacionDefault')return Promise.resolve({ok:true,sublocation:p.sublocation});
-  if(p.op==='prod_get')return Promise.resolve({ok:true,producto:{id:'p1'},stock:PF.cur.stock,sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:${JSON.stringify(releer)}}]});
-  return Promise.resolve({ok:true});}
+function api(p){llamadas.push(p.op);return Promise.resolve({ok:true});}
 function stkFin(r,msg){toast(msg);}
 ${ui}
-var PF={stkO:{bodegas:[],motivos:[]},cur:{producto:{id:'p1'},stock:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:' 2-a-2 ',q:1},{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:'2-A-1',q:1}],sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:'2-A-2'}],subs_bod:{bp:['SIN STOCK']}}};
+var PF={stkO:{bodegas:[],motivos:[{id:'m1',name:'Corrección'}]},cur:{producto:{id:'p1'},stock:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:' 2-a-2 ',q:1},{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:'2-A-1',q:1}],sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:'2-A-2'}],subs_bod:{bp:['SIN STOCK']}}};
 document.getElementById('pf-stk2').innerHTML=MCStk2.html();
 var box=document.getElementById('pf-stk2');
-var circ=[].slice.call(box.querySelectorAll('[role="button"]')).filter(function(b){return b.textContent==='○'||b.textContent==='●';});
-circ[1].click();
-document.getElementById('pf-sg2').click();
+var txt=box.textContent;
+var circ=box.querySelector('[title="Recibir aquí por defecto"]');
+var inp=box.querySelector('input[inputmode="decimal"]');
+if(inp){inp.value='3';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+var btn=document.getElementById('pf-sg2');
+if(btn)btn.click();
 setTimeout(function(){
   var fuera=box.scrollWidth>box.clientWidth+2;
-  var ok=llamadas[0]==='setUbicacionDefault'&&llamadas[1]==='prod_get'&&llamadas.indexOf('stk_adjust')<0;
-  var bien=${releer === "2-A-1" ? "avisos.indexOf('Predeterminada guardada')>=0&&avisos.join(' ').indexOf('ALERT')<0" : "avisos.join(' ').indexOf('no quedó guardada')>=0&&avisos.indexOf('Predeterminada guardada')<0"};
-  document.getElementById('result').textContent=(!fuera&&ok&&bien)?'OK':('FAIL '+(fuera?'fuera ':'')+llamadas.join(',')+' '+avisos.join(' | '));
+  var ok=!circ&&txt.indexOf('Automática: la de más stock')>=0&&txt.indexOf('predeterminada 2-A-2')>=0&&llamadas.indexOf('stk_adjust')>=0&&llamadas.indexOf('setUbicacionDefault')<0&&llamadas.indexOf('stk_sub_default')<0;
+  document.getElementById('result').textContent=(!fuera&&ok)?'OK':('FAIL '+(fuera?'fuera ':'')+llamadas.join(',')+' | '+txt.slice(0,180));
   document.title=document.getElementById('result').textContent;
 },80);
 </script>`;
@@ -149,12 +147,12 @@ setTimeout(function(){
 const dir = "/tmp/subdefault-ui";
 mkdirSync(dir, { recursive: true });
 const chrome = "/usr/local/bin/google-chrome";
-for (const [w, releer] of [[390, "2-A-1"], [1280, "2-A-2"]]) {
+for (const w of [390, 1280]) {
   const file = `${dir}/ui-${w}.html`;
-  writeFileSync(file, pagina(w, releer));
+  writeFileSync(file, pagina(w));
   const run = spawnSync(chrome, ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--force-device-scale-factor=1", `--user-data-dir=/tmp/chrome-sub-${w}`, `--window-size=${w},900`, "--virtual-time-budget=2500", "--dump-dom", file], { encoding: "utf8", timeout: 25000 });
   const dom = (run.stdout || "") + (run.stderr || "");
   const m = dom.match(/id="result"[^>]*>([^<]*)</);
   if (!m || m[1] !== "OK") throw new Error(w + " " + (m ? m[1] : dom.slice(-500)));
-  console.log(w, releer, "OK");
+  console.log(w, "OK");
 }
