@@ -1,0 +1,34 @@
+--- /tmp/rollback-ventas-all/ventas-precot.ts	2026-11-09 18:05:44.521079588 +0000
++++ /tmp/ventas-precot.ts	2026-11-09 21:07:27.657255924 +0000
+@@ -38,6 +38,11 @@
+ export async function precot(accion, b, ctx) {
+   const { sql, self } = ctx;
+   const actor = S(b.actor || "", 60);
++  const descTope = async ()=>{
++    const [me] = await sql`select rol, modulos from app.portal_users where lower(nombre)=lower(${actor}) limit 1`;
++    const mods = me?.modulos || [];
++    return me && (me.rol === "admin" || mods.includes("~ov.e.desc100=1")) ? 100 : 99;
++  };
+   const prueba = b.prueba === true && /^TEST_/.test(actor); // modo prueba: sin inFlow ni correos reales
+   const user = {
+     nombre: actor,
+@@ -925,6 +930,7 @@
+       ok: false,
+       error: "La cotización no tiene líneas"
+     };
++    const tope = L0.some((l)=>Number(l.descuento) >= 100) ? await descTope() : 99;
+     for (const l of L0){
+       if (!l.productId) return {
+         ok: false,
+@@ -939,9 +945,9 @@
+         error: "Cantidad inválida en " + l.sku
+       };
+       const d = Number(l.descuento) || 0;
+-      if (d < 0 || d >= 100) return {
++      if (d < 0 || d > tope) return {
+         ok: false,
+-        error: "Descuento inválido en " + l.sku + " (0-99%)"
++        error: "Descuento inválido en " + l.sku + (tope >= 100 ? " (0-100%)" : " (0-99%)")
+       };
+     }
+     const p = await get1(b.id);

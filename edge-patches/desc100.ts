@@ -1,4 +1,4 @@
-// Aplica descuento de línea al 100% después del guardado normal (ventas-api sigue en 0-99).
+// Deja en 100% la línea que el portal guardó como 99, porque ventas-api rechaza el 100 crudo.
 // Solo admin o ~ov.e.desc100=1. No toca stock. Recalcula subtotal, IVA y total.
 import postgres from "npm:postgres@3.4.4";
 const SECRET = Deno.env.get("SHEETS_SECRET");
@@ -54,8 +54,12 @@ Deno.serve(async (req)=>{
     const mods = me.modulos || [];
     const puede = me.rol === "admin" || mods.includes("~ov.e.desc100=1");
     if (!puede) return out(req, { ok: false, error: "Descuento inválido (0-99%)" });
-    const id = String(b.id || "");
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return out(req, { ok: false, error: "Orden no válida" });
+    const crudo = String(b.id || b.numero || "").trim();
+    const [so] = /^[0-9a-f-]{36}$/i.test(crudo)
+      ? await q`select id::text id from app.sales_orders where id=${crudo}::uuid or inflow_id=${crudo}::uuid limit 1`
+      : await q`select id::text id from app.sales_orders where upper(order_number)=upper(${crudo}) limit 1`;
+    const id = so?.id || "";
+    if (!id) return out(req, { ok: false, error: "Orden no válida" });
     const ped = Array.isArray(b.lineas) ? b.lineas : [];
     if (!ped.length) return out(req, { ok: true, n: 0 });
     let n = 0;
@@ -63,6 +67,7 @@ Deno.serve(async (req)=>{
       for (const l of ped){
         const lid = /^[0-9a-f-]{36}$/i.test(String(l.id || "")) ? String(l.id) : null;
         const pid = /^[0-9a-f-]{36}$/i.test(String(l.product_id || "")) ? String(l.product_id) : null;
+        const sku = String(l.sku || "").slice(0, 80);
         const qty = Number(l.quantity), pu = Number(l.unit_price);
         if (!Number.isFinite(qty) || !Number.isFinite(pu)) throw new Error("Línea inválida");
         const rows = await t`update app.sales_order_lines l set discount_pct=100, discount_is_percent=true, subtotal=0, discount_value=round((l.quantity*l.unit_price)::numeric, 2)
@@ -70,7 +75,7 @@ Deno.serve(async (req)=>{
             select id from app.sales_order_lines
             where sales_order_id=${id}::uuid
               and (${lid}::uuid is null or id=${lid}::uuid)
-              and (${pid}::uuid is null or product_id=${pid}::uuid)
+              and ((${pid}::uuid is not null and product_id=${pid}::uuid) or (${sku}<>'' and sku=${sku}))
               and abs(quantity-${qty})<1e-6
               and abs(unit_price-${pu})<1e-4
               and discount_pct>=99 and discount_pct<100
@@ -81,7 +86,7 @@ Deno.serve(async (req)=>{
         const [ya] = await t`select 1 from app.sales_order_lines
           where sales_order_id=${id}::uuid
             and (${lid}::uuid is null or id=${lid}::uuid)
-            and (${pid}::uuid is null or product_id=${pid}::uuid)
+            and ((${pid}::uuid is not null and product_id=${pid}::uuid) or (${sku}<>'' and sku=${sku}))
             and abs(quantity-${qty})<1e-6 and abs(unit_price-${pu})<1e-4
             and discount_pct>=100 and not coalesce(is_discarded,false) limit 1`;
         if (!ya) throw new Error("No encontré la línea para dejarla en $0");
