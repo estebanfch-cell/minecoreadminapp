@@ -10,11 +10,14 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='618'")) throw new Error('build');
-if (!sw.includes("var SWV='b618'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='619'")) throw new Error('build');
+if (!sw.includes("var SWV='b619'")) throw new Error('sw');
+if (!html.includes("acta_ticket")) throw new Error('acta ticket');
+if (!html.includes("deshacerEnvio")) throw new Error('deshacer');
 if (!html.includes("c.fotos.length||c.firma")) throw new Error('evidencia');
 const mcrow = html.slice(html.indexOf('var MCrow='), html.indexOf('/* b476 REGLA'));
 const ent = html.slice(html.indexOf('var MCEnt=(function(){'), html.indexOf('/* b353 t628:'));
+if (ent.includes("prompt('Transportista")) throw new Error('sigue preguntando');
 
 function page(w){
   return `<!doctype html><meta charset="utf-8"><title>ent</title>
@@ -27,18 +30,29 @@ function page(w){
 </style>
 <div id="maes-screen"></div><div id="result"></div>
 <script>
-var posts=[],cams=0,alerts=[];
+var posts=[],cams=0,alerts=[],prompts=0,envios=[];
 window.alert=function(m){alerts.push(m);};
-window.prompt=function(m){return m.indexOf('Transportista')>=0?'Servientrega':'G-9';};
+window.prompt=function(){prompts++;return null;};
 function getUserName(){return 'EFCH';}function getPin(){return '1';}
 function getProfile(){return window._P||{rol:'usuario',modulos:['cotizaciones+']};}
 function MCcan(k){return k==='pick.e.enviar'&&window._PICK;}
+function MCsbGet(){return {t:'tok'};}
 function MCerr(e){return String(e&&e.message||e);}function toast(){}
+window.MCnom={poner:function(u,n){this._n=n;this._u=u;},quien:function(s){return this._u===s&&this._n?this._n:s;}};
 var MCFirmaR={opened:null,_fir:{},boton:function(id){return '<span class="dig" data-id="'+id+'">DIGITAL</span>';},abrir:function(id,num){this.opened=id+'|'+num;}};
+window.fetch=function(url,opt){var b=JSON.parse(opt.body);envios.push(b);
+  function ok(x){return Promise.resolve({json:function(){return Promise.resolve(x);}});}
+  if(String(url).indexOf('ent-envio')<0)return ok({ok:false});
+  if(b.op==='estado')return ok({ok:true,ordenes:(b.ids||[]).map(function(id){return {id:id,acta:String(id).indexOf('1288')>=0,por:'EFCH',nombre:'Esteban Ferlito',at:'09/11/2026 14:32 (EC)',deshacer:false};})});
+  if(b.op==='marcar')return ok({ok:true,enviada:true,por:'EFCH',nombre:'Esteban Ferlito',at:'09/11/2026 14:40 (EC)',deshacer:true});
+  if(b.op==='deshacer')return ok({ok:true,enviada:false,deshacer:false});
+  return ok({ok:false,error:'no'});
+};
 function MCpost(b){posts.push(JSON.parse(JSON.stringify(b)));
   if(b.op==='ent_list')return Promise.resolve({ok:true,ordenes:[
     {id:'so-1291',order_number:'MCOR-SO-001291',cliente:'ROCKEXPLORE S.A.S',lineas:1,ship_estado:window._ENV?'enviado':'empacada'},
-    {id:'so-env',order_number:'MCOR-SO-001300',cliente:'SIN ACTA',lineas:1,ship_estado:'enviado'}
+    {id:'so-env',order_number:'MCOR-SO-001300',cliente:'SIN ACTA',lineas:1,ship_estado:'enviado'},
+    {id:'11111111-1111-4111-8111-111111111288',order_number:'MCOR-SO-001288',cliente:'SULTANA DEL CONDOR MINERA S.A',lineas:1,ship_estado:'enviado'}
   ],entregadas:[{id:'so-1209',order_number:'MCOR-SO-001209',cliente:'ROCKEXPLORE S.A.S',receptor:'Gabriel Cabrera',entregado_at:'2026-11-04'}]});
   if(b.op==='ent_get'){
     if(b.id==='so-1209')return Promise.resolve({ok:true,orden:{id:b.id,order_number:'MCOR-SO-001209',cliente:'ROCKEXPLORE S.A.S'},lineas:[{nombre:'ITEM',sku:'MCOR1',cantidad:1}],fotos:[{id:1,url:'#',tipo:'paquete',ts:'10:00',nombre:'foto.jpg'}],entrega:{receptor:'Gabriel Cabrera',firma_url:'#firma',firma_ts:'10:01'}});
@@ -64,6 +78,8 @@ setTimeout(function(){
   var sin=document.querySelector('[data-ent="so-env"]');
   if(!sin||sin.textContent.indexOf('✓ Enviada')<0||sin.textContent.indexOf('Acta pendiente ✗')<0)return mal('enviada sin acta');
   if(sin.querySelector('.ent-acta').textContent.indexOf('✓')===0)return mal('check de mas');
+  var con=document.querySelector('[data-ent="11111111-1111-4111-8111-111111111288"]');
+  if(!con||con.textContent.indexOf('Acta recibida ✓')<0||con.textContent.indexOf('Esteban Ferlito')<0||con.textContent.indexOf('09/11/2026 14:32')<0)return mal('ticket '+(con&&con.textContent));
   var pend=document.querySelector('[data-ent="so-1291"]'),entg=document.querySelector('[data-ent="so-1209"]');
   if((pend.getAttribute('onclick')||'').indexOf("MCEnt.abrir('so-1291')")<0)return mal('tap pendiente');
   if((entg.getAttribute('onclick')||'').indexOf("MCEnt.abrir('so-1209')")<0)return mal('tap entregada');
@@ -90,12 +106,22 @@ setTimeout(function(){
   if(posts.some(function(p){return p.op==='ship'||p.op==='ent_save';}))return mal('remota envio');
   document.querySelector('.ent-act').click();
   setTimeout(function(){
-    var sh=posts.filter(function(p){return p.op==='ship';});
-    if(sh.length!==1||sh[0].transportista!=='Servientrega'||sh[0].guia!=='G-9'||sh[0].id!=='so-1291')return mal('ship');
-    if(posts.some(function(p){return p.op==='ent_save'||p.op==='ent_firma';}))return mal('entrego');
+    if(prompts)return mal('pregunto');
+    var sh=envios.filter(function(p){return p.op==='marcar';});
+    if(sh.length!==1||sh[0].id!=='so-1291'||sh[0].transportista||sh[0].guia)return mal('ship');
+    if(posts.some(function(p){return p.op==='ship'||p.op==='ent_save'||p.op==='ent_firma';}))return mal('entrego');
     if(posts.filter(function(p){return p.op==='ent_list';}).length!==1)return mal('recargo');
-    var envb=document.querySelector('[data-ent="so-1291"] .ent-env');
+    var card2=document.querySelector('[data-ent="so-1291"]');
+    var envb=card2.querySelector('.ent-env');
     if(!envb||!envb.disabled||envb.textContent!=='✓ Enviada')return mal('marca '+(envb&&envb.textContent));
+    if(card2.textContent.indexOf('Esteban Ferlito')<0||card2.textContent.indexOf('09/11/2026 14:40')<0)return mal('quien');
+    if(!card2.querySelector('.ent-des'))return mal('sin deshacer');
+    card2.querySelector('.ent-des').click();
+    setTimeout(function(){
+      var d=envios.filter(function(p){return p.op==='deshacer';});
+      if(d.length!==1||d[0].id!=='so-1291')return mal('deshacer');
+      var back=document.querySelector('[data-ent="so-1291"] .ent-env');
+      if(!back||back.disabled||back.textContent!=='Enviar orden')return mal('vuelve '+(back&&back.textContent));
     window._P={rol:'usuario',modulos:[]};window._PICK=false;window._ENV=false;posts=[];
     MCEnt.init();
     setTimeout(function(){
@@ -126,6 +152,7 @@ setTimeout(function(){
         },80);
       },40);
     },40);
+    },30);
   },20);
 },40);
 </script>`;

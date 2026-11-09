@@ -244,7 +244,7 @@ assert.match(slice, /w=51;h=19/);
 assert.match(slice, /T\('N'/);
 assert.match(slice, /T\('S'/);
 assert.match(slice, /T\('L'/);
-assert.match(html, /MC_BUILD='618'/);
+assert.match(html, /MC_BUILD='619'/);
 assert.match(html, /Imprimir etiquetas/);
 assert.match(html, /prep\.e\.etiq/);
 assert.match(html, /etiq\/panel\.js\?v=582/);
