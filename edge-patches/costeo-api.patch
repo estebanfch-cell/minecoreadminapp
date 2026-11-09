@@ -1,0 +1,197 @@
+--- /tmp/rollback-costeo/index.ts	2026-11-09 17:59:04.219031574 +0000
++++ /tmp/costeo-files/index.ts	2026-11-09 18:14:03.836169048 +0000
+@@ -336,6 +336,10 @@
+         falta -= q;
+         if (!add.includes(e)) add.push(e);
+       }
++      if (falta > 1e-9) {
++        const toc = E.filter((e)=>em(dl, e));
++        if (toc.length && toc.every((e)=>!(Number(e.pend) > 0))) AV.push({ line_id: null, tipo: "sin_saldo", detalle: (dl.codigo_proveedor || dl.sku || "ítem") + ": no hay OC con saldo (línea en 0 o cancelada por nota de crédito). No se asignó " + falta + ".", esperado: falta, real: 0 });
++      }
+     }
+     if (add.length) {
+       const [mx] = await sql`select coalesce(max(item),0)::int m from app.costeo_lines where import_id=${imp.id}`;
+@@ -426,10 +430,12 @@
+   }
+   const found = [];
+   const FUERA = [];
+-  const PEND = {};
++  const PEND = {}, NC0 = {};
+   for (const x of L){
+-    const [r] = await sql`select /* v23 pend */ case when exists (select 1 from app.purchase_orders po where po.id=${x.po_id} and (coalesce(po.is_completed,false) or coalesce(po.is_cancelled,false) or coalesce(po.inventory_status,'') in ('fulfilled','closed'))) then 0 else greatest(coalesce((select sum(quantity) from app.po_lines where purchase_order_id=${x.po_id} and product_id=${x.product_id}),0) - coalesce((select sum(quantity) from app.po_receive_lines where purchase_order_id=${x.po_id} and product_id=${x.product_id}),0),0) end::float q`;
++    const [r] = await sql`select /* v23 pend */ case when exists (select 1 from app.purchase_orders po where po.id=${x.po_id} and (coalesce(po.is_completed,false) or coalesce(po.is_cancelled,false) or coalesce(po.inventory_status,'') in ('fulfilled','closed'))) then 0 else greatest(coalesce((select sum(quantity) from app.po_lines where purchase_order_id=${x.po_id} and product_id=${x.product_id} and quantity>0),0) - coalesce((select sum(quantity) from app.po_receive_lines where purchase_order_id=${x.po_id} and product_id=${x.product_id}),0),0) end::float q,
++      exists (select 1 from app.po_lines pl where pl.purchase_order_id=${x.po_id} and pl.product_id=${x.product_id} and pl.quantity<=0 and coalesce(pl.description,'') ~* '\[NC[[:space:]]') nc`;
+     PEND[x.id] = r.q;
++    if (!(r.q > 0) && r.nc) NC0[x.id] = true;
+   }
+   const PFD = {};
+   {
+@@ -458,7 +464,12 @@
+       });
+     }
+     for (const { d, dl } of PR){
+-      const C = L.filter((x)=>pick(dl, x)).sort((a, b)=>{
++      const C0 = L.filter((x)=>pick(dl, x));
++      if (C0.length && C0.every((x)=>NC0[x.id])) {
++        AV.push({ line_id: C0[0].id, tipo: "sin_saldo", detalle: (C0[0].sku || dl.codigo_proveedor || "ítem") + ": no hay OC con saldo (línea en 0 o cancelada por nota de crédito). No se asignó " + (Number(dl.cantidad) || 0) + ".", esperado: Number(dl.cantidad) || 0, real: 0 });
++        continue;
++      }
++      const C = C0.filter((x)=>!NC0[x.id]).sort((a, b)=>{
+         /* v20 fifo */ return String(PFD[a.po_id] || "9").localeCompare(String(PFD[b.po_id] || "9")) || String(a.po || "").localeCompare(String(b.po || ""), undefined, {
+           numeric: true
+         });
+@@ -3478,6 +3489,7 @@
+       lotes: await sql`select * from app.costeo_lotes where import_id=${imp.id} order by numero`,
+       proximo_lote: (await sql`select ultimo+1 n from app.contadores where clave='lote_mcor06'`)[0]?.n,
+       historial: await sql`select actor, accion, detalle, at from app.costeo_audit where import_id=${imp.id} order by id desc limit 100`,
++      recibos_error: await sql`select r.id, r.qty::float qty, r.sublocation, r.error, r.created_at, l.sku, p.order_number po from app.costeo_recibo_pk r left join app.costeo_lines l on l.id=r.line_id left join app.purchase_orders p on p.id=r.po_id where r.import_id=${imp.id} and r.estado='error' order by r.id`,
+       /* t910 majo */ majo: (await sql`select id, estado, mock, proveedores, pedido_por, pedido_at, enviado_at, texto_enviado, respuesta_at, respuesta_texto, montos_leidos, vacios, faltan, no_cuadra, auto_texto, auto_at, nota, updated_at from app.costeo_majo_pedidos where import_id=${imp.id} order by id desc limit 1`.catch(()=>[]))[0] || null
+     };
+   }
+@@ -3485,6 +3497,12 @@
+     imp: null
+   };
+   if (!imp) throw new Error("Falta id del costeo");
++  if (op === "costeo_recibo_reintentar") {
++    if (!(await esAdminCosteo(sql, actor1))) throw new Error("Solo administración");
++    const [row] = await sql`select * from app.costeo_recibo_pk where id=${Number(b.recibo_id)} and import_id=${imp.id}`;
++    if (!row) throw new Error("Recibo no existe");
++    return await aplicarReintento(sql, imp, row, actor1);
++  }
+   const editable = ()=>{
+     if (imp.historico) throw new Error("Costeo histórico: solo lectura");
+     if ([
+@@ -4249,13 +4267,21 @@
+   return !!u && u.activo !== false && (u.modulos || []).includes(RPK_PERM);
+ }
+ async function rpkPrev(sql, importId) {
+-  const R = await sql`select line_id::text line_id, sum(qty)::float q, sum(nvc)::float nvc, sum(qty*unit_prov)::float v from app.costeo_recibo_pk where import_id=${importId} group by 1`;
++  const R = await sql`select line_id::text line_id, sum(qty)::float q, sum(nvc)::float nvc, sum(qty*unit_prov)::float v from app.costeo_recibo_pk where import_id=${importId} and estado='recibido' group by 1`;
+   return new Map(R.map((r)=>[r.line_id, r]));
+ }
++async function saldoOc(sql, poId, productId) {
++  const rows = await sql`select quantity::float q, coalesce(description,'') d from app.po_lines where purchase_order_id=${poId} and product_id=${productId}`;
++  const ped = rows.reduce((a, r)=>a + (Number(r.q) > 1e-9 ? Number(r.q) : 0), 0);
++  const nc = rows.some((r)=>!(Number(r.q) > 1e-9) && /\[NC\s/i.test(r.d || ""));
++  const [rc] = await sql`select coalesce(sum(quantity),0)::float q from app.po_receive_lines where purchase_order_id=${poId} and product_id=${productId}`;
++  const saldo = Math.max(0, ped - Number(rc?.q || 0));
++  return { saldo, muerta: saldo <= 1e-9 && (nc || ped <= 1e-9), nc };
++}
+ async function pkRecibir(sql0, impId, docId, actor1) {
+   if (!await rpkPuede(sql0, actor1)) return { omitido: "interruptor apagado" };
+   if (!(await sql0`select to_regclass('app.costeo_recibo_pk') t`)[0].t) return { omitido: "sin tabla" };
+-  let plan = [], imp;
++  let plan = [], imp, avisos = [];
+   await sql0.begin(async (sql)=>{
+     await sql`select pg_advisory_xact_lock(hashtext('b593rpk'||${impId}::text))`;
+     const C = await carga(sql, impId); imp = C.imp; const L = C.L;
+@@ -4272,9 +4298,20 @@
+       const prods = [...new Set(PX.P.filter((p)=>p.doc_id === did && p.product_id).map((p)=>p.product_id))];
+       for (const pid of prods) {
+         const cum = PX.P.filter((p)=>p.product_id === pid && env.has(p.doc_id)).reduce((a, p)=>a + (Number(p.qty_contada) || 0), 0);
+-        const ls = pkOrden(CL.filter((l)=>l.product_id === pid && l.estado === "ok"));
+-        const lsCap = ls.map((l)=>({ ...l, qty_po_pend: l.qty_po_pend }));
+-        const { partes } = pkPartir(cum, lsCap);
++        const ls0 = pkOrden(CL.filter((l)=>l.product_id === pid && l.estado === "ok"));
++        const vivo = new Map();
++        for (const l of ls0) {
++          const vk = String(l.po_id) + "|" + pid;
++          if (!vivo.has(vk) && l.po_id) vivo.set(vk, await saldoOc(sql, l.po_id, pid));
++        }
++        const lsCap = ls0.map((l)=>{
++          const v = vivo.get(String(l.po_id) + "|" + pid);
++          if (v && v.muerta) return { ...l, qty_factura: 0, qty_po_pend: 0, _muerta: true };
++          if (v) return { ...l, qty_po_pend: Math.min(Number(l.qty_po_pend) || 0, v.saldo) };
++          return l;
++        });
++        const { partes, sin_oc } = pkPartir(cum, lsCap);
++        if (sin_oc > 1e-9 && lsCap.some((l)=>l._muerta)) avisos.push((ls0[0]?.sku || pid) + ": no hay OC con saldo" + (lsCap.some((l)=>l._muerta && vivo.get(String(l.po_id) + "|" + pid)?.nc) ? " (línea en 0 o cancelada por nota de crédito)" : "") + ". No se recibieron " + sin_oc + ".");
+         const sub = (PX.P.find((p)=>p.doc_id === did && p.product_id === pid && p.sublocation) || {}).sublocation || "";
+         for (const pt of partes) {
+           const k = K.get(String(pt.id)); if (!k) continue;
+@@ -4292,8 +4329,11 @@
+       }
+     }
+   });
+-  if (!plan.length) return { recibido: [], omitido: "nada nuevo" };
+-  return await rpkAplicar(sql0, imp, plan, actor1);
++  if (avisos.length) await aviso(sql0, "costeo", (imp && imp.codigo) || String(impId), ("Costeo " + ((imp && imp.codigo) || "") + ": " + avisos.join(" · ")).slice(0, 300)).catch(()=>null);
++  if (!plan.length) return { recibido: [], omitido: avisos.length ? null : "nada nuevo", errores: avisos };
++  const r = await rpkAplicar(sql0, imp, plan, actor1);
++  if (avisos.length) r.errores = (r.errores || []).concat(avisos);
++  return r;
+ }
+ async function rpkAplicar(sql, imp, plan, actor1) {
+   const [lp] = await sql`select id from app.locations where name ilike 'BODEGA PRINCIPAL' limit 1`;
+@@ -4336,6 +4376,49 @@
+   if (err.length) await aviso(sql, "costeo", imp.codigo, `Costeo ${imp.codigo}: recibo por packing con error — ${err.join(" · ").slice(0, 300)}`);
+   return { recibido: hecho, errores: err };
+ }
++async function esAdminCosteo(sql, actor1) {
++  const [u] = await sql`select rol, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${String(actor1 || "")}) limit 1`;
++  return !!u && u.activo !== false && u.rol === "admin";
++}
++async function movimientoYa(sql, poId, orderNumber, productId) {
++  const [rl] = await sql`select coalesce(sum(quantity),0)::float q, count(*)::int n from app.po_receive_lines where purchase_order_id=${poId} and product_id=${productId}`;
++  const [mv] = await sql`select count(*)::int n from app.stock_moves where product_id=${productId} and doc_type='po_receive' and coalesce(qty,0)>0 and doc_number=${orderNumber}`;
++  return { recibido: Number(rl?.q || 0), lineas: rl?.n || 0, moves: mv?.n || 0 };
++}
++/* Reintento de un costeo_recibo_pk en error. No suma non_vendor_costs (el intento fallido ya lo hizo) ni reabre un costeo cerrado. */
++async function aplicarReintento(sql, imp, row, actor1) {
++  if (imp.historico || imp.prueba) throw new Error("Costeo histórico o de prueba: no se reintenta");
++  if (imp.estado === "cerrado" || imp.estado === "anulado") throw new Error("Un costeo cerrado no se toca");
++  if (!["cruzado", "aprobado", "pre_recibido", "recibido", "reabierto"].includes(imp.estado)) throw new Error("Este costeo no admite reintentar la recepción");
++  if (row.estado === "recibido") return { ya: true, recibo: row.id };
++  if (row.estado !== "error") throw new Error("Solo se reintenta un recibo con error");
++  const qty = Number(row.qty);
++  if (!(qty > 0)) throw new Error("Cantidad inválida");
++  await sql`select pg_advisory_lock(hashtext(${"rpk-retry-" + row.id}))`;
++  try {
++    const [po] = await sql`select id, order_number, non_vendor_costs from app.purchase_orders where id=${row.po_id}`;
++    if (!po) throw new Error("OC no existe");
++    const nvcAntes = Number(po.non_vendor_costs?.value || 0);
++    const antes = await movimientoYa(sql, row.po_id, po.order_number, row.product_id);
++    let hecho = false;
++    if (antes.recibido <= 1e-9 && antes.moves === 0) {
++      const [lp] = await sql`select id from app.locations where name ilike 'BODEGA PRINCIPAL' limit 1`;
++      if (!lp) throw new Error("No existe la Bodega principal");
++      await ventas("po_receive", { id: row.po_id, lineas: [{ product_id: row.product_id, quantity: qty, sublocation: row.sublocation || "", location_id: lp.id }] }, actor1);
++      hecho = true;
++    } else if (antes.recibido + 1e-9 < qty) throw new Error("Hay un movimiento parcial de esta OC; no se recibe otra vez");
++    const [nvcNow] = await sql`select non_vendor_costs from app.purchase_orders where id=${row.po_id}`;
++    const nvcDespues = Number(nvcNow?.non_vendor_costs?.value || 0);
++    const desp = await movimientoYa(sql, row.po_id, po.order_number, row.product_id);
++    if (desp.recibido + 1e-9 < qty) throw new Error("La recepción no quedó registrada");
++    await sql`update app.costeo_recibo_pk set estado='recibido', recibido_at=now(), error=null, actor=${actor1} where id=${row.id} and estado='error'`;
++    if (!["recibido", "cerrado"].includes(imp.estado)) await sql`update app.costeo_lines set qty_recibida=(select coalesce(sum(qty),0) from app.costeo_recibo_pk where line_id=${row.line_id}::uuid and estado='recibido') where id=${row.line_id}::uuid`;
++    await audit(sql, imp.id, actor1, "recibo_reintento", { recibo: row.id, po: po.order_number, qty, recibido_ahora: hecho, nvc: nvcAntes });
++    return { reintentado: true, recibido_ahora: hecho, recibo: row.id, nvc: nvcDespues, nvc_cambio: Math.abs(nvcDespues - nvcAntes) > 0.02 };
++  } finally {
++    await sql`select pg_advisory_unlock(hashtext(${"rpk-retry-" + row.id}))`;
++  }
++}
+ async function packingOp(sql0, op, b, actor1) {
+   if (op === "packing_list") {
+     const imps = await sql0`select * from app.costeo_imports where estado in ('borrador','cruzado','aprobado','pre_recibido','reabierto') and not coalesce(historico,false) and not coalesce(prueba,false) order by created_at desc limit 30`;
+@@ -4829,6 +4912,10 @@
+ async function recibir(sql, imp, actor1, simular) {
+   if (imp.prueba) simular = true; // b358-prueba
+   if (imp.estado !== "pre_recibido") throw new Error("Primero pre-recibe y registra el conteo físico");
++  if (!simular) {
++    const [er] = await sql`select count(*)::int n from app.costeo_recibo_pk where import_id=${imp.id} and estado='error'`;
++    if (er?.n) throw new Error(`Hay ${er.n} recepción(es) de packing con error. Reinténtalas antes de recibir.`);
++  }
+   const [ab] = await sql`select count(*)::int n from app.costeo_discrepancias where import_id=${imp.id} and estado='abierta'`;
+   if (ab.n && !simular) throw new Error(`Hay ${ab.n} discrepancia(s) abiertas (conteo u otras): resuélvelas antes de recibir`);
+   const { L } = await carga(sql, imp.id);
+@@ -4982,6 +5069,10 @@
+ async function cerrar(sql, imp, actor1) {
+   const T = !!imp.prueba; // b358-prueba: ensayo de cierre — lotes de referencia, ZIP devuelto en base64, sin Storage, sin contador, sin correo
+   if (imp.estado !== "recibido" && !(T && imp.estado === "pre_recibido")) throw new Error("Primero recibe la importación");
++  if (!T) {
++    const [er] = await sql`select count(*)::int n from app.costeo_recibo_pk where import_id=${imp.id} and estado='error'`;
++    if (er?.n) throw new Error(`Hay ${er.n} recepción(es) de packing con error. Reinténtalas antes de cerrar.`);
++  }
+   const { zipSync } = await import("npm:fflate@0.8.2");
+   const { L } = await carga(sql, imp.id);
+   const mk = await markupDef(sql);

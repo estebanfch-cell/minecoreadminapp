@@ -1,0 +1,16 @@
+--- /tmp/rollback-ventas/ventas-compras.ts	2026-11-09 17:59:04.215031522 +0000
++++ /tmp/ventas-compras.ts	2026-11-09 18:07:15.313646564 +0000
+@@ -502,7 +502,12 @@
+         if (!(q > 0)) throw new Error("Cantidad inválida");
+         const [ol] = await t`select coalesce(sum(quantity),0)::float q from app.po_lines where purchase_order_id=${p.id} and product_id=${x.product_id}`;
+         const [rc] = await t`select coalesce(sum(quantity),0)::float q from app.po_receive_lines where purchase_order_id=${p.id} and product_id=${x.product_id}`;
+-        if (rc.q + q > ol.q + 1e-9) throw new Error(`Recibes más de lo pedido (pedido ${ol.q}, ya recibido ${rc.q})`);
++        if (rc.q + q > ol.q + 1e-9) {
++          const det = await t`select quantity::float q, coalesce(description,'') d from app.po_lines where purchase_order_id=${p.id} and product_id=${x.product_id}`;
++          const nc = det.filter((r)=>!(r.q > 1e-9) && /\[NC\s/i.test(r.d || ""));
++          if (!(ol.q > 1e-9) && nc.length) throw new Error("No hay OC con saldo: la línea está en 0, cancelada por nota de crédito");
++          throw new Error(`Recibes más de lo pedido (pedido ${ol.q}, ya recibido ${rc.q})`);
++        }
+         const loc = U(x.location_id) || p.location_id || LOC_PRINCIPAL;
+         let sub = String(x.sublocation || "").trim().toUpperCase();
+         if (x.sublocation == null) {
