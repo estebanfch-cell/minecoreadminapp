@@ -125,36 +125,42 @@ Deno.serve(async (req)=>{
     if (!hasta) return out(req, { ok: false, error: "Elige o escribe la sububicación destino" });
     if (consign(hasta)) return out(req, { ok: false, error: "Consignación no es una sububicación de Bodega principal" });
     if (desde === hasta) return out(req, { ok: false, error: "El destino es el mismo lugar" });
-    if (!(qty > 0)) return out(req, { ok: false, error: "Escribe la cantidad" });
+    if (!(qty > 0) && !fijar) return out(req, { ok: false, error: "Escribe la cantidad" });
+    if (qty < 0) return out(req, { ok: false, error: "Escribe la cantidad" });
     const ahora = new Date();
     const res = await q.begin(async (t)=>{
+      let number = "", ref = id;
       const [p] = await t`select id, sku, name, coalesce(track_serials,false) series from app.products where id=${id}::uuid for update`;
       if (!p) throw new Error("Producto no existe");
-      const [ser] = await t`select 1 from app.stock_levels where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${desde} and serial<>'' and quantity>0 limit 1`;
-      if (p.series || ser) throw new Error("Este producto tiene series. El traslado rápido no lo mueve.");
-      const [orig] = await t`select coalesce(sum(quantity),0)::float q from app.stock_levels where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${desde} and serial=''`;
-      if (Number(orig?.q || 0) + 1e-9 < qty) throw new Error("No hay suficiente stock en " + (desde || "sin sububicación"));
       await t`insert into app.sublocations (location_id, code, is_active)
         select ${BP}::uuid, ${hasta}, true
         where not exists (select 1 from app.sublocations where location_id=${BP}::uuid and upper(trim(code))=${hasta})`;
-      const u = await t`update app.stock_levels set quantity=quantity-${qty}, updated_at=now()
-        where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${desde} and serial=''
-        returning quantity::float q`;
-      if (!u.length || u.some((x)=>Number(x.q) < -1e-6)) throw new Error("No se pudo descontar el origen");
-      const d = await t`update app.stock_levels set quantity=quantity+${qty}, updated_at=now()
-        where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${hasta} and serial='' returning 1`;
-      if (!d.length) await t`insert into app.stock_levels (product_id, location_id, sublocation, serial, quantity, updated_at)
-        values (${id}::uuid, ${BP}::uuid, ${hasta}, '', ${qty}, now())`;
-      const [num] = await t`select app.doc_next('ST') n`;
-      const [doc] = await t`insert into app.inv_docs (tipo, number, location_id, to_location_id, remarks, estado, sync_status, created_by, created_at, completed_at)
-        values ('transfer', ${num.n}, ${BP}::uuid, ${BP}::uuid, ${"Cambio de ubicación · " + nombre}, 'completado', 'solo_minecore', ${actor}, ${ahora}, ${ahora})
-        returning id`;
-      await t`insert into app.inv_doc_lines (doc_id, line_num, product_id, quantity, from_sub, to_sub)
-        values (${doc.id}, 1, ${id}::uuid, ${qty}, ${desde}, ${hasta})`;
-      await t`insert into app.stock_local_moves (actor, product_id, location_id, sublocation, delta, kind, doc_id, status, nota)
-        values (${actor}, ${id}::uuid, ${BP}::uuid, ${desde}, ${-qty}, 'transfer', ${doc.id}, 'aplicado', ${nombre})`;
-      await t`insert into app.stock_local_moves (actor, product_id, location_id, sublocation, delta, kind, doc_id, status, nota)
-        values (${actor}, ${id}::uuid, ${BP}::uuid, ${hasta}, ${qty}, 'transfer', ${doc.id}, 'aplicado', ${nombre})`;
+      if (qty > 0) {
+        const [ser] = await t`select 1 from app.stock_levels where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${desde} and serial<>'' and quantity>0 limit 1`;
+        if (p.series || ser) throw new Error("Este producto tiene series. El traslado rápido no lo mueve.");
+        const [orig] = await t`select coalesce(sum(quantity),0)::float q from app.stock_levels where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${desde} and serial=''`;
+        if (Number(orig?.q || 0) + 1e-9 < qty) throw new Error("No hay suficiente stock en " + (desde || "sin sububicación"));
+        const u = await t`update app.stock_levels set quantity=quantity-${qty}, updated_at=now()
+          where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${desde} and serial=''
+          returning quantity::float q`;
+        if (!u.length || u.some((x)=>Number(x.q) < -1e-6)) throw new Error("No se pudo descontar el origen");
+        const d = await t`update app.stock_levels set quantity=quantity+${qty}, updated_at=now()
+          where product_id=${id}::uuid and location_id=${BP}::uuid and upper(trim(coalesce(sublocation,'')))=${hasta} and serial='' returning 1`;
+        if (!d.length) await t`insert into app.stock_levels (product_id, location_id, sublocation, serial, quantity, updated_at)
+          values (${id}::uuid, ${BP}::uuid, ${hasta}, '', ${qty}, now())`;
+        const [num] = await t`select app.doc_next('ST') n`;
+        const [doc] = await t`insert into app.inv_docs (tipo, number, location_id, to_location_id, remarks, estado, sync_status, created_by, created_at, completed_at)
+          values ('transfer', ${num.n}, ${BP}::uuid, ${BP}::uuid, ${"Cambio de ubicación · " + nombre}, 'completado', 'solo_minecore', ${actor}, ${ahora}, ${ahora})
+          returning id`;
+        await t`insert into app.inv_doc_lines (doc_id, line_num, product_id, quantity, from_sub, to_sub)
+          values (${doc.id}, 1, ${id}::uuid, ${qty}, ${desde}, ${hasta})`;
+        await t`insert into app.stock_local_moves (actor, product_id, location_id, sublocation, delta, kind, doc_id, status, nota)
+          values (${actor}, ${id}::uuid, ${BP}::uuid, ${desde}, ${-qty}, 'transfer', ${doc.id}, 'aplicado', ${nombre})`;
+        await t`insert into app.stock_local_moves (actor, product_id, location_id, sublocation, delta, kind, doc_id, status, nota)
+          values (${actor}, ${id}::uuid, ${BP}::uuid, ${hasta}, ${qty}, 'transfer', ${doc.id}, 'aplicado', ${nombre})`;
+        number = String(num.n || "");
+        ref = doc.id;
+      }
       if (fijar) {
         const upd = await t`update app.product_reorder set default_sublocation=${hasta} where product_id=${id}::uuid and location_id=${BP}::uuid returning product_id`;
         if (!upd.length) await t`insert into app.product_reorder (product_id, location_id, default_sublocation) values (${id}::uuid, ${BP}::uuid, ${hasta})`;
@@ -162,8 +168,8 @@ Deno.serve(async (req)=>{
           where id=${id}::uuid and (default_location_id is null or default_location_id=${BP}::uuid)`;
       }
       await t`insert into app.audit_log (actor, accion, tabla, ref_id, detalle)
-        values (${actor}, 'ubicar', 'inv_docs', ${doc.id}, ${t.json({ nombre, sku: p.sku, desde, hasta, qty, predeterminada: fijar, number: num.n })})`;
-      return { number: num.n };
+        values (${actor}, 'ubicar', 'inv_docs', ${ref}, ${t.json({ nombre, sku: p.sku, desde, hasta, qty, predeterminada: fijar, number })})`;
+      return { number };
     });
     const d = await detalle(q, id);
     return out(req, { ok: true, number: res.number, nombre, at: tsEC(ahora), desde, hasta, qty, predeterminada: fijar, producto: d });

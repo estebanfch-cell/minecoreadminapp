@@ -104,8 +104,10 @@ test("la ficha no repite la bodega y la predeterminada se confirma al releer", (
   assert.match(html, /op:'setUbicacionDefault'/);
   assert.match(html, /op:'prod_get',id:p\.id/);
   assert.match(html, /MCStk2\.def/);
-  assert.equal(html.includes("MC_BUILD='621'"), true);
-  assert.equal(sw.includes("SWV='b621'"), true);
+  assert.match(html, /!x\.soloDef\|\|\+x\.q===0/);
+  assert.match(html, /MCReubicar\(\{id:p\.id,desde:m\.desde/);
+  assert.equal(html.includes("MC_BUILD='622'"), true);
+  assert.equal(sw.includes("SWV='b622'"), true);
   const lines = new Function(html.slice(html.indexOf("function pf2Principal"), html.indexOf("function pf2StkHtml")) + "\nreturn pf2StkLines;")();
   const una = lines({
     stock: [
@@ -181,4 +183,44 @@ for (const w of [390, 1280]) {
   const m = dom.match(/id="result"[^>]*>([^<]*)</);
   if (!m || m[1] !== "OK") throw new Error(w + " " + (m ? m[1] : dom.slice(-500)));
   console.log(w, "OK");
+}
+
+function paginaMover(w) {
+  return `<!doctype html><meta charset="utf-8"><title>mover</title>
+<style>html,body{width:${w}px;margin:0}#pf-stk2{width:${w}px}</style>
+<div id="pf-stk2"></div><div id="result"></div>
+<script>
+function esc(s){return String(s==null?'':s);}
+function MCcan(){return true;}
+function MCerr(e){return String(e&&e.message||e);}
+var avisos=[],llamadas=[],movidas=[];
+function toast(t){avisos.push(t);}
+function alert(m){avisos.push('ALERT '+m);}
+function api(p){llamadas.push(p.op);return Promise.resolve({ok:true,sublocation:p.sublocation});}
+function MCReubicar(extra){movidas.push(extra);llamadas.push('mover');return Promise.resolve({ok:true});}
+function stkFin(r,msg){toast(msg);}
+${ui}
+var PF={stkO:{bodegas:[],motivos:[]},cur:{producto:{id:'p522'},stock:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sublocation:'10-B-2',q:33}],sub_defaults:[{location_id:'bp',bodega:'BODEGA PRINCIPAL',sub:'10-B-2'}]}};
+document.getElementById('pf-stk2').innerHTML=MCStk2.html();
+MCStk2.sel('bp','11-C-9');
+var antes=document.querySelectorAll('#pf-stk2 .stk2-q input').length;
+MCStk2.q('bp',1,'10');
+MCStk2.def('bp',1);
+var btn=document.getElementById('pf-sg2');
+if(btn)btn.click();
+setTimeout(function(){
+  var m=movidas[0]||{};
+  var ok=antes>=1&&llamadas[0]==='mover'&&llamadas.indexOf('setUbicacionDefault')<0&&llamadas.indexOf('stk_adjust')<0&&m.desde==='10-B-2'&&m.hasta==='11-C-9'&&m.qty===10&&m.predeterminada===true&&avisos.indexOf('Ubicación guardada')>=0;
+  document.getElementById('result').textContent=ok?'OK':('FAIL '+JSON.stringify({antes,llamadas,movidas,avisos}));
+},80);
+</script>`;
+}
+for (const w of [390, 1280]) {
+  const file = `${dir}/mover-${w}.html`;
+  writeFileSync(file, paginaMover(w));
+  const run = spawnSync(chrome, ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--force-device-scale-factor=1", `--user-data-dir=/tmp/chrome-subm-${w}`, `--window-size=${w},900`, "--virtual-time-budget=2500", "--dump-dom", file], { encoding: "utf8", timeout: 25000 });
+  const dom = (run.stdout || "") + (run.stderr || "");
+  const m = dom.match(/id="result"[^>]*>([^<]*)</);
+  if (!m || m[1] !== "OK") throw new Error("mover " + w + " " + (m ? m[1] : dom.slice(-800)));
+  console.log("mover", w, "OK");
 }
