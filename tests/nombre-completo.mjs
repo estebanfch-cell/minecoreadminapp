@@ -4,8 +4,8 @@ import vm from 'node:vm';
 
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-assert.match(html, /var MC_BUILD='616'/);
-assert.match(sw, /var SWV='b616'/);
+assert.match(html, /var MC_BUILD='617'/);
+assert.match(sw, /var SWV='b617'/);
 
 const start = html.indexOf('window.MCnom=(function(){');
 const end = html.indexOf('function mcRT()', start);
