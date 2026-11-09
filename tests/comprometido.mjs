@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, "index.html"), "utf8");
 const sw = readFileSync(join(root, "sw.js"), "utf8");
-assert.match(html, /var MC_BUILD='623'/);
-assert.match(sw, /var SWV='b623'/);
+assert.match(html, /var MC_BUILD='624'/);
+assert.match(sw, /var SWV='b624'/);
 assert.match(html, /Comprometido: /);
 assert.match(html, /pf2IrOV/);
 
