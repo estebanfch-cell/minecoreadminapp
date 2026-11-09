@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, "index.html"), "utf8");
 const sw = readFileSync(join(root, "sw.js"), "utf8");
-assert.match(html, /var MC_BUILD='613'/);
-assert.match(sw, /var SWV='b613'/);
+assert.match(html, /var MC_BUILD='614'/);
+assert.match(sw, /var SWV='b614'/);
 
 const lib = new Function(
   html.slice(html.indexOf("function mcNorm"), html.indexOf("function mcBusca")) +
