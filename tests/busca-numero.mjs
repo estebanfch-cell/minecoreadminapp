@@ -12,11 +12,11 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, "index.html"), "utf8");
 const sw = readFileSync(join(root, "sw.js"), "utf8");
-assert.match(html, /var MC_BUILD='612'/);
-assert.match(sw, /var SWV='b612'/);
+assert.match(html, /var MC_BUILD='613'/);
+assert.match(sw, /var SWV='b613'/);
 assert.equal(html.split("function ccDig(").length, 2);
 assert.equal(html.split("function ccBusca(").length, 2);
-assert.match(html, /function kb\(\)\{var m=MCkb\.toggle\(\)/);
+assert.match(html, /function kb\(\)\{MCkb\.pulsar\(\$\('cc-scan'\)\);\}/);
 assert.match(html, /id="pk-busca"/);
 
 const lib = new Function(
