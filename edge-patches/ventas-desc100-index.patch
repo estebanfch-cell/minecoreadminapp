@@ -1,0 +1,21 @@
+--- /tmp/rollback-ventas-all/ventas-index.ts	2026-11-09 18:05:44.521079588 +0000
++++ /tmp/ventas-index.ts	2026-11-09 21:07:13.453289520 +0000
+@@ -1732,11 +1732,17 @@
+       const o = b.orden || {};
+       const L = b.lineas || [];
+       if (!L.length) throw new Error("La orden no tiene líneas");
++      let topeDesc = 99;
++      if (L.some((l)=>Number(l.discount_pct) >= 100)) {
++        const [meD] = await sql`select rol, modulos from app.portal_users where lower(nombre)=lower(${actor}) limit 1`;
++        const modsD = meD?.modulos || [];
++        if (meD && (meD.rol === "admin" || modsD.includes("~ov.e.desc100=1"))) topeDesc = 100;
++      }
+       for (const l of L){
+         if (!(Number(l.quantity) > 0)) throw new Error("Cantidad inválida");
+         if (Number(l.unit_price) < 0) throw new Error("Precio inválido");
+         const d = Number(l.discount_pct) || 0;
+-        if (d < 0 || d >= 100) throw new Error("Descuento inválido (0-99%)");
++        if (d < 0 || d > topeDesc) throw new Error(topeDesc >= 100 ? "Descuento inválido (0-100%)" : "Descuento inválido (0-99%)");
+         if (!l.product_id && !l.description) throw new Error("Línea sin producto");
+       }
+       let id = o.id || "";
