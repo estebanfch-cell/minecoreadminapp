@@ -154,8 +154,8 @@ test('origen en revisión, ya contado o de otra bodega no se escribe', () => {
 });
 
 test('el portal deja el permiso apagado y no cambia el cierre ni cancela una sección', () => {
-  assert.match(html, /var MC_BUILD='625'/);
-  assert.match(sw, /var SWV='b625'/);
+  assert.match(html, /var MC_BUILD='626'/);
+  assert.match(sw, /var SWV='b626'/);
   assert.match(html, /Ac\('co\.e\.hallazgo','Agregar productos encontrados','conteo',1\)/);
   assert.doesNotMatch(html, /Ac\('co\.e\.hallazgo','Cruce al encontrar'/);
   assert.match(html, /function MCea\(k\)\{return \/\\\.e\\\./);
