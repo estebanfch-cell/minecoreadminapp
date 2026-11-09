@@ -1,5 +1,5 @@
---- /tmp/rollback-costeo/index.ts	2026-11-09 17:59:04.219031574 +0000
-+++ /tmp/costeo-files/index.ts	2026-11-09 18:14:03.836169048 +0000
+--- a/index.ts	2026-11-09 17:59:04.219031574 +0000
++++ b/index.ts	2026-11-09 18:14:03.836169048 +0000
 @@ -336,6 +336,10 @@
          falta -= q;
          if (!add.includes(e)) add.push(e);
@@ -195,3 +195,43 @@
    const { zipSync } = await import("npm:fflate@0.8.2");
    const { L } = await carga(sql, imp.id);
    const mk = await markupDef(sql);
+--- a/costeo_calc.ts	2026-11-09 17:59:04.219031574 +0000
++++ b/costeo_calc.ts	2026-11-09 19:21:32.197988575 +0000
+@@ -124,7 +124,7 @@
+     x.AG = x.H ? x.AF / x.H : 0;
+     x.AH = x.AG * x.H;
+     x.AJ = x.AG - x.AI;
+-    x.AP = x.AH ? (x.AH - x.J) / x.AH : 0;
++    x.AP = x.J ? (x.AH - x.J) / x.J : 0; // incremento sobre el FOB de la línea, igual que la app
+     x.AQ = x.AH - x.J;
+     x.precio_ref = x.AG * (1 + mk);
+     x.margen_ref = mk / (1 + mk);
+@@ -146,7 +146,7 @@
+     AQ: sum("AQ"),
+     ...tot
+   };
+-  T.incremento = T.AF ? 1 - T.M / T.AF : 0;
++  T.incremento = T.M ? (T.AF - T.M) / T.M : 0; // (bodega − FOB) / FOB, igual que la app; no (bodega − FOB) / bodega
+   // validaciones (doc Cote §2.2): IVA DAI ±0.05, Fodinfa 0.5%×(CIF+seguro) ±0.01, seguro ≈ 1%×(FOB+gastos ext) (solo aviso)
+   const chk = [];
+   if (m.iva_dai != null && m.iva_dai !== "") {
+--- a/excel.ts	2026-11-09 17:59:04.219031574 +0000
++++ b/excel.ts	2026-11-09 19:21:38.509832269 +0000
+@@ -258,7 +258,7 @@
+     f("AJ", `AG${r}-AI${r}`, x.AJ);
+     f("AK", `AG${r}*(1+$D$14)`, x.precio_ref);
+     f("AL", `$D$14/(1+$D$14)`, x.margen_ref);
+-    f("AM", `(AH${r}-J${r})/AH${r}`, x.AP);
++    f("AM", x.J ? `(AH${r}-J${r})/J${r}` : "0", x.AP);
+     f("AN", `AH${r}-J${r}`, x.AQ);
+     COLS.forEach((c)=>{
+       ws.getCell(c + r).border = B;
+@@ -318,7 +318,7 @@
+     k.border = B;
+   });
+   ws.getCell("AF" + (T + 1)).value = {
+-    formula: `1-(M${T}/AF${T})`,
++    formula: `IF(M${T}=0,0,(AF${T}-M${T})/M${T})`,
+     result: tt.incremento
+   };
+   ws.getCell("AF" + (T + 1)).numFmt = "0.00%";
