@@ -104,8 +104,8 @@ test("la ficha no repite la bodega y la predeterminada se confirma al releer", (
   assert.match(html, /op:'setUbicacionDefault'/);
   assert.match(html, /op:'prod_get',id:p\.id/);
   assert.match(html, /MCStk2\.def/);
-  assert.equal(html.includes("MC_BUILD='615'"), true);
-  assert.equal(sw.includes("SWV='b615'"), true);
+  assert.equal(html.includes("MC_BUILD='616'"), true);
+  assert.equal(sw.includes("SWV='b616'"), true);
   const lines = new Function(html.slice(html.indexOf("function pf2Principal"), html.indexOf("function pf2StkHtml")) + "\nreturn pf2StkLines;")();
   const una = lines({
     stock: [
