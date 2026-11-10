@@ -18,11 +18,12 @@
   button.cat{display:flex;width:100%;align-items:center;gap:8px;background:transparent;color:inherit;text-align:left;padding:2px 0;border-radius:0}
   button.cat b{flex:1;min-width:0}
   .cat .sum{flex:none;text-align:right;font-size:13px}
-  .li{display:flex;gap:8px;align-items:center;height:72px;box-sizing:border-box;border-top:1px solid #243446}
+  .li{display:flex;flex-direction:column;align-items:stretch;gap:6px;box-sizing:border-box;padding:8px 0;border-top:1px solid #243446}
+  .nm{font-size:14px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
+  .lb{display:flex;gap:8px;align-items:center}
   .ph{width:64px;height:64px;border-radius:8px;background:#1c2a3a;flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#8fa3b8;font-size:11px}
   .ph img{width:100%;height:100%;object-fit:contain;background:#fff}
   .mid{flex:1;min-width:0}
-  .mid b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .side{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
   .nums{display:flex;gap:6px;align-items:baseline;white-space:nowrap}
   .qty{display:flex;align-items:center;gap:4px}
@@ -60,9 +61,9 @@ function foto(it){
 }
 function fila(it,full){
   var qty=QT[it.sku]||0, u=unit(it,qty,full), extra=full?'−15%':(qty>=Number(it.stock)&&Number(it.stock)>0?'−5%':'');
-  return '<div class="li">'+foto(it)+'<div class="mid"><b>'+esc(it.nombre||it.sku)+'</b><div class="mut">'+esc(it.sku||'')+' · Disponible '+esc(it.stock)+'</div></div>'+
+  return '<div class="li"><div class="nm">'+esc(it.nombre||it.sku)+'</div><div class="lb">'+foto(it)+'<div class="mid"><div class="mut">'+esc(it.sku||'')+' · Disponible '+esc(it.stock)+'</div></div>'+
     '<div class="side"><div class="nums"><span class="old">'+money(listaDe(it))+'</span><span class="off">'+esc(offDe(it))+(extra?' '+extra:'')+'</span><b>'+money(u)+'</b></div>'+
-    '<div class="qty"><button type="button" data-step="-1" data-sku="'+esc(it.sku)+'" data-max="'+esc(it.stock)+'">−</button><input data-sku="'+esc(it.sku)+'" type="number" inputmode="numeric" min="0" max="'+esc(it.stock)+'" step="1" value="'+(qty?qty:'')+'" aria-label="Cantidad"><button type="button" data-step="1" data-sku="'+esc(it.sku)+'" data-max="'+esc(it.stock)+'">+</button></div></div></div>';
+    '<div class="qty"><button type="button" data-step="-1" data-sku="'+esc(it.sku)+'" data-max="'+esc(it.stock)+'">−</button><input data-sku="'+esc(it.sku)+'" type="number" inputmode="numeric" min="0" max="'+esc(it.stock)+'" step="1" value="'+(qty?qty:'')+'" aria-label="Cantidad"><button type="button" data-step="1" data-sku="'+esc(it.sku)+'" data-max="'+esc(it.stock)+'">+</button></div></div></div></div>';
 }
 function pintar(){
   var app=document.getElementById('app');
