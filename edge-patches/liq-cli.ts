@@ -61,22 +61,48 @@ async function deOrganizacion(q, empresa) {
   const [row] = await q`select app.liq_get(${oleada.token}, false, false) j`;
   const j = row?.j || {};
   const filas = Array.isArray(j.items) ? j.items : [];
-  if (!filas.length) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [] };
+  if (!filas.length) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [], paquetes: [] };
+  const mapLinea = (x) => ({
+    sku: x.sku || "",
+    nombre: x.nombre || "",
+    precio: num(x.precio_liq || x.precio),
+    lista: num(x.precio_lista),
+    stock: num(x.stock),
+    origen: x.origen || "",
+    foto: x.foto || "",
+    paquete: x.paquete || ""
+  });
   return {
     ok: true,
     vacio: false,
     empresa: emp,
     mensaje: j.instruccion || "",
-    items: filas.map((x) => ({
-      sku: x.sku || "",
-      nombre: x.nombre || "",
-      precio: num(x.precio_liq),
-      lista: num(x.precio_lista),
-      stock: num(x.stock),
-      origen: x.origen || "",
-      foto: x.foto || ""
+    items: filas.map(mapLinea),
+    paquetes: (Array.isArray(j.paquetes) ? j.paquetes : []).map((p) => ({
+      nombre: p.nombre || "",
+      n: num(p.n),
+      lista_total: num(p.lista_total),
+      liq_total: num(p.liq_total),
+      lineas: (p.lineas || []).map((x) => ({
+        sku: x.sku || "",
+        nombre: x.nombre || "",
+        stock: num(x.stock),
+        foto: x.foto || "",
+        precio_lista: num(x.precio_lista),
+        precio: num(x.precio)
+      }))
     }))
   };
+}
+async function refrescarOrg(q, empresa) {
+  const emp = String(empresa || "").trim();
+  const clientes = await q`select id::text id from app.customers where lower(trim(name))=lower(trim(${emp})) limit 2`;
+  if (clientes.length !== 1) return { ok: false, error: "No hay una liquidación de esta organización." };
+  const [row] = await q`select app.liq_refrescar(${clientes[0].id}::uuid) j`;
+  const j = row?.j || { ok: false, error: "Sin respuesta" };
+  if (!j.ok) return { ok: false, error: j.error || "No se pudo actualizar." };
+  const vista = await deOrganizacion(q, emp);
+  return Object.assign(vista, { actualizado: true, n: j.n, n_sugerido: j.n_sugerido, mismo_enlace: true });
 }
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors(req) });
@@ -88,6 +114,20 @@ Deno.serve(async (req) => {
     const q = db();
     const [rv] = await q`select extract(epoch from max(at))::float x from app.portal_revocations where nombre in (${c.u}, '*')`;
     if (rv?.x && rv.x >= c.iat) return out(req, { ok: false, error: "Sesión revocada" }, 401);
+    if (b.op === "refrescar") {
+      if (c.pvw) {
+        if (String(c.pvw.r || "") !== "cliente") return out(req, { ok: false, error: "Sin acceso a Liquidación" });
+        return out(req, await refrescarOrg(q, c.pvw.emp));
+      }
+      const [me] = await q`select nombre, rol, coalesce(activo,true) activo, modulos, coalesce(perfil->>'empresa','') empresa
+        from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
+      if (!me || me.activo === false) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
+      const efch = String(me.nombre).toUpperCase() === "EFCH" && me.rol === "admin";
+      if (!efch && (me.rol !== "cliente" || esOswaldo(me.nombre) || !(me.modulos || []).includes("liquidacion"))) {
+        return out(req, { ok: false, error: "Sin acceso a Liquidación" });
+      }
+      return out(req, await refrescarOrg(q, efch ? String(b.empresa || me.empresa || "") : me.empresa));
+    }
     if (b.op === "ver") {
       if (c.pvw) {
         if (String(c.pvw.r || "") !== "cliente" || esOswaldo(c.u)) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
