@@ -51,9 +51,12 @@ Deno.serve(async (req)=>{
     const c = await verify(b.t);
     if (!c) return out(req, { ok: false, error: "Sesión vencida. Vuelve a entrar." }, 401);
     const q = db();
-    const [rv] = await q`select extract(epoch from max(at))::float x from app.portal_revocations where nombre in (${c.u}, '*')`;
+    const vista = /^Vista previa · /.test(String(c.u || ""));
+    const nombre = vista ? String(c.u).split(" · ")[1] || "" : c.u;
+    if (vista && b.op !== "lista") return out(req, { ok: false, error: "Vista previa: no se firma ni se crea un acta." });
+    const [rv] = await q`select extract(epoch from max(at))::float x from app.portal_revocations where nombre in (${nombre}, '*')`;
     if (rv?.x && rv.x >= c.iat) return out(req, { ok: false, error: "Sesión revocada" }, 401);
-    const [me] = await q`select nombre, rol, modulos, perfil, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
+    const [me] = await q`select nombre, rol, modulos, perfil, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${nombre}) limit 1`;
     if (!me || me.activo === false || me.rol !== "cliente") return out(req, { ok: true, activo: false });
     const mods = me.modulos || [];
     if (!mods.includes("~cli.e.recibir=1")) return out(req, { ok: true, activo: false });
@@ -65,13 +68,24 @@ Deno.serve(async (req)=>{
       return s || null;
     };
     if (b.op === "lista") {
-      const rows = await q`select s.id::text id, s.order_number, s.order_date::text fecha
-        from app.sales_orders s join app.customers c on c.id=s.customer_id
+      const rows = await q`select s.id::text id, s.order_number, s.order_date::text fecha,
+          case
+            when coalesce(e.entregado_at, s.entregado_at) is not null then 'entregada'
+            when v.pack_estado='completo' or v.ship_estado='enviado' then 'lista'
+            else 'pendiente'
+          end estado,
+          nullif(trim(e.receptor), '') receptor,
+          coalesce(nullif(trim(u.perfil->>'nombreCompleto'), ''), nullif(trim(u.perfil->>'nombre_completo'), ''), nullif(trim(e.entregado_por), ''), nullif(trim(s.entregado_por), '')) entrego,
+          (e.pdf_att is not null) tiene_acta
+        from app.sales_orders s
+        join app.customers c on c.id=s.customer_id
         left join app.v_so_status v on v.sales_order_id=s.id
-        where not s.is_quote and not coalesce(s.is_cancelled,false) and s.entregado_at is null
+        left join app.so_entregas e on e.sales_order_id=s.id
+        left join app.portal_users u on lower(u.nombre)=lower(coalesce(e.entregado_por, s.entregado_por))
+        where not s.is_quote and not coalesce(s.is_cancelled, false)
           and lower(trim(c.name))=lower(trim(${empresa}))
-          and (v.pack_estado='completo' or v.ship_estado='enviado')
-        order by s.order_date desc limit 30`;
+        order by s.order_date desc nulls last
+        limit 80`;
       return out(req, { ok: true, activo: true, ordenes: rows });
     }
     const id = String(b.id || "");
