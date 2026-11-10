@@ -11,8 +11,8 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-if (!html.includes("var MC_BUILD='626'")) throw new Error('build');
-if (!sw.includes("var SWV='b626'")) throw new Error('sw');
+if (!html.includes("var MC_BUILD='627'")) throw new Error('build');
+if (!sw.includes("var SWV='b627'")) throw new Error('sw');
 if (html.includes("alert('PDF no disponible')")) throw new Error('sigue el aviso sin cargar jsPDF');
 
 const manu = html.indexOf('var Manuf=(function()');

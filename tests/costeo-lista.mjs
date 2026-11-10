@@ -45,8 +45,8 @@ test('varias OCs caben en un botón; una sola también', () => {
   assert.match(html, /etiquetaOcs\(L\.length\)/);
   assert.match(html, /Incremento sobre FOB/);
   assert.match(html, /cst-home/);
-  assert.match(html, /var MC_BUILD='626'/);
-  assert.match(sw, /var SWV='b626'/);
+  assert.match(html, /var MC_BUILD='627'/);
+  assert.match(sw, /var SWV='b627'/);
   assert.deepEqual(F.listaProveedores('BOYLES INTERNATIONAL TRADING CO'), ['BOYLES INTERNATIONAL TRADING CO']);
   assert.deepEqual(F.listaProveedores('BOYLES, INC.'), ['BOYLES, INC.']);
   assert.deepEqual(F.listaProveedores('BOYLES + ACME TOOLS'), ['BOYLES', 'ACME TOOLS']);
