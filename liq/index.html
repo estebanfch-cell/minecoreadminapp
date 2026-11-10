@@ -13,6 +13,9 @@
   .row{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
   .old{color:#8fa3b8;text-decoration:line-through;font-size:12px}
   .tag{display:inline-block;background:#1f3a22;color:#b6f0c4;border-radius:99px;padding:1px 8px;font-size:12px}
+  .top{display:flex;gap:10px;align-items:flex-start}
+  .ph{width:72px;height:72px;object-fit:contain;background:#fff;border-radius:8px;flex:none}
+  .nofoto{width:72px;height:72px;border-radius:8px;flex:none;background:#1c2a3a;color:#8fa3b8;font-size:11px;display:flex;align-items:center;justify-content:center;text-align:center}
   button,input{font:inherit}
   button{background:#e6f000;color:#111;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
   button.sec{background:#1c2a3a;color:#e8eef5}
@@ -28,7 +31,7 @@
 <script>
 var URL='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/liq-pub';
 var T=(location.search.match(/[?&]t=([^&]+)/)||[])[1]||'';
-var TODOS=false, DATA=null;
+var TODOS=false, DATA=null, QT={};
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function money(n){n=Number(n)||0;try{return n.toLocaleString('es-EC',{style:'currency',currency:'USD'});}catch(e){return '$'+n.toFixed(2);}}
 function post(b){b.t=T;return fetch(URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json();});}
@@ -39,46 +42,67 @@ function precio(it,qty,catFull){
   var v=Math.round(base*f*100)/100;
   return v>0&&v<lista?v:null;
 }
+function leer(){document.querySelectorAll('[data-sku]').forEach(function(el){QT[el.getAttribute('data-sku')]=parseFloat(el.value)||0;});}
+function foto(it){
+  if(!it.foto)return '<div class="nofoto">Sin foto</div>';
+  return '<img class="ph" alt="" src="'+esc(it.foto)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'nofoto\',textContent:\'Sin foto\'}))">';
+}
 function pintar(){
   var app=document.getElementById('app');
   if(!DATA||DATA.ok===false){app.innerHTML='<div class="card err">'+(DATA&&DATA.error||'Enlace no válido.')+'</div>';return;}
-  var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'';
-  var qtys={}, nomPrev=(document.getElementById('nom')||{}).value||'';
-  document.querySelectorAll('[data-sku]').forEach(function(el){qtys[el.getAttribute('data-sku')]=parseFloat(el.value)||0;});
+  var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'', nomPrev=(document.getElementById('nom')||{}).value||'';
+  var catalogo=(DATA._todos&&DATA._todos.items)||items;
   function catFull(cat){
-    var L=items.filter(function(x){return x.categoria===cat;});
-    return L.length&&L.every(function(x){return (qtys[x.sku]||0)>=Number(x.stock);});
+    var L=catalogo.filter(function(x){return x.categoria===cat;});
+    return L.length&&L.every(function(x){return (QT[x.sku]||0)>=Number(x.stock);});
   }
   var h='<div class="mut">'+(cli?esc(cli)+' · ':'')+(DATA.modo==='todos'?'Todos los productos':'Sugeridos')+' · hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
   h+='<div class="card">'+esc(DATA.instruccion||'')+'</div>';
   h+='<p><button class="sec" id="todos">'+(TODOS?'Ver sugeridos':'Ver todos los productos')+'</button></p>';
-  if(!items.length){h+='<div class="card">Sin productos en liquidación por ahora.</div>';app.innerHTML=h;document.getElementById('todos').onclick=function(){TODOS=!TODOS;cargar();};return;}
+  var paq=DATA.paquetes||[];
+  if(paq.length){
+    h+='<h2 style="font-size:16px;margin:14px 0 6px">Paquetes por categoría</h2>';
+    h+=paq.map(function(p,i){
+      return '<div class="card"><b>'+esc(p.nombre)+'</b><div class="mut">'+p.n+' producto'+(p.n===1?'':'s')+' · stock completo · −15%</div>'+
+        '<div class="row" style="margin-top:8px"><span class="old">Lista '+money(p.lista_total)+'</span><b>'+money(p.liq_total)+'</b></div>'+
+        '<p style="margin:8px 0 0"><button type="button" data-paq="'+i+'">Agregar paquete</button></p></div>';
+    }).join('');
+  }
+  if(!items.length){h+='<div class="card">Sin productos en liquidación por ahora.</div>';}
   h+=items.map(function(it){
-    var qty=qtys[it.sku]||0, full=catFull(it.categoria), p=precio(it,Math.max(qty,0),full)||Number(it.precio_liq);
+    var qty=QT[it.sku]||0, full=catFull(it.categoria), p=precio(it,Math.max(qty,0),full)||Number(it.precio_liq);
     var off=it.origen==='historial'?'25% bajo la lista':'30% bajo la lista';
     var extra=full?' · categoría completa −15%':(qty>=Number(it.stock)&&Number(it.stock)>0?' · stock completo −5%':'');
-    return '<div class="card"><b>'+esc(it.nombre)+'</b><div class="mut">'+esc(it.sku)+' · '+esc(it.categoria||'')+'</div>'+
+    return '<div class="card"><div class="top">'+foto(it)+'<div style="flex:1;min-width:0"><b>'+esc(it.nombre)+'</b><div class="mut">'+esc(it.sku)+' · '+esc(it.categoria||'')+'</div></div></div>'+
       '<div class="row" style="margin-top:8px"><span class="tag">'+off+extra+'</span><b>'+money(p)+'</b></div>'+
       '<div class="old">Lista '+money(it.precio_lista)+'</div>'+
       '<div class="row" style="margin-top:8px"><span class="mut">Disponible '+esc(it.stock)+'</span><label class="mut">Cantidad <input data-sku="'+esc(it.sku)+'" type="number" min="0" max="'+esc(it.stock)+'" step="1" value="'+(qty||'')+'"></label></div></div>';
   }).join('');
   h+='<div class="card"><label class="mut">Tu nombre<input id="nom" style="width:100%;box-sizing:border-box" maxlength="80" value="'+esc(nomPrev)+'"></label><p><button id="enviar">Enviar pedido</button></p><div id="msg" class="mut"></div></div>';
   app.innerHTML=h;
-  document.getElementById('todos').onclick=function(){TODOS=!TODOS;cargar();};
-  app.querySelectorAll('input[data-sku]').forEach(function(el){el.oninput=function(){pintar();var f=app.querySelector('[data-sku="'+el.getAttribute('data-sku')+'"]');if(f)f.focus();};});
+  document.getElementById('todos').onclick=function(){leer();TODOS=!TODOS;cargar();};
+  [].forEach.call(app.querySelectorAll('[data-paq]'),function(b){b.onclick=function(){var p=(DATA.paquetes||[])[+b.getAttribute('data-paq')];if(!p)return;(p.lineas||[]).forEach(function(x){QT[x.sku]=Number(x.stock)||0;});if(!TODOS){TODOS=true;cargar();return;}pintar();var card=app.querySelector('[data-sku="'+String(p.lineas[0].sku).replace(/"/g,'')+'"]');if(card)card.scrollIntoView({block:'center'});};});
+  app.querySelectorAll('input[data-sku]').forEach(function(el){el.oninput=function(){var sku=el.getAttribute('data-sku'),pos=el.selectionStart;QT[sku]=parseFloat(el.value)||0;pintar();var f=app.querySelector('[data-sku="'+sku+'"]');if(f){f.focus();try{f.setSelectionRange(pos,pos);}catch(e){}}};});
   document.getElementById('enviar').onclick=function(){
-    var lineas=[];app.querySelectorAll('input[data-sku]').forEach(function(el){var q=parseFloat(el.value)||0;if(q>0)lineas.push({sku:el.getAttribute('data-sku'),qty:q});});
+    leer();
+    var lineas=[], visto={};
+    (catalogo.length?catalogo:items).forEach(function(it){var q=QT[it.sku]||0;if(q>0){visto[it.sku]=1;lineas.push({sku:it.sku,qty:q});}});
+    Object.keys(QT).forEach(function(sku){if(!visto[sku]&&QT[sku]>0)lineas.push({sku:sku,qty:QT[sku]});});
     var msg=document.getElementById('msg');
     if(!lineas.length){msg.textContent='Elige al menos un producto.';return;}
     msg.textContent='Enviando…';
-    post({op:'enviar',todos:TODOS,lineas:lineas,contacto:(document.getElementById('nom')||{}).value||'',empresa:cli}).then(function(r){
+    post({op:'enviar',todos:true,lineas:lineas,contacto:(document.getElementById('nom')||{}).value||'',empresa:cli}).then(function(r){
       msg.textContent=r&&r.ok?('Pedido recibido. Pre-cotización #'+r.precot_id+'.'):((r&&r.error)||'No se pudo enviar.');
     }).catch(function(){msg.textContent='Sin conexión.';});
   };
 }
 function cargar(){
   document.getElementById('app').textContent='Cargando…';
-  post({op:'ver',todos:TODOS}).then(function(r){DATA=r;pintar();}).catch(function(){DATA={ok:false,error:'Sin conexión.'};pintar();});
+  post({op:'ver',todos:TODOS}).then(function(r){
+    DATA=r;
+    if(!TODOS)return post({op:'ver',todos:true}).then(function(t){if(DATA){DATA.paquetes=(t&&t.paquetes)||[];DATA._todos=t;}pintar();});
+    pintar();
+  }).catch(function(){DATA={ok:false,error:'Sin conexión.'};pintar();});
 }
 if(!T)document.getElementById('app').textContent='Enlace no válido.';
 else cargar();
