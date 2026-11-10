@@ -58,8 +58,10 @@ function pintar(){
   }
   var h='<div class="mut">'+(cli?esc(cli)+' · ':'')+(DATA.modo==='todos'?'Todos los productos':'Sugeridos')+' · hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
   h+='<div class="card">'+esc(DATA.instruccion||'')+'</div>';
+  if(DATA.modo!=='todos') h+='<div class="card">Se sugieren productos según sus tendencias de cotizaciones y compras.</div>';
   h+='<p><button class="sec" id="todos">'+(TODOS?'Ver sugeridos':'Ver todos los productos')+'</button></p>';
   var paq=DATA.paquetes||[];
+  if(DATA.modo!=='todos'){var cats={};items.forEach(function(it){cats[it.categoria]=1;});paq=paq.filter(function(p){return cats[p.nombre];});}
   if(paq.length){
     h+='<h2 style="font-size:16px;margin:14px 0 6px">Paquetes por categoría</h2>';
     h+=paq.map(function(p,i){
