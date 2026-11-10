@@ -53,21 +53,28 @@ async function deOrganizacion(q, empresa) {
   if (!emp) return { ok: true, vacio: true, empresa: "", mensaje: MENSAJE, items: [] };
   const clientes = await q`select id::text id from app.customers where lower(trim(name))=lower(trim(${emp})) limit 2`;
   if (clientes.length !== 1) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [] };
-  const [oleada] = await q`select id::text id from app.liq_oleadas
+  const [oleada] = await q`select token from app.liq_oleadas
     where customer_id=${clientes[0].id}::uuid and estado='activa' and tipo='cliente'
       and (expira is null or expira>now())
     order by creada desc limit 1`;
   if (!oleada) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [] };
-  const filas = await q`select sku, nombre, precio_snap, stock_snap from app.liq_items
-    where oleada_id=${oleada.id}::uuid
-    order by orden nulls last, nombre
-    limit 500`;
+  const [row] = await q`select app.liq_get(${oleada.token}, false, false) j`;
+  const j = row?.j || {};
+  const filas = Array.isArray(j.items) ? j.items : [];
+  if (!filas.length) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [] };
   return {
     ok: true,
     vacio: false,
     empresa: emp,
-    mensaje: "",
-    items: filas.map((x) => ({ sku: x.sku || "", nombre: x.nombre || "", precio: num(x.precio_snap), stock: num(x.stock_snap) }))
+    mensaje: j.instruccion || "",
+    items: filas.map((x) => ({
+      sku: x.sku || "",
+      nombre: x.nombre || "",
+      precio: num(x.precio_liq),
+      lista: num(x.precio_lista),
+      stock: num(x.stock),
+      origen: x.origen || ""
+    }))
   };
 }
 Deno.serve(async (req) => {
