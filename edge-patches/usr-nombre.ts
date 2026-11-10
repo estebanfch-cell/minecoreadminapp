@@ -62,6 +62,24 @@ Deno.serve(async (req) => {
         where coalesce(trim(perfil->>'nombreCompleto'),'')<>'' and coalesce(origen,'')<>'borrado'`;
       return out(req, { ok: true, nombres: filas.map((x) => ({ u: x.u, n: x.n })) });
     }
+    if (b.op === "login") {
+      if (c.imp || c.pvw) return out(req, { ok: false, error: "No se cambia el usuario desde una vista previa." });
+      const [me] = await q`select nombre, rol, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
+      if (!me || me.activo === false || me.rol !== "admin" || String(me.nombre).toUpperCase() !== "EFCH") return out(req, { ok: false, error: "Solo EFCH" });
+      const viejo = String(b.usuario || "").trim().slice(0, 40);
+      const nuevo = String(b.nuevo || "").trim().slice(0, 40);
+      if (!/^[\p{L}0-9 ._-]{2,40}$/u.test(nuevo)) return out(req, { ok: false, error: "El usuario debe tener de 2 a 40 letras, números, punto o guion." });
+      const [u] = await q`select nombre from app.portal_users where lower(nombre)=lower(${viejo}) and coalesce(origen,'')<>'borrado' limit 1`;
+      if (!u) return out(req, { ok: false, error: "Usuario no encontrado" });
+      if (u.nombre.toLowerCase() === nuevo.toLowerCase()) return out(req, { ok: true, nombre: u.nombre, igual: true });
+      const [ocupado] = await q`select 1 as x from app.portal_users where lower(nombre)=lower(${nuevo}) limit 1`;
+      if (ocupado) return out(req, { ok: false, error: "Ese usuario ya existe." });
+      await q`update app.portal_users set nombre=${nuevo} where nombre=${u.nombre}`;
+      await q`update app.portal_refresh set nombre=${nuevo} where nombre=${u.nombre}`;
+      await q`update app.portal_login_log set nombre=${nuevo} where nombre=${u.nombre}`;
+      await q`insert into app.portal_perm_log(actor,nombre,accion,antes,despues) values (${me.nombre},${nuevo},'username',${q.json({ nombre: u.nombre })},${q.json({ nombre: nuevo })})`;
+      return out(req, { ok: true, nombre: nuevo });
+    }
     if (b.op !== "guardar") return out(req, { ok: false, error: "Operación no válida" });
     if (c.imp || c.pvw) return out(req, { ok: false, error: "No se cambia el nombre desde una vista previa." });
     const [me] = await q`select nombre, rol, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
