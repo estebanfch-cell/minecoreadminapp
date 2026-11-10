@@ -61,13 +61,19 @@ Deno.serve(async (req) => {
     const [me] = await q`select nombre, rol, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
     if (!me || me.activo === false) return out({ ok: false, error: "Sin permiso" }, 403);
     if (String(me.nombre).toUpperCase() !== "EFCH") return out({ ok: false, error: "Generar el enlace de liquidación está solo para EFCH." }, 403);
-    if (action !== "generar") return out({ ok: false, error: "Acción desconocida" }, 400);
+    if (action !== "generar" && action !== "refrescar") return out({ ok: false, error: "Acción desconocida" }, 400);
     const nombre = String(b.cliente || "").trim();
     if (!nombre) return out({ ok: false, error: "Falta el cliente" }, 400);
     const dias = Math.max(1, Math.min(365, parseInt(b.dias, 10) || 30));
     const clientes = await q`select id::text id from app.customers where lower(trim(name))=lower(${nombre})`;
     if (clientes.length !== 1) return out({ ok: false, error: clientes.length ? "Hay más de un cliente con ese nombre." : "Cliente no encontrado." }, 404);
-    const [row] = await q`select app.liq_generar(${clientes[0].id}::uuid, ${dias}, ${me.nombre}) j`;
+    const [row] = action === "refrescar"
+      ? await q`select app.liq_refrescar(${clientes[0].id}::uuid) j`
+      : await q`select app.liq_generar(${clientes[0].id}::uuid, ${dias}, ${me.nombre}) j`;
+    if (action === "refrescar" && row?.j && row.j.sin_oleada) {
+      const [g] = await q`select app.liq_generar(${clientes[0].id}::uuid, ${dias}, ${me.nombre}) j`;
+      return out(g?.j || { ok: false, error: "Sin respuesta" });
+    }
     const j = row?.j || { ok: false, error: "Sin respuesta" };
     if (j && typeof j === "object") delete j.precios;
     return out(j);
