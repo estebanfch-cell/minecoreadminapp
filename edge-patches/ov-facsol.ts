@@ -58,7 +58,7 @@ Deno.serve(async (req)=>{
       join app.sales_orders s on s.id=w.so_id
       left join app.portal_users u on lower(u.nombre)=lower(w.requested_by)
       left join app.settings rn on rn.k='rp_nombres'
-      where w.status in ('sent','pending') and coalesce(w.wa_message_id,'')<>''
+      where coalesce(w.status,'')<>'error' and w.requested_at is not null
         and not coalesce(s.is_invoiced,false) and coalesce(trim(s.factura_sri),'')=''
         and not coalesce(s.is_quote,false) and not coalesce(s.is_cancelled,false)
       order by w.so_id, w.requested_at desc nulls last, w.id desc
