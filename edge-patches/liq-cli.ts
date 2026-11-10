@@ -89,6 +89,7 @@ async function deOrganizacion(q, empresa) {
         stock: num(x.stock),
         foto: x.foto || "",
         precio_lista: num(x.precio_lista),
+        precio_liq: num(x.precio_liq),
         precio: num(x.precio)
       }))
     }))
