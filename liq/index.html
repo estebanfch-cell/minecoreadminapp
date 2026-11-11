@@ -73,6 +73,11 @@
   .foot{border-top:1px solid #243446;margin-top:8px;padding-top:8px;font-size:13px}
   .err{color:#ff8a8a}
   input.nom{width:100%;box-sizing:border-box;background:#0b1219;color:#fff;border:1px solid #2a3d52;border-radius:8px;padding:8px}
+  .nomlab{display:block;margin:8px 0;font-size:12px;color:#8fa3b8}
+  .seg{display:flex;gap:4px;background:#0b1219;border:1px solid #243446;border-radius:12px;padding:3px;margin:8px 0}
+  .seg button{flex:1;min-width:0;background:transparent;color:#9fb0c3;border-radius:9px;padding:8px 6px;font-size:12px;font-weight:700;line-height:1.25;white-space:normal}
+  .seg button.on{background:#e6f000;color:#14200c}
+  .recmark{display:inline-block;margin-left:6px;background:#e6f000;color:#14200c;font-size:10px;font-weight:800;border-radius:999px;padding:1px 6px;vertical-align:1px}
 </style>
 </head>
 <body>
@@ -150,9 +155,34 @@ function pxLinea(it){
   return '<span class="pxside"><span class="pxrow"><span class="pvp">PVP <span class="old">'+money(listaDe(it))+'</span></span><span class="off">'+esc(descDe(it,qty,full))+'</span><b class="now">'+money(u)+'</b>'+
     '<span class="qty"><button type="button" data-step="-1" data-sku="'+esc(it.sku)+'" data-max="'+stock+'"'+(qty<=0?' disabled':'')+'>−</button><input data-sku="'+esc(it.sku)+'" type="number" inputmode="numeric" min="0" max="'+stock+'" step="1" value="'+(qty?qty:'')+'" aria-label="Cantidad"><button type="button" data-step="1" data-sku="'+esc(it.sku)+'" data-max="'+stock+'"'+(qty>=stock?' disabled':'')+'>+</button></span></span>'+lin+'</span>';
 }
+var NOM='';
+function nombreSesion(){
+  try{
+    var u=localStorage.getItem('mc_user_name')||'';
+    var x=JSON.parse(localStorage.getItem('mc_sess')||'null');
+    if(!(x&&x.u&&x.exp>Date.now()&&x.u===u))return '';
+    var map=JSON.parse(localStorage.getItem('mc_nombres')||'{}');
+    if(map&&map[u])return String(map[u]).trim();
+    var p=JSON.parse(localStorage.getItem('mc_profile')||'null');
+    return String(p&&(p.nombreCompleto||p.nombre_completo)||'').trim();
+  }catch(e){return '';}
+}
+function campoNombre(id){
+  if(nombreSesion())return '';
+  id=id||'tu-nombre';
+  return '<label class="nomlab">Tu nombre<input class="nom" id="'+id+'" maxlength="80" required autocomplete="name" placeholder="Tu nombre" value="'+esc(NOM)+'"></label>';
+}
+function tomarNombre(){var ses=nombreSesion();if(ses)return ses;var el=document.getElementById('tu-nombre-sel')||document.getElementById('tu-nombre');if(el)NOM=el.value;return String(NOM||'').trim();}
+function nombreValido(n,cli){
+  n=String(n||'').trim();
+  if(n.length<2||!/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(n))return false;
+  if(cli&&n.toLowerCase()===String(cli).trim().toLowerCase())return false;
+  return true;
+}
 function fila(it){
+  var marca=(TODOS&&it.recomendado)?'<span class="recmark">Recomendado</span>':'';
   return '<div class="row" role="button" tabindex="0" data-open="'+esc(it.sku)+'">'+foto(it)+
-    '<span class="who"><span class="nm">'+esc(it.nombre||it.sku)+'</span><span class="meta">'+esc(it.sku||'')+' · Disponibles: '+esc(Number(it.stock)||0)+'</span></span>'+pxLinea(it)+'</div>';
+    '<span class="who"><span class="nm">'+esc(it.nombre||it.sku)+marca+'</span><span class="meta">'+esc(it.sku||'')+' · Disponibles: '+esc(Number(it.stock)||0)+'</span></span>'+pxLinea(it)+'</div>';
 }
 function fullDe(sku){var L=GRUPO[sku];return L?llena(L):false;}
 var DET=null;
@@ -201,12 +231,13 @@ function cerrarSel(desdePop){SEL=false;var s=document.getElementById('liq-sel');
 function abrirSel(){var S=seleccion();if(!S.n){cerrarSel(true);return;}var y=window.scrollY;if(!SEL){try{history.pushState({liqSel:1},'');}catch(e){}}SEL=true;var old=document.getElementById('liq-sel');if(old)old.remove();var s=document.createElement('div');s.id='liq-sel';s.className='sheet';s.style.zIndex='9000';
   s.innerHTML='<div class="box" role="dialog" aria-modal="true"><div class="bar"><button type="button" id="sel-back">← Volver</button><button type="button" id="sel-x" aria-label="Cerrar">✕</button></div><h2>Tu selección</h2>'+
     S.lines.map(function(L){var stock=Number(L.it.stock)||0;return '<div class="row">'+foto(L.it)+'<span class="who"><span class="nm">'+esc(L.it.nombre||L.it.sku)+'</span><span class="meta">'+esc(L.it.sku)+' · Disponibles: '+esc(stock)+'</span></span><span class="pxside"><span class="pxrow"><span class="pvp">PVP <span class="old">'+money(listaDe(L.it))+'</span></span><span class="off">'+esc(descDe(L.it,L.q,L.full))+'</span><b class="now">'+money(L.u)+'</b><span class="qty"><button type="button" data-sel="-1" data-sku="'+esc(L.it.sku)+'" data-max="'+stock+'"'+(L.q<=0?' disabled':'')+'>−</button><input data-selq="'+esc(L.it.sku)+'" type="number" min="0" max="'+stock+'" value="'+L.q+'"><button type="button" data-sel="1" data-sku="'+esc(L.it.sku)+'" data-max="'+stock+'"'+(L.q>=stock?' disabled':'')+'>+</button></span></span><span class="lin"><span>'+esc(L.q)+' × '+money(L.u)+' = '+money(L.sub)+'</span><button type="button" class="sec" data-quitar="'+esc(L.it.sku)+'">Quitar</button></span></span></div>';}).join('')+
-    '<div class="stot"><div><span>Subtotal</span><b>'+money(S.tot)+'</b></div><div><span>IVA '+ivaPct()+'%</span><b>'+money(ivaMonto(S.tot))+'</b></div><div class="grand"><span>Total</span><b>'+money(r2(S.tot+ivaMonto(S.tot)))+'</b></div><p><button type="button" id="sel-enviar">Enviar cotización</button></p></div></div>';
+    '<div class="stot"><div><span>Subtotal</span><b>'+money(S.tot)+'</b></div><div><span>IVA '+ivaPct()+'%</span><b>'+money(ivaMonto(S.tot))+'</b></div><div class="grand"><span>Total</span><b>'+money(r2(S.tot+ivaMonto(S.tot)))+'</b></div>'+campoNombre('tu-nombre-sel')+'<p><button type="button" id="sel-enviar">Enviar cotización</button></p><div id="sel-msg" class="mut err"></div></div></div>';
   document.body.appendChild(s);
   s.addEventListener('click',function(e){if(e.target===s)cerrarSel(false);});
   document.getElementById('sel-back').onclick=function(){cerrarSel(false);};
   document.getElementById('sel-x').onclick=function(){cerrarSel(false);};
-  var env=document.getElementById('sel-enviar'); if(env) env.onclick=function(){cerrarSel(true); if(window._liqEnviar) window._liqEnviar();};
+  var nomIn=document.getElementById('tu-nombre-sel'); if(nomIn) nomIn.oninput=function(){NOM=nomIn.value;};
+  var env=document.getElementById('sel-enviar'); if(env) env.onclick=function(){var n=tomarNombre(), cli=DATA&&DATA.cliente&&DATA.cliente.nombre||''; if(!nombreSesion()&&!nombreValido(n,cli)){var m=document.getElementById('sel-msg'); if(m)m.textContent='Escribe tu nombre.'; var f=document.getElementById('tu-nombre'); if(f)f.focus(); return;} cerrarSel(true); if(window._liqEnviar) window._liqEnviar();};
   [].forEach.call(s.querySelectorAll('[data-sel]'),function(b){b.onclick=function(){var sku=b.getAttribute('data-sku'),max=Number(b.getAttribute('data-max'))||0;QT[sku]=Math.max(0,Math.min(max,(QT[sku]||0)+Number(b.getAttribute('data-sel'))));pintar();abrirSel();};});
   [].forEach.call(s.querySelectorAll('[data-selq]'),function(el){el.oninput=function(){var sku=el.getAttribute('data-selq'),max=Number(el.max)||0;QT[sku]=Math.max(0,Math.min(max,parseFloat(el.value)||0));pintar();abrirSel();var f=document.querySelector('[data-selq="'+sku+'"]');if(f)f.focus();};});
   [].forEach.call(s.querySelectorAll('[data-quitar]'),function(b){b.onclick=function(){QT[b.getAttribute('data-quitar')]=0;pintar();abrirSel();};});
@@ -223,10 +254,10 @@ function pintar(){
   if(!DATA||DATA.ok===false){app.innerHTML='<div class="card err">'+(DATA&&DATA.error||'Enlace no válido.')+'</div>';return;}
   var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'';
   var catalogo=(DATA._todos&&DATA._todos.items)||items;
-  var h='<div class="mut">'+(cli?esc(cli)+' · ':'')+(DATA.modo==='todos'?'Todos los productos':'Sugeridos')+' · hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
+  var h='<div class="mut">'+(cli?esc(cli)+' · ':'')+'hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
+  h+='<div class="seg" role="tablist"><button type="button" id="seg-rec" class="'+(TODOS?'':'on')+'" aria-pressed="'+(TODOS?'false':'true')+'">Recomendado para '+(cli?esc(cli):'ti')+'</button><button type="button" id="seg-all" class="'+(TODOS?'on':'')+'" aria-pressed="'+(TODOS?'true':'false')+'">Todos en liquidación</button></div>';
   h+='<div class="card">'+esc(DATA.instruccion||'')+'</div>';
-  if(DATA.modo!=='todos') h+='<div class="card" id="liq-sug">Se sugieren productos según sus tendencias de cotizaciones y compras.</div>';
-  h+='<p><button class="sec" id="todos">'+(TODOS?'Ver sugeridos':'Ver todos los productos')+'</button></p>';
+  if(!TODOS) h+='<div class="card" id="liq-sug">Se sugieren productos según sus tendencias de cotizaciones y compras.</div>';
   if(!items.length)h+='<div class="card">Sin productos en liquidación por ahora.</div>';
   var tree=arbol(items), leaves=[];
   GRUPO={};
@@ -247,12 +278,14 @@ function pintar(){
     return head+inner;
   }
   h+=tree.map(function(p){return '<div class="card">'+nodoHtml(p)+'</div>';}).join('');
-  h+='<div class="card"><p><button id="enviar">Enviar cotización</button></p><div id="msg" class="mut"></div></div>';
+  h+='<div class="card">'+campoNombre()+'<p><button id="enviar">Enviar cotización</button></p><div id="msg" class="mut"></div></div>';
   var y=window.scrollY;
   app.innerHTML=h;
   app._paq=leaves;
   window.scrollTo(0,y);
-  document.getElementById('todos').onclick=function(){TODOS=!TODOS;cargar();};
+  document.getElementById('seg-rec').onclick=function(){if(TODOS){TODOS=false;cargar();}};
+  document.getElementById('seg-all').onclick=function(){if(!TODOS){TODOS=true;cargar();}};
+  var nomPag=document.getElementById('tu-nombre'); if(nomPag) nomPag.oninput=function(){NOM=nomPag.value;};
   [].forEach.call(app.querySelectorAll('[data-ver]'),function(b){b.onclick=function(){var k=b.getAttribute('data-ver');OPEN[k]=!OPEN[k];pintar();};});
   [].forEach.call(app.querySelectorAll('[data-paq]'),function(b){b.onclick=function(ev){ev.stopPropagation();var p=app._paq[+b.getAttribute('data-paq')];if(!p)return;var on=llena(p.lineas||[]);(p.lineas||[]).forEach(function(x){QT[x.sku]=on?0:(Number(x.stock)||0);});pintar();};});
   [].forEach.call(app.querySelectorAll('[data-open]'),function(b){b.onclick=function(ev){if(ev.target.closest&&ev.target.closest('.qty'))return;abrirDet(buscar(b.getAttribute('data-open')));};});
@@ -266,9 +299,9 @@ function pintar(){
     Object.keys(QT).forEach(function(sku){if(!visto[sku]&&QT[sku]>0)lineas.push({sku:sku,qty:QT[sku]});});
     var msg=document.getElementById('msg');
     if(!lineas.length){if(msg)msg.textContent='Elige al menos un producto.';return;}
+    var quien=tomarNombre();
+    if(!nombreValido(quien,cli)){if(msg)msg.textContent='Escribe tu nombre.';var f=document.getElementById('tu-nombre');if(f)f.focus();return;}
     if(msg)msg.textContent='Enviando…';
-    var quien=cli;
-    try{var u=localStorage.getItem('mc_user_name')||'', map=JSON.parse(localStorage.getItem('mc_nombres')||'{}'); if(u&&map[u]) quien=map[u];}catch(e){}
     post({op:'enviar',todos:true,lineas:lineas,contacto:quien,empresa:cli}).then(function(r){
       if(!(r&&r.ok)){if(msg)msg.textContent=(r&&r.error)||'No se pudo enviar.';return;}
       if(msg)msg.textContent='Cotización '+(r.order_number||('#'+r.precot_id))+' creada. Subtotal '+money(r.subtotal||r.total)+', IVA '+money(r.iva||0)+', total '+money(r.total_con_iva||r.total)+'.';

@@ -1,4 +1,4 @@
-// Liquidación del portal cliente. Solo lectura de la oleada de SU organización.
+// Liquidación del portal cliente. Solo la oleada de SU organización.
 // El interruptor lo cambia EFCH. Nunca devuelve motivo ni datos de otro cliente.
 import postgres from "npm:postgres@3.4.4";
 const SECRET = Deno.env.get("SHEETS_SECRET");
@@ -48,7 +48,7 @@ function num(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
-async function deOrganizacion(q, empresa) {
+async function deOrganizacion(q, empresa, todos) {
   const emp = String(empresa || "").trim();
   if (!emp) return { ok: true, vacio: true, empresa: "", mensaje: MENSAJE, items: [] };
   const clientes = await q`select id::text id from app.customers where lower(trim(name))=lower(trim(${emp})) limit 2`;
@@ -58,15 +58,19 @@ async function deOrganizacion(q, empresa) {
       and (expira is null or expira>now())
     order by creada desc limit 1`;
   if (!oleada) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [] };
-  const [row] = await q`select app.liq_get(${oleada.token}, false, false) j`;
+  const [row] = await q`select app.liq_get(${oleada.token}, ${!!todos}, false) j`;
   const j = row?.j || {};
   const filas = Array.isArray(j.items) ? j.items : [];
-  if (!filas.length) return { ok: true, vacio: true, empresa: emp, mensaje: MENSAJE, items: [], paquetes: [] };
   const mapLinea = (x) => ({
     sku: x.sku || "",
     nombre: x.nombre || "",
+    categoria: x.categoria || "",
+    rama: Array.isArray(x.rama) ? x.rama : [],
+    recomendado: !!x.recomendado,
     precio: num(x.precio_liq || x.precio),
-    lista: num(x.precio_lista),
+    precio_liq: num(x.precio_liq || x.precio),
+    precio_lista: num(x.precio_lista || x.lista),
+    lista: num(x.precio_lista || x.lista),
     stock: num(x.stock),
     origen: x.origen || "",
     foto: x.foto || "",
@@ -76,6 +80,7 @@ async function deOrganizacion(q, empresa) {
     ok: true,
     vacio: false,
     empresa: emp,
+    modo: j.modo || (todos ? "todos" : "sugerido"),
     mensaje: j.instruccion || "",
     items: filas.map(mapLinea),
     paquetes: (Array.isArray(j.paquetes) ? j.paquetes : []).map((p) => ({
@@ -95,14 +100,14 @@ async function deOrganizacion(q, empresa) {
     }))
   };
 }
-async function refrescarOrg(q, empresa) {
+async function refrescarOrg(q, empresa, todos) {
   const emp = String(empresa || "").trim();
   const clientes = await q`select id::text id from app.customers where lower(trim(name))=lower(trim(${emp})) limit 2`;
   if (clientes.length !== 1) return { ok: false, error: "No hay una liquidación de esta organización." };
   const [row] = await q`select app.liq_refrescar(${clientes[0].id}::uuid) j`;
   const j = row?.j || { ok: false, error: "Sin respuesta" };
   if (!j.ok) return { ok: false, error: j.error || "No se pudo actualizar." };
-  const vista = await deOrganizacion(q, emp);
+  const vista = await deOrganizacion(q, emp, todos);
   return Object.assign(vista, { actualizado: true, n: j.n, n_sugerido: j.n_sugerido, mismo_enlace: true });
 }
 Deno.serve(async (req) => {
@@ -118,7 +123,7 @@ Deno.serve(async (req) => {
     if (b.op === "refrescar") {
       if (c.pvw) {
         if (String(c.pvw.r || "") !== "cliente") return out(req, { ok: false, error: "Sin acceso a Liquidación" });
-        return out(req, await refrescarOrg(q, c.pvw.emp));
+        return out(req, await refrescarOrg(q, c.pvw.emp, !!b.todos));
       }
       const [me] = await q`select nombre, rol, coalesce(activo,true) activo, modulos, coalesce(perfil->>'empresa','') empresa
         from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
@@ -127,20 +132,41 @@ Deno.serve(async (req) => {
       if (!efch && (me.rol !== "cliente" || esOswaldo(me.nombre) || !(me.modulos || []).includes("liquidacion"))) {
         return out(req, { ok: false, error: "Sin acceso a Liquidación" });
       }
-      return out(req, await refrescarOrg(q, efch ? String(b.empresa || me.empresa || "") : me.empresa));
+      return out(req, await refrescarOrg(q, efch ? String(b.empresa || me.empresa || "") : me.empresa, !!b.todos));
     }
     if (b.op === "ver") {
       if (c.pvw) {
         if (String(c.pvw.r || "") !== "cliente" || esOswaldo(c.u)) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
         const mods = Array.isArray(c.pvw.m) ? c.pvw.m : [];
         if (!mods.includes("liquidacion")) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
-        return out(req, await deOrganizacion(q, c.pvw.emp));
+        return out(req, await deOrganizacion(q, c.pvw.emp, !!b.todos));
       }
       const [me] = await q`select nombre, rol, coalesce(activo,true) activo, modulos, coalesce(perfil->>'empresa','') empresa
         from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
       if (!me || me.activo === false || me.rol !== "cliente" || esOswaldo(me.nombre)) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
       if (!(me.modulos || []).includes("liquidacion")) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
-      return out(req, await deOrganizacion(q, me.empresa));
+      return out(req, await deOrganizacion(q, me.empresa, !!b.todos));
+    }
+    if (b.op === "enviar") {
+      if (c.pvw || c.imp) return out(req, { ok: false, error: "No se envía la cotización desde una vista previa." });
+      const [me] = await q`select nombre, rol, coalesce(activo,true) activo, modulos, coalesce(perfil->>'empresa','') empresa,
+        coalesce(nullif(trim(perfil->>'nombreCompleto'),''), nullif(trim(perfil->>'nombre_completo'),''), '') completo
+        from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
+      if (!me || me.activo === false || me.rol !== "cliente" || esOswaldo(me.nombre)) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
+      if (!(me.modulos || []).includes("liquidacion")) return out(req, { ok: false, error: "Sin acceso a Liquidación" });
+      const quien = String(me.completo || "").trim().slice(0, 80);
+      if (quien.length < 2) return out(req, { ok: false, error: "Falta el nombre completo del usuario." });
+      const clientes = await q`select id::text id from app.customers where lower(trim(name))=lower(trim(${me.empresa})) limit 2`;
+      if (clientes.length !== 1) return out(req, { ok: false, error: "No hay una liquidación de esta organización." });
+      const [oleada] = await q`select token from app.liq_oleadas
+        where customer_id=${clientes[0].id}::uuid and estado='activa' and tipo='cliente'
+          and (expira is null or expira>now())
+        order by creada desc limit 1`;
+      if (!oleada) return out(req, { ok: false, error: "No hay una liquidación de esta organización." });
+      const [row] = await q`select app.liq_submit(${oleada.token}, ${q.json(Array.isArray(b.lineas) ? b.lineas : [])}, ${quien}, ${String(me.empresa || "").slice(0, 160)}, true) j`;
+      const j = row?.j || { ok: false, error: "No se pudo enviar." };
+      if (j && j.items) delete j.items;
+      return out(req, j);
     }
     if (b.op !== "switch" && b.op !== "invite") return out(req, { ok: false, error: "Operación no válida" });
     if (c.imp || c.pvw) return out(req, { ok: false, error: "No se cambia Liquidación desde una vista previa." });
