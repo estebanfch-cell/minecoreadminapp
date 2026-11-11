@@ -76,6 +76,9 @@ async function deOrganizacion(q, empresa, todos) {
     foto: x.foto || "",
     paquete: x.paquete || ""
   });
+  const cods = await q`select k.sku, k.codigo from app.cliente_codigo k join app.customers c on c.id=k.customer_id where lower(trim(c.name))=lower(trim(${emp}))`;
+  const cm = {};
+  cods.forEach((c) => { if (c.sku) cm[c.sku] = c.codigo; });
   return {
     ok: true,
     vacio: false,
@@ -83,7 +86,7 @@ async function deOrganizacion(q, empresa, todos) {
     modo: j.modo || (todos ? "todos" : "sugerido"),
     contado_pct: num(j.contado_pct) || 5,
     mensaje: j.instruccion || "",
-    items: filas.map(mapLinea),
+    items: filas.map((x) => Object.assign(mapLinea(x), cm[x.sku] ? { codigo_cliente: cm[x.sku] } : {})),
     paquetes: (Array.isArray(j.paquetes) ? j.paquetes : []).map((p) => ({
       nombre: p.nombre || "",
       n: num(p.n),

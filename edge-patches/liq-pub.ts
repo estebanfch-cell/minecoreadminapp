@@ -62,7 +62,14 @@ Deno.serve(async (req) => {
       return out(req, j);
     }
     const [row] = await q`select app.liq_get(${token}, ${!!b.todos}, false) j`;
-    return out(req, row?.j || { ok: false, error: "Sin respuesta" });
+    const j = row?.j || { ok: false, error: "Sin respuesta" };
+    if (j && j.ok && Array.isArray(j.items)) {
+      const cods = await q`select k.sku, k.codigo from app.cliente_codigo k join app.liq_oleadas o on o.customer_id=k.customer_id where o.token=${token}`;
+      const m = {};
+      cods.forEach((c) => { if (c.sku) m[c.sku] = c.codigo; });
+      j.items.forEach((it) => { if (it && m[it.sku]) it.codigo_cliente = m[it.sku]; });
+    }
+    return out(req, j);
   } catch (e) {
     return out(req, { ok: false, error: String(e?.message || e).slice(0, 300) }, 500);
   }
