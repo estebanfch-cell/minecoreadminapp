@@ -198,7 +198,8 @@ Deno.serve(async (req) => {
     const ql = ord.id ? await sql`select l.product_id::text, l.sku, l.description as name, l.quantity::float qty, l.line_num, coalesce((select v.codigo from app.v_inventario_portal v where v.sku=l.sku limit 1),'') codigo from app.sales_order_lines l where l.sales_order_id=${ord.id}::uuid and coalesce(l.is_discarded,false)=false order by l.line_num` : [];
     const quote = ql.map((r, i) => ({ ...r, pos: i }));
     const codes = lineas.map((x) => x.codigo);
-    const saved = codes.length ? await sql`select codigo, product_id::text, sku, confirmado_por, confirmado_at, (select name from app.products p where p.id=product_id) nombre from app.cliente_codigo where customer_id=${ord.cid}::uuid and upper(codigo) = any(${codes})` : [];
+    const seco = b.seco === true;
+    const saved = !seco && codes.length ? await sql`select codigo, product_id::text, sku, confirmado_por, confirmado_at, (select name from app.products p where p.id=product_id) nombre from app.cliente_codigo where customer_id=${ord.cid}::uuid and upper(codigo) = any(${codes})` : [];
     const ya = new Map(saved.map((r) => [String(r.codigo).toUpperCase(), r]));
     const prods = await sql`select p.id::text id, p.sku, p.name, coalesce(v.codigo,'') codigo from app.products p left join lateral (select codigo from app.v_inventario_portal v where v.sku=p.sku limit 1) v on true where coalesce(p.is_active, true)`;
     return out(req, { ok: true, orden: ord.order_number, customer_id: ord.cid, lineas: proponer(lineas, quote, prods, ya) });
