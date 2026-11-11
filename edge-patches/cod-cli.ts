@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       ord = row;
     } else if (/^[0-9a-f-]{36}$/i.test(customerIn)) ord = { id: "", cid: customerIn, order_number: "", is_quote: true };
     else return out(req, { ok: false, error: "cotización" }, 400);
-    const lineas = (Array.isArray(b.lineas) ? b.lineas : []).slice(0, 80).map((x) => ({ codigo: String(x.codigo || "").trim().toUpperCase().slice(0, 40), descripcion: String(x.descripcion || "").slice(0, 240), qty: +x.qty || 0 })).filter((x) => x.codigo);
+    const lineas = (Array.isArray(b.lineas) ? b.lineas : []).slice(0, 80).map((x) => ({ codigo: String(x.codigo || "").trim().toUpperCase().slice(0, 40), descripcion: String(x.descripcion || "").slice(0, 240), qty: +x.qty || 0 })).filter((x) => x.codigo || x.descripcion);
     const ql = ord.id ? await sql`select product_id::text, sku, description as name, quantity::float qty from app.sales_order_lines where sales_order_id=${ord.id}::uuid and coalesce(is_discarded,false)=false order by line_num` : [];
     const quote = ql.map((r, i) => ({ ...r, pos: i }));
     const codes = lineas.map((x) => x.codigo);
