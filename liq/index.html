@@ -124,27 +124,24 @@ function tamDe(x){
   if(/\bBO\b|\bBQ\b/.test(s))return 'BQ';
   return 'Otras';
 }
-function armar(paq){
-  var out=[], visto={};
-  paq.forEach(function(p){
-    var fam=/^Brocas/.test(p.nombre)?'Brocas':/^Rimas/.test(p.nombre)?'Rimas':'';
-    if(!fam){out.push({key:p.nombre,nombre:p.nombre,lineas:p.lineas||[],hoja:true});return;}
-    if(visto[fam])return; visto[fam]=1;
-    var hijos={}, all=[];
-    paq.forEach(function(q){
-      if(!(fam==='Brocas'?/^Brocas/.test(q.nombre):/^Rimas/.test(q.nombre)))return;
-      (q.lineas||[]).forEach(function(x){
-        var sub=tamDe(x); if(fam==='Rimas'&&sub==='Brocas HQ')sub='HQ';
-        if(!hijos[sub])hijos[sub]={key:fam+'|'+sub,nombre:sub,lineas:[],hoja:true};
-        hijos[sub].lineas.push(x); all.push(x);
-      });
+function arbol(items){
+  var root={hijos:{},items:[]};
+  (items||[]).forEach(function(it){
+    if(!it||!it.sku)return;
+    var rama=(it.rama&&it.rama.length)?it.rama:[{id:it.categoria||it.sku,name:it.categoria||'Otros'}];
+    var n=root;
+    rama.forEach(function(c){
+      var id=String(c.id||c.name||'');
+      if(!n.hijos[id])n.hijos[id]={id:id,nombre:c.name||'Otros',hijos:{},items:[]};
+      n=n.hijos[id];
     });
-    var ord=['Brocas HQ','HO oversize','HO3','NQ','NO3','NO oversize','PQ','PO oversize','PO3','BQ','HTW','HTW3','IEW','NTW','HWT','HQ','Otras'];
-    var hs=Object.keys(hijos).map(function(k){return hijos[k];});
-    hs.sort(function(a,b){var ia=ord.indexOf(a.nombre),ib=ord.indexOf(b.nombre);return (ia<0?99:ia)-(ib<0?99:ib);});
-    out.push({key:fam,nombre:fam,hijos:hs,lineas:all});
+    n.items.push(it);
   });
-  return out;
+  function contar(n){var c=n.items.length;Object.keys(n.hijos).forEach(function(k){c+=contar(n.hijos[k]);});n.n=c;return c;}
+  function hijos(n){return Object.keys(n.hijos).map(function(k){return n.hijos[k];}).filter(function(h){return h.n>0;}).sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es',{numeric:true});});}
+  function nodo(n){var hs=hijos(n);return {key:n.id,nombre:n.nombre,n:n.n,lineas:n.items||[],hijos:hs.length?hs.map(nodo):null};}
+  contar(root);
+  return hijos(root).map(nodo);
 }
 var GRUPO={};
 function pxLinea(it){
@@ -226,33 +223,30 @@ function pintar(){
   if(!DATA||DATA.ok===false){app.innerHTML='<div class="card err">'+(DATA&&DATA.error||'Enlace no válido.')+'</div>';return;}
   var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'';
   var catalogo=(DATA._todos&&DATA._todos.items)||items;
-  var sk={};items.forEach(function(it){sk[it.sku]=1;});
-  var paq=(DATA.paquetes||[]).map(function(p){return {nombre:p.nombre,n:p.n,lineas:(p.lineas||[]).slice()};});
-  if(DATA.modo!=='todos')paq=paq.map(function(p){p.lineas=(p.lineas||[]).filter(function(x){return sk[x.sku];});return p;}).filter(function(p){return p.lineas.length;});
-  else paq=paq.filter(function(p){return (p.lineas||[]).length>1;});
   var h='<div class="mut">'+(cli?esc(cli)+' · ':'')+(DATA.modo==='todos'?'Todos los productos':'Sugeridos')+' · hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
   h+='<div class="card">'+esc(DATA.instruccion||'')+'</div>';
   if(DATA.modo!=='todos') h+='<div class="card" id="liq-sug">Se sugieren productos según sus tendencias de cotizaciones y compras.</div>';
   h+='<p><button class="sec" id="todos">'+(TODOS?'Ver sugeridos':'Ver todos los productos')+'</button></p>';
-  if(!paq.length&&!items.length)h+='<div class="card">Sin productos en liquidación por ahora.</div>';
-  var tree=armar(paq), leaves=[];
+  if(!items.length)h+='<div class="card">Sin productos en liquidación por ahora.</div>';
+  var tree=arbol(items), leaves=[];
   GRUPO={};
-  function hoja(p){
-    var i=leaves.push(p)-1, abierto=!!OPEN[p.key], xs=p.lineas||[], lista=totLista(xs), cat=totCat(xs);
-    xs.forEach(function(x){GRUPO[x.sku]=xs;});
-    var on=llena(xs), btn='<button type="button" class="addcat'+(on?' on':'')+'" data-paq="'+i+'">'+(on?'Agregada · Quitar':'Agregar categoría completa (−15%)')+'</button>';
-    var dentro=abierto?'<div class="topadd">'+btn+'</div>'+xs.map(fila).join('')+
-      '<div class="foot">Compra de categoría completa: −15% adicional sobre el precio ya descontado.'+
-      '<div class="nums" style="margin:6px 0"><span class="old">'+money(lista)+'</span><b>'+money(cat)+'</b></div>'+btn+'</div>':'';
-    return '<div class="catbar"><button type="button" class="cat" data-ver="'+esc(p.key)+'" aria-expanded="'+(abierto?'true':'false')+'"><span>'+(abierto?'▾':'▸')+'</span><b>'+esc(p.nombre)+'</b></button><span class="sum"><span class="mut">'+xs.length+'</span></span></div>'+dentro;
+  function indexar(n){if(n.lineas&&n.lineas.length)n.lineas.forEach(function(x){GRUPO[x.sku]=n.lineas;});(n.hijos||[]).forEach(indexar);}
+  tree.forEach(indexar);
+  function nodoHtml(p){
+    var abierto=!!OPEN[p.key], hs=p.hijos||[], direct=p.lineas||[];
+    var head='<button type="button" class="cat" data-ver="'+esc(p.key)+'" aria-expanded="'+(abierto?'true':'false')+'"><span>'+(abierto?'▾':'▸')+'</span><b>'+esc(p.nombre)+' ('+p.n+')</b></button>';
+    if(!abierto)return head;
+    var inner=hs.map(function(hija){return '<div class="sub">'+nodoHtml(hija)+'</div>';}).join('');
+    if(direct.length){
+      var i=leaves.push({key:p.key,lineas:direct})-1, on=llena(direct), lista=totLista(direct), cat=totCat(direct);
+      var btn='<button type="button" class="addcat'+(on?' on':'')+'" data-paq="'+i+'">'+(on?'Agregada · Quitar':'Agregar categoría completa (−15%)')+'</button>';
+      inner+='<div class="topadd">'+btn+'</div>'+direct.map(fila).join('')+
+        '<div class="foot">Compra de categoría completa: −15% adicional sobre el precio ya descontado.'+
+        '<div class="nums" style="margin:6px 0"><span class="old">'+money(lista)+'</span><b>'+money(cat)+'</b></div>'+btn+'</div>';
+    }
+    return head+inner;
   }
-  h+=tree.map(function(p){
-    var abierto=!!OPEN[p.key], n=(p.lineas||[]).length;
-    var dentro=abierto&&p.hijos?p.hijos.map(function(hija){return '<div class="sub">'+hoja(hija)+'</div>';}).join(''):'';
-    var head=p.hijos?'<button type="button" class="cat" data-ver="'+esc(p.key)+'" aria-expanded="'+(abierto?'true':'false')+'"><span>'+(abierto?'▾':'▸')+'</span><b>'+esc(p.nombre)+'</b><span class="sum"><span class="mut">'+n+'</span></span></button>':hoja(p);
-    if(p.hijos) return '<div class="card">'+head+dentro+'</div>';
-    return '<div class="card">'+head+'</div>';
-  }).join('');
+  h+=tree.map(function(p){return '<div class="card">'+nodoHtml(p)+'</div>';}).join('');
   h+='<div class="card"><p><button id="enviar">Enviar cotización</button></p><div id="msg" class="mut"></div></div>';
   var y=window.scrollY;
   app.innerHTML=h;
