@@ -81,6 +81,7 @@ async function deOrganizacion(q, empresa, todos) {
     vacio: false,
     empresa: emp,
     modo: j.modo || (todos ? "todos" : "sugerido"),
+    contado_pct: num(j.contado_pct) || 5,
     mensaje: j.instruccion || "",
     items: filas.map(mapLinea),
     paquetes: (Array.isArray(j.paquetes) ? j.paquetes : []).map((p) => ({
@@ -163,7 +164,7 @@ Deno.serve(async (req) => {
           and (expira is null or expira>now())
         order by creada desc limit 1`;
       if (!oleada) return out(req, { ok: false, error: "No hay una liquidación de esta organización." });
-      const [row] = await q`select app.liq_submit(${oleada.token}, ${q.json(Array.isArray(b.lineas) ? b.lineas : [])}, ${quien}, ${String(me.empresa || "").slice(0, 160)}, true, ${""}, ${""}, false, ${String(b.idem || "").slice(0, 80)}, ${""}) j`;
+      const [row] = await q`select app.liq_submit(${oleada.token}, ${q.json(Array.isArray(b.lineas) ? b.lineas : [])}, ${quien}, ${String(me.empresa || "").slice(0, 160)}, true, ${""}, ${""}, false, ${String(b.idem || "").slice(0, 80)}, ${""}, ${!!b.contado}) j`;
       const j = row?.j || { ok: false, error: "No se pudo enviar." };
       if (j && j.items) delete j.items;
       return out(req, j);

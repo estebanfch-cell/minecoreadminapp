@@ -49,6 +49,9 @@
   .stot{border-top:1px solid #243446;margin-top:8px;padding-top:8px}
   .stot div{display:flex;justify-content:space-between;gap:12px;margin-top:4px}
   .stot .grand{font-size:16px;font-weight:800;margin-top:8px}
+  .contado{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:8px;border:1px solid #3d5166;border-radius:10px;font-size:13px;line-height:1.35}
+  .contado input{width:18px;height:18px;margin:2px 0 0;flex:none}
+  .contado b{display:block}
   .catbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .catbar .cat{flex:1;min-width:0}
   .addcat,.topadd .addcat,.foot .addcat{display:block;width:100%;box-sizing:border-box;background:#e6f000;color:#111;border:0;border-radius:8px;padding:8px 10px;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px}
@@ -163,7 +166,9 @@ function pxLinea(it){
   return '<span class="pxside"><span class="pxrow"><span class="pxleft"><span class="pvp">PVP <span class="old">'+money(listaDe(it))+'</span></span><span class="off">'+esc(descBits(it,qty,full))+'</span><b class="now">'+money(u)+'</b></span>'+
     '<span class="pxright"><span class="qty"><button type="button" data-step="-1" data-sku="'+esc(it.sku)+'" data-max="'+stock+'"'+(qty<=0?' disabled':'')+'>−</button><input data-sku="'+esc(it.sku)+'" type="number" inputmode="numeric" min="0" max="'+stock+'" step="1" value="'+(qty?qty:'')+'" aria-label="Cantidad"><button type="button" data-step="1" data-sku="'+esc(it.sku)+'" data-max="'+stock+'"'+(qty>=stock?' disabled':'')+'>+</button></span>'+lin+'</span></span></span>';
 }
-var F={nombre:'',email:'',tel:'',empresa:''}, ENVIANDO=false, HECHO=null;
+var F={nombre:'',email:'',tel:'',empresa:''}, ENVIANDO=false, HECHO=null, CONTADO=false;
+function pctContado(){var p=Number(DATA&&DATA.contado_pct);return p>0&&p<=30?p:5;}
+function subContado(S){var f=1-pctContado()/100,t=0;S.lines.forEach(function(L){t+=r2(L.q*r2(L.u*f));});return r2(t);}
 function tokenSesion(){
   try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null'), u=localStorage.getItem('mc_user_name')||''; if(s&&s.t&&s.u===u&&s.exp>Date.now()/1000+20)return s.t;}catch(e){}
   return '';
@@ -182,7 +187,7 @@ function idemClave(){
   try{
     var k=sessionStorage.getItem('liq_idem')||'';
     if(!/^[A-Za-z0-9]{16,40}$/.test(k)){k=(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)+Date.now().toString(36)).replace(/[^a-z0-9]/gi,'').slice(0,32); sessionStorage.setItem('liq_idem',k);}
-    return k;
+    return k+(CONTADO?'c':'n');
   }catch(e){return '';}
 }
 function leerForm(){
@@ -252,14 +257,16 @@ function lugarBurbuja(){var b=document.getElementById('liq-cart');if(!b)return;v
 var SEL=false;
 function cerrarSel(desdePop){SEL=false;var s=document.getElementById('liq-sel');if(s)s.remove();if(!desdePop&&history.state&&history.state.liqSel){try{history.back();}catch(e){}}}
 function abrirSel(){leerForm();var S=seleccion();if(!S.n){cerrarSel(true);return;}var y=window.scrollY;if(!SEL){try{history.pushState({liqSel:1},'');}catch(e){}}SEL=true;var old=document.getElementById('liq-sel');if(old)old.remove();var s=document.createElement('div');s.id='liq-sel';s.className='sheet';s.style.zIndex='9000';
+  var pct=pctContado(), subC=subContado(S), ahorro=r2(S.tot-subC), base=CONTADO?subC:S.tot, iva=ivaMonto(base), tot=r2(base+iva);
   s.innerHTML='<div class="box" role="dialog" aria-modal="true"><div class="bar"><button type="button" id="sel-back">← Volver</button><button type="button" id="sel-x" aria-label="Cerrar">✕</button></div><h2>Tu selección</h2>'+
     S.lines.map(function(L){var stock=Number(L.it.stock)||0;return '<div class="row">'+foto(L.it)+'<span class="who"><span class="nm">'+esc(L.it.nombre||L.it.sku)+'</span><span class="meta">'+esc(L.it.sku)+' · Disponibles: '+esc(stock)+'</span><span class="pxside"><span class="pxrow"><span class="pxleft"><span class="pvp">PVP <span class="old">'+money(listaDe(L.it))+'</span></span><span class="off">'+esc(descBits(L.it,L.q,L.full))+'</span><b class="now">'+money(L.u)+'</b></span><span class="pxright"><span class="qty"><button type="button" data-sel="-1" data-sku="'+esc(L.it.sku)+'" data-max="'+stock+'"'+(L.q<=0?' disabled':'')+'>−</button><input data-selq="'+esc(L.it.sku)+'" type="number" inputmode="numeric" min="0" max="'+stock+'" value="'+L.q+'" aria-label="Cantidad"><button type="button" data-sel="1" data-sku="'+esc(L.it.sku)+'" data-max="'+stock+'"'+(L.q>=stock?' disabled':'')+'>+</button></span><span class="lin">'+esc(L.q)+' × '+money(L.u)+' = '+money(L.sub)+'</span><button type="button" class="sec" data-quitar="'+esc(L.it.sku)+'">Quitar</button></span></span></span></span></div>';}).join('')+
-    '<div class="stot"><div><span>Subtotal</span><b>'+money(S.tot)+'</b></div><div><span>IVA '+ivaPct()+'%</span><b>'+money(ivaMonto(S.tot))+'</b></div><div class="grand"><span>Total</span><b>'+money(r2(S.tot+ivaMonto(S.tot)))+'</b></div>'+formulario()+'<p><button type="button" id="sel-enviar"'+(ENVIANDO?' disabled':'')+'>'+(ENVIANDO?'Enviando…':'Enviar cotización')+'</button></p><div id="sel-msg" class="mut err"></div></div></div>';
+    '<div class="stot"><div><span>Subtotal</span><b>'+money(S.tot)+'</b></div>'+(CONTADO?'<div><span>Pago de contado −'+pct+'%</span><b>−'+money(ahorro)+'</b></div>':'')+'<div><span>IVA '+ivaPct()+'%</span><b>'+money(iva)+'</b></div><label class="contado"><input type="checkbox" id="liq-contado"'+(CONTADO?' checked':'')+'><span><b>Pago de contado</b>Si tu pago es de contado, obtienes un beneficio extra: '+pct+'% de descuento adicional. Te ahorras '+money(ahorro)+'. Nuevo total '+money(r2(subC+ivaMonto(subC)))+'.</span></label><div class="grand"><span>'+(CONTADO?'Nuevo total':'Total')+'</span><b>'+money(tot)+'</b></div>'+formulario()+'<p><button type="button" id="sel-enviar"'+(ENVIANDO?' disabled':'')+'>'+(ENVIANDO?'Enviando…':'Enviar cotización')+'</button></p><div id="sel-msg" class="mut err"></div></div></div>';
   document.body.appendChild(s);
   s.addEventListener('click',function(e){if(e.target===s)cerrarSel(false);});
   document.getElementById('sel-back').onclick=function(){cerrarSel(false);};
   document.getElementById('sel-x').onclick=function(){cerrarSel(false);};
   ['f-nom','f-mail','f-tel','f-emp'].forEach(function(id){var el=document.getElementById(id);if(el)el.oninput=leerForm;});
+  var ck=document.getElementById('liq-contado'); if(ck) ck.onchange=function(){CONTADO=ck.checked;abrirSel();};
   var env=document.getElementById('sel-enviar'); if(env) env.onclick=function(){if(window._liqEnviar) window._liqEnviar();};
   [].forEach.call(s.querySelectorAll('[data-sel]'),function(b){b.onclick=function(){var sku=b.getAttribute('data-sku'),max=Number(b.getAttribute('data-max'))||0;QT[sku]=Math.max(0,Math.min(max,(QT[sku]||0)+Number(b.getAttribute('data-sel'))));pintar();abrirSel();};});
   [].forEach.call(s.querySelectorAll('[data-selq]'),function(el){el.oninput=function(){var sku=el.getAttribute('data-selq'),max=Number(el.max)||0;QT[sku]=Math.max(0,Math.min(max,parseFloat(el.value)||0));pintar();abrirSel();var f=document.querySelector('[data-selq="'+sku+'"]');if(f)f.focus();};});
@@ -332,11 +339,11 @@ function pintar(){
     ENVIANDO=true;
     var btn=document.getElementById('sel-enviar'); if(btn){btn.disabled=true;btn.textContent='Enviando…';}
     if(msg)msg.textContent='Enviando…';
-    post({op:'enviar',todos:true,lineas:lineas,contacto:quien,empresa:cli,email:nombreSesion()?'':F.email,telefono:nombreSesion()?'':F.tel,visita:nombreSesion()?'':F.empresa,idem:idemClave(),sesion:tokenSesion()}).then(function(r){
+    post({op:'enviar',todos:true,lineas:lineas,contacto:quien,empresa:cli,email:nombreSesion()?'':F.email,telefono:nombreSesion()?'':F.tel,visita:nombreSesion()?'':F.empresa,idem:idemClave(),sesion:tokenSesion(),contado:!!CONTADO}).then(function(r){
       ENVIANDO=false;
       if(!(r&&r.ok)){falla((r&&r.error)||'No se pudo enviar.');return;}
       HECHO={num:r.order_number||(r.precot_id?('#'+r.precot_id):'')};
-      QT={}; F={nombre:'',email:'',tel:'',empresa:''};
+      QT={}; CONTADO=false; F={nombre:'',email:'',tel:'',empresa:''};
       try{sessionStorage.removeItem('liq_idem');}catch(e){}
       cerrarSel(true);
       pintar();

@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
         const nom = String(me?.completo || "").trim();
         if (nom.length >= 2) { contacto = nom.slice(0, 80); publico = false; }
       }
-      const [row] = await q`select app.liq_submit(${token}, ${q.json(Array.isArray(b.lineas) ? b.lineas : [])}, ${contacto}, ${String(b.empresa || "").slice(0, 160)}, ${!!b.todos}, ${String(b.email || "").slice(0, 160)}, ${String(b.telefono || "").slice(0, 40)}, ${publico}, ${String(b.idem || "").slice(0, 80)}, ${String(b.visita || "").slice(0, 160)}) j`;
+      const [row] = await q`select app.liq_submit(${token}, ${q.json(Array.isArray(b.lineas) ? b.lineas : [])}, ${contacto}, ${String(b.empresa || "").slice(0, 160)}, ${!!b.todos}, ${String(b.email || "").slice(0, 160)}, ${String(b.telefono || "").slice(0, 40)}, ${publico}, ${String(b.idem || "").slice(0, 80)}, ${String(b.visita || "").slice(0, 160)}, ${!!b.contado}) j`;
       const j = row?.j || { ok: false, error: "Sin respuesta" };
       if (j && j.items) delete j.items;
       return out(req, j);
