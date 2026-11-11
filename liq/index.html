@@ -85,6 +85,8 @@
   .seg button{flex:1;min-width:0;background:transparent;color:#9fb0c3;border-radius:9px;padding:8px 6px;font-size:12px;font-weight:700;line-height:1.25;white-space:normal}
   .seg button.on{background:#e6f000;color:#14200c}
   .recmark{display:inline-block;margin-left:6px;background:#e6f000;color:#14200c;font-size:10px;font-weight:800;border-radius:999px;padding:1px 6px;vertical-align:1px}
+  #app .conds{display:block;background:#243018;border:2px solid #e6f000;border-radius:12px;padding:12px 14px;margin:8px 0;color:#f4f1dc;font-size:15px;line-height:1.45}
+  #app .conds b{display:block;color:#e6f000;font-size:16px;margin:0 0 6px;font-weight:800}
 </style>
 </head>
 <body>
@@ -168,6 +170,12 @@ function pxLinea(it){
 }
 var F={nombre:'',email:'',tel:'',empresa:''}, ENVIANDO=false, HECHO=null, CONTADO=false;
 function pctContado(){var p=Number(DATA&&DATA.contado_pct);return p>0&&p<=30?p:5;}
+function condiciones(){
+  var t='Si llevas todo el stock de un producto, recibes 5% adicional. Si llevas toda una categoría, recibes 15% adicional, sobre el descuento que ya tiene.';
+  var c=pctContado();
+  if(c>0)t+=' Si tu pago es de contado, recibes '+(c%1?c:Math.round(c))+'% adicional.';
+  return '<div class="conds"><b>Condiciones de la liquidación</b><span>'+t+'</span></div>';
+}
 function subContado(S){var f=1-pctContado()/100,t=0;S.lines.forEach(function(L){t+=r2(L.q*r2(L.u*f));});return r2(t);}
 function tokenSesion(){
   try{var s=JSON.parse(sessionStorage.getItem('mc_sbt')||'null'), u=localStorage.getItem('mc_user_name')||''; if(s&&s.t&&s.u===u&&s.exp>Date.now()/1000+20)return s.t;}catch(e){}
@@ -287,7 +295,7 @@ function pintar(){
   var catalogo=(DATA._todos&&DATA._todos.items)||items;
   var h=(HECHO?'<div class="card okb"><b>Cotización enviada ✓ — Ya te responderemos</b>'+(HECHO.num?'<div>'+esc(HECHO.num)+'</div>':'')+'</div>':'')+'<div class="mut">'+(cli?esc(cli)+' · ':'')+'hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
   h+='<div class="seg" role="tablist"><button type="button" id="seg-rec" class="'+(TODOS?'':'on')+'" aria-pressed="'+(TODOS?'false':'true')+'">Recomendado para '+(cli?esc(cli):'ti')+'</button><button type="button" id="seg-all" class="'+(TODOS?'on':'')+'" aria-pressed="'+(TODOS?'true':'false')+'">Todos en liquidación</button></div>';
-  h+='<div class="card">'+esc(DATA.instruccion||'')+'</div>';
+  h+=condiciones();
   if(!TODOS) h+='<div class="card" id="liq-sug">Se sugieren productos según sus tendencias de cotizaciones y compras.</div>';
   if(!items.length)h+='<div class="card">Sin productos en liquidación por ahora.</div>';
   var tree=arbol(items), leaves=[];
