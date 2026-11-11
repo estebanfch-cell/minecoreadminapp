@@ -87,7 +87,9 @@ Deno.serve(async (req)=>{
     if (!checklist) return out(req, { ok: true, checklist: false });
     const id = String(b.id || "");
     if (!/^[0-9a-f-]{36}$/i.test(id)) return out(req, { ok: false, error: "Orden no válida" });
-    const rows = await q`select l.line_num, coalesce(nullif(l.sku,''), p.sku, '') sku, coalesce(nullif(l.description,''), p.name, '') nombre, l.quantity::float cantidad,
+    const rows = await q`select l.line_num, coalesce(nullif(l.sku,''), p.sku, '') sku, coalesce(nullif(p.name,''), nullif(l.description,''), '') nombre,
+      coalesce(nullif((select v.code_raw from app.product_vendor_codes v where v.product_id=p.id and v.kind='base' order by v.first_seen_at nulls last, v.id limit 1), ''), case when regexp_replace(coalesce(l.description,''), '\\s', '', 'g') ~ '^[0-9]{5,}$' then nullif(trim(l.description),'') else '' end, '') parte,
+      l.quantity::float cantidad,
       (select i.storage_path from app.product_images i where i.product_id=p.id order by i.is_default desc nulls last limit 1) img,
       coalesce(
         nullif((select string_agg(s, ' ') from (select distinct nullif(trim(k.sublocation),'') s from app.so_pick_lines k where k.sales_order_id=l.sales_order_id and k.product_id=l.product_id) z where s is not null), ''),
@@ -101,6 +103,7 @@ Deno.serve(async (req)=>{
       k: String(x.line_num) + "|" + String(x.sku || "") + "|" + i,
       sku: String(x.sku || ""),
       nombre: String(x.nombre || ""),
+      parte: String(x.parte || ""),
       cantidad: x.cantidad,
       img: foto(x.img),
       sub: String(x.sub || "")
