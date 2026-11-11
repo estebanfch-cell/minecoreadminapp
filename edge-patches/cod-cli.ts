@@ -99,13 +99,28 @@ function parteHit(a, b) {
   for (const x of na) for (const y of nb) if (x.includes(y) || y.includes(x)) return true;
   return false;
 }
+// Vocabulario del cliente hacia la línea de la cotización. No abre el catálogo.
+function vocabHit(req, name) {
+  const r = " " + expand(req) + " ";
+  const n = " " + expand(name) + " ";
+  if (/\bresorte\b/.test(r) && /\bcasita\b/.test(r) && /\bcore\b/.test(n) && /\blifter\b/.test(n) && !/\bcase\b/.test(n)) return 1;
+  return 0;
+}
 function scoreQuote(L, q, i) {
   const req = L.descripcion || "";
+  const name = q.name || "";
+  const part = parteHit(req, (q.codigo || "") + " " + name);
+  const bridged = vocabHit(req, name) > 0;
+  const d = scoreDesc(req, name);
   let s = 0;
-  if (parteHit(req, (q.codigo || "") + " " + (q.name || ""))) s += 0.72;
-  s += scoreDesc(req, q.name || "") * 0.85;
-  if (+L.qty && Math.abs(+q.qty - +L.qty) < 0.01) s += 0.14;
+  if (part) s += 0.72;
+  s += d * 0.85;
+  if (bridged) s += 1;
+  if (+L.qty && Math.abs(+q.qty - +L.qty) < 0.01) s += 0.16;
+  const rs = sizes(req), ps = new Set(sizes(name));
+  if (rs.length && rs.some((x) => ps.has(x)) && (bridged || d > 0 || part)) s += 0.18;
   s += Math.max(0, 0.06 - Math.abs((q.pos ?? 0) - i) * 0.008);
+  if (!bridged && d === 0 && !part) s = Math.min(s, 0.34);
   return s;
 }
 function buscarCatalogo(q, prods) {
