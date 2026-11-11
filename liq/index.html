@@ -40,7 +40,8 @@
   .sact{justify-content:space-between;gap:2px;font-size:11px}
   .sact .lab{color:#8fa3b8;white-space:nowrap}
   .sact b{white-space:nowrap}
-  .sact .qty input{width:26px;height:22px;font-size:12px}
+  .sact .qty input{width:26px;height:22px;font-size:16px}
+  .pxrow .qty input{font-size:16px}
   .sact .sec{padding:3px 5px;font-size:11px;border-radius:8px;margin:0;white-space:nowrap}
   .skv{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;font-size:12.5px}
   .skv span:first-child{color:#8fa3b8}
@@ -66,13 +67,16 @@
   .qty{display:flex;align-items:center;gap:4px}
   .qty button{width:26px;height:26px;padding:0;border-radius:6px;background:#1c2a3a;color:#fff}
   .qty button:disabled{opacity:.35;cursor:default}
-  .qty input{width:38px;height:26px;padding:0;text-align:center;background:#0b1219;color:#fff;border:1px solid #2a3d52;border-radius:6px}
+  .qty input{width:38px;height:26px;padding:0;text-align:center;background:#0b1219;color:#fff;border:1px solid #2a3d52;border-radius:6px;font-size:16px}
+  #liq-volver{position:fixed;top:8px;left:12px;z-index:70;min-height:44px;padding:0 14px;border-radius:10px;background:#16202c;color:#e8eef6;border:1px solid #3d5166;font-weight:800}
+  body{padding-top:52px}
   .foot{border-top:1px solid #243446;margin-top:8px;padding-top:8px;font-size:13px}
   .err{color:#ff8a8a}
   input.nom{width:100%;box-sizing:border-box;background:#0b1219;color:#fff;border:1px solid #2a3d52;border-radius:8px;padding:8px}
 </style>
 </head>
 <body>
+<button type="button" id="liq-volver">← Volver</button>
 <main>
   <h1>Liquidación Minecore</h1>
   <div id="app" class="mut">Cargando…</div>
@@ -200,11 +204,12 @@ function cerrarSel(desdePop){SEL=false;var s=document.getElementById('liq-sel');
 function abrirSel(){var S=seleccion();if(!S.n){cerrarSel(true);return;}var y=window.scrollY;if(!SEL){try{history.pushState({liqSel:1},'');}catch(e){}}SEL=true;var old=document.getElementById('liq-sel');if(old)old.remove();var s=document.createElement('div');s.id='liq-sel';s.className='sheet';s.style.zIndex='9000';
   s.innerHTML='<div class="box" role="dialog" aria-modal="true"><div class="bar"><button type="button" id="sel-back">← Volver</button><button type="button" id="sel-x" aria-label="Cerrar">✕</button></div><h2>Tu selección</h2>'+
     S.lines.map(function(L){var stock=Number(L.it.stock)||0;return '<div class="row">'+foto(L.it)+'<span class="who"><span class="nm">'+esc(L.it.nombre||L.it.sku)+'</span><span class="meta">'+esc(L.it.sku)+' · Disponibles: '+esc(stock)+'</span></span><span class="pxside"><span class="pxrow"><span class="pvp">PVP <span class="old">'+money(listaDe(L.it))+'</span></span><span class="off">'+esc(descDe(L.it,L.q,L.full))+'</span><b class="now">'+money(L.u)+'</b><span class="qty"><button type="button" data-sel="-1" data-sku="'+esc(L.it.sku)+'" data-max="'+stock+'"'+(L.q<=0?' disabled':'')+'>−</button><input data-selq="'+esc(L.it.sku)+'" type="number" min="0" max="'+stock+'" value="'+L.q+'"><button type="button" data-sel="1" data-sku="'+esc(L.it.sku)+'" data-max="'+stock+'"'+(L.q>=stock?' disabled':'')+'>+</button></span></span><span class="lin"><span>'+esc(L.q)+' × '+money(L.u)+' = '+money(L.sub)+'</span><button type="button" class="sec" data-quitar="'+esc(L.it.sku)+'">Quitar</button></span></span></div>';}).join('')+
-    '<div class="stot"><div><span>Subtotal</span><b>'+money(S.tot)+'</b></div><div><span>IVA '+ivaPct()+'%</span><b>'+money(ivaMonto(S.tot))+'</b></div><div class="grand"><span>Total</span><b>'+money(r2(S.tot+ivaMonto(S.tot)))+'</b></div></div></div>';
+    '<div class="stot"><div><span>Subtotal</span><b>'+money(S.tot)+'</b></div><div><span>IVA '+ivaPct()+'%</span><b>'+money(ivaMonto(S.tot))+'</b></div><div class="grand"><span>Total</span><b>'+money(r2(S.tot+ivaMonto(S.tot)))+'</b></div><p><button type="button" id="sel-enviar">Enviar cotización</button></p></div></div>';
   document.body.appendChild(s);
   s.addEventListener('click',function(e){if(e.target===s)cerrarSel(false);});
   document.getElementById('sel-back').onclick=function(){cerrarSel(false);};
   document.getElementById('sel-x').onclick=function(){cerrarSel(false);};
+  var env=document.getElementById('sel-enviar'); if(env) env.onclick=function(){cerrarSel(true); if(window._liqEnviar) window._liqEnviar();};
   [].forEach.call(s.querySelectorAll('[data-sel]'),function(b){b.onclick=function(){var sku=b.getAttribute('data-sku'),max=Number(b.getAttribute('data-max'))||0;QT[sku]=Math.max(0,Math.min(max,(QT[sku]||0)+Number(b.getAttribute('data-sel'))));pintar();abrirSel();};});
   [].forEach.call(s.querySelectorAll('[data-selq]'),function(el){el.oninput=function(){var sku=el.getAttribute('data-selq'),max=Number(el.max)||0;QT[sku]=Math.max(0,Math.min(max,parseFloat(el.value)||0));pintar();abrirSel();var f=document.querySelector('[data-selq="'+sku+'"]');if(f)f.focus();};});
   [].forEach.call(s.querySelectorAll('[data-quitar]'),function(b){b.onclick=function(){QT[b.getAttribute('data-quitar')]=0;pintar();abrirSel();};});
@@ -212,11 +217,14 @@ function abrirSel(){var S=seleccion();if(!S.n){cerrarSel(true);return;}var y=win
 }
 function syncSel(){var S=seleccion(),b=document.getElementById('liq-burbuja');if(!S.n){if(b)b.remove();if(SEL)cerrarSel(true);return;}if(!b){b=document.createElement('button');b.id='liq-burbuja';b.type='button';b.onclick=function(){abrirSel();};document.body.appendChild(b);}b.textContent='Tu selección: '+S.n+(S.n===1?' producto':' productos')+' · Total '+money(r2(S.tot+ivaMonto(S.tot)));lugarBurbuja();}
 if(window.visualViewport){visualViewport.addEventListener('resize',lugarBurbuja);visualViewport.addEventListener('scroll',lugarBurbuja);}
-window.addEventListener('popstate',function(){if(document.getElementById('liq-sel'))cerrarSel(true);else if(document.getElementById('liq-sheet'))cerrarDet(true);});
+function volverLiq(){if(document.getElementById('liq-sel')){cerrarSel(false);return;}if(document.getElementById('liq-sheet')){cerrarDet(false);return;}if(history.length>1){history.back();return;}location.replace('https://portal.minecore.ec/');}
+document.getElementById('liq-volver').onclick=volverLiq;
+if(history.length<=1){try{history.replaceState({liqRoot:1},'');history.pushState({liqHere:1},'');}catch(e){}}
+window.addEventListener('popstate',function(){if(document.getElementById('liq-sel')){cerrarSel(true);return;}if(document.getElementById('liq-sheet')){cerrarDet(true);return;}if(history.state&&history.state.liqRoot)location.replace('https://portal.minecore.ec/');});
 function pintar(){
   var app=document.getElementById('app');
   if(!DATA||DATA.ok===false){app.innerHTML='<div class="card err">'+(DATA&&DATA.error||'Enlace no válido.')+'</div>';return;}
-  var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'', nomPrev=(document.getElementById('nom')||{}).value||'';
+  var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'';
   var catalogo=(DATA._todos&&DATA._todos.items)||items;
   var sk={};items.forEach(function(it){sk[it.sku]=1;});
   var paq=(DATA.paquetes||[]).filter(function(p){return (p.lineas||[]).length>1;});
@@ -244,7 +252,7 @@ function pintar(){
     if(p.hijos) return '<div class="card">'+head+dentro+'</div>';
     return '<div class="card">'+head+'</div>';
   }).join('');
-  h+='<div class="card"><label class="mut">Tu nombre<input class="nom" id="nom" maxlength="80" value="'+esc(nomPrev)+'"></label><p><button id="enviar">Enviar pedido</button></p><div id="msg" class="mut"></div></div>';
+  h+='<div class="card"><p><button id="enviar">Enviar cotización</button></p><div id="msg" class="mut"></div></div>';
   var y=window.scrollY;
   app.innerHTML=h;
   app._paq=leaves;
@@ -256,17 +264,22 @@ function pintar(){
   syncSel();
   [].forEach.call(app.querySelectorAll('.row [data-step]'),function(b){b.onclick=function(ev){ev.stopPropagation();var sku=b.getAttribute('data-sku'),max=Number(b.getAttribute('data-max'))||0;QT[sku]=Math.max(0,Math.min(max,(QT[sku]||0)+Number(b.getAttribute('data-step'))));pintar();};});
   [].forEach.call(app.querySelectorAll('.row input[data-sku]'),function(el){el.onclick=function(ev){ev.stopPropagation();};el.oninput=function(ev){ev.stopPropagation();var sku=el.getAttribute('data-sku'),max=Number(el.max)||0;QT[sku]=Math.max(0,Math.min(max,parseFloat(el.value)||0));pintar();var f=app.querySelector('.row input[data-sku="'+sku+'"]');if(f)f.focus();};});
-  document.getElementById('enviar').onclick=function(){
+  document.getElementById('enviar').onclick=enviarCot;
+  function enviarCot(){
     var lineas=[], visto={};
     (catalogo.length?catalogo:items).forEach(function(it){var q=QT[it.sku]||0;if(q>0){visto[it.sku]=1;lineas.push({sku:it.sku,qty:q});}});
     Object.keys(QT).forEach(function(sku){if(!visto[sku]&&QT[sku]>0)lineas.push({sku:sku,qty:QT[sku]});});
     var msg=document.getElementById('msg');
-    if(!lineas.length){msg.textContent='Elige al menos un producto.';return;}
-    msg.textContent='Enviando…';
-    post({op:'enviar',todos:true,lineas:lineas,contacto:(document.getElementById('nom')||{}).value||'',empresa:cli}).then(function(r){
-      msg.textContent=r&&r.ok?('Pedido recibido. Pre-cotización #'+r.precot_id+'.'):((r&&r.error)||'No se pudo enviar.');
-    }).catch(function(){msg.textContent='Sin conexión.';});
-  };
+    if(!lineas.length){if(msg)msg.textContent='Elige al menos un producto.';return;}
+    if(msg)msg.textContent='Enviando…';
+    var quien=cli;
+    try{var u=localStorage.getItem('mc_user_name')||'', map=JSON.parse(localStorage.getItem('mc_nombres')||'{}'); if(u&&map[u]) quien=map[u];}catch(e){}
+    post({op:'enviar',todos:true,lineas:lineas,contacto:quien,empresa:cli}).then(function(r){
+      if(!(r&&r.ok)){if(msg)msg.textContent=(r&&r.error)||'No se pudo enviar.';return;}
+      if(msg)msg.textContent='Cotización '+(r.order_number||('#'+r.precot_id))+' creada. Subtotal '+money(r.subtotal||r.total)+', IVA '+money(r.iva||0)+', total '+money(r.total_con_iva||r.total)+'.';
+    }).catch(function(){if(msg)msg.textContent='Sin conexión.';});
+  }
+  window._liqEnviar=enviarCot;
 }
 function cargar(){
   document.getElementById('app').textContent='Cargando…';
