@@ -18,19 +18,20 @@
   button.cat{display:flex;width:100%;align-items:center;gap:8px;background:transparent;color:inherit;text-align:left;padding:2px 0;border-radius:0}
   button.cat b{flex:1;min-width:0}
   .cat .sum{flex:none;text-align:right;font-size:13px}
-  .row{display:flex;gap:10px;align-items:flex-start;width:100%;background:transparent;color:inherit;border:0;border-top:1px solid #243446;text-align:left;padding:8px 0;cursor:pointer}
+  .row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:flex-start;width:100%;background:transparent;color:inherit;border:0;border-top:1px solid #243446;text-align:left;padding:8px 0;cursor:pointer}
   .phs{width:56px;height:56px;border-radius:8px;background:#fff;flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#8fa3b8;font-size:11px}
   .phs img{width:100%;height:100%;object-fit:contain;background:#fff}
-  .who{flex:1;min-width:0}
+  .who{flex:1 1 calc(100% - 70px);min-width:0}
   .who .mut{display:block;margin-top:2px}
-  .nm{font-size:14px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;overflow-wrap:anywhere}
-  .pxside{flex:none;width:42%;max-width:210px;min-width:132px;display:flex;flex-direction:column;align-items:flex-end;text-align:right;gap:1px}
+  .nm,.sname{font-size:13px;font-weight:700;line-height:1.35;display:block;white-space:normal;overflow:visible;text-overflow:clip;-webkit-line-clamp:unset;line-clamp:none;word-break:normal;overflow-wrap:break-word}
+  .who .sku{font-size:11px}
+  .pxside{flex:1 1 100%;width:100%;max-width:none;min-width:0;display:flex;flex-direction:column;align-items:flex-end;text-align:right;gap:1px}
   .pxside .pvp{font-size:11px;color:#8fa3b8}
   .pxside .now{font-size:17px;font-weight:800;line-height:1.15;margin:1px 0 2px}
   .pxside .lin{font-size:10.5px;line-height:1.25;margin-top:3px;color:#c5d4e4}
   .sline{display:flex;gap:10px;align-items:flex-start;border-top:1px solid #243446;padding:8px 0}
   .sbody{flex:1;min-width:0}
-  .sname{font-size:13px;font-weight:700;line-height:1.35;white-space:normal;overflow:visible;overflow-wrap:anywhere}
+  .sname{font-size:13px}
   .skv{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;font-size:12.5px}
   .skv span:first-child{color:#8fa3b8}
   .stot{border-top:1px solid #243446;margin-top:8px;padding-top:8px}
@@ -51,7 +52,7 @@
   .phb img{width:100%;height:100%;object-fit:contain;background:#fff}
   .sheet h2{font-size:16px;line-height:1.3;margin:10px 0 4px}
   .buy{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
-  @media(min-width:700px){.phs{width:64px;height:64px}.sheet{align-items:center}.sheet .box{border-radius:16px;max-height:90vh}.phb{max-height:420px}}
+  @media(min-width:700px){.row{flex-wrap:nowrap}.who{flex:1 1 0}.nm{font-size:14px}.pxside{flex:none;width:42%;max-width:210px;min-width:132px}.phs{width:64px;height:64px}.sheet{align-items:center}.sheet .box{border-radius:16px;max-height:90vh}.phb{max-height:420px}}
   .qty{display:flex;align-items:center;gap:4px}
   .qty button{width:26px;height:26px;padding:0;border-radius:6px;background:#1c2a3a;color:#fff}
   .qty button:disabled{opacity:.35;cursor:default}
@@ -141,7 +142,7 @@ function pxLinea(it){
 }
 function fila(it){
   return '<div class="row" role="button" tabindex="0" data-open="'+esc(it.sku)+'">'+foto(it)+
-    '<span class="who"><span class="nm">'+esc(it.nombre||it.sku)+'</span><span class="mut">'+esc(it.sku||'')+(it.categoria?' · '+esc(it.categoria):'')+'</span><span class="mut">Disponibles: '+esc(Number(it.stock)||0)+'</span></span>'+pxLinea(it)+'</div>';
+    '<span class="who"><span class="nm">'+esc(it.nombre||it.sku)+'</span><span class="mut sku">'+esc(it.sku||'')+'</span><span class="mut">Disponibles: '+esc(Number(it.stock)||0)+'</span></span>'+pxLinea(it)+'</div>';
 }
 function fullDe(sku){var L=GRUPO[sku];return L?llena(L):false;}
 var DET=null;
