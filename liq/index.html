@@ -218,7 +218,7 @@ function telValido(s){s=String(s||'').trim();return !s||/^[0-9+().\s-]{6,40}$/.t
 function fila(it){
   var marca=(TODOS&&it.recomendado)?'<span class="recmark">Recomendado</span>':'';
   return '<div class="row" role="button" tabindex="0" data-open="'+esc(it.sku)+'">'+foto(it)+
-    '<span class="who"><span class="nm">'+esc(it.nombre||it.sku)+marca+'</span><span class="meta">'+esc(it.sku||'')+' · Disponibles: '+esc(Number(it.stock)||0)+'</span>'+pxLinea(it)+'</span></div>';
+    '<span class="who"><span class="nm">'+esc(it.nombre||it.sku)+marca+'</span><span class="meta">'+esc(it.sku||'')+(it.codigo_cliente?' · Cód. cliente '+esc(it.codigo_cliente):'')+' · Disponibles: '+esc(Number(it.stock)||0)+'</span>'+pxLinea(it)+'</span></div>';
 }
 function fullDe(sku){var L=GRUPO[sku];return L?llena(L):false;}
 var DET=null;
