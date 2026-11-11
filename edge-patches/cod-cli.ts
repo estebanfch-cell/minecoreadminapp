@@ -39,78 +39,79 @@ async function quien(c) {
   const mods = Array.isArray(u.modulos) ? u.modulos : [];
   return { nombre: u.nombre, rol: u.rol, on: mods.indexOf("~cot.codcli=1") >= 0, completo: u.completo || u.nombre, empresa: u.empresa || "" };
 }
-const STOP = new Set("de la el los las del con por una uno para en al y o x mm plg inch ft m serie minecore fmc tubo the of".split(" "));
-const STRONG = /^(bushing|packing|ceramic|cylinder|split|piston|spiral|pin|zapata|lifter|ball|valve|seat|nut|plunger|ho3|no3|hwt|420|435|up24|5|10)$/;
-function norm(t) {
+const STOP = new Set("de la el los las del con por una uno para en al y o x mm plg inch ft m serie minecore fmc tubo the of balin plastico cabeza interior pescador muestra acero bronce".split(" "));
+const FAM = [["bushing", ["bushing"]], ["packing", ["packing"]], ["cylinder", ["cylinder", "cilindro"]], ["laina", ["laina", "split"]], ["piston", ["piston"]], ["pin", ["spiral", "espiral"]], ["zapata", ["zapata"]], ["spring", ["spring", "resorte"]], ["ball", ["ball", "esfera"]], ["nut", ["nut", "tuerca"]]];
+function base(t) {
   return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/(\d)\s*ft\b/g, "$1ft").replace(/[^a-z0-9]+/g, " ").trim();
 }
+function sizeNorm(s) { return (" " + s + " ").replace(/\b([bhnpt])q([0-9rwt]*)\b/g, "$1o$2").replace(/\s+/g, " ").trim(); }
 function expand(t) {
-  let s = " " + norm(t) + " ";
-  const rep = [[/\bhq3\b/g, "ho3"], [/\bnq3\b/g, "no3"], [/\bpq3\b/g, "po3"], [/\bhq\b/g, "ho"], [/\bnq\b/g, "no"], [/\blaina\b/g, "laina split tube"], [/\bceramica\b/g, "ceramica ceramic"], [/\bcilindro\b/g, "cilindro cylinder"], [/\besfera\b/g, "esfera ball"], [/\btuerca\b/g, "tuerca nut plunger"], [/\bcanastillas?\b/g, "canastilla valve seat"], [/\bresorte\b/g, "resorte core lifter"], [/\bcasita\b/g, "casita core lifter case"], [/\bespiral\b/g, "espiral spiral"], [/\b5ft\b/g, "5ft 5"], [/\b10ft\b/g, "10ft 10"], [/\bup 2 4\b/g, "up24"]];
-  rep.forEach(([a, b]) => { s = s.replace(a, " " + b + " "); });
+  let s = " " + sizeNorm(base(t)) + " ";
+  [[/\blaina\b/g, "laina split"], [/\bcilindro\b/g, "cilindro cylinder"], [/\bceramica\b/g, "ceramica ceramic"], [/\besfera\b/g, "esfera ball"], [/\btuerca\b/g, "tuerca nut"], [/\bespiral\b/g, "espiral spiral"], [/\bresorte\b/g, "resorte spring"], [/\b5ft\b/g, "5"], [/\b10ft\b/g, "10"], [/\bup 2 4\b/g, "up24"]].forEach(([a, b]) => { s = s.replace(a, " " + b + " "); });
   return s.replace(/\s+/g, " ").trim();
 }
-function toks(t) {
-  const out = [];
-  expand(t).split(" ").forEach((w) => {
-    if (!w || STOP.has(w) || w.length < 2) return;
-    if (/^\d+$/.test(w) && w !== "5" && w !== "10" && w.length !== 3) return;
-    if (/^[a-z]\d{3,}$/.test(w)) return;
-    out.push(w);
-  });
-  return [...new Set(out)];
+function hasWord(name, w) { return (" " + expand(name) + " ").includes(" " + w + " "); }
+function families(text) {
+  const w = new Set(expand(text).split(" "));
+  return FAM.filter(([, ws]) => ws.some((x) => w.has(x))).map(([id]) => id);
 }
-function has(name, t) {
-  const h = " " + norm(name) + " ";
-  const hx = " " + expand(name) + " ";
-  return h.includes(" " + t + " ") || hx.includes(" " + t + " ");
-}
-function scoreOne(tokens, name, qty, qline, reqPos) {
-  const strong = tokens.filter((t) => STRONG.test(t));
-  const sh = strong.filter((t) => has(name, t));
-  const any = tokens.some((t) => has(name, t));
-  if (!sh.length && !any) return 0;
-  let s = strong.length ? sh.length / strong.length : 0.3;
-  const extra = norm(name);
-  const bag = " " + tokens.join(" ") + " ";
-  ["plug", "ball", "case", "slotted"].forEach((w) => { if (extra.includes(w) && !bag.includes(" " + w + " ")) s -= 0.18; });
-  if (qline && sh.length) {
-    if (Math.abs(+qline.qty - +qty) < 0.01) s += 0.2;
-    if (Math.abs(qline.pos - reqPos) <= 2) s += 0.08;
+function primary(text) {
+  for (const w of expand(text).split(" ")) {
+    const f = FAM.find(([, ws]) => ws.includes(w));
+    if (f) return f[0];
   }
-  return Math.max(0, Math.min(0.99, s));
+  return "";
+}
+function sizes(text) {
+  const s = expand(text), found = [];
+  const re = /\b(ho3|no3|po3|bo3|hor|nor|por|hwt|ntw|htw|btw|420|435|up24)\b/g;
+  let m; while ((m = re.exec(s))) found.push(m[1]);
+  if (!found.some((x) => /3$|r$/.test(x))) { const re2 = /\b(ho|no|po|bo)\b/g; while ((m = re2.exec(s))) found.push(m[1]); }
+  if (/\b5\b/.test(s) && /split|laina/.test(s)) found.push("5");
+  if (/\b10\b/.test(s) && /split|laina/.test(s)) found.push("10");
+  return [...new Set(found)];
+}
+function scoreDesc(req, name) {
+  const fam = primary(req);
+  if (!fam || !families(name).includes(fam)) return 0;
+  const rs = sizes(req), ps = new Set(sizes(name));
+  const hard = rs.filter((x) => /3$|r$/.test(x) || ["hwt", "420", "435", "up24", "5", "10"].includes(x));
+  if (hard.length && !hard.every((x) => ps.has(x))) return 0;
+  const soft = rs.filter((x) => !hard.includes(x));
+  const softUse = soft.length >= 2 ? [] : soft;
+  if (!hard.length && softUse.length === 1 && !ps.has(softUse[0])) return 0;
+  let hit = 1, tot = 1;
+  hard.forEach((x) => { tot++; if (ps.has(x)) hit++; });
+  softUse.forEach((x) => { tot++; if (ps.has(x)) hit++; });
+  ["ceramic", "cylinder", "packing", "split", "spiral", "up24"].forEach((w) => { if (hasWord(req, w)) { tot++; if (hasWord(name, w)) hit++; } });
+  ["plug", "latch", "case", "slotted", "broached", "pin", "ball"].forEach((w) => {
+    if (hasWord(name, w) && !hasWord(req, w) && fam !== w && !(fam === "pin" && w === "pin") && !(fam === "ball" && w === "ball")) hit -= 0.55;
+  });
+  families(name).forEach((f) => { if (f !== fam && !families(req).includes(f)) hit -= 0.35; });
+  return Math.max(0, Math.min(1, hit / tot));
 }
 function proponer(lineas, quote, prods, ya) {
   const bySku = new Map(prods.map((p) => [p.sku, p]));
   const map = new Map();
   prods.forEach((p) => map.set(p.sku, { id: p.id, sku: p.sku, name: p.name, q: null }));
-  quote.forEach((q) => {
+  quote.forEach((q, n) => {
     const p = bySku.get(q.sku);
-    map.set(q.sku, { id: q.product_id || p?.id, sku: q.sku, name: q.name || p?.name || q.sku, q });
+    map.set(q.sku, { id: q.product_id || p?.id, sku: q.sku, name: q.name || p?.name || q.sku, q: { ...q, pos: q.pos ?? n } });
   });
   const cands = [...map.values()];
-  const pairs = [];
-  lineas.forEach((L, i) => {
-    const tokens = toks(L.descripcion || "");
-    cands.forEach((p) => {
-      const s = scoreOne(tokens, p.name, L.qty, p.q, i);
-      if (s >= 0.28) pairs.push({ i, sku: p.sku, name: p.name, id: p.id, s, on: !!p.q, qty: p.q ? +p.q.qty : null, pos: p.q ? p.q.pos : null });
-    });
-  });
-  const used = new Set();
   return lineas.map((L, i) => {
     const prev = ya.get(String(L.codigo || "").toUpperCase());
-    if (prev) {
-      used.add(prev.sku);
-      return { i, codigo: L.codigo, descripcion: L.descripcion || "", qty: L.qty, ya: true, confianza: 100, sku: prev.sku, nombre: prev.nombre || prev.sku, product_id: prev.product_id, en_cotizacion: quote.some((q) => q.sku === prev.sku), alternativas: [] };
-    }
-    const opts = pairs.filter((p) => p.i === i && !used.has(p.sku)).sort((a, b) => b.s - a.s);
-    let pick = opts[0] || null;
-    const q = opts.find((p) => p.on && Math.abs(+p.qty - +L.qty) < 0.01 && pick && p.s >= pick.s - 0.12);
-    if (q) pick = q;
-    if (pick) used.add(pick.sku);
-    const alt = opts.filter((p) => !pick || p.sku !== pick.sku).slice(0, 3).map((p) => ({ sku: p.sku, nombre: p.name, product_id: p.id, confianza: Math.round(p.s * 100), en_cotizacion: p.on }));
-    return { i, codigo: L.codigo, descripcion: L.descripcion || "", qty: L.qty, ya: false, confianza: pick ? Math.round(pick.s * 100) : 0, sku: pick?.sku || "", nombre: pick?.name || "", product_id: pick?.id || "", en_cotizacion: !!pick?.on, alternativas: alt };
+    if (prev) return { i, codigo: L.codigo, descripcion: L.descripcion || "", qty: L.qty, ya: true, confianza: 100, sku: prev.sku, nombre: prev.nombre || prev.sku, product_id: prev.product_id, confirmado_por: prev.confirmado_por || "", confirmado_at: prev.confirmado_at || "", en_cotizacion: quote.some((q) => q.sku === prev.sku), alternativas: [] };
+    const ranked = cands.map((p) => {
+      const s = scoreDesc(L.descripcion || "", p.name);
+      let tie = s;
+      if (p.q && Math.abs(+p.q.qty - +L.qty) < 0.01) tie += 0.001;
+      if (p.q) tie += Math.max(0, 0.0004 - Math.abs((p.q.pos ?? i) - i) * 0.00002);
+      return { sku: p.sku, name: p.name, id: p.id, s, tie, on: !!p.q };
+    }).filter((p) => p.s > 0).sort((a, b) => b.tie - a.tie || b.s - a.s);
+    const top = ranked[0];
+    const alt = ranked.slice(0, 8).map((p) => ({ sku: p.sku, nombre: p.name, product_id: p.id, confianza: Math.round(p.s * 100), en_cotizacion: p.on }));
+    return { i, codigo: L.codigo, descripcion: L.descripcion || "", qty: L.qty, ya: false, confianza: top ? Math.round(top.s * 100) : 0, sku: top?.sku || "", nombre: top?.name || "", product_id: top?.id || "", en_cotizacion: !!top?.on, alternativas: alt };
   });
 }
 Deno.serve(async (req) => {
@@ -134,7 +135,7 @@ Deno.serve(async (req) => {
       customer = String(b.customer_id || "");
       if (!/^[0-9a-f-]{36}$/i.test(customer)) return out(req, { ok: false, error: "cliente" }, 400);
     }
-    const rows = await sql`select sku, codigo from app.cliente_codigo where customer_id=${customer}::uuid and sku is not null order by codigo`;
+    const rows = await sql`select id::text, sku, codigo, descripcion, product_id::text, confirmado_por, confirmado_at, (select name from app.products p where p.id=product_id) nombre from app.cliente_codigo where customer_id=${customer}::uuid and sku is not null order by codigo`;
     return out(req, { ok: true, codigos: rows });
   }
   if (!q.on) return out(req, { ok: false, error: "sin permiso" }, 403);
@@ -142,19 +143,23 @@ Deno.serve(async (req) => {
     const texto = String(b.q || b.descripcion || "");
     if (b.op === "buscar") {
       const prods = await sql`select id::text id, sku, name from app.products where coalesce(is_active, true)`;
-      const tokens = toks(texto);
-      const top = prods.map((p) => ({ id: p.id, sku: p.sku, nombre: p.name, s: scoreOne(tokens, p.name, 0, null, 99) })).filter((p) => p.s >= 0.28).sort((a, b) => b.s - a.s).slice(0, 8);
+      const top = prods.map((p) => ({ id: p.id, sku: p.sku, nombre: p.name, s: scoreDesc(texto, p.name) })).filter((p) => p.s > 0).sort((a, b) => b.s - a.s).slice(0, 8);
       return out(req, { ok: true, productos: top.map((p) => ({ id: p.id, sku: p.sku, nombre: p.nombre, confianza: Math.round(p.s * 100) })) });
     }
     const id = String(b.id || "");
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return out(req, { ok: false, error: "cotización" }, 400);
-    const [ord] = await sql`select id::text, customer_id::text cid, order_number, is_quote from app.sales_orders where id=${id}::uuid limit 1`;
-    if (!ord || !ord.is_quote) return out(req, { ok: false, error: "abre una cotización" }, 400);
+    const customerIn = String(b.customer_id || "");
+    let ord = null;
+    if (/^[0-9a-f-]{36}$/i.test(id)) {
+      const [row] = await sql`select id::text, customer_id::text cid, order_number, is_quote from app.sales_orders where id=${id}::uuid limit 1`;
+      if (!row || !row.is_quote) return out(req, { ok: false, error: "abre una cotización" }, 400);
+      ord = row;
+    } else if (/^[0-9a-f-]{36}$/i.test(customerIn)) ord = { id: "", cid: customerIn, order_number: "", is_quote: true };
+    else return out(req, { ok: false, error: "cotización" }, 400);
     const lineas = (Array.isArray(b.lineas) ? b.lineas : []).slice(0, 80).map((x) => ({ codigo: String(x.codigo || "").trim().toUpperCase().slice(0, 40), descripcion: String(x.descripcion || "").slice(0, 240), qty: +x.qty || 0 })).filter((x) => x.codigo);
-    const ql = await sql`select product_id::text, sku, description as name, quantity::float qty from app.sales_order_lines where sales_order_id=${id}::uuid and coalesce(is_discarded,false)=false order by line_num`;
+    const ql = ord.id ? await sql`select product_id::text, sku, description as name, quantity::float qty from app.sales_order_lines where sales_order_id=${ord.id}::uuid and coalesce(is_discarded,false)=false order by line_num` : [];
     const quote = ql.map((r, i) => ({ ...r, pos: i }));
     const codes = lineas.map((x) => x.codigo);
-    const saved = codes.length ? await sql`select codigo, product_id::text, sku, (select name from app.products p where p.id=product_id) nombre from app.cliente_codigo where customer_id=${ord.cid}::uuid and upper(codigo) = any(${codes})` : [];
+    const saved = codes.length ? await sql`select codigo, product_id::text, sku, confirmado_por, confirmado_at, (select name from app.products p where p.id=product_id) nombre from app.cliente_codigo where customer_id=${ord.cid}::uuid and upper(codigo) = any(${codes})` : [];
     const ya = new Map(saved.map((r) => [String(r.codigo).toUpperCase(), r]));
     const prods = await sql`select id::text id, sku, name from app.products where coalesce(is_active, true)`;
     return out(req, { ok: true, orden: ord.order_number, customer_id: ord.cid, lineas: proponer(lineas, quote, prods, ya) });
@@ -170,7 +175,18 @@ Deno.serve(async (req) => {
     await sql`insert into app.cliente_codigo (customer_id, codigo, descripcion, product_id, sku, sales_order_id, confirmado_por)
       values (${customer}::uuid, ${codigo}, ${String(b.descripcion || "").slice(0, 240)}, ${pid}::uuid, ${p.sku}, ${/^[0-9a-f-]{36}$/i.test(so) ? so : null}::uuid, ${q.completo})
       on conflict (customer_id, codigo) do update set descripcion=excluded.descripcion, product_id=excluded.product_id, sku=excluded.sku, sales_order_id=excluded.sales_order_id, confirmado_por=excluded.confirmado_por, confirmado_at=now()`;
+    await sql`insert into app.cliente_codigo_audit (actor, op, customer_id, codigo, data) values (${q.completo}, 'confirmar', ${customer}::uuid, ${codigo}, ${sql.json({ sku: p.sku, nombre: p.name, descripcion: String(b.descripcion || "").slice(0, 240) })})`;
     return out(req, { ok: true, sku: p.sku, nombre: p.name, codigo });
+  }
+  if (b.op === "borrar") {
+    if (q.rol !== "admin") return out(req, { ok: false, error: "solo un administrador quita un cruce" }, 403);
+    const customer = String(b.customer_id || "");
+    const codigo = String(b.codigo || "").trim().toUpperCase().slice(0, 40);
+    if (!/^[0-9a-f-]{36}$/i.test(customer) || !codigo) return out(req, { ok: false, error: "datos" }, 400);
+    const prev = await sql`delete from app.cliente_codigo where customer_id=${customer}::uuid and upper(codigo)=${codigo} returning sku, product_id::text`;
+    if (!prev.length) return out(req, { ok: false, error: "ese código no estaba guardado" }, 404);
+    await sql`insert into app.cliente_codigo_audit (actor, op, customer_id, codigo, data) values (${q.completo}, 'borrar', ${customer}::uuid, ${codigo}, ${sql.json({ sku: prev[0].sku })})`;
+    return out(req, { ok: true, codigo });
   }
   return out(req, { ok: false, error: "op" }, 400);
 });
