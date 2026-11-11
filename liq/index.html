@@ -227,8 +227,9 @@ function pintar(){
   var items=DATA.items||[], cli=DATA.cliente&&DATA.cliente.nombre||'';
   var catalogo=(DATA._todos&&DATA._todos.items)||items;
   var sk={};items.forEach(function(it){sk[it.sku]=1;});
-  var paq=(DATA.paquetes||[]).filter(function(p){return (p.lineas||[]).length>1;});
-  if(DATA.modo!=='todos')paq=paq.filter(function(p){return (p.lineas||[]).some(function(x){return sk[x.sku];});});
+  var paq=(DATA.paquetes||[]).map(function(p){return {nombre:p.nombre,n:p.n,lineas:(p.lineas||[]).slice()};});
+  if(DATA.modo!=='todos')paq=paq.map(function(p){p.lineas=(p.lineas||[]).filter(function(x){return sk[x.sku];});return p;}).filter(function(p){return p.lineas.length;});
+  else paq=paq.filter(function(p){return (p.lineas||[]).length>1;});
   var h='<div class="mut">'+(cli?esc(cli)+' · ':'')+(DATA.modo==='todos'?'Todos los productos':'Sugeridos')+' · hasta '+esc(String(DATA.expira||'').slice(0,10))+'</div>';
   h+='<div class="card">'+esc(DATA.instruccion||'')+'</div>';
   if(DATA.modo!=='todos') h+='<div class="card" id="liq-sug">Se sugieren productos según sus tendencias de cotizaciones y compras.</div>';
