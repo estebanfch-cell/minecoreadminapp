@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     const q = db();
     const [rv] = await q`select extract(epoch from max(at))::float x from app.portal_revocations where nombre in (${c.u}, '*')`;
     if (rv?.x && rv.x >= c.iat) return out(req, { ok: false, error: "Sesión revocada" }, 401);
-    const [me] = await q`select nombre, rol, coalesce(activo,true) activo from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
+    const [me] = await q`select nombre, rol, coalesce(activo,true) activo, coalesce(modulos, '{}'::text[]) modulos from app.portal_users where lower(nombre)=lower(${c.u}) limit 1`;
     if (!me || me.activo === false || me.rol === "cliente" || me.rol === "proveedor") return out(req, { ok: false, error: "Sin permiso" }, 403);
     const op = String(b.op || "propuesta");
     if (op === "propuesta") {
@@ -59,7 +59,9 @@ Deno.serve(async (req) => {
         ? await q`select app.stock_pilot_propuesta(${vid}::uuid, ${regla}) j`
         : await q`select app.stock_pilot_propuesta(null, ${regla}) j`;
       const j = row?.j || {};
-      return out(req, Object.assign({ ok: true }, j));
+      const mods = Array.isArray(me.modulos) ? me.modulos : [];
+      const niveles_ok = mods.some((x) => String(x) === "~sp.e.niveles=1");
+      return out(req, Object.assign({ ok: true, niveles_ok }, j));
     }
     if (me.rol !== "admin") return out(req, { ok: false, error: "Solo un administrador puede marcar venta puntual." }, 403);
     if (op === "flags") {
