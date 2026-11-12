@@ -5,7 +5,7 @@ const SECRET = Deno.env.get("SHEETS_SECRET");
 // Un módulo nuevo del portal: agregar UNA línea aquí (k, on[, off]). El máster solo da lo que él tiene; nunca otra organización.
 const REG = [
   { k: "inventario", on: "inventario" }, { k: "cotizaciones", on: "cotizaciones" }, { k: "estadocuenta", on: "estadocuenta" },
-  { k: "consignacion", on: "consignacion" }, { k: "liquidacion", on: "liquidacion" },
+  { k: "consignacion", on: "consignacion" }, { k: "alquiler", on: "alquiler" }, { k: "liquidacion", on: "liquidacion" },
   { k: "entregas", on: "~cli.e.recibir=1" }, { k: "cdash", on: "@cdash=1", off: "@cdash=0" },
   { k: "proyectos", on: "@proyectos=1", off: "@proyectos=0" }, { k: "master", campo: "master" },
 ];
