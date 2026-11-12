@@ -1,7 +1,14 @@
 // Órdenes por recibir del portal cliente. Solo su organización y con ~cli.e.recibir=1.
 // La firma reutiliza firma-api (el mismo enlace de entrega). No toca stock.
 import postgres from "npm:postgres@3.4.4";
-const SB = Deno.env.get("SUPABASE_URL"), SECRET = Deno.env.get("SHEETS_SECRET");
+const SB = Deno.env.get("SUPABASE_URL"), SK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), SECRET = Deno.env.get("SHEETS_SECRET");
+// v3 (b688 t1934/t1935 EFCH): la lista es espejo EXACTO de Entregas interno (misma regla que ventas-api ent_list) + Historial de entregadas.
+async function firmarUrl(path) {
+  const r = await fetch(`${SB}/storage/v1/object/sign/inflow`, { method: "POST", headers: { Authorization: "Bearer " + SK, apikey: SK, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 3600, paths: [path] }) });
+  const j = await r.json().catch(()=>[]);
+  const x = Array.isArray(j) ? j.find((z)=>z && z.signedURL) : null;
+  return x ? SB + "/storage/v1" + x.signedURL : "";
+}
 let SQL = null;
 const db = ()=>SQL ??= postgres(String(Deno.env.get("SUPABASE_DB_URL") || "").replace(/:5432\//, ":6543/"), {
   prepare: false, max: 1, idle_timeout: 5, connect_timeout: 10
@@ -67,40 +74,47 @@ Deno.serve(async (req)=>{
         where s.id=${id}::uuid and not s.is_quote and not coalesce(s.is_cancelled,false) and lower(trim(c.name))=lower(trim(${empresa})) limit 1`;
       return s || null;
     };
+    const precios = mods.includes("$precios=1");
+    const nomReg = String(me.perfil?.nombreCompleto || me.perfil?.nombre_completo || "").replace(/\s+/g, " ").trim();
     if (b.op === "lista") {
+      // Activas: la MISMA condición que «Entregar orden» interno (ventas-api ent_list, incluir_preparadas), solo su organización.
       const rows = await q`select s.id::text id, s.order_number, s.order_date::text fecha,
-          case
-            when coalesce(e.entregado_at, s.entregado_at) is not null then 'entregada'
-            when v.pack_estado='completo' or v.ship_estado='enviado' then 'lista'
-            else 'pendiente'
-          end estado,
-          nullif(trim(e.receptor), '') receptor,
-          coalesce(nullif(trim(u.perfil->>'nombreCompleto'), ''), nullif(trim(u.perfil->>'nombre_completo'), ''), nullif(trim(e.entregado_por), ''), nullif(trim(s.entregado_por), '')) entrego,
-          (e.pdf_att is not null) tiene_acta
-        from app.sales_orders s
-        join app.customers c on c.id=s.customer_id
-        left join app.v_so_status v on v.sales_order_id=s.id
-        left join app.so_entregas e on e.sales_order_id=s.id
-        left join app.portal_users u on lower(u.nombre)=lower(coalesce(e.entregado_por, s.entregado_por))
-        where not s.is_quote and not coalesce(s.is_cancelled, false)
+          case when v.ship_estado='enviado' then 'enviada' when v.pack_estado='completo' then 'lista' else 'preparada' end estado
+        from app.sales_orders s join app.customers c on c.id=s.customer_id left join app.v_so_status v on v.sales_order_id=s.id
+        where not s.is_quote and not coalesce(s.is_cancelled,false) and s.entregado_at is null and coalesce(s.estado,'')<>'cerrada'
           and lower(trim(c.name))=lower(trim(${empresa}))
-        order by s.order_date desc nulls last
-        limit 80`;
-      return out(req, { ok: true, activo: true, ordenes: rows });
+          and ((coalesce(v.ship_estado,'')<>'enviado' and s.order_date > now() - interval '120 days' and (v.pack_estado='completo' or v.pick_estado='completo'))
+            or (v.ship_estado='enviado' and s.shipped_date > now() - interval '7 days'))
+        order by coalesce(s.shipped_date, s.order_date) desc limit 80`;
+      // Historial: entregadas con nuestro registro de entrega.
+      const hist = await q`select s.id::text id, s.order_number, s.entregado_at::text fecha, 'entregada' estado,
+          nullif(trim(e.receptor), '') receptor,
+          coalesce(nullif(trim(u.perfil->>'nombreCompleto'), ''), nullif(trim(u.perfil->>'nombre_completo'), ''), nullif(trim(coalesce(e.entregado_por, s.entregado_por)), '')) entrego,
+          (e.pdf_att is not null) tiene_acta
+        from app.sales_orders s join app.customers c on c.id=s.customer_id
+        left join lateral (select x.receptor, x.entregado_por, x.pdf_att from app.so_entregas x where x.sales_order_id=s.id and x.estado='entregado' order by x.entregado_at desc nulls last limit 1) e on true
+        left join app.portal_users u on lower(u.nombre)=lower(coalesce(e.entregado_por, s.entregado_por))
+        where not s.is_quote and not coalesce(s.is_cancelled,false) and s.entregado_at is not null
+          and lower(trim(c.name))=lower(trim(${empresa}))
+        order by s.entregado_at desc limit 40`;
+      return out(req, { ok: true, activo: true, ordenes: rows, historial: hist, precios });
     }
     const id = String(b.id || "");
     if (!/^[0-9a-f-]{36}$/i.test(id)) return out(req, { ok: false, error: "Orden no válida" });
     const s = await propias(id);
     if (!s) return out(req, { ok: false, error: "Orden no existe" });
-    const rows = await q`select l.line_num, coalesce(nullif(l.sku,''), p.sku, '') sku, coalesce(nullif(p.name,''), nullif(l.description,''), '') nombre,
-      coalesce(nullif((select v.code_raw from app.product_vendor_codes v where v.product_id=p.id and v.kind='base' order by v.first_seen_at nulls last, v.id limit 1), ''), case when regexp_replace(coalesce(l.description,''), '\\s', '', 'g') ~ '^[0-9]{5,}$' then nullif(trim(l.description),'') else '' end, '') parte,
-      l.quantity::float cantidad,
+    if (b.op === "acta") {
+      const [a] = await q`select d.storage_path, d.nombre from app.so_entregas e join app.doc_attachments d on d.id=e.pdf_att where e.sales_order_id=${id}::uuid and e.estado='entregado' order by e.entregado_at desc nulls last limit 1`;
+      const url = a?.storage_path ? await firmarUrl(a.storage_path).catch(()=>"") : "";
+      return out(req, url ? { ok: true, url, nombre: a.nombre } : { ok: false, error: "Esta entrega no tiene acta en PDF" });
+    }
+    const rows = await q`select l.line_num, coalesce(nullif(l.sku,''), p.sku, '') sku, coalesce(nullif(l.description,''), p.name, '') nombre, l.quantity::float cantidad,
       (select i.storage_path from app.product_images i where i.product_id=p.id order by i.is_default desc nulls last limit 1) img,
       coalesce(nullif((select string_agg(z.s, ' ') from (select distinct nullif(trim(k.sublocation),'') s from app.so_pick_lines k where k.sales_order_id=l.sales_order_id and k.product_id=l.product_id) z where z.s is not null), ''), nullif(trim(p.default_sublocation), '')) sub
       from app.sales_order_lines l left join app.products p on p.id=l.product_id
       where l.sales_order_id=${id}::uuid and not coalesce(l.is_discarded,false) order by l.line_num, l.id`;
     const foto = (p)=>!p ? "" : /^products\//.test(String(p)) ? `${SB}/storage/v1/object/public/fotos/${p}` : String(p);
-    const L = rows.map((x, i)=>({ k: String(x.line_num) + "|" + String(x.sku || "") + "|" + i, sku: String(x.sku || ""), nombre: String(x.nombre || ""), parte: String(x.parte || ""), cantidad: x.cantidad, img: foto(x.img), sub: String(x.sub || "") }));
+    const L = rows.map((x, i)=>({ k: String(x.line_num) + "|" + String(x.sku || "") + "|" + i, sku: String(x.sku || ""), nombre: String(x.nombre || ""), cantidad: x.cantidad, img: foto(x.img), sub: String(x.sub || "") }));
     const keys = new Set(L.map((x)=>x.k));
     if (b.op === "marcar") {
       const ped = Array.isArray(b.lineas) ? [...new Set(b.lineas.map(String).filter((k)=>keys.has(k)))] : [];
@@ -111,7 +125,7 @@ Deno.serve(async (req)=>{
         on conflict (sales_order_id) do update set lineas=excluded.lineas, por=excluded.por, por_nombre=excluded.por_nombre, listo_at=excluded.listo_at, updated_at=now()`;
     }
     if (b.op === "anotar") {
-      const nom = String(b.nombre || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      const nom = (nomReg || String(b.nombre || "")).replace(/\s+/g, " ").trim().slice(0, 120);
       if (nom.length < 5 || !nom.includes(" ")) return out(req, { ok: false, error: "Escribe tu nombre completo" });
       await q`update app.so_entrega_verif set por=${me.nombre}, por_nombre=${nom}, listo_at=coalesce(listo_at, now()), updated_at=now() where sales_order_id=${id}::uuid`;
       await q`update app.so_entregas set verif_por=${me.nombre}, verif_nombre=${nom}, verif_at=coalesce(verif_at, now()) where sales_order_id=${id}::uuid`;
@@ -131,7 +145,12 @@ Deno.serve(async (req)=>{
         await q`insert into app.firma_remota (token, sales_order_id, order_number, creado_por, expira_at) values (${token}, ${id}::uuid, ${s.order_number}, ${me.nombre}, now() + interval '10 days')`;
       }
     }
-    return out(req, { ok: true, activo: true, orden: s.order_number, id: s.id, entregada: !!s.entregado_at, lineas: L, marcadas, n: L.length, listo, token, por_nombre: v?.por_nombre || null });
+    let factura = null;
+    if (precios) {
+      const [f] = await q`select storage_path, nombre from app.doc_attachments where tipo='so' and order_id=${id}::uuid and (nombre ilike 'FAC%' or nombre ilike '%factura%') and nombre ilike '%.pdf' order by id desc limit 1`;
+      if (f?.storage_path) { const url = await firmarUrl(f.storage_path).catch(()=>""); if (url) factura = { nombre: f.nombre, url }; }
+    }
+    return out(req, { ok: true, activo: true, orden: s.order_number, id: s.id, entregada: !!s.entregado_at, lineas: L, marcadas, n: L.length, listo, token, por_nombre: v?.por_nombre || null, precios, factura, nombre: nomReg });
   } catch (e) {
     return out(req, { ok: false, error: String(e?.message || e).slice(0, 300) }, 500);
   }
