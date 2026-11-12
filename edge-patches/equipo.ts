@@ -1,7 +1,18 @@
 // Usuarios de la organización del máster. Nunca otra empresa, nunca un módulo que el máster no tiene.
 import postgres from "npm:postgres@3.4.4";
 const SECRET = Deno.env.get("SHEETS_SECRET");
-const MODULOS = ["cotizaciones", "inventario", "estadocuenta", "consignacion", "liquidacion"];
+// v2 (b682 t1922): mismo registro que el portal (CMODS_REG + CMODS_EXTRA). on = token si encendido, off = token si apagado, campo = perfil.
+// Un módulo nuevo del portal: agregar UNA línea aquí (k, on[, off]). El máster solo da lo que él tiene; nunca otra organización.
+const REG = [
+  { k: "inventario", on: "inventario" }, { k: "cotizaciones", on: "cotizaciones" }, { k: "estadocuenta", on: "estadocuenta" },
+  { k: "consignacion", on: "consignacion" }, { k: "liquidacion", on: "liquidacion" },
+  { k: "entregas", on: "~cli.e.recibir=1" }, { k: "cdash", on: "@cdash=1", off: "@cdash=0" },
+  { k: "proyectos", on: "@proyectos=1", off: "@proyectos=0" }, { k: "master", campo: "master" },
+];
+const MODULOS = REG.filter((r) => !r.campo).map((r) => r.k); // compatibilidad
+const RK = (k) => REG.find((r) => r.k === k);
+const tiene = (u, r) => r.campo ? !!u?.perfil?.[r.campo] : (u?.modulos || []).some((t) => t === r.on || t === r.on + "+");
+const claves = (u) => REG.filter((r) => tiene(u, r)).map((r) => r.k);
 let SQL = null;
 const db = () => SQL ??= postgres(String(Deno.env.get("SUPABASE_DB_URL") || "").replace(/:5432\//, ":6543/"), {
   prepare: false, max: 1, idle_timeout: 5, connect_timeout: 10
@@ -55,7 +66,7 @@ async function maestro(q, c) {
   if (c.pvw && emp.toLowerCase() !== String(c.pvw.emp || "").trim().toLowerCase()) {
     return { error: "La vista previa no corresponde a esta organización." };
   }
-  const propios = (me.modulos || []).filter((m) => MODULOS.includes(m));
+  const propios = claves(me);
   return { me, emp, propios, preview: !!c.pvw };
 }
 Deno.serve(async (req) => {
@@ -69,7 +80,7 @@ Deno.serve(async (req) => {
     const yo = await maestro(q, c);
     if (yo.error) return out(req, { ok: false, error: yo.error });
     if (b.op === "ver") {
-      const usuarios = await q`select nombre, coalesce(perfil->>'nombreCompleto','') completo, modulos,
+      const usuarios = await q`select nombre, coalesce(perfil->>'nombreCompleto','') completo, modulos, perfil,
         coalesce((perfil->>'master')::boolean,false) master, coalesce(activo,true) activo
         from app.portal_users
         where rol='cliente' and coalesce(origen,'')<>'borrado'
@@ -81,21 +92,16 @@ Deno.serve(async (req) => {
           and lower(trim(coalesce(empresa,'')))=lower(trim(${yo.emp}))
         order by creada desc limit 20`;
       return out(req, {
-        ok: true,
-        preview: yo.preview,
-        empresa: yo.emp,
-        modulos: yo.propios,
+        ok: true, v: 2, preview: yo.preview, empresa: yo.emp, modulos: yo.propios,
         usuarios: usuarios.map((u) => ({
-          nombre: u.nombre,
-          completo: u.completo || "",
-          modulos: (u.modulos || []).filter((m) => MODULOS.includes(m)),
-          master: !!u.master,
-          activo: u.activo !== false,
+          nombre: u.nombre, completo: u.completo || "",
+          modulos: claves(u),
+          master: !!u.master, activo: u.activo !== false,
           esYo: u.nombre.toLowerCase() === yo.me.nombre.toLowerCase()
         })),
         invitaciones: invites.map((v) => ({
           token: String(v.token).slice(0, 6),
-          modulos: (v.modulos || []).filter((m) => MODULOS.includes(m)),
+          modulos: REG.filter((r) => !r.campo && (v.modulos || []).includes(r.on)).map((r) => r.k),
           creador: v.creador || ""
         }))
       });
@@ -103,25 +109,28 @@ Deno.serve(async (req) => {
     if (yo.preview) return out(req, { ok: false, error: "Vista previa: solo lectura. No se crean invitaciones ni se cambian permisos." });
     if (b.op === "modulo") {
       const nombre = String(b.usuario || "").trim().slice(0, 40);
-      const mod = String(b.modulo || "").trim();
-      if (!MODULOS.includes(mod)) return out(req, { ok: false, error: "Módulo no válido." });
-      if (b.on && !yo.propios.includes(mod)) return out(req, { ok: false, error: "No puedes dar un módulo que tú no tienes." });
-      const [u] = await q`select nombre, modulos from app.portal_users
+      const r = RK(String(b.modulo || "").trim());
+      if (!r) return out(req, { ok: false, error: "Módulo no válido." });
+      if (b.on && !yo.propios.includes(r.k)) return out(req, { ok: false, error: "No puedes dar un módulo que tú no tienes." });
+      const [u] = await q`select nombre, modulos, perfil from app.portal_users
         where rol='cliente' and lower(nombre)=lower(${nombre})
           and lower(trim(perfil->>'empresa'))=lower(trim(${yo.emp})) limit 1`;
       if (!u) return out(req, { ok: false, error: "Ese usuario no es de tu organización." });
-      if (b.on) {
-        await q`update app.portal_users set modulos = modulos || array[${mod}]::text[]
-          where nombre=${u.nombre} and not (${mod}=any(modulos))`;
+      if (r.campo === "master" && !b.on && u.nombre.toLowerCase() === yo.me.nombre.toLowerCase()) return out(req, { ok: false, error: "No puedes quitarte el Máster a ti mismo." });
+      if (r.campo) {
+        await q`update app.portal_users set perfil = jsonb_set(coalesce(perfil,'{}'::jsonb), ${"{" + r.campo + "}"}::text[], ${b.on ? "true" : "false"}::jsonb), updated_at=now() where nombre=${u.nombre}`;
       } else {
-        await q`update app.portal_users set modulos = array_remove(modulos, ${mod}) where nombre=${u.nombre}`;
+        const quitar = [r.on, r.on + "+", ...(r.off ? [r.off] : [])];
+        const poner = b.on ? [r.on] : (r.off ? [r.off] : []);
+        await q`update app.portal_users set modulos = array(select x from unnest(coalesce(modulos,'{}'::text[])) x where not (x = any(${quitar}::text[]))) || ${poner}::text[], updated_at=now()
+          where nombre=${u.nombre}`;
       }
       await q`insert into app.portal_perm_log(actor,nombre,accion,despues)
-        values (${yo.me.nombre},${u.nombre},'equipo_modulo',${q.json({ modulo: mod, on: !!b.on, empresa: yo.emp })})`;
+        values (${yo.me.nombre},${u.nombre},'equipo_modulo',${q.json({ modulo: r.k, on: !!b.on, empresa: yo.emp })})`;
       return out(req, { ok: true });
     }
     if (b.op === "invitar") {
-      const mods = (Array.isArray(b.modulos) ? b.modulos : []).map((m) => String(m)).filter((m) => yo.propios.includes(m));
+      const mods = (Array.isArray(b.modulos) ? b.modulos : []).map((m) => RK(String(m))).filter((r) => r && !r.campo && yo.propios.includes(r.k)).map((r) => r.on);
       if (!mods.length) return out(req, { ok: false, error: "Elige al menos un módulo que tú tengas." });
       const nota = String(b.nombre || "").trim().slice(0, 40);
       const token = crypto.randomUUID().replace(/-/g, "").slice(0, 20);
