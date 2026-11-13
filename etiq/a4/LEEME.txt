@@ -1,0 +1,18 @@
+MINECORE — IMPRESIÓN REMOTA A4 (Epson L4260 de bodega)
+
+En el iMac de bodega (el mismo de las etiquetas):
+1. Descomprime este ZIP.
+2. Doble clic en instalar-epson-a4.command
+   (si macOS no lo abre: clic derecho > Abrir > Abrir).
+3. Mira la lista de impresoras. Si la «Cola A4 elegida» es la Epson L4260
+   de bodega, pulsa Enter. Si no, escribe el nombre exacto de la cola.
+4. Listo. No pide código: usa el vínculo de las etiquetas.
+
+No cambia nada de las etiquetas DYMO (bridge.py, cola, vínculo).
+No imprime nada al instalar.
+Se actualiza solo desde el servidor (verifica la firma sha256 y que compile);
+si una versión nueva no arranca 3 veces, vuelve sola a la anterior.
+Para quitarlo: desinstalar-epson-a4.command.
+
+Requisitos: la Epson encendida, en la Wi-Fi de bodega y agregada en
+Preferencias del Sistema > Impresoras y escáneres de este iMac.
