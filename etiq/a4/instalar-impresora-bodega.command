@@ -1,5 +1,5 @@
 #!/bin/bash
-# Minecore — agrega la Epson A4 al puente de bodega (iMac Catalina).
+# Minecore — agrega la «Impresora Bodega (remota)» A4 al puente de bodega (iMac Catalina).
 # NO toca el puente de etiquetas: bridge.py, bridge.conf, la cola DYMO y
 # com.minecore.dymo-clientes quedan igual. No pide código: usa el vínculo que ya existe.
 set -eu
@@ -30,7 +30,7 @@ say ""
 say "Impresoras que ve este iMac:"
 "$PY" "$DEST/docbridge.py" --detectar || true
 say ""
-say "Si la cola elegida no es la Epson L4260 de bodega, escribe aquí el nombre EXACTO (o Enter para dejar la automática):"
+say "Si la cola elegida no es la impresora A4 de bodega, escribe aquí el nombre EXACTO (o Enter para dejar la automática):"
 read -r QUEUE || QUEUE=""
 if [ -n "$QUEUE" ]; then
   printf '%s' "$QUEUE" | grep -Eq '^[A-Za-z0-9_.-]{1,80}$' || die "nombre de cola inválido."
@@ -58,6 +58,6 @@ PL
 launchctl unload "$PLIST" >/dev/null 2>&1 || true
 launchctl load "$PLIST"
 say ""
-say "Listo: puente A4 cargado (com.minecore.epson-a4). El de etiquetas sigue igual."
+say "Listo: Impresora Bodega (remota) cargada. El puente de etiquetas sigue igual."
 say "Se actualiza solo desde el servidor y vuelve a la versión anterior si una nueva no arranca."
-say "No se imprimió nada. La primera hoja la mandas tú desde el portal: «Imprimir remoto A4»."
+say "No se imprimió nada. La primera hoja la mandas tú desde el portal: «Impresora Bodega (remota)»."

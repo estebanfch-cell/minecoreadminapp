@@ -1,18 +1,18 @@
 #!/bin/bash
-# Minecore — instala «Epson Bodega (remota)» en esta Mac (Mac mini oficina).
+# Minecore — instala «Impresora Bodega (remota)» en esta Mac (Mac mini oficina).
 # Agrega una opción en Imprimir > PDF ▾ de CUALQUIER app. No crea colas CUPS, no toca
 # BODEGA_MCOR_ ni otras impresoras, no abre puertos. Pide un código del portal (10 min).
 set -eu
 say() { printf '%s\n' "$1"; }
 die() { say "No se instaló: $1"; exit 1; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
-SRC="$HERE/Epson Bodega (remota)"
-[ -f "$SRC" ] || die "falta el archivo «Epson Bodega (remota)» junto a este instalador."
+SRC="$HERE/Impresora Bodega (remota)"
+[ -f "$SRC" ] || die "falta el archivo «Impresora Bodega (remota)» junto a este instalador."
 CONFDIR="$HOME/Library/Application Support/Minecore"
 CONF="$CONFDIR/epson-a4.conf"
 API="https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/ventas-api"
 if [ ! -f "$CONF" ]; then
-  say "En el portal: Imprimir remoto A4 > «Código para esta Mac». Vale 10 minutos."
+  say "En el portal: 🖨 Impresora Bodega (remota) > «Código para la Mac de la oficina». Vale 10 minutos."
   printf 'Código: '
   read -r CODE
   printf '%s' "$CODE" | grep -Eq '^[A-Za-z0-9]{12}$' || die "el código no tiene la forma esperada."
@@ -34,10 +34,11 @@ else
 fi
 DEST="$HOME/Library/PDF Services"
 mkdir -p "$DEST"
-cp "$SRC" "$DEST/Epson Bodega (remota)"
-chmod 755 "$DEST/Epson Bodega (remota)"
-xattr -d com.apple.quarantine "$DEST/Epson Bodega (remota)" 2>/dev/null || true
+rm -f "$DEST/Epson Bodega (remota)"
+cp "$SRC" "$DEST/Impresora Bodega (remota)"
+chmod 755 "$DEST/Impresora Bodega (remota)"
+xattr -d com.apple.quarantine "$DEST/Impresora Bodega (remota)" 2>/dev/null || true
 say ""
-say "Listo. En cualquier app: Archivo > Imprimir > botón «PDF ▾» > «Epson Bodega (remota)»."
-say "Te pide cuántas copias (1–5) y lo manda a la Epson de bodega por el iMac. No imprimí nada."
-say "Para quitarlo: borra ~/Library/PDF Services/Epson Bodega (remota) y ~/Library/Application Support/Minecore."
+say "Listo. En cualquier app: Archivo > Imprimir > botón «PDF ▾» > «Impresora Bodega (remota)»."
+say "Te pide cuántas copias (1–5) y lo manda a la impresora de bodega por el iMac. No imprimí nada."
+say "Para quitarlo: borra ~/Library/PDF Services/Impresora Bodega (remota) y ~/Library/Application Support/Minecore."
