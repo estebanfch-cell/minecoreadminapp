@@ -1,4 +1,3 @@
--- Stock Pilot b684: el compromiso abierto descuenta OH + tránsito (saldo de OC abierta/parcial). Niveles justas/media/alta/completa. Rollback: stock_pilot_propuesta_b683.sql → app.stock_pilot_propuesta_b683.
 CREATE OR REPLACE FUNCTION app.stock_pilot_propuesta(p_proveedor uuid DEFAULT NULL::uuid, p_regla_tuberia boolean DEFAULT true)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -274,20 +273,124 @@ begin
       else 0
     end
   where k.cand;
+
+  -- b694 t1944: precio propuesto = último FOB a este proveedor, si no el último de cualquiera, si no FOB de catálogo. Nunca unit_cost (landed). El presupuesto bare ($18k) sigue en costo landed.
+  alter table _sp add column if not exists precio numeric not null default 0;
+  alter table _sp add column if not exists precio_ref text not null default 'sin_precio';
+  alter table _sp add column if not exists refs jsonb;
+  update _sp z set
+    precio = coalesce(uv.pu, ua.pu, fv.p, 0),
+    precio_ref = case
+      when uv.pu is not null then 'ultimo_proveedor'
+      when ua.pu is not null then 'ultimo'
+      when fv.p is not null then 'fob'
+      else 'sin_precio'
+    end,
+    refs = jsonb_build_object(
+      'min', case when mn.pu is not null then jsonb_build_object('p', mn.pu, 'n', mn.n, 'f', mn.f, 'prov', mn.prov) else null end,
+      'ult', case when ua.pu is not null then jsonb_build_object('p', ua.pu, 'n', ua.n, 'f', ua.f, 'prov', ua.prov) else null end,
+      'ultProv', case when uv.pu is not null then jsonb_build_object('p', uv.pu, 'n', uv.n, 'f', uv.f, 'prov', uv.prov) else null end,
+      'n', coalesce(hx.n, 0),
+      'hist', coalesce(hx.hist, '[]'::jsonb)
+    )
+  from (
+    select distinct on (l.product_id)
+      l.product_id pid,
+      round(l.unit_price*(1-coalesce(l.discount_pct,0)/100), 4) pu,
+      o.order_number n,
+      to_char((o.order_date at time zone 'America/Guayaquil')::date, 'YYYY-MM-DD') f,
+      vd.name prov
+    from app.po_lines l
+    join app.purchase_orders o on o.id = l.purchase_order_id
+    left join app.vendors vd on vd.id = o.vendor_id
+    where not coalesce(o.is_quote,false) and not coalesce(o.is_cancelled,false)
+      and l.unit_price > 0 and o.vendor_id = v.id
+    order by l.product_id, o.order_date desc nulls last, o.order_number desc
+  ) uv
+  full join (
+    select distinct on (l.product_id)
+      l.product_id pid,
+      round(l.unit_price*(1-coalesce(l.discount_pct,0)/100), 4) pu,
+      o.order_number n,
+      to_char((o.order_date at time zone 'America/Guayaquil')::date, 'YYYY-MM-DD') f,
+      vd.name prov
+    from app.po_lines l
+    join app.purchase_orders o on o.id = l.purchase_order_id
+    left join app.vendors vd on vd.id = o.vendor_id
+    where not coalesce(o.is_quote,false) and not coalesce(o.is_cancelled,false)
+      and l.unit_price > 0
+    order by l.product_id, o.order_date desc nulls last, o.order_number desc
+  ) ua on ua.pid = uv.pid
+  full join (
+    select distinct on (l.product_id)
+      l.product_id pid,
+      round(l.unit_price*(1-coalesce(l.discount_pct,0)/100), 4) pu,
+      o.order_number n,
+      to_char((o.order_date at time zone 'America/Guayaquil')::date, 'YYYY-MM-DD') f,
+      vd.name prov
+    from app.po_lines l
+    join app.purchase_orders o on o.id = l.purchase_order_id
+    left join app.vendors vd on vd.id = o.vendor_id
+    where not coalesce(o.is_quote,false) and not coalesce(o.is_cancelled,false)
+      and l.unit_price > 0
+    order by l.product_id, l.unit_price*(1-coalesce(l.discount_pct,0)/100) asc, o.order_date desc nulls last
+  ) mn on mn.pid = coalesce(uv.pid, ua.pid)
+  full join (
+    select p.id pid,
+      coalesce(
+        (select pv.cost from app.product_vendors pv
+          where pv.product_id = p.id and pv.cost > 0
+            and (pv.vendor_inflow_id = v.id or pv.vendor_inflow_id = v.inflow_id)
+          order by pv.cost limit 1),
+        (select pv.cost from app.product_vendors pv
+          where pv.product_id = p.id and pv.cost > 0
+            and p.last_vendor_id is not null
+            and (pv.vendor_inflow_id = p.last_vendor_id)
+          order by pv.cost limit 1),
+        (select min(pv.cost) from app.product_vendors pv where pv.product_id = p.id and pv.cost > 0),
+        nullif((p.cost_prov_data->>'precio')::numeric, 0)
+      ) p
+    from app.products p
+    where p.id in (select pid from _sp)
+  ) fv on fv.pid = coalesce(uv.pid, ua.pid, mn.pid)
+  full join (
+    select s.pid, count(*)::int n,
+      coalesce(jsonb_agg(s.item order by s.rn) filter (where s.rn <= 8), '[]'::jsonb) hist
+    from (
+      select l.product_id pid,
+        jsonb_build_object(
+          'p', round(l.unit_price*(1-coalesce(l.discount_pct,0)/100), 4),
+          'n', o.order_number,
+          'f', to_char((o.order_date at time zone 'America/Guayaquil')::date, 'YYYY-MM-DD'),
+          'prov', vd.name,
+          'q', l.quantity
+        ) item,
+        row_number() over (partition by l.product_id order by o.order_date desc nulls last, o.order_number desc) rn
+      from app.po_lines l
+      join app.purchase_orders o on o.id = l.purchase_order_id
+      left join app.vendors vd on vd.id = o.vendor_id
+      where l.product_id in (select pid from _sp)
+        and not coalesce(o.is_quote,false) and not coalesce(o.is_cancelled,false)
+        and l.unit_price > 0
+    ) s
+    group by s.pid
+  ) hx on hx.pid = coalesce(uv.pid, ua.pid, mn.pid, fv.pid)
+  where z.pid = coalesce(uv.pid, ua.pid, mn.pid, fv.pid, hx.pid);
+
   select jsonb_build_object(
     'ok', true,
     'generado', to_char(now() at time zone 'America/Guayaquil', 'YYYY-MM-DD HH24:MI'),
     'regla_tuberia', coalesce(p_regla_tuberia, true),
     'frecuencia', freq_txt,
     'proveedor', jsonb_build_object('id', v.id, 'nombre', v.name, 'contacto', v.contact_name, 'email', btrim(coalesce(v.email,'')), 'telefono', v.phone, 'lead_dias', case when v_boy then 20 else coalesce(v.lead_time_days, 45) end, 'payment_terms_id', v_terms, 'terminos', (select name from app.payment_terms where id = v_terms)),
-    'lineas', coalesce((select jsonb_agg(jsonb_build_object('capa', tier, 'product_id', pid, 'sku', sku, 'descripcion', name, 'oh', oh, 'transito', tr, 'transito_refs', tr_refs, 'comprometido', unf, 'comprometido_refs', com_refs, 'proyectado', oh + tr - unf, 'rp', rp, 'roq', roq, 'cant', z.qty, 'cant_justas', z.qty_justas, 'cant_media', z.qty_media, 'cant_alta', z.qty_alta, 'shortfall', z.shortfall, 'precio', round(z.cost, 4), 'precio_ref', 'costo', 'total', round(z.qty * z.cost, 2), 'motivo', z.motivo, 'origen', z.origen, 'f365', f365, 'u365', u365, 'ultima_venta', ls, 'proyecto', proyecto) order by case z.tier when 'urgente' then 1 when 'alta_rotacion' then 2 else 3 end, z.f365 desc, z.sku) from (select * from _sp) z where z.tier is not null and z.qty > 0), '[]'::jsonb),
-    'resumen', (select jsonb_agg(jsonb_build_object('capa', c, 'lineas', n, 'total', t) order by o) from (select c, o, count(k.pid) n, coalesce(round(sum(k.qty * k.cost), 2), 0) t from (values ('urgente',1),('alta_rotacion',2),('bare_minimum',3)) cc(c,o) left join _sp k on k.tier = cc.c and k.qty > 0 group by 1,2) s),
-    'falta_pedir', coalesce((select round(sum(z.shortfall * z.cost), 2) from (select * from _sp) z where z.shortfall > 0), 0),
+    'lineas', coalesce((select jsonb_agg(jsonb_build_object('capa', tier, 'product_id', pid, 'sku', sku, 'descripcion', name, 'oh', oh, 'transito', tr, 'transito_refs', tr_refs, 'comprometido', unf, 'comprometido_refs', com_refs, 'proyectado', oh + tr - unf, 'rp', rp, 'roq', roq, 'cant', z.qty, 'cant_justas', z.qty_justas, 'cant_media', z.qty_media, 'cant_alta', z.qty_alta, 'shortfall', z.shortfall, 'precio', round(z.precio, 4), 'precio_ref', z.precio_ref, 'total', round(z.qty * z.precio, 2), 'refs', z.refs, 'motivo', z.motivo, 'origen', z.origen, 'f365', f365, 'u365', u365, 'ultima_venta', ls, 'proyecto', proyecto) order by case z.tier when 'urgente' then 1 when 'alta_rotacion' then 2 else 3 end, z.f365 desc, z.sku) from (select * from _sp) z where z.tier is not null and z.qty > 0), '[]'::jsonb),
+    'resumen', (select jsonb_agg(jsonb_build_object('capa', c, 'lineas', n, 'total', t) order by o) from (select c, o, count(k.pid) n, coalesce(round(sum(k.qty * k.precio), 2), 0) t from (values ('urgente',1),('alta_rotacion',2),('bare_minimum',3)) cc(c,o) left join _sp k on k.tier = cc.c and k.qty > 0 group by 1,2) s),
+    'falta_pedir', coalesce((select round(sum(z.shortfall * z.precio), 2) from (select * from _sp) z where z.shortfall > 0), 0),
     'niveles', jsonb_build_object(
-      'justas', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty_justas * z.cost), 2), 0)) from (select * from _sp) z where z.qty_justas > 0),
-      'media', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty_media * z.cost), 2), 0)) from (select * from _sp) z where z.qty_media > 0),
-      'alta', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty_alta * z.cost), 2), 0)) from (select * from _sp) z where z.qty_alta > 0),
-      'completa', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty * z.cost), 2), 0)) from (select * from _sp) z where z.tier is not null and z.qty > 0)
+      'justas', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty_justas * z.precio), 2), 0)) from (select * from _sp) z where z.qty_justas > 0),
+      'media', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty_media * z.precio), 2), 0)) from (select * from _sp) z where z.qty_media > 0),
+      'alta', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty_alta * z.precio), 2), 0)) from (select * from _sp) z where z.qty_alta > 0),
+      'completa', (select jsonb_build_object('lineas', count(*), 'total', coalesce(round(sum(z.qty * z.precio), 2), 0)) from (select * from _sp) z where z.tier is not null and z.qty > 0)
     ),
     'stock', coalesce((select jsonb_agg(jsonb_build_object('sku', sku, 'descripcion', name, 'oh', oh, 'transito', tr, 'comprometido', unf, 'rp', rp, 'roq', roq, 'reorden', en, 'f365', f365, 'u365', u365, 'ultima_venta', ls) order by sku) from _sp where cand and (f365 > 0 or oh > 0 or tier is not null)), '[]'::jsonb)
   ) into res;
