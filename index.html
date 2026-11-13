@@ -887,13 +887,14 @@ window.MCnp=(function(){
     fresh=false;fire(i,'input');pinta();}
   function visible(x){return !!(x&&x.offsetParent!==null&&!x.disabled&&!x.readOnly);}
   function aScan(i){var root=(i&&i.closest&&(i.closest('[id$="-screen"]')||i.closest('.fx-pane')))||document;var L=[].slice.call(root.querySelectorAll(SCAN)).filter(visible);if(!L.length&&root!==document)L=[].slice.call(document.querySelectorAll(SCAN)).filter(visible);return L[0]||null;}
+  function irA(s){if(s&&s.id==='cc-scan'&&window.MCCC&&MCCC.focoScan){try{MCCC.focoScan();return;}catch(e){}}try{s.focus();s.select();}catch(e){}}
   function enter(){var i=cur;if(!i)return;var vuelve=!i.matches(NOBACK);
     var ev;try{ev=new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true,cancelable:true});}catch(e){ev=null;}
     if(ev)i.dispatchEvent(ev);
     if(document.body.contains(i)&&String(i.value)!==v0){fire(i,'change');v0=String(i.value);}
     var ae=document.activeElement;
-    if(ae===i||!ae||ae===document.body){if(vuelve){var s=aScan(i);if(s){s.focus();try{s.select();}catch(e){}if(document.activeElement!==s)ocultar();return;}}try{i.blur();}catch(e){}ocultar();}}
-  function tecla(k){if(cur&&!document.body.contains(cur)){var n2=cur.id?document.getElementById(cur.id):null;if(n2&&es(n2))cur=n2;else{ocultar();return;}}if(!cur)return;if(/^\d$/.test(k))poner(k);else if(k==='dot')poner('.');else if(k==='bs')borrar(false);else if(k==='cl')borrar(true);else if(k==='ok')enter();else if(k==='hide'){var i=cur;if(String(i.value)!==v0){fire(i,'change');v0=String(i.value);}try{i.blur();}catch(e){}ocultar();}else if(k==='ios')modo(false);}
+    if(ae===i||!ae||ae===document.body){if(vuelve){var s=aScan(i);if(s){irA(s);if(document.activeElement!==s)ocultar();return;}}try{i.blur();}catch(e){}ocultar();}}
+  function tecla(k){if(cur&&!document.body.contains(cur)){var n2=cur.id?document.getElementById(cur.id):null;if(n2&&es(n2))cur=n2;else{ocultar();return;}}if(!cur)return;if(/^\d$/.test(k))poner(k);else if(k==='dot')poner('.');else if(k==='bs')borrar(false);else if(k==='cl')borrar(true);else if(k==='ok')enter();else if(k==='hide'){sinVolver=Date.now();var i=cur;if(String(i.value)!==v0){fire(i,'change');v0=String(i.value);}try{i.blur();}catch(e){}ocultar();}else if(k==='ios')modo(false);}
   function modo(on){try{localStorage.setItem(KEY,on?'on':'off');}catch(e){}var i=cur||(document.activeElement&&es(document.activeElement)?document.activeElement:null);
     [].forEach.call(document.querySelectorAll(SEL),vestir);if(!i)return;cur=i;try{i.blur();}catch(e){}try{i.focus();}catch(e){}if(on)mostrar(i);else{ocultar();chip(true);}}
   function mostrar(i){var b=caja();cur=i;b.classList.add('on');chip(false);pinta();var h=(b.getBoundingClientRect().height||0)+(innerWidth<700?0:24);
@@ -904,6 +905,14 @@ window.MCnp=(function(){
     if(apagado()){cur=i;if(box)box.classList.remove('on');chip(true);return;}mostrar(i);},true);
   document.addEventListener('focusout',function(ev){if(!cur&&!document.getElementById('mc-np-chip'))return;var i=ev.target;clearTimeout(hT);hT=setTimeout(function(){var a=document.activeElement;if(a&&es(a))return;if(i&&es(i)&&!apagado()&&document.body.contains(i)&&String(i.value)!==v0)fire(i,'change');ocultar();},60);},true);
   document.addEventListener('keydown',function(ev){if(cur&&ev.target===cur&&ev.key&&ev.key.length===1)fresh=false;},true);
+  /* t1997u: el ✓ / «Listo» de la barra del teclado de iOS solo quita el foco (no hay Enter). Al confirmar la cantidad así, el foco vuelve solo al buscador de escaneo.
+     No salta si el usuario tocó otra cosa (botón, otra fila) ni en «otro lugar»/hallazgo. */
+  var toque=0,sinVolver=0;
+  document.addEventListener('pointerdown',function(ev){if(!(ev.target&&ev.target.closest&&ev.target.closest('#mc-np')))toque=Date.now();},true);
+  document.addEventListener('touchstart',function(ev){if(!(ev.target&&ev.target.closest&&ev.target.closest('#mc-np')))toque=Date.now();},{capture:true,passive:true});
+  document.addEventListener('focusout',function(ev){var i=ev.target;if(!can()||!tactil()||!es(i)||i.matches(NOBACK))return;if(ev.relatedTarget&&ev.relatedTarget!==document.body)return;
+    setTimeout(function(){var a=document.activeElement;if(a&&a!==document.body&&a!==document.documentElement)return;if(Date.now()-toque<600||Date.now()-sinVolver<600)return;
+      var s=aScan(document.body.contains(i)?i:null);if(!s)return;irA(s);},280);},true);
   var mo=0;function vestirTodo(){if(!activo())return;[].forEach.call(document.querySelectorAll(SEL),vestir);}
   function ini(){try{new MutationObserver(function(){if(mo)return;mo=1;Promise.resolve().then(function(){mo=0;try{vestirTodo();}catch(e){}});}).observe(document.body,{childList:true,subtree:true});}catch(e){}vestirTodo();}
   if(document.body)ini();else document.addEventListener('DOMContentLoaded',ini);
@@ -11361,16 +11370,16 @@ var MCCC=(function(){
     var modo=!!(st.modo&&mismo)||/[A-Za-z]/.test(buf)||/mcor/i.test(buf)||buf.replace(/\D/g,'').length>6||(mismo&&buf.length>=4&&/^\d+$/.test(buf));
     if(modo){out.prevent=true;out.valor=prev;}
     return {st:{t:now,buf:buf,modo:modo,prev:prev},out:out};}
-  function focoScan(){var s=$('cc-scan');if(s){s.focus();try{s.select();}catch(e){}}}
+  function focoScan(){var s=$('cc-scan');if(s&&(S.fpid||S.q)&&(window.MCcan&&MCcan('scan.e.teclado'))){S.fpid=null;S.q='';s.value='';pintarFiltro();} /* b702 t1999u: confirmada la cantidad, buscador vacío y lista completa */if(s){s.focus();try{s.select();}catch(e){}}}
   function qTecla(el,e){if(!el)return;var r=ccPistola(S.pis,e.key,Date.now(),el.value);S.pis=r.st;if(r.out.prevent)e.preventDefault();
     if(r.out.valor!=null&&r.out.valor!==el.value){el.value=r.out.valor;var id=String(el.id||'').replace(/^cc-c/,'');if(el.classList.contains('cc-q')&&id)set(id,String(el.value).replace(',','.'));}
     if(r.out.scan){S.pis=null;scan(r.out.scan);return;}
     if(r.out.foco){var id2=String(el.id||'').replace(/^cc-c/,'');if(el.classList.contains('cc-q')&&id2)set(id2,String(el.value).replace(',','.'));focoScan();}}
   function pintarFiltro(){var list=document.querySelector('#cc .cc-list');if(!list||!S.sec)return;var q=String(S.q||''),dig=ccDig(q),rows=[].slice.call(list.querySelectorAll('.cc-ln')),shown=[];
-    rows.forEach(function(row){var l=linea(row.id.replace(/^cc-l/,''));var rank=l?ccRank(q,l):0;var ok=!q||rank>0;row.style.display=ok?'':'none';var nx=row.nextElementSibling;if(nx&&nx.classList.contains('cc-mpop'))nx.style.display=ok?'':'none';if(ok)shown.push({row:row,pop:nx&&nx.classList.contains('cc-mpop')?nx:null,rank:rank});});
+    rows.forEach(function(row){var l=linea(row.id.replace(/^cc-l/,''));var rank=l?ccRank(q,l):0;var ok=S.fpid?!!(l&&l.product_id===S.fpid):(!q||rank>0);row.style.display=ok?'':'none';var nx=row.nextElementSibling;if(nx&&nx.classList.contains('cc-mpop'))nx.style.display=ok?'':'none';if(ok)shown.push({row:row,pop:nx&&nx.classList.contains('cc-mpop')?nx:null,rank:rank});});
     if(dig){shown.sort(function(a,b){return b.rank-a.rank;});for(var i=shown.length-1;i>=0;i--){list.insertBefore(shown[i].row,list.firstChild);if(shown[i].pop)shown[i].row.after(shown[i].pop);}}
     var vac=$('cc-vacio');if(!vac&&S.sec.lineas.length){vac=document.createElement('div');vac.id='cc-vacio';vac.className='cbz-muted';vac.style.cssText='text-align:center;padding:14px';list.appendChild(vac);}if(vac){vac.style.display=shown.length?'none':'';vac.textContent='Sin coincidencias';}}
-  function filtro(v){if(S.hz){S.hz=null;var z=document.querySelector('#cc .cc-hz');if(z)z.remove();}S.q=v;clearTimeout(ft);ft=setTimeout(pintarFiltro,40);}
+  function filtro(v){S.fpid=null;if(S.hz){S.hz=null;var z=document.querySelector('#cc .cc-hz');if(z)z.remove();}S.q=v;clearTimeout(ft);ft=setTimeout(pintarFiltro,40);}
   function hallazgoOn(){try{return window.MCcan('co.e.hallazgo');}catch(e){return false;}}
   function puedeAgregar(){try{return !!(window.MCcan&&(MCcan('co.e.hallazgo')||MCcan('co.agregar')));}catch(e){return false;}}
   function addBtn(){return puedeAgregar()?'<button type="button" class="cbz-btn cc-addbtn" onclick="MCCC.addAbrir()">＋ Agregar producto</button>':'';}
@@ -11406,18 +11415,18 @@ var MCCC=(function(){
     rvApi('rev_agregar',{product_id:p.id,sublocation:sub,contado:q}).then(function(r){S.rvAdd=null;abrirSecKeep();if(r.existia)setTimeout(function(){alert('Ese producto ya estaba en esa sububicación: se conservó su foto'+(q!==''?' y se corrigió la cantidad':'')+'.');},50);}).catch(err);}
   function addBuscar(){var e=$('cc-add-q');var v=e?String(e.value||'').trim():'';if(!v){if(e)e.focus();return;}S.add=false;scan(v);}
   function ccElegirLinea(lineas,productId,dirty){var L=(lineas||[]).filter(function(l){return l.product_id===productId;});if(!L.length)return null;var libre=L.filter(function(l){var v=dirty&&dirty[l.id]!==undefined?dirty[l.id]:(l.contado==null?'':l.contado);return v===''||v==null;});return libre[0]||L[0];}
-  function irCant(l){if(!l)return;S.q='';S.hz=null;S.pis=null;rSec();var e=$('cc-c'+l.id);if(e){e.scrollIntoView({block:'center'});e.focus();try{e.select();}catch(x){}try{if(window.MCnp)MCnp.abrir(e);}catch(x){}}}
+  function irCant(l,code){if(!l)return;var fil=!!(code&&(window.MCcan&&MCcan('scan.e.teclado'))); /* b702 t1999u: al escanear queda el código en el buscador y solo su(s) línea(s) */S.q=fil?String(code):'';S.fpid=fil?l.product_id:null;S.hz=null;S.pis=null;rSec();if(fil)pintarFiltro();var e=$('cc-c'+l.id);if(e){e.scrollIntoView({block:'center'});e.focus();try{e.select();}catch(x){}try{if(window.MCnp)MCnp.abrir(e);}catch(x){}}}
   function scan(v){v=String(v||'').trim();if(!v)return;S.pis=null;var L=S.sec&&S.sec.lineas||[];
     var R=L.map(function(l){return {l:l,r:ccRank(v,l)};}).filter(function(x){return x.r>=2;}).sort(function(a,b){return b.r-a.r;});
     var top=R.length?R.filter(function(x){return x.r===R[0].r;}):[];
-    if(top.length){var pid=top[0].l.product_id,mismo=top.every(function(x){return x.l.product_id===pid||String(x.l.sku).toUpperCase()===String(top[0].l.sku).toUpperCase();});if(mismo){irCant(ccElegirLinea(top.map(function(x){return x.l;}),pid,S.dirty)||top[0].l);return;}}
+    if(top.length){var pid=top[0].l.product_id,mismo=top.every(function(x){return x.l.product_id===pid||String(x.l.sku).toUpperCase()===String(top[0].l.sku).toUpperCase();});if(mismo){irCant(ccElegirLinea(top.map(function(x){return x.l;}),pid,S.dirty)||top[0].l,v);return;}}
     ccApi(v,false);}
   function ccApi(v,ya){var raw=String(v).replace(/\s/g,''),q=ya?ccBusca(v):v,body={op:'cc_buscar',q:q};if(hallazgoOn())body.seccion=S.sec.seccion.id;
     api(body).then(function(r){var P=r.productos||[];
       if(!ya&&!P.length&&/^\d+$/.test(raw)&&raw.length<=6&&ccBusca(v)!==v){ccApi(v,true);return;}
       var pref=P.filter(function(p){return p.por_barcode;});if(!pref.length)pref=P.filter(function(p){return p.por_mcor;});if(!pref.length&&/^\d+$/.test(raw))pref=P.filter(function(p){return String(p.sku||'').toUpperCase().replace(/\s/g,'')===(raw.length<=6?ccBusca(v):raw).toUpperCase();});
       var elegido=pref.length===1?pref[0]:(!pref.length&&P.length===1?P[0]:null);
-      if(elegido){var aqui=ccElegirLinea(S.sec&&S.sec.lineas,elegido.id,S.dirty);if(aqui){irCant(aqui);return;}}
+      if(elegido){var aqui=ccElegirLinea(S.sec&&S.sec.lineas,elegido.id,S.dirty);if(aqui){irCant(aqui,v);return;}}
       var uso=pref.length?pref:P;
       if(hallazgoOn()){S.q='';if(!uso.length){S.hz={q:v,vacio:true};rSec();return;}if(uso.length>1){S.hz={q:v,elegirProd:uso,raw:r};rSec();return;}S.hz=hzDe(uso[0],r);rSec();return;}
       var b=$('cc-res');if(!b)return;b.innerHTML=uso.length?'<div class="cbz-muted" style="font-size:11px;margin-top:6px">No está en esta sección. Agregar lo encontrado:</div>'+uso.slice(0,8).map(function(p){return '<div class="cc-row" style="padding:5px 0;border-bottom:1px solid #1c2a3a"><b style="white-space:nowrap">'+esc(p.sku)+'</b><span style="flex:1;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;font-size:12px">'+esc(p.name)+'</span><button class="chip" onclick="MCCC.agregar(\''+p.id+'\')">＋ Agregar</button></div>';}).join(''):'<div class="cbz-muted" style="font-size:12px;margin-top:6px">Sin resultados para «'+esc(v)+'»</div>';}).catch(err);}
@@ -11538,7 +11547,7 @@ var MCCC=(function(){
   function uGuardar(i){api({op:'cc_usuario_save',nombre:S.usuarios[i].nombre,telefono_wa:S.uEdit[i]}).then(vUsr).catch(err);}
   /* b346: abrir desde «Asignado a ti»: si el conteo es por secciones va a esta pantalla; si no, a la hoja vieja */
   function abrirDoc(id){api({op:'cc_get',id:id}).then(function(){S.want=id;openMod('misconteos');},function(){openMod('conteos');setTimeout(function(){Stk.abrir(id);},350);});}
-  return {rvReabrir:rvReabrir,irSalto:irSalto,hzAqui:hzAqui,rvEditar:rvEditar,rvSet:rvSet,rvDescartar:rvDescartar,rvGuardar:rvGuardar,rvAddAbrir:rvAddAbrir,rvAddCerrar:rvAddCerrar,rvBuscar:rvBuscar,rvAgregar:rvAgregar,otraPick:otraPick,extAbrir:extAbrir,extAdd:extAdd,extSet:extSet,extQuitar:extQuitar,extGuardar:extGuardar,extPick:function(i){extPick(i);},menu:menu,ir:ir,otraAbrir:otraAbrir,otraGuardar:otraGuardar,otraQuitar:otraQuitar,buscarDesp:buscarDesp,abrirDoc:abrirDoc,init:init,abrirSec:abrirSec,cerrarDet:cerrarDet,set:set,filtro:filtro,kb:kb,qTecla:qTecla,scan:scan,agregar:agregar,hist:function(id){var l=linea(id);if(!l||!window.MCProdHist)return;var bod=(S.sec.bodegas||[])[0]||{};MCProdHist.abrir(l.product_id,{sku:l.sku||'',nombre:l.nombre||l.name||'',location_id:bod.id||'',sublocation:l.from_sub||'',sistema:l.sistema,esperado:l.esperado,contado:l.contado,otra_sub:l.otra_sub,otra_qty:l.otra_qty,buscar:!!l.buscar,doc:S.sec.doc&&S.sec.doc.number,seccion:S.sec.seccion&&S.sec.seccion.zona,estado:S.sec.seccion&&S.sec.seccion.estado});},guardar:function(){guardar();},descartar:descartar,iniciar:iniciar,cerrarSec:cerrarSec,aprobar:aprobar,devolver:devolver,hzCerrar:hzCerrar,hzProd:hzProd,hzOrigen:hzOrigen,hzSer:hzSer,hzCampo:hzCampo,hzOk:hzOk,hzSub:hzSub,hzSubQ:hzSubQ,hzElegir:hzElegir,hzCrear:hzCrear,addAbrir:addAbrir,addCerrar:addCerrar,addBuscar:addBuscar,
+  return {focoScan:focoScan,rvReabrir:rvReabrir,irSalto:irSalto,hzAqui:hzAqui,rvEditar:rvEditar,rvSet:rvSet,rvDescartar:rvDescartar,rvGuardar:rvGuardar,rvAddAbrir:rvAddAbrir,rvAddCerrar:rvAddCerrar,rvBuscar:rvBuscar,rvAgregar:rvAgregar,otraPick:otraPick,extAbrir:extAbrir,extAdd:extAdd,extSet:extSet,extQuitar:extQuitar,extGuardar:extGuardar,extPick:function(i){extPick(i);},menu:menu,ir:ir,otraAbrir:otraAbrir,otraGuardar:otraGuardar,otraQuitar:otraQuitar,buscarDesp:buscarDesp,abrirDoc:abrirDoc,init:init,abrirSec:abrirSec,cerrarDet:cerrarDet,set:set,filtro:filtro,kb:kb,qTecla:qTecla,scan:scan,agregar:agregar,hist:function(id){var l=linea(id);if(!l||!window.MCProdHist)return;var bod=(S.sec.bodegas||[])[0]||{};MCProdHist.abrir(l.product_id,{sku:l.sku||'',nombre:l.nombre||l.name||'',location_id:bod.id||'',sublocation:l.from_sub||'',sistema:l.sistema,esperado:l.esperado,contado:l.contado,otra_sub:l.otra_sub,otra_qty:l.otra_qty,buscar:!!l.buscar,doc:S.sec.doc&&S.sec.doc.number,seccion:S.sec.seccion&&S.sec.seccion.zona,estado:S.sec.seccion&&S.sec.seccion.estado});},guardar:function(){guardar();},descartar:descartar,iniciar:iniciar,cerrarSec:cerrarSec,aprobar:aprobar,devolver:devolver,hzCerrar:hzCerrar,hzProd:hzProd,hzOrigen:hzOrigen,hzSer:hzSer,hzCampo:hzCampo,hzOk:hzOk,hzSub:hzSub,hzSubQ:hzSubQ,hzElegir:hzElegir,hzCrear:hzCrear,addAbrir:addAbrir,addCerrar:addCerrar,addBuscar:addBuscar,
     nuevo:nuevo,crear:crear,plan:plan,asignar:asignar,cancelar:cancelar,vZonas:vZonas,zSet:zSet,zDesc:zDesc,zNueva:zNueva,zGuardar:zGuardar,zBorrar:zBorrar,vUsr:vUsr,uSet:uSet,uDesc:uDesc,uGuardar:uGuardar,_s:function(){return S;}};
 })();
 
