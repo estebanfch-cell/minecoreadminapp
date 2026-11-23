@@ -32,6 +32,17 @@ button,.btn{display:flex;align-items:center;justify-content:center;flex:1 1 200p
 var API='https://bklbvwpkrdaojbezljsd.supabase.co/functions/v1/firma-api';
 var tok=(location.hash.match(/t=([A-Za-z0-9_-]+)/)||[])[1]||'';
 try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}
+/* b710 t2089u: dentro de la app instalada (web app de Safari en el Dock de la Mac / pantalla de inicio, o la app Capacitor) la URL actual queda en «./»
+   para que al cerrar y volver a abrir la app arranque en el portal y no vuelva a esta recepción (macOS restaura la última página abierta).
+   En el navegador normal (cliente externo) no cambia nada: el link sigue igual y se puede firmar. */
+var MCenApp=(function(){try{return !!((window.matchMedia&&(matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: minimal-ui)').matches))||navigator.standalone===true||(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()));}catch(x){return false;}})();
+if(MCenApp){try{history.replaceState(null,'','./');}catch(x){}}
+/* b710 t2089u: «✕ Salir» al portal solo para usuarios internos con sesión en este equipo e interruptor por usuario ~ov.e.firma_salir=1 (apagado por defecto). Nunca para el cliente externo. */
+var MCsalirOk=(function(){try{var p=JSON.parse(localStorage.getItem('mc_profile')||'null');if(!p||!p.nombre||p.rol==='cliente'||p.rol==='proveedor'||p.preview)return false;
+  var m=p.modulos;if(typeof m==='string')m=m.split(',');return (m||[]).map(function(x){return String(x).trim();}).indexOf('~ov.e.firma_salir=1')>=0;}catch(x){return false;}})();
+window.MCsalirFirma=function(){try{history.replaceState(null,'','./');}catch(x){}location.replace('./');};
+if(MCsalirOk){try{var h0=document.querySelector('#app .hd');if(h0){var bx=document.createElement('button');bx.type='button';bx.id='mc-salir';bx.setAttribute('onclick','MCsalirFirma()');bx.setAttribute('aria-label','Salir al portal');bx.textContent='✕ Salir';
+  bx.style.cssText='margin-left:auto;flex:none;min-height:40px;padding:0 14px;border-radius:10px;background:#fff;color:#161926;font-size:15px;font-weight:800;border:0';h0.appendChild(bx);}}catch(x){}}
 var app=document.getElementById('app'),hd=app.firstElementChild.outerHTML,D=null,traz=false;
 function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function post(b){b.token=tok;return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json();});}
