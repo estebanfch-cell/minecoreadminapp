@@ -119,7 +119,7 @@ test("la ficha no repite la bodega y la predeterminada se confirma al releer", (
       { bodega: "CONSIGNACIÓN", sub: "CONSIGNACIÓN KLUANE" }
     ]
   });
-  assert.deepEqual(una, [{ bod: "BODEGA PRINCIPAL", sub: "BS-3-B", q: 38, p: 1 }]);
+  assert.deepEqual(una, [{ bod: "BODEGA PRINCIPAL", q: 38, p: 1, subs: [{ sub: "BS-3-B", q: 38, blank: false }] }]);
   const dos = lines({
     stock: [
       { bodega: "BODEGA PRINCIPAL", sublocation: "BS-3-B", q: 38 },
@@ -129,7 +129,9 @@ test("la ficha no repite la bodega y la predeterminada se confirma al releer", (
   });
   assert.equal(dos.length, 2);
   assert.equal(dos[0].bod, "BODEGA PRINCIPAL");
+  assert.equal(dos[0].q, 38);
   assert.equal(dos[1].q, 2);
+  assert.equal(dos[1].subs[0].sub, "KLUANE");
 });
 
 const ui = html.slice(html.indexOf("window.MCSubDef="), html.indexOf("window.MCStkEd="));
