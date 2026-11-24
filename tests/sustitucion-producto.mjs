@@ -12,8 +12,8 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const html = readFileSync(join(root, "index.html"), "utf8");
 const sw = readFileSync(join(root, "sw.js"), "utf8");
 
-assert.match(html, /var MC_BUILD='718'/);
-assert.match(sw, /var SWV='b718'/);
+assert.match(html, /var MC_BUILD='722'/);
+assert.match(sw, /var SWV='b722'/);
 assert.match(html, /function mcCosteoSustOn/);
 assert.match(html, /~costeo\.e\.sustitucion=1/);
 assert.match(html, /Ac\('costeo\.e\.sustitucion'/);
@@ -23,6 +23,8 @@ assert.match(html, /function sust\(/);
 assert.match(html, /costeo_prod_buscar/);
 assert.match(html, /accion:'sustituir'/);
 assert.match(html, /_sustRecepBanner/);
+assert.match(html, /s\.estado==='info'/);
+assert.match(html, /ingresado por OC aparte/);
 
 const start = html.indexOf("function mcCosteoSustOn");
 const end = html.indexOf("\nfunction ", start + 10);
