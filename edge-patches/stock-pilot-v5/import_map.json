@@ -1,0 +1,1 @@
+{"imports":{"npm:postgres@3.4.4":"./fakepg.ts"}}
