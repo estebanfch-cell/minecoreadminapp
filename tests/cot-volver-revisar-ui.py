@@ -4,7 +4,10 @@ from playwright.async_api import async_playwright
 import os
 HERE=os.path.dirname(os.path.abspath(__file__))
 BASE=os.path.dirname(HERE)
-FX=json.load(open(os.path.join(HERE,'fixtures','cot-volver-revisar-sq1131.json')))
+# El fixture (datos reales de la cotización, solo lectura) NO va en el repo (repo público): ruta por variable COT_FX.
+FXP=os.environ.get('COT_FX','/workspace/sq-revisar/front/fx_sq1131.json')
+if not os.path.exists(FXP): print('SKIP: falta fixture COT_FX');sys.exit(0)
+FX=json.load(open(FXP))
 SHOTS=os.environ.get('SHOTS','/tmp/cot-volver-revisar-shots');os.makedirs(SHOTS,exist_ok=True)
 import os;os.makedirs(SHOTS,exist_ok=True)
 SO=FX['get']['orden']['id']
