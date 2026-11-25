@@ -23,7 +23,8 @@ test("interruptor registrado y apagado por defecto (también admin)", () => {
 const i = html.indexOf("var MCStockPilot=(function(){");
 const j = html.indexOf("\nvar Compras=(function(){", i);
 const src = html.slice(i, j);
-function montar(resp) {
+function montar(resp, mcResp) {
+  const alerts = [];
   const el = { innerHTML: "", remove() {} };
   const posts = [], mcposts = [];
   const g = {
@@ -31,11 +32,11 @@ function montar(resp) {
     getUserName: () => "EFCH", getPin: () => "", getProfile: () => ({ modulos: ["~sp.e.niveles=1", "~sp.e.lineas=1"] }),
     MCsbGet: () => ({ t: "x" }), ocRevPreciosOk: () => false, MCrefLista: () => "", MChistCompra: () => "", MCth: (u) => u,
     fetch: (_u, o) => { const b = JSON.parse(o.body); posts.push(b); const r = b.op === "propuesta" ? resp : b.op === "manual_set" ? { ok: true, linea: { product_id: b.product_id, cant: b.cant, precio: b.precio ?? 10 } } : { ok: true }; return Promise.resolve({ json: () => Promise.resolve(JSON.parse(JSON.stringify(r))) }); },
-    MCpost: (p) => { mcposts.push(p); return Promise.resolve({ ok: false, error: "test" }); },
-    confirm: () => true, alert: () => {}, prompt: () => null, setTimeout, clearTimeout, Compras: { cargarL() {}, abrir() {} },
+    MCpost: (p) => { mcposts.push(p); return Promise.resolve(mcResp ? mcResp(p) : { ok: false, error: "test" }); },
+    confirm: () => true, alert: (m) => { alerts.push(String(m)); }, prompt: () => null, setTimeout, clearTimeout, Compras: { cargarL() {}, abrir() {} },
   };
   const M = new Function(...Object.keys(g), src + "\nreturn MCStockPilot;")(...Object.values(g));
-  return { M, el, posts, mcposts };
+  return { M, el, posts, mcposts, alerts };
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const pie = (h) => (h.match(/<div class="ft"><span[^>]*>([\s\S]*?)<\/span>/) || [])[1] || "";
@@ -102,4 +103,34 @@ test("OC/cotización: ✕ Quitar sólo con el interruptor y modo edición", () =
   assert.match(html, /function pqOk\(\)\{try\{var P=getProfile\(\)\|\|\{\};return PDE\(\)&&\(P\.modulos\|\|\[\]\)\.indexOf\('~sp\.e\.lineas=1'\)>=0;/);
   assert.match(html, /pQl:pQl/);
   assert.match(html, /cur\.lineas\.splice\(i,1\);renderDet\(\);/);
+});
+
+// b725 t2146u: crear cotización/OC con líneas manuales (antes: «num is not defined» en ventas-api po_save con código de proveedor)
+test("crear OC con manuales: envía manuales con código de proveedor y, si sale bien, las limpia", async () => {
+  const { M, el, posts, mcposts } = montar(FX, (p) => p.op === "po_reco_cotizar" ? { ok: true, id: "q1", order_number: "MCOR-PQ-TEST" } : { ok: true });
+  M.abrir(); await tick(); await tick(); M.nivel("alta");
+  M.cotizar(); await tick(); await tick();
+  const p = mcposts.find((x) => x.op === "po_reco_cotizar");
+  assert.ok(p);
+  for (const m of FX.manual) {
+    const l = p.lineas.find((x) => x.product_id === m.product_id);
+    assert.ok(l, m.product_id); assert.equal(l.quantity, m.cant); assert.equal(l.unit_price, Number(m.precio) || 0);
+    assert.ok("vendor_item_code" in l);
+  }
+  assert.ok(p.lineas.some((l) => l.vendor_item_code), "alguna línea lleva código de proveedor");
+  assert.equal(posts.filter((x) => x.op === "manual_del").length, FX.manual.length);
+});
+
+test("crear OC falla (servidor «num is not defined»): no borra manuales, avisa y el botón vuelve", async () => {
+  let n = 0;
+  const { M, el, posts, mcposts, alerts } = montar(FX, (p) => { if (p.op === "po_reco_cotizar") { n++; return { ok: false, error: "num is not defined" }; } return { ok: true }; });
+  M.abrir(); await tick(); await tick(); M.nivel("alta");
+  M.cotizar(); await tick(); await tick();
+  assert.equal(n, 1);
+  assert.equal(posts.filter((x) => x.op === "manual_del").length, 0);
+  assert.ok(alerts.some((a) => /num is not defined/.test(a) && /No se creó/.test(a)), alerts.join("|"));
+  assert.equal((el.innerHTML.match(/Agregado a mano<\/span>/g) || []).length, FX.manual.length);
+  assert.doesNotMatch(el.innerHTML, /Procesando/);
+  M.cotizar(); await tick(); await tick();
+  assert.equal(n, 2, "se puede reintentar (busy liberado)");
 });

@@ -1,0 +1,10 @@
+354a355
+>     let docNum = null; // r452 t2146u: número del documento para codPersistir (antes `num` no existía → «num is not defined» al guardar líneas con código de proveedor)
+365a367
+>         docNum = p.order_number;
+455a458
+>         docNum = num1;
+481c484
+<           sourceRef: num,
+---
+>           sourceRef: docNum,
