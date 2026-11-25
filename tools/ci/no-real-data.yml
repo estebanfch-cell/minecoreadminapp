@@ -1,0 +1,11 @@
+# Para activarlo en GitHub: copiar a .github/workflows/no-real-data.yml (requiere permiso "workflow"; el token del bot no lo tiene).
+name: no-real-data
+on:
+  push:
+  pull_request:
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tools/check-no-real-data.sh --all
