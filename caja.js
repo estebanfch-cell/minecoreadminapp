@@ -773,11 +773,11 @@ function filtDateBtns(prefix, current){
 }
 
 function applyDateFiltro(filtro, prefix){
-  const hoy=new Date(), hs=hoy.toISOString().split('T')[0];
+  const hoy=new Date(), hs=today();
   let fi,ff;
   if(filtro==='hoy'){fi=hs;ff=hs;}
-  else if(filtro==='ayer'){const a=new Date(hoy);a.setDate(hoy.getDate()-1);const as=a.toISOString().split('T')[0];fi=as;ff=as;}
-  else if(filtro==='7dias'){const s=new Date(hoy);s.setDate(hoy.getDate()-6);fi=s.toISOString().split('T')[0];ff=hs;}
+  else if(filtro==='ayer'){const a=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()-1);const as=ymdLocal(a);fi=as;ff=as;}
+  else if(filtro==='7dias'){const s=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()-6);fi=ymdLocal(s);ff=hs;}
   else if(filtro==='semana'){const d=getSemanaAnteriorDates();fi=d.fi;ff=d.ff;}
   else if(filtro==='periodo'){const d=getPeriodoDates(0);fi=d.fi;ff=d.ff;}
   else if(filtro==='anterior'){const d=getPeriodoDates(-1);fi=d.fi;ff=d.ff;}
@@ -1559,9 +1559,6 @@ function renderCorte(c){
   const _sd=getSemanaAnteriorDates();
   const fi=window._corFi||_sd.fi, ff=window._corFf||_sd.ff;
   const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const pd=getPeriodoDates(0), pa=getPeriodoDates(-1);
-  const pLabel=`26 ${meses[new Date(pd.fi+'T12:00:00').getMonth()]} → 25 ${meses[new Date(pd.ff+'T12:00:00').getMonth()]}`;
-  const aLabel=`26 ${meses[new Date(pa.fi+'T12:00:00').getMonth()]} → 25 ${meses[new Date(pa.ff+'T12:00:00').getMonth()]}`;
   const rutas=filterByDate(window._corteRutas||[],fi,ff);
   const totalKm=Math.round(rutas.reduce((s,r)=>s+parseFloat(r['KM']||0),0)*10)/10;
   const totalUsd=Math.round(rutas.reduce((s,r)=>s+parseFloat(r['Valor ($)']||0),0)*100)/100;
@@ -1582,23 +1579,10 @@ function renderCorte(c){
   const ownerList=Object.values(byOwner).sort((a,b)=>b.usd-a.usd);
   const fi0=new Date(fi+'T12:00:00'), ff0=new Date(ff+'T12:00:00');
   const label=fi===ff?`${fi0.getDate()} ${meses[fi0.getMonth()]} ${fi0.getFullYear()}`:`${fi0.getDate()} ${meses[fi0.getMonth()]} → ${ff0.getDate()} ${meses[ff0.getMonth()]} ${ff0.getFullYear()}`;
+  const pdfFn="descargarCortePDF(document.getElementById('cor-fi').value,document.getElementById('cor-ff').value)";
   c.innerHTML=`
-  <div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title">Corte</div><button onclick="descargarCortePDF(document.getElementById('cor-fi').value,document.getElementById('cor-ff').value)" style="padding:8px 14px;background:#161926;color:#E8FF00;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">↓ PDF</button></div>
-  <div class="filter-bar">
-    <div class="filter-label">Período</div>
-    <div class="filter-btns">
-      ${['hoy','ayer','7dias','semana','periodo','anterior','todo'].map(id=>{
-        const labels={hoy:'Hoy',ayer:'Ayer','7dias':'7 días',semana:'Semana ant.',periodo:`Período (${pLabel})`,anterior:`← Anterior (${aLabel})`,todo:'Todo'};
-        return `<button class="filt-btn${filtro===id?' active':''}" id="cor-btn-${id}" onclick="corSetFiltro('${id}')">${labels[id]}</button>`;
-      }).join('')}
-    </div>
-    <div class="date-row">
-      <input type="date" id="cor-fi" value="${fi}">
-      <span style="color:var(--text3)">→</span>
-      <input type="date" id="cor-ff" value="${ff}">
-      <button class="btn-ok" onclick="corApply()">OK</button>
-    </div>
-  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="page-title">Corte</div><button type="button" onclick="${pdfFn}" style="padding:8px 14px;background:#161926;color:#E8FF00;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">↓ Generar PDF</button></div>
+  ${filtroPeriodoHtml('cor',filtro,fi,ff)}
   <div class="corte-hero">
     <div class="corte-hero-lbl">Total a pagar</div>
     <div class="corte-hero-amt">$${totalUsd.toFixed(2)}</div>
@@ -2350,6 +2334,89 @@ function mostrarExcepcion(prefix){
   if(inp)setTimeout(()=>inp.focus(),50);
 }
 
+// ─── Filtro de período (cualquier rango Desde/Hasta) ─────────────────────────
+function filtroPeriodoHtml(prefix, filtro, fi, ff){
+  const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const pd=getPeriodoDates(0), pa=getPeriodoDates(-1);
+  const pLabel='26 '+meses[new Date(pd.fi+'T12:00:00').getMonth()]+' → 25 '+meses[new Date(pd.ff+'T12:00:00').getMonth()];
+  const aLabel='26 '+meses[new Date(pa.fi+'T12:00:00').getMonth()]+' → 25 '+meses[new Date(pa.ff+'T12:00:00').getMonth()];
+  const labels={hoy:'Hoy',ayer:'Ayer','7dias':'7 días',semana:'Semana ant.',periodo:'Período ('+pLabel+')',anterior:'← Anterior ('+aLabel+')',todo:'Todo'};
+  const applyFn=prefix==='cor'?'corApply':prefix==='caj'?'cajApply':'hApply';
+  const setFn=prefix==='cor'?'corSetFiltro':prefix==='caj'?'cajSetFiltro':'hSetFiltro';
+  return '<div class="filter-bar"><div class="filter-label">Período</div><div class="filter-btns">'+
+    ['hoy','ayer','7dias','semana','periodo','anterior','todo'].map(id=>
+      '<button type="button" class="filt-btn'+(filtro===id?' active':'')+'" id="'+prefix+'-btn-'+id+'" onclick="'+setFn+"('"+id+"')"+'">'+labels[id]+'</button>'
+    ).join('')+
+    '</div><div class="date-row">'+
+    '<label class="date-lbl">Desde<input type="date" id="'+prefix+'-fi" value="'+fi+'"></label>'+
+    '<span style="color:var(--text3)">→</span>'+
+    '<label class="date-lbl">Hasta<input type="date" id="'+prefix+'-ff" value="'+ff+'"></label>'+
+    '<button type="button" class="btn-ok" onclick="'+applyFn+'()">OK</button></div></div>';
+}
+function rangoLabel(filtro, fi, ff){
+  if(filtro==='todo') return 'Todas las fechas';
+  const fi0=new Date((fi||'')+'T12:00:00'), ff0=new Date((ff||'')+'T12:00:00');
+  if(isNaN(fi0)||isNaN(ff0)) return (fi||'')+' — '+(ff||'');
+  const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  if(fi===ff) return fi0.getDate()+' '+meses[fi0.getMonth()]+' '+fi0.getFullYear();
+  return fi0.getDate()+' '+meses[fi0.getMonth()]+' → '+ff0.getDate()+' '+meses[ff0.getMonth()]+' '+ff0.getFullYear();
+}
+function rangoElegidoHtml(filtro, fi, ff, extraHtml, pdfOnclick){
+  return '<div class="rango-card">'+
+    '<div class="rango-lbl">Rango para el PDF</div>'+
+    '<div class="rango-val">'+rangoLabel(filtro,fi,ff)+'</div>'+
+    (extraHtml||'')+
+    '<button type="button" class="rango-pdf" onclick="'+pdfOnclick+'">↓ Generar PDF de este rango</button></div>';
+}
+function _pdfEsTodo(stored, fi, ff){
+  /* Solo «todas las fechas» si el usuario eligió Todo (inputs centinela) o no hay rango.
+     Un PDF de carpeta (26→25) NUNCA hereda un «todo» que haya quedado de otra pantalla. */
+  if(String(fi||'')==='2020-01-01' && String(ff||'')==='2099-12-31') return true;
+  if(!fi && !ff && stored==='todo') return true;
+  return false;
+}
+function _pdfFiltroActivo(stored, fi, ff){
+  if(_pdfEsTodo(stored, fi, ff)) return 'todo';
+  return 'rango';
+}
+function _pdfNombre(tipo, filtro, fi, ff){
+  const base=tipo==='caja'?'Caja chica':'Corte de rutas';
+  if(filtro==='todo') return base+' todas las fechas.pdf';
+  return base+' '+String(fi||'').slice(0,10)+' a '+String(ff||'').slice(0,10)+'.pdf';
+}
+/* iOS WKWebView (app Capacitor) ignora <a download> / doc.save(). Hay que armar la
+   pestaña en el mismo toque y entregar el blob con mcDownloadBlob (visor + Compartir). */
+function _pdfArmarTab(){
+  try{ if(typeof mcArmPdfTab==='function') return mcArmPdfTab(); }catch(e){}
+  return null;
+}
+function _pdfCerrarTab(tab){
+  try{ if(tab && typeof mcClosePdfTab_==='function') mcClosePdfTab_(tab); }catch(e){}
+}
+function _pdfEntregar(doc, filename, tab){
+  let blob=null;
+  try{ blob=doc.output('blob'); }catch(e){ blob=null; }
+  if(blob && typeof mcDownloadBlob==='function'){
+    return Promise.resolve(mcDownloadBlob(blob, filename, 'application/pdf', tab));
+  }
+  _pdfCerrarTab(tab);
+  if(blob && typeof mcDownloadViaAnchor_==='function'){
+    try{ mcDownloadViaAnchor_(blob, filename); return Promise.resolve(); }catch(e){}
+  }
+  if(blob){
+    try{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url; a.download=filename; a.rel='noopener'; a.target='_blank';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ try{a.remove();}catch(e){} try{URL.revokeObjectURL(url);}catch(e){} }, 60000);
+      return Promise.resolve();
+    }catch(e){}
+  }
+  try{ doc.save(filename); }catch(e){ return Promise.reject(e); }
+  return Promise.resolve();
+}
+
 // ─── PDF: cargador jsPDF ─────────────────────────────────────────────────────
 function loadJsPDF(){
   return new Promise((res,rej)=>{
@@ -2382,18 +2449,20 @@ function _pdfCheckPage(doc,y){ if(y>276){doc.addPage();return 16;} return y; }
 
 // ─── PDF: Corte de rutas ─────────────────────────────────────────────────────
 async function descargarCortePDF(fiArg,ffArg){
+  const tab=_pdfArmarTab();
   try{
     toast('Generando PDF...');
     const jsPDF=await loadJsPDF();
     const doc=new jsPDF();
     const fromArgs=!!(fiArg&&ffArg);
-    const filtro=fromArgs?'rango':(window._corFiltro||'periodo');
-    const fi=fromArgs?fiArg:window._corFi,ff=fromArgs?ffArg:window._corFf;
+    const fi=fromArgs?fiArg:(window._corFi||window._hFi),ff=fromArgs?ffArg:(window._corFf||window._hFf);
+    const stored=window._corFiltro||window._hFiltro||'periodo';
+    const filtro=_pdfFiltroActivo(stored, fi, ff);
     const fuente=fromArgs?((window._histRutas&&window._histRutas.length?window._histRutas:window._corteRutas)||[]).filter(r=>r['Estado']==='Aprobada'):(window._corteRutas||[]);
     const todas=fuente;
     const rutas=(filtro==='todo')?todas:filterByDate(todas,fi,ff);
     const rango=(filtro==='todo')?'Todas las fechas':(fd(fi)+' — '+fd(ff));
-    let y=_pdfHeader(doc,'Corte de rutas','Generado '+fd(new Date().toISOString().split('T')[0])+' por '+session.usuario);
+    let y=_pdfHeader(doc,'Corte de rutas','Generado '+fd(today())+' por '+(session&&session.usuario||''));
 
     doc.setFontSize(10);doc.setFont(undefined,'bold');
     doc.text('Período: '+rango,14,y);y+=8;
@@ -2485,25 +2554,32 @@ async function descargarCortePDF(fiArg,ffArg){
         y+=1.6;
       });
     }
-    doc.save('minecore-corte-'+(filtro==='todo'?'todo':fi)+'.pdf');
-  }catch(e){toast('No se pudo generar el PDF');}
+    const filename=_pdfNombre('rutas', filtro, fi, ff);
+    await _pdfEntregar(doc, filename, tab);
+    toast('✓ PDF listo');
+  }catch(e){
+    _pdfCerrarTab(tab);
+    toast((e&&e.message==='jspdf')?'No se pudo cargar el generador de PDF. Revisa la conexión e inténtalo de nuevo.':'No se pudo generar el PDF');
+  }
 }
 
 // ─── PDF: Historial de caja ──────────────────────────────────────────────────
 async function descargarCajaPDF(fiArg,ffArg){
+  const tab=_pdfArmarTab();
   try{
     toast('Generando PDF...');
     const jsPDF=await loadJsPDF();
     const doc=new jsPDF();
     const fromArgs=!!(fiArg&&ffArg);
-    const filtro=fromArgs?'rango':(window._cajFiltro||'periodo');
     const fi=fromArgs?fiArg:window._cajFi,ff=fromArgs?ffArg:window._cajFf;
+    const stored=window._cajFiltro||'periodo';
+    const filtro=_pdfFiltroActivo(stored, fi, ff);
     const d1=new Date(fi+'T00:00:00'),d2=new Date(ff+'T23:59:59');
     const inRange=x=>{if(filtro==='todo')return true;const d=parseDateStr(((x['Fecha']||'').toString()).split(' ')[0]);return d&&d>=d1&&d<=d2;};
     const ent=(window._cajEnt||[]).filter(inRange);
     const gas=(window._cajGas||[]).filter(inRange);
     const rango=(filtro==='todo')?'Todas las fechas':(fd(fi)+' — '+fd(ff));
-    let y=_pdfHeader(doc,'Caja chica — Historial','Generado '+fd(new Date().toISOString().split('T')[0])+' por '+session.usuario);
+    let y=_pdfHeader(doc,'Caja chica — Historial','Generado '+fd(today())+' por '+(session&&session.usuario||''));
     const saldoIni=(filtro==='todo')?0:saldoAnterior(fi);
     doc.setFontSize(10);doc.setFont(undefined,'bold');
     doc.text('Período: '+rango,14,y);y+=6;
@@ -2578,13 +2654,23 @@ async function descargarCajaPDF(fiArg,ffArg){
         y+=1.6;
       });
     }
-    doc.save('minecore-caja-'+(filtro==='todo'?'todo':fi)+'.pdf');
-  }catch(e){toast('No se pudo generar el PDF');}
+    const filename=_pdfNombre('caja', filtro, fi, ff);
+    await _pdfEntregar(doc, filename, tab);
+    toast('✓ PDF listo');
+  }catch(e){
+    _pdfCerrarTab(tab);
+    toast((e&&e.message==='jspdf')?'No se pudo cargar el generador de PDF. Revisa la conexión e inténtalo de nuevo.':'No se pudo generar el PDF');
+  }
 }
 
 function renderHistorial(c){
+  const filtro=window._hFiltro||'periodo';
+  const pd=getPeriodoDates(0);
+  const fi=window._hFi||pd.fi, ff=window._hFf||pd.ff;
+  const pdfFn="descargarCortePDF(document.getElementById('h-fi').value,document.getElementById('h-ff').value)";
   c.innerHTML=`
-  <div class="page-title">Historial de rutas</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="page-title">Historial de rutas</div><button type="button" onclick="${pdfFn}" style="padding:8px 14px;background:#161926;color:#E8FF00;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">↓ Generar PDF</button></div>
+  ${filtroPeriodoHtml('h',filtro,fi,ff)}
   <input class="search-box" id="h-search" placeholder="🔍 Buscar por usuario, destino, vehículo..." oninput="hRender()" value="${window._hSearch||''}" style="margin:0 0 12px">
   <div id="h-list"></div>`;
   hRender();
@@ -2599,10 +2685,19 @@ function hRender(){
   const isAdmin=session.rol==='admin';
   let rutas=window._histRutas||[];
   if(q)rutas=rutas.filter(r=>((r['Usuario']||'')+' '+(r['Origen']||'')+' '+(r['Destino']||'')+' '+(r['Vehiculo']||'')).toLowerCase().includes(q));
-  if(!rutas.length){list.innerHTML=empty('Sin rutas');return;}
+  const filtro=window._hFiltro||'periodo';
+  const pd=getPeriodoDates(0);
+  const fi=window._hFi||pd.fi, ff=window._hFf||pd.ff;
   const getD=r=>parseDateStr(r['Fecha Servicio']||r['Fecha Solicitud']||'');
+  const enRango=filtro==='todo'?rutas:filterByDate(rutas,fi,ff);
+  const usdR=Math.round(enRango.filter(r=>r['Estado']==='Aprobada').reduce((s,r)=>s+parseFloat(r['Valor ($)']||0),0)*100)/100;
+  const kmR=Math.round(enRango.reduce((s,r)=>s+parseFloat(r['KM']||0),0)*10)/10;
+  const extraR='<div class="rango-sub">'+enRango.length+' ruta'+(enRango.length!==1?'s':'')+' · '+kmR+' km · $'+usdR.toFixed(2)+' aprobado</div>';
+  const pdfFn="descargarCortePDF(document.getElementById('h-fi').value,document.getElementById('h-ff').value)";
+  const card=rangoElegidoHtml(filtro,fi,ff,extraR,pdfFn);
+  if(!rutas.length){list.innerHTML=card+empty('Sin rutas');return;}
   const periodos=listaPeriodos(rutas,getD);
-  list.innerHTML=periodos.map((p,i)=>{
+  list.innerHTML=card+periodos.map((p,i)=>{
     const items=rutas.filter(r=>{const d=getD(r);return d&&d>=p.d1&&d<=p.d2;});
     if(!items.length)return '';
     const usd=Math.round(items.filter(r=>r['Estado']==='Aprobada').reduce((s,r)=>s+parseFloat(r['Valor ($)']||0),0)*100)/100;
@@ -2625,32 +2720,25 @@ function renderHistCaja(c){
   const filtro=window._cajFiltro||'semana';
   const _sd=getSemanaAnteriorDates();
   const fi=window._cajFi||_sd.fi, ff=window._cajFf||_sd.ff;
-  const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const pd=getPeriodoDates(0), pa=getPeriodoDates(-1);
-  const pLabel=`26 ${meses[new Date(pd.fi+'T12:00:00').getMonth()]} → 25 ${meses[new Date(pd.ff+'T12:00:00').getMonth()]}`;
-  const aLabel=`26 ${meses[new Date(pa.fi+'T12:00:00').getMonth()]} → 25 ${meses[new Date(pa.ff+'T12:00:00').getMonth()]}`;
-  c.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="page-title">Historial Caja</div><button onclick="descargarCajaPDF(document.getElementById('caj-fi').value,document.getElementById('caj-ff').value)" style="padding:8px 14px;background:#161926;color:#E8FF00;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">↓ Generar PDF</button></div>
-  <div class="filter-bar">
-    <div class="filter-label">Período</div>
-    <div class="filter-btns">
-      ${['hoy','ayer','7dias','semana','periodo','anterior','todo'].map(id=>{
-        const labels={hoy:'Hoy',ayer:'Ayer','7dias':'7 días',semana:'Semana ant.',periodo:`Período (${pLabel})`,anterior:`← Anterior (${aLabel})`,todo:'Todo'};
-        return `<button class="filt-btn${filtro===id?' active':''}" id="caj-btn-${id}" onclick="cajSetFiltro('${id}')">${labels[id]}</button>`;
-      }).join('')}
-    </div>
-    <div class="date-row">
-      <input type="date" id="caj-fi" value="${fi}">
-      <span style="color:var(--text3)">→</span>
-      <input type="date" id="caj-ff" value="${ff}">
-      <button class="btn-ok" onclick="cajApply()">OK</button>
-    </div>
-  </div>
-  <div class="page-sub">Carpetas por período de corte</div><div id="hc-list"></div>`;
+  const pdfFn="descargarCajaPDF(document.getElementById('caj-fi').value,document.getElementById('caj-ff').value)";
+  c.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div class="page-title">Historial Caja</div><button type="button" onclick="${pdfFn}" style="padding:8px 14px;background:#161926;color:#E8FF00;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">↓ Generar PDF</button></div>
+  ${filtroPeriodoHtml('caj',filtro,fi,ff)}
+  <div class="page-sub">Elige Desde y Hasta (o un período) y genera el PDF. Abajo, las carpetas de cada corte.</div><div id="hc-list"></div>`;
   const list=document.getElementById('hc-list');
   const all=ent.concat(gas);
-  if(!all.length){list.innerHTML=empty('Sin movimientos');return;}
+  const d1=new Date(fi+'T00:00:00'), d2=new Date(ff+'T23:59:59');
+  const inR=x=>{if(filtro==='todo')return true;const d=getD(x);return d&&d>=d1&&d<=d2;};
+  const eR=ent.filter(inR), gR=gas.filter(inR);
+  const tER=Math.round(eR.reduce((s,x)=>s+parseFloat(x['Monto ($)']||0),0)*100)/100;
+  const tGR=Math.round(gR.filter(x=>x['Estado']==='Aprobado').reduce((s,x)=>s+parseFloat(x['Monto ($)']||0),0)*100)/100;
+  const iniR=filtro==='todo'?0:saldoAnterior(fi);
+  const finR=Math.round((iniR+tER-tGR)*100)/100;
+  const extraC='<div class="rango-sub">Inicial $'+iniR.toFixed(2)+' · Entró $'+tER.toFixed(2)+' · Salió $'+tGR.toFixed(2)+' · Final $'+finR.toFixed(2)+'</div>';
+  const pdfFnList="descargarCajaPDF(document.getElementById('caj-fi').value,document.getElementById('caj-ff').value)";
+  const card=rangoElegidoHtml(filtro,fi,ff,extraC,pdfFnList);
+  if(!all.length){list.innerHTML=card+empty('Sin movimientos');return;}
   const periodos=listaPeriodos(all,getD);
-  list.innerHTML=periodos.map((p,i)=>{
+  list.innerHTML=card+periodos.map((p,i)=>{
     const e=ent.filter(x=>{const d=getD(x);return d&&d>=p.d1&&d<=p.d2;});
     const g=gas.filter(x=>{const d=getD(x);return d&&d>=p.d1&&d<=p.d2;});
     if(!e.length&&!g.length)return '';
@@ -2673,7 +2761,7 @@ function renderHistCaja(c){
 }
 
 function listaPeriodos(items,getD,maxBack){
-  maxBack=maxBack||18;
+  maxBack=maxBack||240;
   let oldest=null;
   items.forEach(x=>{const d=getD(x);if(d&&(!oldest||d<oldest))oldest=d;});
   const out=[];
@@ -2799,6 +2887,14 @@ function _pdfSafe(s){
   try{ if(typeof _pdfHeader==='function'){ pub._pdfHeader=_pdfHeader; if('_pdfHeader'!=='openMod'&&'_pdfHeader'!=='goHome') global._pdfHeader=_pdfHeader; } }catch(e){}
   try{ if(typeof _pdfLinea==='function'){ pub._pdfLinea=_pdfLinea; if('_pdfLinea'!=='openMod'&&'_pdfLinea'!=='goHome') global._pdfLinea=_pdfLinea; } }catch(e){}
   try{ if(typeof _pdfSafe==='function'){ pub._pdfSafe=_pdfSafe; if('_pdfSafe'!=='openMod'&&'_pdfSafe'!=='goHome') global._pdfSafe=_pdfSafe; } }catch(e){}
+  try{ if(typeof _pdfNombre==='function'){ pub._pdfNombre=_pdfNombre; if('_pdfNombre'!=='openMod'&&'_pdfNombre'!=='goHome') global._pdfNombre=_pdfNombre; } }catch(e){}
+  try{ if(typeof _pdfEntregar==='function'){ pub._pdfEntregar=_pdfEntregar; if('_pdfEntregar'!=='openMod'&&'_pdfEntregar'!=='goHome') global._pdfEntregar=_pdfEntregar; } }catch(e){}
+  try{ if(typeof _pdfFiltroActivo==='function'){ pub._pdfFiltroActivo=_pdfFiltroActivo; if('_pdfFiltroActivo'!=='openMod'&&'_pdfFiltroActivo'!=='goHome') global._pdfFiltroActivo=_pdfFiltroActivo; } }catch(e){}
+  try{ if(typeof _pdfEsTodo==='function'){ pub._pdfEsTodo=_pdfEsTodo; if('_pdfEsTodo'!=='openMod'&&'_pdfEsTodo'!=='goHome') global._pdfEsTodo=_pdfEsTodo; } }catch(e){}
+  try{ if(typeof _pdfArmarTab==='function'){ pub._pdfArmarTab=_pdfArmarTab; if('_pdfArmarTab'!=='openMod'&&'_pdfArmarTab'!=='goHome') global._pdfArmarTab=_pdfArmarTab; } }catch(e){}
+  try{ if(typeof filtroPeriodoHtml==='function'){ pub.filtroPeriodoHtml=filtroPeriodoHtml; if('filtroPeriodoHtml'!=='openMod'&&'filtroPeriodoHtml'!=='goHome') global.filtroPeriodoHtml=filtroPeriodoHtml; } }catch(e){}
+  try{ if(typeof rangoLabel==='function'){ pub.rangoLabel=rangoLabel; if('rangoLabel'!=='openMod'&&'rangoLabel'!=='goHome') global.rangoLabel=rangoLabel; } }catch(e){}
+  try{ if(typeof ymdLocal==='function'){ pub.ymdLocal=ymdLocal; if('ymdLocal'!=='openMod'&&'ymdLocal'!=='goHome') global.ymdLocal=ymdLocal; } }catch(e){}
   try{ if(typeof addParada==='function'){ pub.addParada=addParada; if('addParada'!=='openMod'&&'addParada'!=='goHome') global.addParada=addParada; } }catch(e){}
   try{ if(typeof applyDateFiltro==='function'){ pub.applyDateFiltro=applyDateFiltro; if('applyDateFiltro'!=='openMod'&&'applyDateFiltro'!=='goHome') global.applyDateFiltro=applyDateFiltro; } }catch(e){}
   try{ if(typeof aprG==='function'){ pub.aprG=aprG; if('aprG'!=='openMod'&&'aprG'!=='goHome') global.aprG=aprG; } }catch(e){}

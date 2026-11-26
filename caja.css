@@ -181,9 +181,15 @@ body.mc-caja-open #caja-screen{margin:0 -16px 0;height:calc(100dvh - 58px)}
 #caja-screen .filter-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 #caja-screen .filt-btn{padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:var(--surface);white-space:nowrap;font-weight:500}
 #caja-screen .filt-btn.active{background:var(--brand-light);color:var(--brand-dark);border-color:var(--brand);font-weight:700}
-#caja-screen .date-row{display:flex;align-items:center;gap:8px}
-#caja-screen .date-row input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text);outline:none}
+#caja-screen .date-row{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+#caja-screen .date-lbl{flex:1 1 130px;display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;min-width:0}
+#caja-screen .date-row input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:16px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box}
 #caja-screen .date-row input:focus{border-color:var(--brand)}
+#caja-screen .rango-card{background:var(--surface);border:1px solid var(--brand);border-radius:var(--radius-lg);padding:14px;margin:0 0 12px}
+#caja-screen .rango-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+#caja-screen .rango-val{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px}
+#caja-screen .rango-sub{font-size:12px;color:var(--text2);margin-bottom:10px}
+#caja-screen .rango-pdf{width:100%;padding:12px 14px;background:#161926;color:#E8FF00;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;min-height:44px}
 #caja-screen .btn-ok{padding:9px 14px;background:var(--gold);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0}
 #caja-screen .search-box{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text);outline:none;margin-bottom:10px}
 #caja-screen .search-box:focus{border-color:var(--brand)}
