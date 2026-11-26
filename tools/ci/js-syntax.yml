@@ -1,0 +1,16 @@
+# Para activarlo en GitHub: copiar a .github/workflows/js-syntax.yml
+# (requiere permiso "workflow"; el token del bot no lo tiene).
+name: js-syntax
+on:
+  push:
+  pull_request:
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: bash tools/check-js-syntax.sh --self-test
+      - run: bash tools/check-js-syntax.sh --all
