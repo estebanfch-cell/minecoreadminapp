@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
-exec "$(git rev-parse --show-toplevel)/tools/check-no-real-data.sh"
+root=$(git rev-parse --show-toplevel)
+"$root/tools/check-no-real-data.sh" || exit 1
+"$root/tools/check-js-syntax.sh" || exit 1
