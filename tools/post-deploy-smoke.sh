@@ -21,12 +21,13 @@ if [[ -n "$EXPECT" ]]; then
   ok=0
   for i in $(seq 1 36); do
     html=$(curl -fsSL -A "Mozilla/5.0 smoke" -H "Cache-Control: no-cache" "${URL}?ts=$(date +%s)") || true
-    if printf '%s' "$html" | grep -q "var MC_BUILD='${EXPECT}'"; then
+    # case, no grep -q: con pipefail un SIGPIPE de grep -q hace fallar el if aunque sí haya match.
+    if [[ "$html" == *"var MC_BUILD='${EXPECT}'"* ]]; then
       echo "Live MC_BUILD=$EXPECT"
       ok=1
       break
     fi
-    live=$(printf '%s' "$html" | grep -o "var MC_BUILD='[0-9]*'" | head -1 || true)
+    live=$(printf '%s' "$html" | grep -a -o "var MC_BUILD='[0-9]*'" | head -1 || true)
     echo "  intento $i: ${live:-sin respuesta}"
     sleep 10
   done
