@@ -2556,7 +2556,7 @@ async function descargarCortePDF(fiArg,ffArg){
     }
     const filename=_pdfNombre('rutas', filtro, fi, ff);
     await _pdfEntregar(doc, filename, tab);
-    toast('✓ PDF listo');
+    /* b729: el toast «listo» lo dispara mcDownloadBlob solo si el visor o Compartir sí abrió */
   }catch(e){
     _pdfCerrarTab(tab);
     toast((e&&e.message==='jspdf')?'No se pudo cargar el generador de PDF. Revisa la conexión e inténtalo de nuevo.':'No se pudo generar el PDF');
@@ -2656,7 +2656,7 @@ async function descargarCajaPDF(fiArg,ffArg){
     }
     const filename=_pdfNombre('caja', filtro, fi, ff);
     await _pdfEntregar(doc, filename, tab);
-    toast('✓ PDF listo');
+    /* b729: el toast «listo» lo dispara mcDownloadBlob solo si el visor o Compartir sí abrió */
   }catch(e){
     _pdfCerrarTab(tab);
     toast((e&&e.message==='jspdf')?'No se pudo cargar el generador de PDF. Revisa la conexión e inténtalo de nuevo.':'No se pudo generar el PDF');
