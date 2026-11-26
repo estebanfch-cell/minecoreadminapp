@@ -37,9 +37,9 @@ function loadJsPdf() {
   }
 }
 
-test('build 727 y cache-bust de caja.js/css', () => {
-  assert.match(html, /var MC_BUILD='727'/);
-  assert.match(html, /caja\.js\?v=424/);
+test('build 729 y cache-bust de caja.js/css', () => {
+  assert.match(html, /var MC_BUILD='729'/);
+  assert.match(html, /caja\.js\?v=425/);
   assert.match(html, /caja\.css\?v=330/);
   assert.match(html, /function mcDownloadBlob/);
   assert.match(html, /function mcArmPdfTab/);
@@ -58,6 +58,7 @@ test('caja.js entrega el PDF con mcDownloadBlob y no con doc.save como camino pr
   assert.ok(saveAt > entregarAt && saveAt < corteAt, 'doc.save queda dentro de _pdfEntregar, antes de descargar*');
   assert.ok(!caja.slice(corteAt).includes('doc.save('));
   assert.ok(!caja.slice(cajaAt).includes('doc.save('));
+  assert.doesNotMatch(caja, /toast\('✓ PDF listo'\)/);
 });
 
 test('Desde/Hasta de cualquier fecha en Historial de rutas, Historial Caja y Corte', () => {
